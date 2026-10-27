@@ -914,7 +914,10 @@
         "redownloadOverwriteTitle": "File Already Exists",
         "redownloadOverwriteDescription": "“{{name}}” already exists in the download directory. Re-downloading will overwrite or rename it. Do you want to continue?",
         "redownloadCredentialsExpired": "Original request options have expired. Please review and submit.",
-        "redownloadStarted": "Re-download started"
+        "redownloadStarted": "Re-download started",
+        "retryDialogTitle": "إعادة محاولة التنزيل",
+        "retryDialogDescription": "عدّل معلمات طلب {{name}} لبدء تنزيل جديد. ستُحفظ المهمة الفاشلة وملفها الجزئي.",
+        "retryDialogProgress": "التنزيل {{current}} من {{total}}"
       },
       "column": {
         "connections": "الأقران",

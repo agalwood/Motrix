@@ -27,9 +27,13 @@ import { useFieldArray, useFormContext, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { useAddTaskLayoutChange } from './add-task-layout-context'
 
-export function AdvancedPanel() {
+export function AdvancedPanel({
+  defaultOpen = false,
+}: {
+  defaultOpen?: boolean
+}) {
   const { t } = useTranslation()
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(defaultOpen)
   const onLayoutChange = useAddTaskLayoutChange()
   const tab = useWatch<AddTaskFormValues, 'tab'>({ name: 'tab' })
   const requestOptions = useWatch<AddTaskFormValues, 'legacyRequestOptions'>({

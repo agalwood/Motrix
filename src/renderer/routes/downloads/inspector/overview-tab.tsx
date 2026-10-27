@@ -18,7 +18,7 @@ import { resolveFailureReason } from '@renderer/lib/failure-reason'
 import { formatDurationHMS, formatProgressPercent } from '@renderer/lib/format'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus, TaskType } from '@shared/types/task'
-import { canAttemptRetry } from '@shared/types/task-actions'
+import { canOfferRetry } from '@shared/types/task-actions'
 import {
   getDownloadProgress,
   getOutputSize,
@@ -83,7 +83,7 @@ function ErrorPanel({ task }: { task: DownloadTask }) {
     },
     { t, exists: (key) => i18n.exists(key) }
   )
-  const showRetry = canAttemptRetry(task)
+  const showRetry = canOfferRetry(task)
 
   return (
     <div className="flex flex-col gap-2">

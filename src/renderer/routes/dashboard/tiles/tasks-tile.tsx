@@ -13,11 +13,7 @@ import { useTaskActions } from '@renderer/routes/downloads/inspector/use-task-ac
 import { StatusPill } from '@renderer/routes/downloads/status-pill'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
-import {
-  canAttemptRetry,
-  canPause,
-  canResume,
-} from '@shared/types/task-actions'
+import { canOfferRetry, canPause, canResume } from '@shared/types/task-actions'
 import {
   getDownloadProgress,
   getMediaPhaseLabel,
@@ -316,7 +312,7 @@ function TaskRow({
   const hasQuickAction =
     !summary &&
     view !== 'recent' &&
-    (canPause(task) || canResume(task) || canAttemptRetry(task))
+    (canPause(task) || canResume(task) || canOfferRetry(task))
   const hasProgress =
     presentation.progress !== null || presentation.indeterminate
   const progressPercent =

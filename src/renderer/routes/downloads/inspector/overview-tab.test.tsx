@@ -31,6 +31,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { OverviewTab } from './overview-tab'
+import { useRetryParametersStore } from './retry-parameters-store'
 
 function renderOverviewTab(task: DownloadTask) {
   return render(
@@ -210,7 +211,8 @@ describe('OverviewTab', () => {
       ).not.toBeInTheDocument()
     })
 
-    it('hides retry for an HTTP error task even with uris (replay inputs are not persisted)', () => {
+    it('offers a request form for an HTTP error without replay credentials', () => {
+      useRetryParametersStore.getState().close()
       renderOverviewTab({
         ...task,
         id: 'http-error',
@@ -220,9 +222,14 @@ describe('OverviewTab', () => {
         uris: ['https://example.com/x'],
         errorCode: DownloadErrorCode.NetworkError,
       })
-      expect(
-        screen.queryByRole('button', { name: 'Retry' })
-      ).not.toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+      expect(useRetryParametersStore.getState().targets[0]?.id).toBe(
+        'http-error'
+      )
+      expect(transport.invoke).not.toHaveBeenCalledWith(Commands.RetryTasks, [
+        'http-error',
+      ])
+      useRetryParametersStore.getState().close()
     })
 
     it('shows retry for a BT error task with its sidecar and dispatches RetryTasks', () => {

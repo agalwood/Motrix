@@ -902,7 +902,10 @@
         "redownloadOverwriteTitle": "File Already Exists",
         "redownloadOverwriteDescription": "“{{name}}” already exists in the download directory. Re-downloading will overwrite or rename it. Do you want to continue?",
         "redownloadCredentialsExpired": "Original request options have expired. Please review and submit.",
-        "redownloadStarted": "Re-download started"
+        "redownloadStarted": "Re-download started",
+        "retryDialogTitle": "Επανάληψη λήψης",
+        "retryDialogDescription": "Επεξεργαστείτε τις παραμέτρους αιτήματος για το {{name}} για να ξεκινήσετε νέα λήψη. Η αποτυχημένη εργασία και το μερικό αρχείο της θα διατηρηθούν.",
+        "retryDialogProgress": "Λήψη {{current}} από {{total}}"
       },
       "column": {
         "connections": "Ομότιμοι",

@@ -23,11 +23,13 @@ import type { BulkTaskCommandResult } from '@shared/types/task-actions'
 import {
   canAttemptRetry,
   canMoveInQueue,
+  canOfferRetry,
   canPause,
   canRedownload,
   canRemove,
   canReseed,
   canResume,
+  canRetryWithParameters,
   canStopSeeding,
   getTaskRetryKind,
 } from '@shared/types/task-actions'
@@ -35,6 +37,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useRedownloadOverwriteStore } from './redownload-overwrite-store'
 import { useRemoveTasksStore } from './remove-tasks-store'
+import { useRetryParametersStore } from './retry-parameters-store'
 
 export interface RemoveDialogState {
   open: boolean
@@ -202,7 +205,7 @@ export function useTaskActions(
       if (canResume(task)) resumeCount++
       if (canStopSeeding(task)) stopSeedingCount++
       if (canReseed(task)) reseedCount++
-      if (canAttemptRetry(task)) retryCount++
+      if (canOfferRetry(task)) retryCount++
       if (canRedownload(task)) redownloadCount++
       if (canRemove(task)) removeCount++
     }
@@ -367,18 +370,35 @@ export function useTaskActions(
 
   const onRetry = useCallback(
     async (modifier?: { alt: boolean }) => {
-      const retryKind = selected[0] ? getTaskRetryKind(selected[0]) : null
+      if (!readyToWrite()) return
+      const targets = resolveLatest(selected)
+      const parameterTargets = targets.filter(
+        (task) =>
+          canRetryWithParameters(task) &&
+          (!canAttemptRetry(task) || modifier?.alt)
+      )
+      if (parameterTargets.length) {
+        if (!useRetryParametersStore.getState().openWith(parameterTargets))
+          return
+        const parameterIds = new Set(parameterTargets.map((task) => task.id))
+        await dispatchSubset(
+          Commands.RetryTasks,
+          (task) => canAttemptRetry(task) && !parameterIds.has(task.id)
+        )
+        return
+      }
+      const retryKind = targets[0] ? getTaskRetryKind(targets[0]) : null
       if (
         modifier?.alt &&
-        selected.length === 1 &&
+        targets.length === 1 &&
         (retryKind === 'torrent-readd' || retryKind === 'direct-readd')
       ) {
-        await altReAddSingle(selected[0])
+        await altReAddSingle(targets[0])
         return
       }
       await dispatchSubset(Commands.RetryTasks, canAttemptRetry)
     },
-    [selected, altReAddSingle, dispatchSubset]
+    [selected, altReAddSingle, dispatchSubset, readyToWrite]
   )
 
   const checkFileExists = useCallback(

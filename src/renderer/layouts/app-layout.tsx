@@ -30,6 +30,7 @@ import { webServices } from '@renderer/platform/web-services'
 import type { RouteHandle } from '@renderer/router-types'
 import { RedownloadOverwriteDialogHost } from '@renderer/routes/downloads/inspector/redownload-overwrite-dialog-host'
 import { RemoveTasksDialogHost } from '@renderer/routes/downloads/inspector/remove-tasks-dialog-host'
+import { RetryParametersDialogHost } from '@renderer/routes/downloads/inspector/retry-parameters-dialog-host'
 import { useDownloadsSelection } from '@renderer/routes/downloads/store'
 import { useDownloadsView } from '@renderer/routes/downloads/view-preferences'
 import { MigrationPage } from '@renderer/routes/migration/migration-page'
@@ -155,6 +156,7 @@ export function AppLayout() {
         <MenuNavigationFocus />
         <RemoveTasksDialogHost />
         <RedownloadOverwriteDialogHost />
+        <RetryParametersDialogHost />
         <OperationDialogHost />
         <EngineDiagnosticsDialogHost />
         {__MOTRIX_TARGET__ === 'web' && <AddTaskDialogHost />}

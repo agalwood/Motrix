@@ -908,7 +908,10 @@
         "redownloadOverwriteTitle": "File Already Exists",
         "redownloadOverwriteDescription": "“{{name}}” already exists in the download directory. Re-downloading will overwrite or rename it. Do you want to continue?",
         "redownloadCredentialsExpired": "Original request options have expired. Please review and submit.",
-        "redownloadStarted": "Re-download started"
+        "redownloadStarted": "Re-download started",
+        "retryDialogTitle": "Повторити завантаження",
+        "retryDialogDescription": "Змініть параметри запиту для {{name}}, щоб почати нове завантаження. Невдале завдання та його частковий файл буде збережено.",
+        "retryDialogProgress": "Завантаження {{current}} з {{total}}"
       },
       "column": {
         "connections": "Піри",

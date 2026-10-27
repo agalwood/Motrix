@@ -902,7 +902,10 @@
         "redownloadOverwriteTitle": "File Already Exists",
         "redownloadOverwriteDescription": "“{{name}}” already exists in the download directory. Re-downloading will overwrite or rename it. Do you want to continue?",
         "redownloadCredentialsExpired": "Original request options have expired. Please review and submit.",
-        "redownloadStarted": "Re-download started"
+        "redownloadStarted": "Re-download started",
+        "retryDialogTitle": "Prøv nedlastingen på nytt",
+        "retryDialogDescription": "Rediger forespørselsparametrene for {{name}} for å starte en ny nedlasting. Den mislykkede oppgaven og den delvise filen beholdes.",
+        "retryDialogProgress": "Nedlasting {{current}} av {{total}}"
       },
       "column": {
         "connections": "Noder",

@@ -905,7 +905,10 @@
         "redownloadOverwriteTitle": "File Already Exists",
         "redownloadOverwriteDescription": "“{{name}}” already exists in the download directory. Re-downloading will overwrite or rename it. Do you want to continue?",
         "redownloadCredentialsExpired": "Original request options have expired. Please review and submit.",
-        "redownloadStarted": "Re-download started"
+        "redownloadStarted": "Re-download started",
+        "retryDialogTitle": "Reîncearcă descărcarea",
+        "retryDialogDescription": "Editează parametrii cererii pentru {{name}} pentru a începe o descărcare nouă. Sarcina eșuată și fișierul parțial vor fi păstrate.",
+        "retryDialogProgress": "Descărcarea {{current}} din {{total}}"
       },
       "column": {
         "connections": "Parteneri",

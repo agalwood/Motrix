@@ -27,6 +27,7 @@ import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import { useRedownloadOverwriteStore } from './redownload-overwrite-store'
+import { useRetryParametersStore } from './retry-parameters-store'
 import { useTaskActions } from './use-task-actions'
 
 // Kept overrides: id:'t1' (≠ 'task-1'), name:'sample' (≠ 'task'),
@@ -36,8 +37,7 @@ import { useTaskActions } from './use-task-actions'
 // finalName:'sample' (≠ '').
 // Dropped: engineTaskId:'gid-1' (= default), kind:Direct (= default),
 // type:Http (= default), status:Downloading (= default), all-zero/null/empty.
-/** A retryable Error task: only BT-with-sidecar clears the capability gate
- *  now that HTTP/FTP inputs are known to be unreplayable. */
+/** A BT error with a persisted sidecar can be retried automatically. */
 function makeRetryableErrorTask(
   overrides: Partial<DownloadTask> = {}
 ): DownloadTask {
@@ -97,6 +97,7 @@ function makeRetryableMagnetMetadataTask(id: string): DownloadTask {
 describe('useTaskActions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    useRetryParametersStore.getState().close()
   })
 
   it('counts pause-eligible tasks correctly', () => {
@@ -215,18 +216,75 @@ describe('useTaskActions', () => {
     ])
   })
 
-  it('retryCount counts only tasks whose engine inputs can be rebuilt', () => {
+  it('counts automatic retries and HTTP parameter forms', () => {
     const tasks = [
       // Never rebuildable: no single re-addable engine handle.
       makeTask({ id: 'm', status: TaskStatus.Error, kind: TaskKind.Mux }),
-      // Not rebuildable either: headers/cookies/referer/proxy/out are not
-      // persisted, so the uris alone are not the original request.
+      // A separate download form can collect the missing request parameters.
       makeTask({ id: 'h', status: TaskStatus.Error }),
       makeRetryableErrorTask({ id: 'e' }),
       makeRetryableMagnetMetadataTask('magnet'),
     ]
     const { result } = renderHook(() => useTaskActions(tasks))
-    expect(result.current.retryCount).toBe(2) // sidecar BT + metadata magnet
+    expect(result.current.retryCount).toBe(3)
+  })
+
+  it('opens a parameter form for a non-replayable HTTP error without mutating the old task', async () => {
+    const task = makeTask({ status: TaskStatus.Error })
+    const before = structuredClone(task)
+    const { result } = renderHook(() => useTaskActions([task]))
+    await result.current.onRetry()
+    expect(useRetryParametersStore.getState().targets).toEqual([task])
+    expect(transport.invoke).not.toHaveBeenCalled()
+    expect(task).toEqual(before)
+  })
+
+  it.each([false, true])(
+    'keeps automatic HTTP retry unless Alt requests parameters: alt=%s',
+    async (alt) => {
+      const task = makeTask({
+        status: TaskStatus.Error,
+        instances: [
+          {
+            ...makeRetryableMagnetMetadataTask('http').instances[0],
+            phase: TaskInstancePhase.HttpDownload,
+            uris: ['https://example.com/archive.zip'],
+            payload: {
+              directReplay: {
+                version: 1,
+                requestModifiers: [],
+                replayability: 'uri-only',
+              },
+            },
+          },
+        ],
+      })
+      const { result } = renderHook(() => useTaskActions([task]))
+      await result.current.onRetry({ alt })
+      if (alt) {
+        expect(useRetryParametersStore.getState().targets).toEqual([task])
+        expect(transport.invoke).not.toHaveBeenCalled()
+      } else {
+        expect(useRetryParametersStore.getState().targets).toEqual([])
+        expect(transport.invoke).toHaveBeenCalledExactlyOnceWith(
+          Commands.RetryTasks,
+          [task.id]
+        )
+      }
+    }
+  )
+
+  it('queues HTTP forms while retrying the other eligible tasks in a mixed selection', async () => {
+    const first = makeTask({ id: 'http-1', status: TaskStatus.Error })
+    const second = makeTask({ id: 'http-2', status: TaskStatus.Error })
+    const bt = makeRetryableErrorTask({ id: 'bt' })
+    const { result } = renderHook(() => useTaskActions([first, bt, second]))
+    await result.current.onRetry()
+    expect(useRetryParametersStore.getState().targets).toEqual([first, second])
+    expect(transport.invoke).toHaveBeenCalledExactlyOnceWith(
+      Commands.RetryTasks,
+      ['bt']
+    )
   })
 
   it('onRetry() dispatches nothing for a Mux-kind Error task', async () => {

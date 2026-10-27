@@ -276,6 +276,22 @@ export function canAttemptRetry(t: DownloadTask): boolean {
   return getTaskRetryKind(t) !== null
 }
 
+/** Offer a fresh HTTP download form without changing the failed task or bytes. */
+export function canRetryWithParameters(t: DownloadTask): boolean {
+  return (
+    !hasLegacyImport(t) &&
+    t.kind === TaskKind.Direct &&
+    t.type === TaskType.Http &&
+    t.status === TaskStatus.Error &&
+    t.transitionPhase === TransitionPhase.Idle
+  )
+}
+
+/** UI affordance only; automatic replay still requires canAttemptRetry. */
+export function canOfferRetry(t: DownloadTask): boolean {
+  return canAttemptRetry(t) || canRetryWithParameters(t)
+}
+
 export function hasLegacyImport(t: Pick<DownloadTask, 'instances'>): boolean {
   return (t.instances ?? []).some(
     (instance) =>

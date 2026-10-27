@@ -194,14 +194,14 @@ describe('TaskInspectorActionBar', () => {
     expect(screen.getByText('Retry')).toBeDefined()
   })
 
-  it('Error single (HTTP): hides Retry — the replay inputs are not persisted', () => {
+  it('Error single (HTTP): offers Retry to collect the missing parameters', () => {
     render(
       <TaskInspectorActionBar
         selected={[makeTask({ status: TaskStatus.Error })]}
         onClose={vi.fn()}
       />
     )
-    expect(screen.queryByText('Retry')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeDefined()
   })
 
   it('Finalizing single: renders Pause and Remove disabled', () => {

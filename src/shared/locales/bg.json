@@ -902,7 +902,10 @@
         "redownloadOverwriteTitle": "File Already Exists",
         "redownloadOverwriteDescription": "“{{name}}” already exists in the download directory. Re-downloading will overwrite or rename it. Do you want to continue?",
         "redownloadCredentialsExpired": "Original request options have expired. Please review and submit.",
-        "redownloadStarted": "Re-download started"
+        "redownloadStarted": "Re-download started",
+        "retryDialogTitle": "Повторен опит за изтегляне",
+        "retryDialogDescription": "Редактирайте параметрите на заявката за {{name}}, за да започнете ново изтегляне. Неуспешната задача и частичният ѝ файл ще бъдат запазени.",
+        "retryDialogProgress": "Изтегляне {{current}} от {{total}}"
       },
       "column": {
         "connections": "Участници",

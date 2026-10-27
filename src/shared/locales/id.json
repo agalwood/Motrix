@@ -929,7 +929,10 @@
         "redownloadOverwriteTitle": "File Already Exists",
         "redownloadOverwriteDescription": "“{{name}}” already exists in the download directory. Re-downloading will overwrite or rename it. Do you want to continue?",
         "redownloadCredentialsExpired": "Original request options have expired. Please review and submit.",
-        "redownloadStarted": "Re-download started"
+        "redownloadStarted": "Re-download started",
+        "retryDialogTitle": "Coba unduh lagi",
+        "retryDialogDescription": "Edit parameter permintaan untuk {{name}} guna memulai unduhan baru. Tugas yang gagal dan file parsialnya akan disimpan.",
+        "retryDialogProgress": "Unduhan {{current}} dari {{total}}"
       },
       "titleCount": "{{shown}} ditampilkan · {{total}} total",
       "type": {
