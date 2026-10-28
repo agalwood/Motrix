@@ -7,13 +7,20 @@ import {
   PollingScheduler,
   type PollingTaskUpdateSource,
 } from './polling-scheduler'
-import type { Aria2RawGlobalStat, Aria2RawStatus } from './types'
+import { TASK_STATUS_FIELDS } from './task-status-fields'
+import type {
+  Aria2RawGlobalStat,
+  Aria2RawStatus,
+  Aria2TaskStatus,
+} from './types'
 
 // ─── Mock RpcClient ─────────────────────────────────────────
 
 function createMockRpc(): Aria2RpcClient {
   return {
     getGlobalStat: vi.fn(),
+    getFiles: vi.fn(),
+    onTaskMetadataChanged: vi.fn(() => vi.fn()),
     tellStatus: vi.fn(),
     multicall: vi.fn(),
   } as unknown as Aria2RpcClient
@@ -88,7 +95,7 @@ describe('PollingScheduler', () => {
   let eventBus: EventBus
   let onStats: ((stats: GlobalStats) => void) & ReturnType<typeof vi.fn>
   let onTasksUpdate: ((
-    tasks: Aria2RawStatus[],
+    tasks: Aria2TaskStatus[],
     source: PollingTaskUpdateSource
   ) => void) &
     ReturnType<typeof vi.fn>
@@ -101,7 +108,7 @@ describe('PollingScheduler', () => {
     onStats = vi.fn() as ((stats: GlobalStats) => void) &
       ReturnType<typeof vi.fn>
     onTasksUpdate = vi.fn() as ((
-      tasks: Aria2RawStatus[],
+      tasks: Aria2TaskStatus[],
       source: PollingTaskUpdateSource
     ) => void) &
       ReturnType<typeof vi.fn>
@@ -112,6 +119,67 @@ describe('PollingScheduler', () => {
     scheduler.stop()
     vi.useRealTimers()
     vi.restoreAllMocks()
+  })
+
+  it('keeps steady list polls compact while refreshing metadata after an option edit', async () => {
+    const { files: _files, ...summary } = ACTIVE_TASKS[0]
+    vi.mocked(rpc.getFiles).mockResolvedValue([
+      {
+        index: '1',
+        path: '/tmp/file',
+        length: '100',
+        completedLength: '50',
+        selected: 'true',
+        uris: [],
+      },
+    ])
+    vi.mocked(rpc.multicall).mockResolvedValue([ACTIVE_STAT, [summary], []])
+    scheduler.start()
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(rpc.getFiles).toHaveBeenCalledTimes(1)
+    const latest = onTasksUpdate.mock.calls.at(-1)?.[0][0]
+    expect(latest).not.toHaveProperty('files')
+    expect(latest).toMatchObject({
+      fileMetadata: { fileCount: 1, selectedFiles: [0] },
+    })
+    // Exercise the scheduler's actual RPC request rather than just its constant.
+    for (const calls of vi.mocked(rpc.multicall).mock.calls) {
+      const keys = calls[0][1].params[0] as string[]
+      expect(keys).not.toContain('files')
+      expect(keys).not.toContain('bitfield')
+    }
+    vi.mocked(rpc.getFiles).mockResolvedValue([
+      {
+        index: '1',
+        path: '/tmp/file',
+        length: '100',
+        completedLength: '50',
+        selected: 'false',
+        uris: [],
+      },
+    ])
+    vi.mocked(rpc.onTaskMetadataChanged).mock.calls[0][0]('gid1')
+    await vi.advanceTimersByTimeAsync(0)
+    expect(rpc.getFiles).toHaveBeenCalledTimes(2)
+    expect(onTasksUpdate.mock.calls.at(-1)?.[0][0]).toMatchObject({
+      fileMetadata: { selectedFiles: [] },
+    })
+  })
+
+  it('ignores a list response captured before reconnect instead of repopulating old metadata', async () => {
+    let resolveOld!: (value: unknown[]) => void
+    vi.mocked(rpc.multicall).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveOld = resolve
+        })
+    )
+    scheduler.start()
+    vi.mocked(rpc.onTaskMetadataChanged).mock.calls[0][0]()
+    resolveOld([ACTIVE_STAT, ACTIVE_TASKS, []])
+    await vi.advanceTimersByTimeAsync(0)
+    expect(onTasksUpdate).not.toHaveBeenCalled()
+    expect(rpc.getFiles).not.toHaveBeenCalled()
   })
 
   describe('start / stop', () => {
@@ -270,8 +338,11 @@ describe('PollingScheduler', () => {
         gid: 'gid1',
       })
 
-      expect(rpc.tellStatus).toHaveBeenCalledWith('gid1')
-      expect(onTasksUpdate).toHaveBeenCalledWith([PAUSED_TASK], 'notification')
+      expect(rpc.tellStatus).toHaveBeenCalledWith('gid1', TASK_STATUS_FIELDS)
+      expect(onTasksUpdate).toHaveBeenCalledWith(
+        [expect.objectContaining({ gid: 'gid1', status: 'paused' })],
+        'notification'
+      )
       expect(emitted).toEqual([false])
     })
 
@@ -320,7 +391,7 @@ describe('PollingScheduler', () => {
       expect(rpc.multicall).toHaveBeenCalledTimes(3)
       expect(onStats).toHaveBeenCalledWith(ACTIVE_STATS_TRANSLATED)
       expect(onTasksUpdate).toHaveBeenCalledWith(
-        ACTIVE_TASKS,
+        [expect.objectContaining({ gid: 'gid1', status: 'active' })],
         'authoritative-poll'
       )
     })

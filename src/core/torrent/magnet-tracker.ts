@@ -3,7 +3,7 @@ import { mkdtemp, readdir, readFile, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, isAbsolute, join, parse, resolve } from 'node:path'
 import type { Aria2RpcClient } from '@core/engine/aria2/aria2-rpc-client'
-import type { Aria2RawStatus } from '@core/engine/aria2/types'
+import type { Aria2TaskStatus } from '@core/engine/aria2/types'
 import type { EventBus } from '@core/events/event-bus'
 import { AsyncWorkTracker } from '@core/inspector-activity/async-work-tracker'
 import { newTaskId } from '@core/lib/ids'
@@ -942,7 +942,7 @@ export class MagnetTracker {
     }
   }
 
-  observe(raw: Aria2RawStatus): boolean {
+  observe(raw: Aria2TaskStatus): boolean {
     // Source of truth for "this gid is metadata-only, polling should
     // skip it" is the cache Map. Returning true here makes the
     // PollingScheduler's shouldSkipForPendingMagnetMetadata helper

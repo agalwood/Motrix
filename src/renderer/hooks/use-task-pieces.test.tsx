@@ -1,12 +1,14 @@
-import { renderHook } from '@testing-library/react'
+import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockInvoke = vi.fn()
+const mockConnectionChange = vi.fn()
 vi.mock('@renderer/lib/transport', () => ({
   transport: {
     invoke: (...a: unknown[]) => mockInvoke(...a),
     on: vi.fn(),
     off: vi.fn(),
+    onConnectionChange: (...args: unknown[]) => mockConnectionChange(...args),
     platform: 'darwin',
   },
 }))
@@ -17,9 +19,113 @@ describe('useTaskPieces', () => {
   beforeEach(() => {
     __clearPiecesCacheForTests()
     mockInvoke.mockReset()
+    mockConnectionChange.mockReset()
     vi.useFakeTimers()
   })
-  afterEach(() => vi.useRealTimers())
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
+  it('never overlaps slow requests at the one-second cadence', async () => {
+    let resolve!: (value: unknown) => void
+    mockInvoke.mockImplementationOnce(
+      () =>
+        new Promise((done) => {
+          resolve = done
+        })
+    )
+    renderHook(() => useTaskPieces('slow'))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000)
+    })
+    expect(mockInvoke).toHaveBeenCalledTimes(1)
+    mockInvoke.mockResolvedValue({
+      pieceLength: 1,
+      numPieces: 1,
+      bitfield: '8',
+    })
+    await act(async () => {
+      resolve({ pieceLength: 1, numPieces: 1, bitfield: '0' })
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000)
+    })
+    expect(mockInvoke).toHaveBeenCalledTimes(2)
+  })
+
+  it('suspends hidden documents and immediately refreshes when visible', async () => {
+    const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(true)
+    mockInvoke.mockResolvedValue({
+      pieceLength: 1,
+      numPieces: 1,
+      bitfield: '8',
+    })
+    renderHook(() => useTaskPieces('visible'))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4000)
+    })
+    expect(mockInvoke).not.toHaveBeenCalled()
+    hidden.mockReturnValue(false)
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    expect(mockInvoke).toHaveBeenCalledTimes(1)
+    hidden.mockReturnValue(true)
+    act(() => document.dispatchEvent(new Event('visibilitychange')))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4000)
+    })
+    expect(mockInvoke).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not let a response from an unmounted panel poison its newer cache', async () => {
+    let resolveOld!: (value: unknown) => void
+    mockInvoke.mockImplementationOnce(
+      () =>
+        new Promise((done) => {
+          resolveOld = done
+        })
+    )
+    const old = renderHook(() => useTaskPieces('cache-race'))
+    old.unmount()
+    const complete = { pieceLength: 1, numPieces: 8, bitfield: 'ff' }
+    mockInvoke.mockResolvedValue(complete)
+    const current = renderHook(() => useTaskPieces('cache-race'))
+    await act(async () => {})
+    await act(async () => {
+      resolveOld({ ...complete, bitfield: '00' })
+    })
+    current.unmount()
+    const remount = renderHook(() => useTaskPieces('cache-race'))
+    expect(remount.result.current.pieces).toEqual(complete)
+  })
+
+  it('invalidates the old engine instance and refreshes paused pieces on reconnect', async () => {
+    mockInvoke.mockResolvedValue({
+      pieceLength: 1,
+      numPieces: 8,
+      bitfield: 'ff',
+    })
+    const hook = renderHook(
+      ({ gid }) => useTaskPieces('same-task', false, gid),
+      { initialProps: { gid: 'old' } }
+    )
+    await act(async () => {})
+    expect(hook.result.current.pieces?.bitfield).toBe('ff')
+    mockInvoke.mockResolvedValue({
+      pieceLength: 1,
+      numPieces: 8,
+      bitfield: '00',
+    })
+    hook.rerender({ gid: 'new' })
+    await act(async () => {})
+    expect(hook.result.current.pieces?.bitfield).toBe('00')
+    await act(async () => {
+      mockConnectionChange.mock.calls.at(-1)?.[0]({ state: 'connected' })
+    })
+    expect(mockInvoke).toHaveBeenCalledTimes(3)
+  })
 
   it('fetches pieces on mount', async () => {
     mockInvoke.mockResolvedValue({
@@ -32,10 +138,10 @@ describe('useTaskPieces', () => {
     expect(result.current.pieces?.numPieces).toBe(8)
   })
 
-  it('re-fetches every 2 seconds while mounted', async () => {
+  it('re-fetches every second while mounted', async () => {
     mockInvoke.mockResolvedValue({ pieceLength: 1, numPieces: 1, bitfield: '' })
     renderHook(() => useTaskPieces('t-poll'))
-    await vi.advanceTimersByTimeAsync(2100)
+    await vi.advanceTimersByTimeAsync(1100)
     expect(mockInvoke).toHaveBeenCalledTimes(2)
   })
 

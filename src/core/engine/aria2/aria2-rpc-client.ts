@@ -36,6 +36,16 @@ export class Aria2RpcClient {
   private notificationHandlers = new Map<string, Set<EventHandler>>()
   private pauseState = new Aria2PauseState()
   private requestSequence = 0
+  private metadataListeners = new Set<(gid?: string) => void>()
+
+  onTaskMetadataChanged(handler: (gid?: string) => void): Unsubscribe {
+    this.metadataListeners.add(handler)
+    return () => this.metadataListeners.delete(handler)
+  }
+
+  private invalidateTaskMetadata(gid?: string): void {
+    for (const listener of this.metadataListeners) listener(gid)
+  }
 
   constructor(
     private transport: WebSocketTransport,
@@ -51,6 +61,7 @@ export class Aria2RpcClient {
 
   async connect(port: number, retries = 10, delayMs = 500): Promise<void> {
     this.pauseState.clear()
+    this.invalidateTaskMetadata()
     const url = `ws://127.0.0.1:${port}/jsonrpc`
     for (let attempt = 0; attempt < retries; attempt++) {
       try {
@@ -65,6 +76,7 @@ export class Aria2RpcClient {
 
   disconnect(): void {
     this.pauseState.clear()
+    this.invalidateTaskMetadata()
     this.transport.disconnect()
   }
 
@@ -92,8 +104,31 @@ export class Aria2RpcClient {
     const finalParams = SECRET_EXEMPT_METHODS.has(method)
       ? params
       : this.withSecret(params)
-    const result = await this.protocol.call<T>(method, finalParams)
-    return this.pauseState.reconcile(method, params, result, sequence) as T
+    // Large file maps can take longer to initialize even when the request is
+    // within the wire budget. Keep ordinary status/control deadlines short.
+    const result = await this.protocol.call<T>(
+      method,
+      finalParams,
+      method === 'aria2.addTorrent' ? { timeoutMs: 60_000 } : undefined
+    )
+    return this.reconcileResult(method, params, result, sequence) as T
+  }
+
+  private reconcileResult(
+    method: string,
+    params: unknown[],
+    result: unknown,
+    sequence: number
+  ): unknown {
+    if (
+      method === 'aria2.changeOption' &&
+      result === 'OK' &&
+      typeof params[0] === 'string'
+    ) {
+      // Includes selection, output paths and URI-affecting task options.
+      this.invalidateTaskMetadata(params[0])
+    }
+    return this.pauseState.reconcile(method, params, result, sequence)
   }
 
   // ─── Download management ─────────────────────────────────────
@@ -321,7 +356,7 @@ export class Aria2RpcClient {
     }))
     const results = await this.protocol.multicall(withSecret)
     return results.map((result, index) =>
-      this.pauseState.reconcile(
+      this.reconcileResult(
         calls[index].method,
         calls[index].params,
         result,
@@ -351,7 +386,7 @@ export class Aria2RpcClient {
       result.status === 'fulfilled'
         ? {
             status: 'fulfilled',
-            value: this.pauseState.reconcile(
+            value: this.reconcileResult(
               calls[index].method,
               calls[index].params,
               result.value,

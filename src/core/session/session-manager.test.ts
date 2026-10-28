@@ -4827,6 +4827,7 @@ it.each(['rpc', 'binding probe', 'persistence'])(
       log,
     })
     const onPolledTasks = vi.fn()
+    rpc.onTaskMetadataChanged = vi.fn(() => vi.fn())
     const polling = new PollingScheduler(rpc, eventBus, vi.fn(), onPolledTasks)
     const startAutoSave = vi.spyOn(session, 'startAutoSave')
 

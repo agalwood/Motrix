@@ -249,11 +249,15 @@ export function TaskInspectorDrawer({
                     />
                   </TabsContent>
                   <TabsContent value="files" className="min-h-0">
-                    <FilesTab key={single.id} task={single} />
+                    {open && activeSubtab === 'files' && (
+                      <FilesTab key={single.id} task={single} />
+                    )}
                   </TabsContent>
                   {showPieces && (
                     <TabsContent value="pieces" className="min-h-0">
-                      <PiecesTab task={single} />
+                      {open && activeSubtab === 'pieces' && (
+                        <PiecesTab task={single} />
+                      )}
                     </TabsContent>
                   )}
                   {isBt && (
