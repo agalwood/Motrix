@@ -6,6 +6,7 @@ import {
   stripAria2ProxyCredentials,
 } from '@core/proxy/aria2-proxy-routing'
 import type { Aria2ProxyOptions } from '@core/proxy/serializers'
+import { MAX_TORRENT_RPC_BODY_LIMIT_BYTES } from '@shared/lib/torrent-meta'
 import { torrentRpcBodyLimitSchema } from '@shared/schemas/torrent-request-limits'
 import type { EngineSettings } from '@shared/types/settings'
 import writeFileAtomic from 'write-file-atomic'
@@ -31,7 +32,7 @@ export class Aria2ConfigBuilder {
   private readonly dhtFilePath: string
   private readonly dht6FilePath: string
   private readonly rpcListenAll: boolean
-  private readonly rpcMaxRequestSizeBytes?: number
+  private readonly rpcMaxRequestSizeBytes: number
   private readonly supervisorPid?: number
   private readonly persistenceDirectory?: string
   private configuredInputFile = false
@@ -58,7 +59,7 @@ export class Aria2ConfigBuilder {
     this.rpcListenAll = options.rpcListenAll ?? false
     this.rpcMaxRequestSizeBytes =
       options.rpcMaxRequestSizeBytes === undefined
-        ? undefined
+        ? MAX_TORRENT_RPC_BODY_LIMIT_BYTES
         : torrentRpcBodyLimitSchema.parse(options.rpcMaxRequestSizeBytes)
     if (options.supervisorPid !== undefined) {
       if (
@@ -298,11 +299,11 @@ export class Aria2ConfigBuilder {
     )
 
     // ── L1 product-contract invariants — DO NOT REMOVE without spec change ──
-    if (this.rpcMaxRequestSizeBytes !== undefined) {
-      args.push(
-        `--rpc-max-request-size=${this.rpcMaxRequestSizeBytes / (1024 * 1024)}M`
-      )
-    }
+    // Desktop accepts up to 50 MiB of Base64 plus per-file output mappings.
+    // Never inherit aria2's 2 MiB default or an older copied config value.
+    args.push(
+      `--rpc-max-request-size=${this.rpcMaxRequestSizeBytes / (1024 * 1024)}M`
+    )
     if (this.supervisorPid !== undefined) {
       args.push(`--stop-with-process=${this.supervisorPid}`)
     }

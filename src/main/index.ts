@@ -18,7 +18,7 @@ import {
   type PollingTaskUpdateSource,
 } from '@core/engine/aria2/polling-scheduler'
 import { translateRawToTask } from '@core/engine/aria2/translate'
-import type { Aria2RawStatus } from '@core/engine/aria2/types'
+import type { Aria2TaskStatus } from '@core/engine/aria2/types'
 import { WebSocketTransport } from '@core/engine/aria2/web-socket-transport'
 import {
   ENGINE_READY_TIMEOUT_MS,
@@ -906,7 +906,7 @@ function runShellAsyncWork(
 // ─── Polling Callback ───────────────────────────────────
 
 async function handlePolledTasks(
-  rawTasks: Aria2RawStatus[],
+  rawTasks: Aria2TaskStatus[],
   source: PollingTaskUpdateSource
 ): Promise<void> {
   if (supervisor.getState() !== EngineState.Ready) return

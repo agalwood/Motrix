@@ -5,6 +5,8 @@ import { createSelectionStore } from '@renderer/components/desktop-kit/selection
 import type { SelectionStore } from '@renderer/components/desktop-kit/selection/types'
 import { transport } from '@renderer/lib/transport'
 import { DownloadErrorCode } from '@shared/errors'
+import { Events } from '@shared/protocol/events'
+import { Queries } from '@shared/protocol/queries'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskKind, TaskStatus, TaskType } from '@shared/types/task'
 import {
@@ -214,6 +216,49 @@ describe('TaskInspectorDrawer', () => {
     const selection = createSelectionStore<DownloadTask>((t) => t.id)
     render(<TestHarness selection={selection} tasks={[fake()]} />)
     expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('loads file details only in the visible Files tab and stops listening when closed', async () => {
+    const originalInvoke = transport.invoke.bind(transport)
+    const invoke = vi
+      .spyOn(transport, 'invoke')
+      .mockImplementation(async (channel, ...args) =>
+        channel === Queries.GetTaskFiles ? [] : originalInvoke(channel, ...args)
+      )
+    const on = vi.spyOn(transport, 'on').mockImplementation(() => {})
+    const off = vi.spyOn(transport, 'off').mockImplementation(() => {})
+    try {
+      const user = userEvent.setup()
+      const selection = createSelectionStore<DownloadTask>((task) => task.id)
+      const tasks = [fake({ status: TaskStatus.Downloading })]
+      selection.getState().setItems(tasks)
+      selection.getState().select('a')
+      render(<TestHarness selection={selection} tasks={tasks} />)
+      const reads = () =>
+        invoke.mock.calls.filter(
+          ([channel]) => channel === Queries.GetTaskFiles
+        ).length
+      expect(reads()).toBe(0)
+      await user.click(screen.getByRole('tab', { name: 'Files' }))
+      await waitFor(() => expect(reads()).toBe(1))
+      await user.click(screen.getByRole('tab', { name: 'Overview' }))
+      expect(off).toHaveBeenCalledWith(
+        Events.TaskFilesUpdated,
+        expect.any(Function)
+      )
+      await user.click(screen.getByRole('tab', { name: 'Files' }))
+      await waitFor(() => expect(reads()).toBe(2))
+      off.mockClear()
+      await user.click(screen.getByRole('button', { name: 'Close' }))
+      expect(off).toHaveBeenCalledWith(
+        Events.TaskFilesUpdated,
+        expect.any(Function)
+      )
+    } finally {
+      invoke.mockRestore()
+      on.mockRestore()
+      off.mockRestore()
+    }
   })
 
   it('closes a restored inspector with no selection and keeps a subsequent single selection closed', () => {

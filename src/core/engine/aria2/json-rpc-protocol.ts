@@ -1,9 +1,11 @@
+import { MAX_TORRENT_RPC_BODY_LIMIT_BYTES } from '@shared/lib/torrent-meta'
 import type { WebSocketTransport } from './web-socket-transport'
 
 interface PendingRequest {
   resolve: (value: unknown) => void
   reject: (reason: Error) => void
   timer: ReturnType<typeof setTimeout>
+  uncorrelatedError?: Error
 }
 
 interface JsonRpcRequest {
@@ -15,7 +17,7 @@ interface JsonRpcRequest {
 
 interface JsonRpcResponse {
   jsonrpc: '2.0'
-  id?: string
+  id?: string | null
   method?: string
   params?: unknown[]
   result?: unknown
@@ -29,6 +31,20 @@ interface MulticallEntry {
 
 export interface JsonRpcProtocolOptions {
   timeoutMs?: number
+  maxRequestBytes?: number
+}
+
+export interface JsonRpcCallOptions {
+  timeoutMs?: number
+}
+
+export class JsonRpcRequestTooLargeError extends Error {
+  constructor(method: string, requestBytes: number, maxRequestBytes: number) {
+    super(
+      `JSON-RPC request "${method}" is ${requestBytes} bytes, exceeding the configured ${maxRequestBytes}-byte limit (including metadata and options)`
+    )
+    this.name = 'JsonRpcRequestTooLargeError'
+  }
 }
 
 export class JsonRpcProtocol {
@@ -38,16 +54,29 @@ export class JsonRpcProtocol {
     | ((method: string, params: unknown[]) => void)
     | null = null
   private readonly timeoutMs: number
+  private readonly maxRequestBytes: number
 
   constructor(
     private transport: WebSocketTransport,
     options: JsonRpcProtocolOptions = {}
   ) {
     this.timeoutMs = options.timeoutMs ?? 10_000
+    this.maxRequestBytes =
+      options.maxRequestBytes ?? MAX_TORRENT_RPC_BODY_LIMIT_BYTES
+    if (
+      !Number.isSafeInteger(this.maxRequestBytes) ||
+      this.maxRequestBytes <= 0
+    ) {
+      throw new TypeError('maxRequestBytes must be a positive safe integer')
+    }
     this.transport.onMessage((data) => this.handleMessage(data))
   }
 
-  call<T>(method: string, params: unknown[]): Promise<T> {
+  call<T>(
+    method: string,
+    params: unknown[],
+    options: JsonRpcCallOptions = {}
+  ): Promise<T> {
     const id = String(this.nextId++)
     const request: JsonRpcRequest = {
       jsonrpc: '2.0',
@@ -57,14 +86,32 @@ export class JsonRpcProtocol {
     }
 
     return new Promise<T>((resolve, reject) => {
+      // Measure the exact UTF-8 envelope, including tokens, index-out and
+      // select-file. A Base64-only check misses large multi-file requests.
+      const serialized = JSON.stringify(request)
+      const requestBytes = Buffer.byteLength(serialized, 'utf8')
+      if (requestBytes > this.maxRequestBytes) {
+        reject(
+          new JsonRpcRequestTooLargeError(
+            method,
+            requestBytes,
+            this.maxRequestBytes
+          )
+        )
+        return
+      }
+      const timeoutMs = options.timeoutMs ?? this.timeoutMs
       const timer = setTimeout(() => {
+        const diagnostic = this.pending.get(id)?.uncorrelatedError
         this.pending.delete(id)
         reject(
           new Error(
-            `JSON-RPC call "${method}" timed out after ${this.timeoutMs}ms`
+            diagnostic
+              ? `No matching JSON-RPC response for "${method}" after ${timeoutMs}ms; ${diagnostic.message}; request outcome is unknown`
+              : `JSON-RPC call "${method}" timed out after ${timeoutMs}ms`
           )
         )
-      }, this.timeoutMs)
+      }, timeoutMs)
 
       this.pending.set(id, {
         resolve: resolve as (value: unknown) => void,
@@ -72,7 +119,13 @@ export class JsonRpcProtocol {
         timer,
       })
 
-      this.transport.send(JSON.stringify(request))
+      try {
+        this.transport.send(serialized)
+      } catch (error) {
+        clearTimeout(timer)
+        this.pending.delete(id)
+        reject(error)
+      }
     })
   }
 
@@ -136,7 +189,29 @@ export class JsonRpcProtocol {
       return
     }
 
-    if (msg.id !== undefined) {
+    if (msg.id === null && msg.error) {
+      const error = new Error(
+        `JSON-RPC peer reported ${msg.error.code}: ${msg.error.message} without a request id`
+      )
+      const single =
+        this.pending.size === 1
+          ? this.pending.entries().next().value
+          : undefined
+      if (single) {
+        const [id, pending] = single
+        clearTimeout(pending.timer)
+        this.pending.delete(id)
+        pending.reject(error)
+      } else {
+        // Do not guess which concurrent mutation failed or reject successful
+        // unrelated calls. Preserve the peer's diagnostic for unresolved calls.
+        for (const pending of this.pending.values())
+          pending.uncorrelatedError = error
+      }
+      return
+    }
+
+    if (typeof msg.id === 'string') {
       const pending = this.pending.get(msg.id)
       if (!pending) return
 

@@ -144,8 +144,19 @@ export function hasEngineTaskDelta(
     before.errorCode !== after.errorCode ||
     before.finishedAt !== after.finishedAt ||
     before.infoHash !== after.infoHash ||
+    !sameValues(before.uris, after.uris) ||
+    !sameValues(before.bt?.selectedFiles, after.bt?.selectedFiles) ||
+    !sameValues(before.bt?.trackers, after.bt?.trackers) ||
+    before.bt?.comment !== after.bt?.comment ||
     before.bt?.peers !== after.bt?.peers ||
     before.bt?.seeds !== after.bt?.seeds ||
     before.bt?.ratio !== after.bt?.ratio
+  )
+}
+
+function sameValues<T>(a: readonly T[] = [], b: readonly T[] = []): boolean {
+  return (
+    a === b ||
+    (a.length === b.length && a.every((value, index) => value === b[index]))
   )
 }
