@@ -2758,7 +2758,7 @@ describe('release workflow publication contract', () => {
       stringField(asRecord(config.directories, 'signing directories'), 'app')
     ).toBe('dist/electron-app')
     expect(stringField(config, 'electronDist')).toBe('trusted/electron.zip')
-    expect(stringField(config, 'electronVersion')).toBe('45.0.0')
+    expect(stringField(config, 'electronVersion')).toBe('45.1.0')
     expect(signingInputSource).toContain(
       "config.directories?.app !== 'dist/electron-app'"
     )
@@ -2824,7 +2824,7 @@ describe('release workflow publication contract', () => {
       asRecord(metadata.devDependencies, 'dev dependencies'),
       'electron'
     )
-    expect(version).toBe('45.0.0')
+    expect(version).toBe('45.1.0')
     expect(
       stringField(
         asRecord(

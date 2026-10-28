@@ -632,7 +632,7 @@ jobs:
             electron_builder_args: --mac --arm64
             resources_dir: release/mac-arm64/Motrix.app/Contents/Resources
             app_path: release/mac-arm64/Motrix.app
-            electron_sha256: 896c3a50b148e89a158dca08a6996a022ddf39b23aac871e107f5b4087f8caa9
+            electron_sha256: 002b71efcf90e247317d3da486f2d4e51860e9c2889d49f33e229ab2268b0f3b
           - target: darwin-x64
             os: macos-26-intel
             platform: darwin
@@ -641,7 +641,7 @@ jobs:
             electron_builder_args: --mac --x64
             resources_dir: release/mac/Motrix.app/Contents/Resources
             app_path: release/mac/Motrix.app
-            electron_sha256: 7877c282e74a52f8d87949536a25735cf9982de1265b544c9cd258dd14eff4de
+            electron_sha256: b4667d820149e33a6f016d103de0fcf5d6f05b8297a204232a0d970c00b163a5
           - target: win32-x64
             os: windows-2025
             platform: win32
@@ -650,7 +650,7 @@ jobs:
             electron_builder_args: --win nsis zip --x64
             resources_dir: release/win-unpacked/resources
             app_path: release/win-unpacked
-            electron_sha256: ae53887a23bb640369c93dbd38c408a2af5c0deb86f2fa76c6c244cb444b7f47
+            electron_sha256: 55eaba17abff7b5bba6c3bbc85068967379024fe742fe9c7fdba9118922ccbe2
           - target: win32-arm64
             os: windows-11-arm
             platform: win32
@@ -659,7 +659,7 @@ jobs:
             electron_builder_args: --win nsis zip --arm64 '-c.nsis.artifactName=Motrix-Setup-${version}-arm64.exe' '-c.win.artifactName=Motrix-${version}-win-arm64.${ext}'
             resources_dir: release/win-arm64-unpacked/resources
             app_path: release/win-arm64-unpacked
-            electron_sha256: fbae273960b24b81ab7a5cdcf34dd83a8781ee6799ccc621c1d85d5ce197252d
+            electron_sha256: c0adce10031826896060bba848777bf9f059bfe4a2f7f9d4795008498eeeb248
     env:
       CUSTOM_DMGBUILD_PATH: ''
       ELECTRON_BUILDER_7ZIP_PATH: ''
@@ -936,7 +936,7 @@ jobs:
           EXPECTED_COMMIT: ${{ github.sha }}
           EXPECTED_PLATFORM: ${{ matrix.platform }}
           # Updated only after reviewing the verifier source itself.
-          VERIFIER_SHA256: 2ca5c27748be90fe4c5afa1cfd862e24f54425b9662c97166f1f18318551790e
+          VERIFIER_SHA256: eced198abdb8982b9633cf2f2936fe902c01bbf46c91937cbc86ed123b86a959
         run: |
           const crypto = require('node:crypto')
           const fs = require('node:fs')
@@ -1094,7 +1094,7 @@ jobs:
           cp \
             signing-input/signing-policy/installer.nsh \
             signing-input/trusted/installer.nsh
-          url="https://github.com/electron/electron/releases/download/v45.0.0/electron-v45.0.0-${{ matrix.platform }}-${{ matrix.arch }}.zip"
+          url="https://github.com/electron/electron/releases/download/v45.1.0/electron-v45.1.0-${{ matrix.platform }}-${{ matrix.arch }}.zip"
           curl --fail --location --proto '=https' --tlsv1.2 \
             "$url" --output signing-input/trusted/electron.zip
           node - <<'NODE'
