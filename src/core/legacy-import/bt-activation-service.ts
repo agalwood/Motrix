@@ -21,6 +21,7 @@ import type { LegacyCheckpointFile } from '@shared/schemas/legacy-checkpoint'
 import { legacyTaskMetadataSchema } from '@shared/schemas/legacy-import'
 import { TaskStatus, TaskType } from '@shared/types/task'
 import parseTorrent from 'parse-torrent'
+import { isUnresolvedLegacyMagnet } from './legacy-task-policy'
 import { authorizeLegacySource, readLegacyFile } from './source-scanner'
 
 export interface LegacyBtActivationDeps {
@@ -377,6 +378,7 @@ export class LegacyBtActivationService {
   private async noConflicts(pair: TaskWithInstances): Promise<void> {
     const target = outputPathIdentity(pair.task.finalPath)
     for (const other of this.deps.db.getAllTasks()) {
+      if (isUnresolvedLegacyMagnet(other)) continue
       if (other.task.motrixId === pair.task.motrixId) continue
       const claimed = [
         other.task.finalPath,

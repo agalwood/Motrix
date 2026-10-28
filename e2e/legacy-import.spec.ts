@@ -3,6 +3,7 @@ import path from 'node:path'
 import type { ElectronApplication, Page } from '@playwright/test'
 import { Commands } from '../src/shared/protocol/commands'
 import { Queries } from '../src/shared/protocol/queries'
+import type { DownloadTask } from '../src/shared/types/task'
 import {
   expect,
   launchMotrix,
@@ -318,6 +319,84 @@ test.describe('v1 task import', () => {
       expect(
         await readFile(path.join(source, 'downloads', 'archive.zip'), 'utf8')
       ).toBe('original v1 bytes')
+    } finally {
+      await app.close().catch(() => {})
+    }
+  })
+
+  test('migrates 91 unnamed magnets from one download directory without claiming existing files', async ({
+    userDataDir,
+    rpcPort,
+  }, testInfo) => {
+    const source = await legacyProfile(userDataDir)
+    const downloads = path.join(source, 'downloads')
+    const original = path.join(downloads, 'Magnet')
+    await writeFile(original, 'unrelated original file')
+    const uris = Array.from(
+      { length: 91 },
+      (_, i) => `magnet:?xt=urn:btih:${(i + 1).toString(16).padStart(40, '0')}`
+    )
+    const session = uris
+      .map(
+        (uri, i) =>
+          `${uri}\n gid=${(i + 1).toString(16).padStart(16, '0')}\n pause=true\n`
+      )
+      .join('')
+    await writeFile(path.join(source, 'download.session'), session)
+    await writeFile(
+      path.join(source, 'system.json'),
+      JSON.stringify({
+        dir: downloads,
+        'all-proxy': 'http://private-user:old-proxy-secret@proxy.example:8080',
+      })
+    )
+    const app = await launchMotrix({
+      userDataDir,
+      rpcPort,
+      extraEnv: { MOTRIX_LEGACY_PROFILE: source },
+    })
+    try {
+      const page = await firstPage(app)
+      await page.getByRole('button', { name: 'Continue', exact: true }).click()
+      await expandTaskGroups(page)
+      await expect(page.getByText(/^Selected 91 tasks\./)).toBeVisible()
+      await expect(
+        page.getByText('Another task uses this location', { exact: false })
+      ).toHaveCount(0)
+      await page.screenshot({
+        path: testInfo.outputPath('unnamed-magnets-selected.png'),
+        animations: 'disabled',
+      })
+      await page.getByRole('button', { name: 'Migrate', exact: true }).click()
+      await expect(
+        page
+          .getByLabel('Migration summary')
+          .getByText('91 tasks', { exact: true })
+          .first()
+      ).toBeVisible()
+      const tasks = (await invoke(page, Queries.ListTasks)) as DownloadTask[]
+      expect(tasks).toHaveLength(91)
+      expect(
+        tasks.every(
+          (task) =>
+            task.type === 'magnet' &&
+            task.status === 'paused' &&
+            task.engineTaskId === '' &&
+            task.instances[0].gid === null
+        )
+      ).toBe(true)
+      expect(tasks.flatMap((task) => task.uris).sort()).toEqual(
+        [...uris].sort()
+      )
+      expect(JSON.stringify(tasks)).not.toContain('old-proxy-secret')
+      await invoke(page, Commands.RemoveTask, {
+        taskId: tasks[0].id,
+        deleteWithFiles: true,
+      })
+      expect(await readFile(original, 'utf8')).toBe('unrelated original file')
+      expect(
+        await readFile(path.join(source, 'download.session'), 'utf8')
+      ).toBe(session)
     } finally {
       await app.close().catch(() => {})
     }
