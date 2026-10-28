@@ -68,6 +68,16 @@
   </screenshots>
 
   <releases>
+    <release version="2.1.0" date="2026-10-28">
+      <description>
+        <p>
+          Adds BitTorrent file relocation and verification, editable HTTP retry
+          parameters, native Linux window controls, and Windows portable profiles.
+          Improves large-torrent handling, migration, update installation, and
+          interface responsiveness, and updates Electron to 45.1.0.
+        </p>
+      </description>
+    </release>
     <release version="2.0.1" date="2026-10-25">
       <description>
         <p>

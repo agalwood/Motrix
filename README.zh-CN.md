@@ -19,12 +19,13 @@ Motrix 是一款界面简洁、功能丰富的桌面下载管理器，可处理 
 - **桌面应用**：可在 macOS、Windows 和 Linux 上运行；
 - **Headless server**：无需桌面环境，可直接使用 Node.js 运行或通过 Docker 部署，并提供 Web 界面，适合安装在 NAS 和家庭服务器上。
 
-## Motrix 2.0.1
+## Motrix 2.1.0
 
-Motrix 2.0.1 改进 HTTP 续传验证、图形崩溃恢复、内存占用和下载引擎可靠性，
-并更新桌面应用及 Server 依赖。
-从 GitHub Releases 下载 [v2.0.1](https://github.com/agalwood/Motrix/releases/tag/v2.0.1)，
-并阅读[完整发布说明](./docs/release-notes/2.0.1.zh-CN.md)。
+Motrix 2.1.0 新增 BitTorrent 文件重定位与校验、Windows 便携配置、
+HTTP 重试参数编辑和 Linux 原生窗口控件，并改进大型种子处理，
+将 Electron 更新至 45.1.0。
+从 GitHub Releases 下载 [v2.1.0](https://github.com/agalwood/Motrix/releases/tag/v2.1.0)，
+并阅读[完整发布说明](./docs/release-notes/2.1.0.zh-CN.md)。
 
 升级前请备份现有 Motrix 配置和下载文件。桌面端迁移助手会将选中的 v1 任务
 导入为暂停记录，并保留原文件；恢复下载需要单独明确操作。
@@ -168,13 +169,13 @@ npm install -g @motrix/cli
 ### Headless server（Docker）
 
 带 tag 的版本会把多架构 Server 镜像发布到 Docker Hub 和 GHCR。
-正式版通过运行验证后还会更新 `2.0`、`2`、`stable` 和 `latest`，beta 仅发布
+正式版通过运行验证后还会更新 `2.1`、`2`、`stable` 和 `latest`，beta 仅发布
 不可变的版本 tag。仓库的 `compose.yaml` 会分别持久化 Server 状态与用户下载资源：
 
 ```bash
 mkdir -p motrix-data downloads
 sudo chown 1000:1000 motrix-data downloads
-export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.0.1'
+export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.1.0'
 export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
 docker compose pull server
 docker compose up -d --wait
