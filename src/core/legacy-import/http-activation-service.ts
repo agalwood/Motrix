@@ -25,6 +25,7 @@ import {
   type LegacyHttpRequestContext,
   resolveLegacyHttpRequestContext,
 } from './http-request-context'
+import { isUnresolvedLegacyMagnet } from './legacy-task-policy'
 import { authorizeLegacySource, readLegacyFile } from './source-scanner'
 
 export interface LegacyHttpActivationDeps {
@@ -667,6 +668,7 @@ export class LegacyHttpActivationService {
       )
     }
     for (const other of this.deps.db.getAllTasks()) {
+      if (isUnresolvedLegacyMagnet(other)) continue
       if (
         other.task.motrixId !== pair.task.motrixId &&
         [

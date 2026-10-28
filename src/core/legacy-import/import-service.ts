@@ -25,6 +25,7 @@ import {
   TaskType,
   TransitionPhase,
 } from '@shared/types/task'
+import { isUnresolvedLegacyMagnet } from './legacy-task-policy'
 import {
   authorizeLegacySource,
   authorizeLegacyTorrent,
@@ -242,7 +243,11 @@ export class LegacyImportService {
             : ledger.entry_digest !== candidate.entry.digest
               ? 'changed-source'
               : 'already-imported'
-      } else if (candidate.item.selectable && candidate.outputPath) {
+      } else if (
+        candidate.item.selectable &&
+        candidate.outputPath &&
+        candidate.item.type !== 'magnet'
+      ) {
         if (this.overlaps(candidate.outputPath, [...claims, ...pendingPaths])) {
           candidate.item.selectable = false
           candidate.item.reason = 'path-conflict'
@@ -889,6 +894,7 @@ export class LegacyImportService {
   private claimedPaths(): string[] {
     return this.deps.db
       .getAllTasks()
+      .filter((pair) => !isUnresolvedLegacyMagnet(pair))
       .flatMap(({ task, instances }) => [
         task.finalPath,
         ...instances.map((instance) => instance.diskPath),
@@ -916,7 +922,8 @@ export class LegacyImportService {
     for (const candidate of candidates) {
       if (
         !candidate.outputPath ||
-        this.overlaps(candidate.outputPath, claims) ||
+        (candidate.item.type !== 'magnet' &&
+          this.overlaps(candidate.outputPath, claims)) ||
         this.deps.db.database
           .prepare(
             'SELECT 1 FROM legacy_import_ledger WHERE source_id=? AND item_key=?'
@@ -924,7 +931,7 @@ export class LegacyImportService {
           .get(sourceId, candidate.entry.itemKey)
       )
         throw this.error('pathConflict')
-      claims.push(candidate.outputPath)
+      if (candidate.item.type !== 'magnet') claims.push(candidate.outputPath)
     }
   }
 

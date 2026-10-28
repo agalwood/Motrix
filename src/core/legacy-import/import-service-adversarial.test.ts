@@ -14,7 +14,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { MotrixDatabase } from '@core/session/motrix-database'
 import { TaskManager } from '@core/task/task-manager'
-import { TaskStatus } from '@shared/types/task'
+import { TaskStatus, TaskType } from '@shared/types/task'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   LegacyImportService,
@@ -494,6 +494,143 @@ describe('legacy import service adversarial acceptance', () => {
     ).toMatchObject({
       selectable: false,
       reason: 'already-imported',
+    })
+  })
+
+  it.each(['unnamed', 'same display name', 'same output hint'] as const)(
+    'imports distinct magnets sharing a directory and %s without claiming files',
+    async (kind) => {
+      const f = await fixture()
+      const count = kind === 'unnamed' ? 101 : 2 // Cross the 100-record batch boundary.
+      const name = kind === 'unnamed' ? 'Magnet' : 'shared'
+      const original = path.join(f.downloads, name)
+      await writeFile(original, 'unrelated existing bytes')
+      const uris = Array.from(
+        { length: count },
+        (_, i) =>
+          `magnet:?xt=urn:btih:${(i + 1).toString(16).padStart(40, '0')}${kind === 'same display name' ? '&dn=shared' : ''}`
+      )
+      await writeFile(
+        f.sessionPath,
+        uris
+          .map(
+            (uri, i) =>
+              `${uri}\n gid=${(i + 1).toString(16).padStart(16, '0')}\n${kind === 'same output hint' ? ' out=shared\n' : ''}`
+          )
+          .join('')
+      )
+      const preview = await f.service.scan(f.source.sourceHandle)
+      expect(preview.items.filter((item) => item.selectable)).toHaveLength(
+        count
+      )
+      const run = await f.service.commit({
+        previewId: preview.previewId,
+        itemIds: preview.items.map((item) => item.itemId),
+      })
+      expect(await completed(f.service, run.runId)).toMatchObject({
+        stage: 'completed',
+        imported: count,
+      })
+      const tasks = f.db.getAllTasks()
+      expect(tasks).toHaveLength(count)
+      expect(
+        tasks
+          .flatMap(({ instances }) =>
+            instances.flatMap((instance) => instance.uris)
+          )
+          .sort()
+      ).toEqual([...uris].sort())
+      for (const { task, instances } of tasks) {
+        expect(task.taskType).toBe(TaskType.Magnet)
+        expect(task.aggStatus).toBe(TaskStatus.Paused)
+        expect(task.torrentMetaPath).toBeNull()
+        expect(instances[0].gid).toBeNull()
+      }
+      expect(await readFile(original, 'utf8')).toBe('unrelated existing bytes')
+      const repeated = await f.service.scan(f.source.sourceHandle)
+      expect(
+        repeated.items.every(
+          (item) => !item.selectable && item.reason === 'already-imported'
+        )
+      ).toBe(true)
+    }
+  )
+
+  it('does not let an earlier imported magnet hint block later magnets or real HTTP paths', async () => {
+    const f = await fixture()
+    const first = `magnet:?xt=urn:btih:${'1'.repeat(40)}\n gid=1111111111111111\n`
+    await writeFile(f.sessionPath, first)
+    let preview = await f.service.scan(f.source.sourceHandle)
+    let run = await f.service.commit({
+      previewId: preview.previewId,
+      itemIds: [preview.items[0].itemId],
+    })
+    expect((await completed(f.service, run.runId)).imported).toBe(1)
+    await writeFile(
+      f.sessionPath,
+      first +
+        `magnet:?xt=urn:btih:${'2'.repeat(40)}\n gid=2222222222222222\nhttps://example.test/Magnet\n gid=3333333333333333\n`
+    )
+    const restarted = new LegacyImportService(f.deps)
+    const source = await restarted.addSource(f.sourceRoot)
+    preview = await restarted.scan(source.sourceHandle)
+    expect(preview.items.map((item) => item.selectable)).toEqual([
+      false,
+      true,
+      true,
+    ])
+    run = await restarted.commit({
+      previewId: preview.previewId,
+      itemIds: preview.items
+        .filter((item) => item.selectable)
+        .map((item) => item.itemId),
+    })
+    expect(await completed(restarted, run.runId)).toMatchObject({
+      stage: 'completed',
+      imported: 2,
+    })
+    expect(f.db.getAllTasks()).toHaveLength(3)
+    await restarted.drain()
+    // A real HTTP target continues to reserve its path; another magnet is only a record.
+    await writeFile(
+      f.sessionPath,
+      `https://other.test/Magnet\n gid=4444444444444444\nmagnet:?xt=urn:btih:${'3'.repeat(40)}\n gid=5555555555555555\n`
+    )
+    preview = await f.service.scan(f.source.sourceHandle)
+    expect(preview.items[0]).toMatchObject({
+      selectable: false,
+      reason: 'path-conflict',
+    })
+    expect(preview.items[1]).toMatchObject({
+      selectable: true,
+      reason: 'metadata-required',
+    })
+  })
+
+  it('preserves GID-less magnet deletion identity when v1 rewrites its pause flag', async () => {
+    const f = await fixture()
+    const uri = `magnet:?xt=urn:btih:${'1'.repeat(40)}`
+    await writeFile(f.sessionPath, `${uri}\n pause=true\n`)
+    const preview = await f.service.scan(f.source.sourceHandle)
+    const run = await f.service.commit({
+      previewId: preview.previewId,
+      itemIds: [preview.items[0].itemId],
+    })
+    const report = await completed(f.service, run.runId)
+    f.db.deleteTask(report.items[0].taskId!)
+    await writeFile(
+      f.sessionPath,
+      `${uri}\n pause=false\nmagnet:?xt=urn:btih:${'2'.repeat(40)}\n`
+    )
+    const next = await f.service.scan(f.source.sourceHandle)
+    expect(next.items[0]).toMatchObject({
+      itemId: preview.items[0].itemId,
+      selectable: false,
+      reason: 'deleted-import',
+    })
+    expect(next.items[1]).toMatchObject({
+      selectable: true,
+      reason: 'metadata-required',
     })
   })
 

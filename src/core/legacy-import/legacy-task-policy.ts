@@ -1,7 +1,9 @@
 import { createHash } from 'node:crypto'
 import type { EngineAdapter } from '@core/engine/engine-adapter'
+import type { TaskWithInstances } from '@core/session/motrix-database'
 import { AppError, ErrorCode } from '@shared/errors'
 import { legacyHttpActivationSchema } from '@shared/schemas/legacy-http-activation'
+import { legacyTaskMetadataSchema } from '@shared/schemas/legacy-import'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskInstancePhase, TaskType } from '@shared/types/task'
 
@@ -14,6 +16,31 @@ import {
   hasLegacyImport,
   isLegacyImportInactive as isInactiveLegacyTask,
 } from '@shared/types/task-actions'
+
+/** A magnet's display/output hint cannot establish file ownership before metadata exists. */
+export function isUnresolvedLegacyMagnet({
+  task,
+  instances,
+}: TaskWithInstances): boolean {
+  const instance = instances[0]
+  const payload = instance?.payload ?? {}
+  if (
+    task.taskType !== TaskType.Magnet ||
+    task.torrentMetaPath ||
+    instances.length !== 1 ||
+    instance.gid ||
+    instance.phase !== TaskInstancePhase.BtDownload ||
+    Object.hasOwn(payload, 'legacyBtActivation') ||
+    Object.hasOwn(payload, 'legacyHttpActivation')
+  )
+    return false
+  const marker = legacyTaskMetadataSchema.safeParse(payload.legacyImport)
+  return (
+    marker.success &&
+    marker.data.activation === 'inactive' &&
+    marker.data.storagePolicy === 'legacy-read-only'
+  )
+}
 
 export function assertLegacyTaskNotActivated(
   task: Pick<DownloadTask, 'instances'>
