@@ -246,7 +246,7 @@ describe('<DownloadsDialog>', () => {
     const concurrent = screen
       .getAllByDisplayValue('5')
       .find((el) => el.getAttribute('min') === '1') as HTMLInputElement
-    fireEvent.change(concurrent, { target: { value: '10' } })
+    fireEvent.change(concurrent, { target: { value: '200' } })
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /save/i }))
     expect(transport.invoke).toHaveBeenCalledWith(
@@ -254,7 +254,7 @@ describe('<DownloadsDialog>', () => {
       {
         expectedRevision: TEST_DOWNLOADS_REVISION,
         settings: {
-          engine: { maxConcurrentDownloads: 10 },
+          engine: { maxConcurrentDownloads: 200 },
         },
         directories: {
           addFavorites: [],
@@ -279,7 +279,7 @@ describe('<DownloadsDialog>', () => {
     ['min segment size', '1025', 'Enter a number from 1 to 1024.'],
     ['min segment size', '0.5', 'Enter a number from 1 to 1024.'],
     ['disk cache', '129', 'Enter a number from 0 to 128.'],
-    ['simultaneous downloads', '101', 'Enter a whole number from 1 to 100.'],
+    ['simultaneous downloads', '201', 'Enter a whole number from 1 to 200.'],
     ['connection timeout', '601', 'Enter a whole number from 1 to 600.'],
     ['maximum attempts', '-1', 'Enter a whole number from 0 to 100.'],
   ])(
@@ -328,7 +328,7 @@ describe('<DownloadsDialog>', () => {
     fireEvent.change(input, { target: { value: '1000' } })
     await user.click(screen.getByRole('button', { name: /save/i }))
     expect(
-      await screen.findByText('Enter a whole number from 1 to 100.')
+      await screen.findByText('Enter a whole number from 1 to 200.')
     ).toBeVisible()
 
     const row = input.closest('[data-slot="form-item"]') as HTMLElement

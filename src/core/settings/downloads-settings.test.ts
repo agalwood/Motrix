@@ -76,7 +76,7 @@ describe('Downloads atomic settings save', () => {
         autofillClipboardLinks: false,
         directoryPreferences: { favorites: [folder] },
       })
-      expect(disk.engine.maxConcurrentDownloads).toBe(8)
+      expect(disk.engine.maxConcurrentDownloads).toBe(200)
       expect(disk.speedLimit.base).toEqual({ upload: 777, download: 5000 })
     })
     const result = await createSaveDownloadsSettingsHandler(manager, { apply })(
@@ -84,7 +84,7 @@ describe('Downloads atomic settings save', () => {
         ...request(),
         settings: {
           app: { defaultSaveDir: folder, autofillClipboardLinks: false },
-          engine: { maxConcurrentDownloads: 8 },
+          engine: { maxConcurrentDownloads: 200 },
           speedLimit: { base: { download: 5000 } },
         },
         directories: { ...empty, addFavorites: [folder] },
@@ -93,8 +93,10 @@ describe('Downloads atomic settings save', () => {
     expect(result).toMatchObject({ ok: true, update: { saved: true } })
     expect(change).toHaveBeenCalledOnce()
     expect(apply).toHaveBeenCalledOnce()
+    await manager.update({ app: { autofillClipboardLinks: true } })
     const restored = new SettingsManager(file)
     await restored.load()
+    expect(restored.getEngine().maxConcurrentDownloads).toBe(200)
     expect(restored.getApp().directoryPreferences.favorites).toEqual([folder])
     expect(restored.get().speedLimit.base).toEqual({
       upload: 777,
