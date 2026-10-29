@@ -49,9 +49,9 @@ const ROOT = process.cwd()
 const WORKFLOW_DIRECTORY = path.join(ROOT, '.github/workflows')
 const require = createRequire(import.meta.url)
 const parseYaml = require('js-yaml').load as (source: string) => unknown
-const PNPM_VERSION = '12.15.0'
+const PNPM_VERSION = '12.16.1'
 const PNPM_PACKAGE_MANAGER =
-  'pnpm@12.15.0+sha512.b3951d6d6ff4a9f13dc7cf56cd28d2b8eb37dbcc9c68e52e1e1191873ea9f82a017287ab50baadc5ccc494f036c67c0e47eb13608c2fa36f47711b61ea128e61'
+  'pnpm@12.16.1+sha512.091d1dee7927575661b25dab3c2ae31cafc1c54d6b71ed6a6600cf0c1cb10434a447eae14015f1b23e2e6bedeed79df94a932e2164d2832280dce3fb32f656d1'
 const ELECTRON_BUILDER_CUSTOM_DIR_ENVIRONMENT_VARIABLES = [
   'NPM_CONFIG_ELECTRON_BUILDER_BINARIES_CUSTOM_DIR',
   'npm_config_electron_builder_binaries_custom_dir',
@@ -1486,7 +1486,7 @@ describe('release workflow publication contract', () => {
         asRecord(packageJson.devDependencies, 'dev dependencies'),
         'electron-builder'
       )
-    ).toBe('26.18.0')
+    ).toBe('26.18.1')
   })
 
   it('publishes required Flatpak companions outside updater manifests', () => {
@@ -2305,12 +2305,12 @@ describe('release workflow publication contract', () => {
     }
   })
 
-  it('uses the locked 26.18.0 hook to preserve staged dependency placements', async () => {
+  it('uses the locked 26.18.1 hook to preserve staged dependency placements', async () => {
     const packageMetadata = asRecord(
       require('app-builder-lib/package.json') as unknown,
       'app-builder-lib package metadata'
     )
-    expect(stringField(packageMetadata, 'version')).toBe('26.18.0')
+    expect(stringField(packageMetadata, 'version')).toBe('26.18.1')
     const signingConfig = asRecord(
       JSON.parse(signingConfigSource) as unknown,
       'restricted signing config'
@@ -2581,7 +2581,7 @@ describe('release workflow publication contract', () => {
     }
   })
 
-  it('restores canonical 26.18.0 NSIS URLs after custom directories are unset', async () => {
+  it('restores canonical 26.18.1 NSIS URLs after custom directories are unset', async () => {
     const signingToolPackages = asRecord(
       asRecord(
         JSON.parse(signingToolLockSource) as unknown,
@@ -2593,13 +2593,13 @@ describe('release workflow publication contract', () => {
       signingToolPackages['node_modules/app-builder-lib'],
       'locked app-builder-lib package'
     )
-    expect(stringField(lockedAppBuilder, 'version')).toBe('26.18.0')
+    expect(stringField(lockedAppBuilder, 'version')).toBe('26.18.1')
 
     const packageMetadata = asRecord(
       require('app-builder-lib/package.json') as unknown,
       'app-builder-lib package metadata'
     )
-    expect(stringField(packageMetadata, 'version')).toBe('26.18.0')
+    expect(stringField(packageMetadata, 'version')).toBe('26.18.1')
 
     const electronGetPath = require.resolve(
       'app-builder-lib/out/util/electronGet.js'
@@ -2783,7 +2783,7 @@ describe('release workflow publication contract', () => {
         asRecord(tool.dependencies, 'signing tool dependencies'),
         'electron-builder'
       )
-    ).toBe('26.18.0')
+    ).toBe('26.18.1')
     const lock = asRecord(
       JSON.parse(signingToolLockSource) as unknown,
       'signing tool lock'

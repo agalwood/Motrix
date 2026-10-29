@@ -200,13 +200,13 @@ modules:
         pnpm_root=/run/build/motrix/flatpak-node/pnpm-cli/lib/node_modules/pnpm
         pnpm_native="$pnpm_root/node_modules/@pnpm/exe.linux-${npm_config_target_arch}"
         mkdir -p "$pnpm_native" flatpak-node/pnpm-cli/bin
-        tar -xzf flatpak-node/pnpm/pnpm-12.15.0.tgz \
+        tar -xzf flatpak-node/pnpm/pnpm-12.16.1.tgz \
           --strip-components=1 -C "$pnpm_root"
-        tar -xzf "flatpak-node/pnpm-tarballs/@pnpm__exe.linux-${npm_config_target_arch}-12.15.0.tgz" \
+        tar -xzf "flatpak-node/pnpm-tarballs/@pnpm__exe.linux-${npm_config_target_arch}-12.16.1.tgz" \
           --strip-components=1 -C "$pnpm_native"
         node "$pnpm_root/install.js"
         ln -s ../lib/node_modules/pnpm/pnpm flatpak-node/pnpm-cli/bin/pnpm
-        test "$(pnpm --version)" = '12.15.0'
+        test "$(pnpm --version)" = '12.16.1'
       # pnpm's supply-chain cooldown check fetches per-package publish times
       # from the registry even under --offline, and the sandbox has no
       # network. pnpm treats the setting as workspace-file-only (a
@@ -350,8 +350,8 @@ modules:
 
       # The Node generator prepares a pnpm store but not the pnpm CLI.
       - type: file
-        url: https://registry.npmjs.org/pnpm/-/pnpm-12.15.0.tgz
-        sha256: f5173f6127cc505cdb36ec17719fe54a8511c6fd8560c7ceb4bf7c73e3b4458b
+        url: https://registry.npmjs.org/pnpm/-/pnpm-12.16.1.tgz
+        sha256: ca362a16f2e1c3cfa81d406f3242446179a0e4aea457ba3e9e6c39e6476aba65
         dest: flatpak-node/pnpm
 
       # Signed builtin plugins. fetch-builtins.mjs rechecks every locked
