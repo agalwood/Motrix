@@ -68,6 +68,15 @@
   </screenshots>
 
   <releases>
+    <release version="2.1.1" date="2026-10-29">
+      <description>
+        <p>
+          Raises the simultaneous-download limit to 200 while keeping the
+          default at 10, and fixes false path conflicts caused by unresolved
+          magnet tasks during legacy migration.
+        </p>
+      </description>
+    </release>
     <release version="2.1.0" date="2026-10-28">
       <description>
         <p>
