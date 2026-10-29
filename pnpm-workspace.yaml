@@ -35,7 +35,7 @@ minimumReleaseAgeExclude:
   - '@noble/curves@2.4.0'
   - '@noble/hashes@2.4.0'
   - i18next@26.3.6 || 26.5.6 || 26.5.10
-  - lucide-react@1.24.0 || 1.31.0 || 1.49.0 || 1.54.0 || 1.62.0
+  - lucide-react@1.24.0 || 1.31.0 || 1.49.0 || 1.54.0 || 1.62.0 || 1.64.0
   - react-i18next@17.0.9 || 17.0.15 || 17.1.3 || 17.1.8
   - '@motrix/mdxp@0.1.0 || 0.3.0 || 0.4.0 || 0.5.0 || 0.6.0 || 0.7.0 || 0.8.0 || 0.8.1'
   - '@motrix/nat@0.1.0 || 0.1.1 || 0.1.3 || 0.1.4'
@@ -81,15 +81,15 @@ minimumReleaseAgeExclude:
   - '@esbuild/win32-x64@0.28.2'
   - esbuild@0.28.2
   - '@testing-library/jest-dom@7.0.1'
-  - '@biomejs/biome@2.5.8 || 2.5.9 || 2.6.3'
-  - '@biomejs/cli-darwin-arm64@2.5.8 || 2.5.9 || 2.6.3'
-  - '@biomejs/cli-darwin-x64@2.5.8 || 2.5.9 || 2.6.3'
-  - '@biomejs/cli-linux-arm64-musl@2.5.8 || 2.5.9 || 2.6.3'
-  - '@biomejs/cli-linux-arm64@2.5.8 || 2.5.9 || 2.6.3'
-  - '@biomejs/cli-linux-x64-musl@2.5.8 || 2.5.9 || 2.6.3'
-  - '@biomejs/cli-linux-x64@2.5.8 || 2.5.9 || 2.6.3'
-  - '@biomejs/cli-win32-arm64@2.5.8 || 2.5.9 || 2.6.3'
-  - '@biomejs/cli-win32-x64@2.5.8 || 2.5.9 || 2.6.3'
+  - '@biomejs/biome@2.5.8 || 2.5.9 || 2.6.3 || 2.6.4'
+  - '@biomejs/cli-darwin-arm64@2.5.8 || 2.5.9 || 2.6.3 || 2.6.4'
+  - '@biomejs/cli-darwin-x64@2.5.8 || 2.5.9 || 2.6.3 || 2.6.4'
+  - '@biomejs/cli-linux-arm64-musl@2.5.8 || 2.5.9 || 2.6.3 || 2.6.4'
+  - '@biomejs/cli-linux-arm64@2.5.8 || 2.5.9 || 2.6.3 || 2.6.4'
+  - '@biomejs/cli-linux-x64-musl@2.5.8 || 2.5.9 || 2.6.3 || 2.6.4'
+  - '@biomejs/cli-linux-x64@2.5.8 || 2.5.9 || 2.6.3 || 2.6.4'
+  - '@biomejs/cli-win32-arm64@2.5.8 || 2.5.9 || 2.6.3 || 2.6.4'
+  - '@biomejs/cli-win32-x64@2.5.8 || 2.5.9 || 2.6.3 || 2.6.4'
   - electron@43.4.0 || 44.1.1 || 44.5.0 || 45.1.0
   - shadcn@4.17.0 || 4.18.0 || 4.20.0 || 4.20.1 || 4.23.0
   - zustand@5.0.15 || 5.0.16
@@ -107,8 +107,20 @@ minimumReleaseAgeExclude:
   - vite@8.3.4
   - '@tanstack/react-virtual@3.14.22'
   - '@tanstack/virtual-core@3.19.7'
-  - '@biomejs/cli-android-arm64@2.6.3'
-  - '@biomejs/cli-android-x64@2.6.3'
+  - '@biomejs/cli-android-arm64@2.6.3 || 2.6.4'
+  - '@biomejs/cli-android-x64@2.6.3 || 2.6.4'
   - '@fastify/static@10.1.8'
   - '@shadcn/registry@0.2.1'
   - react-router@8.5.1
+  - '@hookform/resolvers@6.0.2'
+  - '@tanstack/react-virtual@3.14.24'
+  - '@tanstack/virtual-core@3.19.9'
+  - elkjs@0.12.1
+  - electron-builder@26.18.1
+  - electron-updater@6.8.12
+  - app-builder-lib@26.18.1
+  - builder-util@26.18.1
+  - builder-util-runtime@9.7.1
+  - dmg-builder@26.18.1
+  - electron-publish@26.18.1
+  - electron-builder-squirrel-windows@26.18.1

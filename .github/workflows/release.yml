@@ -188,7 +188,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
-          version: 12.15.0
+          version: 12.16.1
           run_install: false
 
       - name: Setup Node.js
@@ -936,7 +936,7 @@ jobs:
           EXPECTED_COMMIT: ${{ github.sha }}
           EXPECTED_PLATFORM: ${{ matrix.platform }}
           # Updated only after reviewing the verifier source itself.
-          VERIFIER_SHA256: 1c600184354601cc550038d813faed4d84dd82fce17f7c0257a5e0e4359fa4f3
+          VERIFIER_SHA256: 510102e0ec6cb02c387e161333925d62b316fe3ff750baaef87b824e83ebba64
         run: |
           const crypto = require('node:crypto')
           const fs = require('node:fs')
@@ -1030,7 +1030,7 @@ jobs:
               'utf8'
             )
           )
-          if (pkg.version !== '26.18.0') {
+          if (pkg.version !== '26.18.1') {
             throw new Error('unexpected electron-builder version')
           }
           const cli = path.join(
@@ -1610,7 +1610,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
-          version: 12.15.0
+          version: 12.16.1
           run_install: false
 
       - name: Setup Node.js

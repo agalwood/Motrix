@@ -19,13 +19,13 @@ The same core powers two ways to run Motrix:
 - **Desktop app:** Runs on macOS, Windows, and Linux
 - **Headless server:** Runs without a desktop environment, either directly on Node.js or in Docker, and includes a web UI for NAS devices and home servers
 
-## Motrix 2.1.0
+## Motrix 2.1.1
 
-Motrix 2.1.0 adds BitTorrent file relocation and verification, Windows portable
-profiles, editable HTTP retry parameters, and native Linux window controls.
-It also improves large-torrent handling and updates Electron to 45.1.0.
-Download [v2.1.0 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.1.0)
-and read the [full release notes](./docs/release-notes/2.1.0.md).
+Motrix 2.1.1 raises the simultaneous-download limit to 200 and fixes false
+path conflicts caused by unresolved magnet tasks during legacy migration.
+The default remains 10 concurrent downloads.
+Download [v2.1.1 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.1.1)
+and read the [full release notes](./docs/release-notes/2.1.1.md).
 
 Back up your existing Motrix profile and downloads before upgrading. The desktop
 Migration Assistant imports selected v1 tasks as paused records and preserves
@@ -185,7 +185,7 @@ included `compose.yaml` keeps Server state separate from downloaded resources:
 ```bash
 mkdir -p motrix-data downloads
 sudo chown 1000:1000 motrix-data downloads
-export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.1.0'
+export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.1.1'
 export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
 docker compose pull server
 docker compose up -d --wait
