@@ -34,7 +34,7 @@ const persistedEngineSettingsSchema = z.object({
 
   // Performance (HOT, except diskCache)
   performanceProfile: z.enum(ENGINE_PERFORMANCE_PROFILE_IDS).catch('auto'),
-  maxConcurrentDownloads: z.number().int().min(1).max(100).catch(10),
+  maxConcurrentDownloads: z.number().int().min(1).max(200).catch(10),
   maxConnectionPerServer: z
     .number()
     .int()
