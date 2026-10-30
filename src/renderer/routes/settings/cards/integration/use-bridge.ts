@@ -30,27 +30,19 @@ import { resolvePairWithFeedback } from './pair-resolve'
 export function usePairedExtensions() {
   const [items, setItems] = useState<PairedClientInfo[]>([])
 
-  const refresh = useCallback(async () => {
-    const list = await transport.invoke(
-      BridgeQueries.ListPaired as unknown as QueryChannel
-    )
-    setItems(list as PairedClientInfo[])
-  }, [])
-
-  useEffect(() => {
-    void refresh()
-    const onChange = () => {
-      void refresh()
-    }
-    const paired = BridgeEvents.Paired as unknown as EventChannel
-    const revoked = BridgeEvents.Revoked as unknown as EventChannel
-    transport.on(paired, onChange)
-    transport.on(revoked, onChange)
-    return () => {
-      transport.off(paired, onChange)
-      transport.off(revoked, onChange)
-    }
-  }, [refresh])
+  const { refresh } = useTransportMirror({
+    events: [
+      BridgeEvents.Paired,
+      BridgeEvents.Revoked,
+      BridgeEvents.ExtensionSessionsChanged,
+    ] as unknown as EventChannel[],
+    load: async (stale, read) => {
+      const list = await read(
+        BridgeQueries.ListPaired as unknown as QueryChannel
+      )
+      if (!stale()) setItems(list as PairedClientInfo[])
+    },
+  })
 
   const revoke = useCallback(
     async (identity: ClientIdentity) => {

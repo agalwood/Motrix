@@ -790,6 +790,11 @@ Atomicity rules:
 - Credential principal: `{browser, verifiedOrigin, clientInstallationId}`. A
   second browser profile is a **new principal** and pairs as a new
   credential; issuing or rotating one credential MUST NOT affect another.
+  Live connections MUST also be indexed by this full authenticated principal.
+  A reconnect replaces and closes only that installation's previous connection;
+  other installations remain usable. Task notification routing and submission
+  idempotency MUST retain the installation boundary. Extension-wide revocation
+  still applies to every principal for the selected verified Origin.
 - Expired or revoked credentials always require a fresh code-entry pairing —
   never silent re-trust.
 

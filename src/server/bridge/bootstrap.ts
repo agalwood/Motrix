@@ -279,6 +279,8 @@ export async function bootstrapBridgeForServer(
       localToken,
       deviceCode,
       onPairRequested: (payload) => bridgeBus.emitPairRequested(payload),
+      onExtensionSessionsChanged: () =>
+        opts.eventBus.emit(BridgeEvents.ExtensionSessionsChanged, {}),
       verificationUri: opts.verificationUri,
       ...(extensionMbp1 === null
         ? {}
@@ -371,8 +373,10 @@ export async function bootstrapBridgeForServer(
     }
     const bridgeQueryHandlers: Record<string, Handler> = {
       [BridgeQueries.ListPaired]: async () => [
-        ...(extensionMbp1?.extensionPairings.list().map(toPairedClientInfo) ??
-          []),
+        ...(extensionMbp1?.extensionPairings.list().map((entry) => ({
+          ...toPairedClientInfo(entry),
+          installations: server.getExtensionInstallations(entry.identity),
+        })) ?? []),
         ...pairing.listPaired().map(toPairedClientInfo),
       ],
       [BridgeQueries.ListPendingPairRequests]: async () => [

@@ -1104,6 +1104,7 @@ describe('desktop bridge bootstrap ownership', () => {
       // Inject a live session the way `adoptAuthenticatedSession` would,
       // so the revoke-kick has something to find and close.
       const conn = {
+        sessionKey: 'chromium:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
         sendNotification: vi.fn(),
         revokeAuthorization: vi.fn(),
         dispose: vi.fn(),
@@ -1178,6 +1179,7 @@ describe('desktop bridge bootstrap ownership', () => {
       runtime.bus.on('Paired', paired)
       runtime.bus.on('Error', errors)
       const conn = {
+        sessionKey: 'chromium:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
         revokeAuthorization: vi.fn(),
         dispose: vi.fn(),
       }
@@ -1271,6 +1273,7 @@ describe('desktop bridge bootstrap ownership', () => {
 
       await commitAndProjectExtension(runtime)
       const conn = {
+        sessionKey: 'chromium:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
         revokeAuthorization: vi.fn(),
         dispose: vi.fn(),
       }

@@ -108,7 +108,13 @@ export function BrowserExtensionsSection() {
         <div className="text-xs font-medium text-foreground">
           {t('settings.integration.browser.pairedTitle')}{' '}
           <span className="text-muted-foreground">
-            ({pairedExtensions.length})
+            (
+            {pairedExtensions.reduce(
+              (count, item) =>
+                count + Math.max(item.installations?.length ?? 1, 1),
+              0
+            )}
+            )
           </span>
         </div>
         {pairedExtensions.length === 0 ? (
@@ -119,37 +125,64 @@ export function BrowserExtensionsSection() {
           pairedExtensions.map((it) => (
             <div
               key={`${it.browser}:${it.id}`}
-              className="flex items-center justify-between rounded border border-border px-3 py-2 text-xs"
+              className="rounded border border-border px-3 py-2 text-xs"
             >
-              <div className="flex flex-col gap-0.5">
-                <span className="font-mono">{it.name || it.id}</span>
-                <span className="text-muted-foreground">
-                  {browserDisplayName(it.browser)}
-                  {` · ${t(IDENTITY_LABEL_KEYS[it.identityTrust])}`}
-                  {it.lastActiveAt
-                    ? ` · ${t('settings.integration.browser.lastActive')}: ${new Date(it.lastActiveAt).toLocaleString()}`
-                    : ''}
-                </span>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-col gap-0.5">
+                  <span className="font-mono">{it.name || it.id}</span>
+                  <span className="text-muted-foreground">
+                    {browserDisplayName(it.browser)}
+                    {` · ${t(IDENTITY_LABEL_KEYS[it.identityTrust])}`}
+                    {it.lastActiveAt
+                      ? ` · ${t('settings.integration.browser.lastActive')}: ${new Date(it.lastActiveAt).toLocaleString()}`
+                      : ''}
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="outline"
+                  onClick={() =>
+                    void revoke({
+                      kind: 'extension',
+                      browser: it.browser,
+                      extensionId: it.id,
+                    })
+                  }
+                  disabled={it.status === 'cleanup-pending'}
+                >
+                  {t(
+                    it.status === 'cleanup-pending'
+                      ? 'settings.integration.browser.disconnecting'
+                      : (it.installations?.length ?? 0) > 1
+                        ? 'settings.integration.browser.revokeAll'
+                        : 'settings.integration.browser.revoke'
+                  )}
+                </Button>
               </div>
-              <Button
-                type="button"
-                size="xs"
-                variant="outline"
-                onClick={() =>
-                  void revoke({
-                    kind: 'extension',
-                    browser: it.browser,
-                    extensionId: it.id,
-                  })
-                }
-                disabled={it.status === 'cleanup-pending'}
-              >
-                {t(
-                  it.status === 'cleanup-pending'
-                    ? 'settings.integration.browser.disconnecting'
-                    : 'settings.integration.browser.revoke'
-                )}
-              </Button>
+              {it.installations && it.installations.length > 0 && (
+                <ul className="mt-2 space-y-1 border-t border-border pt-2">
+                  {it.installations.map((installation, index) => (
+                    <li
+                      key={installation.id}
+                      className="flex items-center justify-between gap-3"
+                    >
+                      <span>
+                        {t('settings.integration.browser.profile', {
+                          number: index + 1,
+                        })}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {t(
+                          installation.connected
+                            ? 'settings.integration.browser.connected'
+                            : 'settings.integration.browser.disconnected'
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           ))
         )}

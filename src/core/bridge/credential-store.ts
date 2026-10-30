@@ -853,7 +853,7 @@ function freezeCredential(credential: StoredCredential): StoredCredential {
   })
 }
 
-function transportIdentityForPrincipal(principal: CredentialPrincipal): {
+export function transportIdentityForPrincipal(principal: CredentialPrincipal): {
   browser: Browser
   extensionId: string
 } | null {

@@ -718,6 +718,8 @@ export async function bootstrapBridge(args: {
       queueMbp1Dialog: (req) => dialog.queueMbp1Prompt(req),
       canAdmitExtensionIdentity: (identity) =>
         extensionPairings.canAdmitIdentity(identity),
+      onExtensionSessionsChanged: () =>
+        forwardToRenderer(BridgeEvents.ExtensionSessionsChanged, {}),
       // The only remaining signal that an extension became usable now that
       // `motrix/initialize` mints nothing (R18-10): refresh the extension
       // management projection from the authoritative MBP1 credential set, then
@@ -925,7 +927,10 @@ export async function bootstrapBridge(args: {
     }
 
     installIpcHandler(BridgeQueries.ListPaired, () => [
-      ...extensionPairings.list().map(toPairedClientInfo),
+      ...extensionPairings.list().map((entry) => ({
+        ...toPairedClientInfo(entry),
+        installations: server.getExtensionInstallations(entry.identity),
+      })),
       ...pairing
         .listPaired()
         .filter((entry) => entry.identity.kind === 'cli')

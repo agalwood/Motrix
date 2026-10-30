@@ -263,7 +263,7 @@ export interface BridgeSourceMeta {
   kind: 'direct' | 'hls' | 'dash' | 'mux' | 'magnet'
   extensionId: string
   browser: Browser
-  sessionKey: string // `${browser}:${extensionId}`
+  sessionKey: string // Authenticated installation routing key; older tasks use an extension-wide key.
   pageUrl: string
   pageTitle: string
   qualityLabel: string

@@ -24,6 +24,7 @@ import {
   type ClientIdentity,
   clientKey,
   EXTENSION_ORIGIN_SCHEMES,
+  type ExtensionInstallationInfo,
   isBridgeBrowser,
   isSafariExtensionOrigin,
   makeSessionKey,
@@ -31,7 +32,11 @@ import {
 } from '@shared/protocol/bridge'
 import { type RawData, type WebSocket, WebSocketServer } from 'ws'
 import { BridgeConnection } from './bridge-connection'
-import type { Mbp1CredentialStore } from './credential-store'
+import {
+  type Mbp1CredentialStore,
+  principalKey,
+  transportIdentityForPrincipal,
+} from './credential-store'
 import type { DeviceCodeService } from './device-code-service'
 import { createInitializeHandler } from './handlers/initialize-handler'
 import {
@@ -174,6 +179,8 @@ export interface BridgeServerOptions {
     /** The exact credential that authenticated this transport. */
     credentialId: string
   ) => void
+  /** Invalidate installation connection status after readiness or disconnect. */
+  onExtensionSessionsChanged?: () => void
 }
 
 export interface ExtensionMbp1RouteRequest {
@@ -1029,6 +1036,7 @@ export class WebSocketBridgeServer {
       session.conn.dispose()
     }
     this.sessions.clear()
+    this.notifyExtensionSessionsChanged()
     // End open SSE streams first — otherwise http.close() hangs waiting for the
     // keep-alive connections to drain.
     for (const [res, { heartbeat }] of this.sseClients) {
@@ -1240,9 +1248,48 @@ export class WebSocketBridgeServer {
     }
   }
 
-  /** Find an active session by `${browser}:${extensionId}` key. */
+  /** Exact installation routing key; legacy extension-wide keys never select a peer. */
   getSession(sessionKey: string): BridgeSession | undefined {
     return this.sessions.get(sessionKey)
+  }
+
+  /** Public installation summaries contain no credential IDs or key material. */
+  getExtensionInstallations(
+    identity: ClientIdentity & { kind: 'extension' }
+  ): ExtensionInstallationInfo[] {
+    return (this.mbp1?.credentials.listCommitted() ?? [])
+      .filter((credential) => {
+        const transport = transportIdentityForPrincipal(credential.principal)
+        return (
+          transport?.browser === identity.browser &&
+          transport.extensionId === identity.extensionId
+        )
+      })
+      .map((credential) => {
+        const id = principalKey(credential.principal)
+        const conn = this.sessions.get(id)?.conn
+        return {
+          id,
+          pairedAt: credential.createdAt,
+          connected: conn?.isAuthorized() === true && conn.isReady(),
+        }
+      })
+      .sort((a, b) => a.id.localeCompare(b.id))
+  }
+
+  private notifyExtensionSessionsChanged(): void {
+    try {
+      this.opts.onExtensionSessionsChanged?.()
+    } catch {
+      // Presentation invalidation must never interrupt transport teardown.
+    }
+  }
+
+  private sessionsForExtension(extensionKey: string): BridgeSession[] {
+    return [...this.sessions.values()].filter(
+      (session) =>
+        makeSessionKey(session.browser, session.extensionId) === extensionKey
+    )
   }
 
   /**
@@ -1268,8 +1315,11 @@ export class WebSocketBridgeServer {
 
     // Repeat the cutoff even for a resumed attempt: a test double or future
     // transport must not be able to attach work between retry calls.
-    this.sessions.get(sessionKey)?.conn.revokeAuthorization()
+    for (const session of this.sessionsForExtension(sessionKey)) {
+      session.conn.revokeAuthorization()
+    }
     this.cancelPreAuthForSessionKey(sessionKey)
+    this.notifyExtensionSessionsChanged()
     if (existing !== undefined) return existing
 
     const lease = { identity: normalized } as ExtensionRevocationLease
@@ -1452,41 +1502,40 @@ export class WebSocketBridgeServer {
     reason: string
   ): Promise<void> {
     const sessionKey = makeSessionKey(identity.browser, identity.extensionId)
-    const notified = this.sessions.get(sessionKey)
-    if (!notified) return
+    const notified = this.sessionsForExtension(sessionKey)
+    if (notified.length === 0) return
 
-    notified.conn.revokeAuthorization()
-
-    try {
-      notified.conn.sendNotification(Notifications.PairRevoked, { reason })
-    } catch {
-      // A broken writer is already equivalent to a disconnected peer; the
-      // authorization cutoff below must still run.
+    for (const session of notified) {
+      session.conn.revokeAuthorization()
+      try {
+        session.conn.sendNotification(Notifications.PairRevoked, { reason })
+      } catch {
+        // A broken writer must not prevent revoking its sibling installations.
+      }
     }
     await new Promise((resolve) =>
       setTimeout(resolve, REVOKE_NOTIFICATION_GRACE_MS)
     )
 
-    // Authentication can replace a map entry while the final notification is
-    // draining. Close both the notified record and whichever matching record
-    // is current so revocation cannot lose that race.
-    const current = this.sessions.get(sessionKey)
-    const targets =
-      current && current !== notified ? [notified, current] : [notified]
+    // Include any current records as well as the notification recipients.
+    const targets = new Set([
+      ...notified,
+      ...this.sessionsForExtension(sessionKey),
+    ])
     for (const target of targets) {
-      if (this.sessions.get(sessionKey) === target) {
-        this.sessions.delete(sessionKey)
+      if (this.sessions.get(target.conn.sessionKey) === target) {
+        this.sessions.delete(target.conn.sessionKey)
       }
       this.closeSessionTransport(target)
     }
   }
 
-  private closeExtensionSessionNow(sessionKey: string): void {
-    const session = this.sessions.get(sessionKey)
-    if (!session) return
-    session.conn.revokeAuthorization()
-    this.sessions.delete(sessionKey)
-    this.closeSessionTransport(session)
+  private closeExtensionSessionNow(extensionKey: string): void {
+    for (const session of this.sessionsForExtension(extensionKey)) {
+      session.conn.revokeAuthorization()
+      this.sessions.delete(session.conn.sessionKey)
+      this.closeSessionTransport(session)
+    }
   }
 
   private closeSessionTransport(session: BridgeSession): void {
@@ -2083,9 +2132,21 @@ export class WebSocketBridgeServer {
     channel: EnvelopeChannel,
     credentialId: string
   ): void {
-    // Byte-identical to `clientKey(identity)`, which the SSE revoke matcher
-    // and `getSession` both rely on.
-    const sessionKey = makeSessionKey(identity.browser, identity.extensionId)
+    // Only the authenticated, committed credential can supply the installation
+    // identity. A client-provided initialize field must never select a session.
+    const credential = this.mbp1?.credentials.findForAuth(credentialId)
+    const transport =
+      credential && transportIdentityForPrincipal(credential.principal)
+    if (
+      credential?.state !== 'committed' ||
+      transport?.browser !== identity.browser ||
+      transport.extensionId !== identity.extensionId
+    ) {
+      ws.close()
+      return
+    }
+    const sessionKey = principalKey(credential.principal)
+    const extensionKey = makeSessionKey(identity.browser, identity.extensionId)
     const startedAt = Date.now()
     // The handed-over endpoints, never fresh ones: their sequence counters
     // continue from the handshake (`/pair` has already sealed
@@ -2108,7 +2169,7 @@ export class WebSocketBridgeServer {
     // MBP1 authenticated the transport below MDXP, so the session is
     // authorized on arrival. No handler grants this any more.
     conn.markAuthorized()
-    if (this.revokingExtensionKeys.has(sessionKey)) {
+    if (this.revokingExtensionKeys.has(extensionKey)) {
       conn.revokeAuthorization()
       this.closeSessionTransport({
         conn,
@@ -2134,14 +2195,19 @@ export class WebSocketBridgeServer {
     // just by opening a socket (§4).
     const existing = this.sessions.get(sessionKey)
     this.sessions.set(sessionKey, session)
-    existing?.conn.dispose()
+    if (existing) {
+      existing.conn.revokeAuthorization()
+      this.closeSessionTransport(existing)
+    }
 
     ws.on('close', () => {
       // Only ever remove OUR OWN entry: the replaced socket's imminent close
       // must not delete the replacement that just took its key.
       if (this.sessions.get(sessionKey) === session) {
         this.sessions.delete(sessionKey)
+        this.notifyExtensionSessionsChanged()
       }
+      conn.revokeAuthorization()
       conn.dispose()
     })
 
@@ -2264,7 +2330,9 @@ export class WebSocketBridgeServer {
       recvAt: Date.now(),
     }))
     conn.onNotification('motrix/initialized', () => {
+      if (!conn.isAuthorized()) return
       conn.markReady()
+      this.notifyExtensionSessionsChanged()
     })
   }
 

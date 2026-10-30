@@ -40,6 +40,12 @@ Import `ErrorCodes` and `makeMdxpError` from the package.
   `motrix/initialized` notification. Providers passed to
   `UrlResolutionService` must filter to ready connections before sending
   server-initiated `url/probe` or `url/resolve` requests.
+- Live session and task-notification routing uses the authenticated credential's
+  full `{browser, verifiedOrigin, clientInstallationId}` principal. Keep the
+  extension-wide trust/revocation key separate. Only the same installation's
+  reconnect replaces and closes its predecessor; an Origin-wide revoke must
+  cut authorization and close every installation. Legacy task keys without an
+  installation must not select an arbitrary peer or fan out to all profiles.
 - The connection close handler removes its own current session and disposes the
   connection. Do not mutate the server's session map from feature code.
 

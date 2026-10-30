@@ -2394,6 +2394,10 @@
         },
         "pairUnavailable": "Dit koppelingsverzoek is niet meer in behandeling — probeer opnieuw te koppelen vanuit de browserextensie.",
         "pairedEmpty": "Nog geen extensies verbonden.",
+        "profile": "Browserprofiel {{number}}",
+        "connected": "Verbonden",
+        "disconnected": "Niet verbonden",
+        "revokeAll": "Alles ontkoppelen",
         "pairedTitle": "Verbonden extensies",
         "pairingStateDegraded": {
           "description": "Motrix kon de gegevens van gekoppelde extensies niet veilig bijwerken. Bestaande extensiesessies zijn gesloten en nieuwe toegang is voor deze uitvoering geblokkeerd. Herstart Motrix om het herstel opnieuw te proberen; vertrouw niet op de onderstaande lijst totdat dit bericht verdwenen is.",
