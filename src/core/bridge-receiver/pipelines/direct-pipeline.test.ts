@@ -39,7 +39,7 @@ function buildAdapted(): AdaptedDirect {
 }
 
 describe('DirectPipeline.dispatch', () => {
-  it.each(['syntax', 'unsupportedEngine'] as const)(
+  it.each(['noUsableCookies', 'count'] as const)(
     'reports pre-dispatch %s as a definite rejection',
     async (reason) => {
       const diagnostic = { index: 1, field: 'name', reason }
@@ -48,11 +48,12 @@ describe('DirectPipeline.dispatch', () => {
         .mockRejectedValue(new TaskCookieAdmissionError(diagnostic))
       const pipeline = new DirectPipeline({ createTask, removeTask: vi.fn() })
       await expect(pipeline.dispatch(buildAdapted())).rejects.toMatchObject({
-        code:
-          reason === 'syntax'
-            ? ErrorCodes.InvalidParams
-            : ErrorCodes.CapabilityNotSupported,
-        data: { context: { cookie: diagnostic } },
+        code: ErrorCodes.InvalidParams,
+        data: {
+          appCode: 'download-cookies-rejected',
+          retryable: false,
+          context: { diagnostic },
+        },
       })
       expect(createTask).toHaveBeenCalledOnce()
     }
@@ -63,7 +64,7 @@ describe('DirectPipeline.dispatch', () => {
     new TaskCookieError({
       index: 0,
       field: 'name',
-      reason: 'unsupportedEngine',
+      reason: 'syntax',
     }),
   ])('keeps post-admission failures uncertain', async (error) => {
     const pipeline = new DirectPipeline({

@@ -21,6 +21,7 @@ import type { TaskPiecesResult } from '@shared/types/pieces'
 import type { GlobalStats } from '@shared/types/stats'
 import type { DownloadTask, TaskFile } from '@shared/types/task'
 import type { FileAllocation } from '@shared/types/tuning'
+import type { TaskCookieDiagnostic } from './task-cookie-error'
 
 export interface OutputFilePath {
   /** Engine-neutral, zero-based file index. */
@@ -105,6 +106,11 @@ export interface DownloadCookie {
   httpOnly?: boolean
   /** Unix milliseconds; omitted for a session cookie. */
   expiresAt?: number
+}
+
+export interface PreparedDownloadCookies {
+  cookies: DownloadCookie[]
+  discarded: TaskCookieDiagnostic[]
 }
 
 export interface CreateDownloadParams {
@@ -217,8 +223,10 @@ export interface EngineAdapter {
   getDirectResourceMetadataProfile?(): DirectResourceMetadataProfile | null
 
   createDownload(params: CreateDownloadParams): Promise<string>
-  /** Synchronous, side-effect-free validation against the current engine contract. */
-  validateDownloadCookies?(cookies: readonly DownloadCookie[]): void
+  /** Side-effect-free credential adaptation. Diagnostics must never contain credentials. */
+  prepareDownloadCookies?(
+    cookies: readonly DownloadCookie[]
+  ): PreparedDownloadCookies
   pauseTask(engineTaskId: string): Promise<void>
   resumeTask(engineTaskId: string): Promise<void>
   removeTask(engineTaskId: string): Promise<void>

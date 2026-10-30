@@ -169,12 +169,21 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
       }
     }, 20_000)
 
-    it('negotiates browser cookie names and preserves the actual request header', async () => {
-      const cookies = [
+    it('cleans incompatible cookies for the released engine and rejects unsafe jars before dispatch', async () => {
+      const invalidCookies = [
         { name: '', value: 'bare', domain: '127.0.0.1' },
         { name: '中文', value: 'account-A', domain: '127.0.0.1' },
         { name: 'a b', value: 'account-B', domain: '127.0.0.1' },
       ]
+      const validCookies = [
+        { name: 'sid', value: 'account-A', domain: '127.0.0.1' },
+        ...Array.from({ length: 49 }, (_, i) => ({
+          name: `tracking${i}`,
+          value: `value${i}`,
+          domain: '127.0.0.1',
+        })),
+      ]
+      const cookies = [...validCookies, ...invalidCookies]
       const tasks = new TaskManager()
       type Deps = Parameters<typeof handleCreateTask>[1]
       const deps = {
@@ -231,17 +240,6 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
         { extensionId: 'fixture', browser: 'chromium' }
       )
       if (adapted.kind !== 'direct') throw new Error('expected direct')
-      if (
-        !wired.adapter.getFeatureReport().features.includes('Browser-Cookies')
-      ) {
-        await expect(pipeline.dispatch(adapted)).rejects.toMatchObject({
-          code: ErrorCodes.CapabilityNotSupported,
-          data: { context: { cookie: { reason: 'unsupportedEngine' } } },
-        })
-        expect(received.has('/browser-names')).toBe(false)
-        expect(tasks.getAll()).toHaveLength(0)
-        return
-      }
       const { taskId } = await pipeline.dispatch(adapted)
       const gid = tasks.getById(taskId)!.engineTaskId!
       await vi.waitFor(
@@ -253,12 +251,44 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
         received.get('/browser-names') ?? '',
         'latin1'
       ).toString('utf8')
-      expect(
-        header
-          .split(';')
-          .map((s) => s.trim())
-          .filter(Boolean)
-      ).toEqual(['bare', '中文=account-A', 'a b=account-B'])
+      const sentCookies = header
+        .split(';')
+        .map((s) => s.trim())
+        .filter(Boolean)
+      expect(sentCookies).toHaveLength(50)
+      expect(sentCookies).toEqual(
+        expect.arrayContaining(
+          validCookies.map((cookie) => `${cookie.name}=${cookie.value}`)
+        )
+      )
+      expect(await readFile(tasks.getById(taskId)!.diskPath, 'utf8')).toBe(
+        'REAL_FILE'
+      )
+      for (const [label, invalid] of [
+        ['unusable', invalidCookies],
+        [
+          'capacity',
+          Array.from({ length: 51 }, (_, i) => ({
+            name: `c${i}`,
+            value: 'secret',
+            domain: '127.0.0.1',
+          })),
+        ],
+      ] as const) {
+        await expect(
+          pipeline.dispatch({
+            ...adapted,
+            primaryUrl: `${base}/${label}`,
+            finalName: `${label}.bin`,
+            cookies: [...invalid],
+          })
+        ).rejects.toMatchObject({
+          code: ErrorCodes.InvalidParams,
+          data: { appCode: 'download-cookies-rejected', retryable: false },
+        })
+        expect(received.has(`/${label}`)).toBe(false)
+        expect(tasks.getAll()).toHaveLength(1)
+      }
     })
 
     it('restores a task cookie from the engine database after restart', async () => {

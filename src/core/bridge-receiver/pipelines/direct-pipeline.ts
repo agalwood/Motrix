@@ -65,13 +65,11 @@ export class DirectPipeline {
       .catch((error: unknown) => {
         // Only admission before side effects proves that browser fallback is safe.
         if (error instanceof TaskCookieAdmissionError) {
-          throw makeMdxpError(
-            error.diagnostic.reason === 'unsupportedEngine'
-              ? ErrorCodes.CapabilityNotSupported
-              : ErrorCodes.InvalidParams,
-            error.message,
-            { context: { cookie: error.diagnostic } }
-          )
+          throw makeMdxpError(ErrorCodes.InvalidParams, error.message, {
+            appCode: 'download-cookies-rejected',
+            retryable: false,
+            context: { diagnostic: error.diagnostic },
+          })
         }
         throw error
       })

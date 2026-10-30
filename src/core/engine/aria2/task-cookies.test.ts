@@ -8,27 +8,26 @@ const cookie = {
   domain: '.example.com',
   path: '/',
 }
+const now = 1_800_000_000_000
 
-describe('aria2 cookie admission', () => {
-  it.each(['', '中文', 'a b', 'a:b'])(
-    'preserves browser name %j with capability negotiation',
-    (name) => {
-      const input = {
-        ...cookie,
-        name,
-        sameSite: 'lax',
-        hostOnly: false,
-        expiresAt: 2102444800000,
-      }
-      expect(prepareAria2TaskCookies([input], true)).toEqual([
-        { ...cookie, name, hostOnly: false, expiresAt: 2102444800000 },
-      ])
-      expect(() => prepareAria2TaskCookies([input], false)).toThrow(
-        TaskCookieError
-      )
-      expect(input).toHaveProperty('sameSite', 'lax')
-    }
-  )
+describe('published aria2 cookie adaptation', () => {
+  it('keeps usable credentials byte-for-byte while projecting fields and filtering incompatible records', () => {
+    const input = [
+      { ...cookie, sameSite: 'lax', secure: true, httpOnly: true },
+      ...['', '中文', 'a b', 'a:b'].map((name) => ({ ...cookie, name })),
+      { ...cookie, name: 'unicodeValue', value: '中文=原值' },
+    ]
+    const before = structuredClone(input)
+    const result = prepareAria2TaskCookies(input, now)
+    expect(result.cookies).toEqual([
+      { ...cookie, secure: true, httpOnly: true },
+      { ...cookie, name: 'unicodeValue', value: '中文=原值' },
+    ])
+    expect(result.discarded.map((d) => d.index)).toEqual([1, 2, 3, 4])
+    expect(input).toEqual(before)
+    input[0]!.value = 'changed later'
+    expect(result.cookies[0]?.value).toBe('synthetic-secret')
+  })
 
   it.each([
     { name: '', value: '' },
@@ -55,38 +54,121 @@ describe('aria2 cookie admission', () => {
     { expiresAt: Infinity },
     { expiresAt: Number.MAX_SAFE_INTEGER + 1 },
     { value: '界'.repeat(1365) },
+    { secure: 'true' },
   ])(
-    'rejects incompatible data without retaining credentials: %j',
+    'filters only the incompatible entry and never retains its contents in diagnostics: %j',
     (overrides) => {
-      try {
-        prepareAria2TaskCookies([cookie, { ...cookie, ...overrides }], true)
-        expect.fail('expected rejection')
-      } catch (error) {
-        expect(error).toBeInstanceOf(TaskCookieError)
-        expect((error as TaskCookieError).diagnostic.index).toBe(1)
-        expect(JSON.stringify(error)).not.toContain(cookie.value)
-        expect(JSON.stringify(error)).not.toContain(cookie.domain)
-      }
+      const result = prepareAria2TaskCookies(
+        [cookie, { ...cookie, ...overrides }] as never,
+        now
+      )
+      expect(result.cookies).toEqual([cookie])
+      expect(result.discarded).toEqual([expect.objectContaining({ index: 1 })])
+      expect(JSON.stringify(result.discarded)).not.toContain(cookie.value)
+      expect(JSON.stringify(result.discarded)).not.toContain(cookie.domain)
     }
   )
 
-  it('measures UTF-8 bytes, preserves empty jars and does not truncate credentials', () => {
-    expect(prepareAria2TaskCookies([], false)).toEqual([])
-    expect(
-      prepareAria2TaskCookies([{ ...cookie, value: 'a'.repeat(4093) }], true)
-    ).toHaveLength(1)
+  it('refuses a fully incompatible jar rather than silently creating an anonymous task', () => {
     expect(() =>
-      prepareAria2TaskCookies([{ ...cookie, value: 'a'.repeat(4094) }], true)
-    ).toThrow()
-    const many = Array.from({ length: 300 }, (_, i) => ({
+      prepareAria2TaskCookies([{ ...cookie, name: '' }], now)
+    ).toThrow(TaskCookieError)
+    try {
+      prepareAria2TaskCookies([{ ...cookie, name: '' }], now)
+    } catch (error) {
+      expect(error).toMatchObject({ diagnostic: { reason: 'noUsableCookies' } })
+      expect(JSON.stringify(error)).not.toContain(cookie.value)
+    }
+    expect(prepareAria2TaskCookies([], now)).toEqual({
+      cookies: [],
+      discarded: [],
+    })
+    expect(
+      prepareAria2TaskCookies([{ ...cookie, expiresAt: now }], now)
+    ).toMatchObject({ cookies: [], discarded: [{ reason: 'expired' }] })
+  })
+
+  it('applies byte limits without truncating multibyte values', () => {
+    expect(
+      prepareAria2TaskCookies([{ ...cookie, value: 'a'.repeat(4093) }], now)
+        .cookies
+    ).toHaveLength(1)
+    const result = prepareAria2TaskCookies(
+      [cookie, { ...cookie, name: 'long', value: 'a'.repeat(4093) }],
+      now
+    )
+    expect(result.cookies).toEqual([cookie])
+    expect(result.discarded).toEqual([
+      { index: 1, field: 'nameValue', reason: 'size', byteLength: 4097 },
+    ])
+  })
+
+  it('deduplicates by the engine identity, preserves the last scope and ignores expired entries', () => {
+    const result = prepareAria2TaskCookies(
+      [
+        { ...cookie, domain: '.EXAMPLE.com', path: undefined, hostOnly: false },
+        {
+          ...cookie,
+          domain: 'example.com',
+          value: 'last',
+          secure: true,
+          hostOnly: true,
+        },
+        { ...cookie, value: 'expired', expiresAt: now - 1 },
+        { ...cookie, name: '', expiresAt: 0 },
+      ],
+      now
+    )
+    expect(result.cookies).toEqual([
+      {
+        ...cookie,
+        domain: 'example.com',
+        value: 'last',
+        secure: true,
+        hostOnly: true,
+      },
+    ])
+    expect(result.discarded.map((d) => d.reason)).toEqual([
+      'duplicate',
+      'expired',
+      'expired',
+    ])
+  })
+
+  it('checks final jar capacity without arbitrarily selecting credentials', () => {
+    const fifty = Array.from({ length: 50 }, (_, i) => ({
       ...cookie,
       name: `c${i}`,
     }))
-    expect(prepareAria2TaskCookies(many, true)).toEqual(many)
-    expect(() => prepareAria2TaskCookies([...many, cookie], true)).toThrow()
-    expect(() => prepareAria2TaskCookies(many, false)).toThrow()
     expect(
-      prepareAria2TaskCookies(Array(300).fill(cookie), false)
-    ).toHaveLength(300)
+      prepareAria2TaskCookies([...fifty, { ...cookie, name: '' }], now).cookies
+    ).toEqual(fifty)
+    expect(() => prepareAria2TaskCookies([...fifty, cookie], now)).toThrow(
+      TaskCookieError
+    )
+    expect(
+      prepareAria2TaskCookies(Array(301).fill(cookie), now).cookies
+    ).toEqual([cookie])
+    const many = Array.from({ length: 300 }, (_, i) => ({
+      ...cookie,
+      name: `c${i}`,
+      domain: `host${Math.floor(i / 50)}.example.com`,
+    }))
+    expect(prepareAria2TaskCookies(many, now).cookies).toEqual(many)
+    expect(() => prepareAria2TaskCookies([...many, cookie], now)).toThrow(
+      TaskCookieError
+    )
+  })
+
+  it('filters array holes instead of serializing them as null cookie records', () => {
+    const input = Array(2)
+    input[1] = cookie
+    expect(prepareAria2TaskCookies(input, now)).toMatchObject({
+      cookies: [cookie],
+      discarded: [{ index: 0, reason: 'type' }],
+    })
+    expect(() => prepareAria2TaskCookies(null as never, now)).toThrow(
+      TaskCookieError
+    )
   })
 })

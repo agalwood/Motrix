@@ -10,7 +10,9 @@ export interface TaskCookieDiagnostic {
     | 'domain'
     | 'expiry'
     | 'count'
-    | 'unsupportedEngine'
+    | 'expired'
+    | 'duplicate'
+    | 'noUsableCookies'
   byteLength?: number
 }
 
