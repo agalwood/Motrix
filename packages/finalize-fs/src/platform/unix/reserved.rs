@@ -1,5 +1,5 @@
-//! Compatibility publication for local macOS exFAT downloads. The final name
-//! must remain application-owned between its last check and ordinary rename.
+//! Compatibility publication for local macOS exFAT and Paragon NTFS downloads.
+//! The final name must remain application-owned between its last check and ordinary rename.
 //! This deliberately does not implement the atomic no-replace contract.
 
 use super::metadata::{artifact_stamp, ensure_same_entry, stat_named, stat_opened};
@@ -10,6 +10,16 @@ use std::ffi::{CStr, CString};
 use std::io::{self, Write};
 use std::os::fd::AsRawFd;
 use std::os::unix::fs::FileExt;
+
+mod ntfs_volume;
+
+fn supported_filesystem(fs: &libc::statfs) -> bool {
+    fs.f_flags & libc::MNT_LOCAL as u32 != 0
+        && matches!(
+            unsafe { CStr::from_ptr(fs.f_fstypename.as_ptr()) }.to_bytes(),
+            b"exfat" | b"ufsd_NTFS"
+        )
+}
 
 fn identity(stat: &libc::stat) -> String {
     // Node BigIntStats exposes inode through a signed 64-bit slot. FSKit's
@@ -25,10 +35,13 @@ pub(crate) fn exfat_volume_identity(root: &RootHandle) -> io::Result<Option<Stri
         return Err(io::Error::last_os_error());
     }
     let fs = unsafe { fs.assume_init() };
-    if fs.f_flags & libc::MNT_LOCAL as u32 == 0
-        || unsafe { CStr::from_ptr(fs.f_fstypename.as_ptr()) }.to_bytes() != b"exfat"
-    {
+    if !supported_filesystem(&fs) {
         return Ok(None);
+    }
+    // Paragon rejects ATTR_VOL_UUID with EINVAL. Disk Arbitration supplies the
+    // same persistent volume UUID without relying on transient st_dev values.
+    if unsafe { CStr::from_ptr(fs.f_fstypename.as_ptr()) }.to_bytes() == b"ufsd_NTFS" {
+        return ntfs_volume::volume_uuid(&fs).map(Some);
     }
     let mut attributes = libc::attrlist {
         bitmapcount: libc::ATTR_BIT_MAP_COUNT,
@@ -100,17 +113,15 @@ fn validate_scope(
         return Err(io::Error::last_os_error());
     }
     let fs = unsafe { fs.assume_init() };
-    let fs_name = unsafe { CStr::from_ptr(fs.f_fstypename.as_ptr()) };
     if from.st_dev != to.st_dev
         || from.st_ino != to.st_ino
-        || fs.f_flags & libc::MNT_LOCAL as u32 == 0
-        || fs_name.to_bytes() != b"exfat"
+        || !supported_filesystem(&fs)
         || source.name.to_bytes().strip_suffix(b".motrix") != Some(name.to_bytes())
         || name.to_bytes().is_empty()
     {
         return Err(io::Error::new(
             io::ErrorKind::Unsupported,
-            "reserved rename requires same-directory suffix removal on local exFAT",
+            "reserved rename requires same-directory suffix removal on local exFAT or Paragon NTFS",
         ));
     }
     unchanged(source)?;
@@ -191,6 +202,20 @@ pub(crate) fn reserve_exfat_target(
     };
     if created && let Some(contents) = &contents {
         std::fs::File::from(artifact.try_clone()?).write_all(contents)?;
+    }
+    if created {
+        let mut fs = std::mem::MaybeUninit::<libc::statfs>::uninit();
+        if unsafe { libc::fstatfs(root.0.as_raw_fd(), fs.as_mut_ptr()) } != 0 {
+            return Err(io::Error::last_os_error());
+        }
+        let fs = unsafe { fs.assume_init() };
+        if unsafe { CStr::from_ptr(fs.f_fstypename.as_ptr()) }.to_bytes() == b"ufsd_NTFS" {
+            // Paragon defaults to whole-second timestamps and immediately
+            // reuses the overwritten reservation inode. Give each new marker
+            // a precise mtime so the host's inode/size/time digest cache cannot
+            // mistake it for the preceding task's different ownership token.
+            std::fs::File::from(artifact.try_clone()?).set_modified(std::time::SystemTime::now())?;
+        }
     }
     // Never unlink on a failure: an unacknowledged reservation must be retained.
     let stat = ensure_same_entry(artifact.as_raw_fd(), root.0.as_raw_fd(), &name)?;
@@ -360,6 +385,34 @@ mod tests {
     fn exfat_reservations_preserve_conflicts_and_publish_held_files() {
         let parent =
             PathBuf::from(std::env::var("MOTRIX_FINALIZE_EXFAT_ROOT").expect("exFAT test root"));
+        check_reservations(parent);
+    }
+
+    #[test]
+    #[ignore = "requires MOTRIX_FINALIZE_NTFS_ROOT on a writable Paragon NTFS volume"]
+    fn ntfs_reservations_preserve_conflicts_and_publish_held_files() {
+        let parent =
+            PathBuf::from(std::env::var("MOTRIX_FINALIZE_NTFS_ROOT").expect("NTFS test root"));
+        let root = super::super::open_root(parent.to_str().unwrap()).unwrap();
+        let mut fs = std::mem::MaybeUninit::<libc::statfs>::uninit();
+        assert_eq!(
+            unsafe { libc::fstatfs(root.0.as_raw_fd(), fs.as_mut_ptr()) },
+            0
+        );
+        let fs = unsafe { fs.assume_init() };
+        assert_eq!(
+            unsafe { CStr::from_ptr(fs.f_fstypename.as_ptr()) }.to_bytes(),
+            b"ufsd_NTFS",
+            "NTFS test root must use the Paragon driver"
+        );
+        let uuid = exfat_volume_identity(&root)
+            .unwrap()
+            .expect("persistent NTFS UUID");
+        assert_eq!(uuid.len(), 32);
+        check_reservations(parent);
+    }
+
+    fn check_reservations(parent: PathBuf) {
         let dir = scratch(parent.clone());
         // Also exercise a held volume root, with names unique to this fixture.
         let root_name = dir.0.file_name().unwrap().to_str().unwrap().to_owned() + "-payload";
@@ -377,6 +430,7 @@ mod tests {
         for (name, contents) in [
             ("empty", b"".as_slice()),
             ("download", b"complete download".as_slice()),
+            ("中文视频.mp4", b"unicode download".as_slice()),
         ] {
             let source_name = format!("{name}.motrix");
             std::fs::write(dir.0.join(&source_name), contents).unwrap();

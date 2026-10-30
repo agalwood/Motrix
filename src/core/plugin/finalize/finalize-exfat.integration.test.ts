@@ -30,9 +30,13 @@ import {
 import { NativeFinalizeArtifactOperations } from './native-artifact-operations'
 import { reservationMarker } from './reserved-identity'
 
-const volume = process.env.MOTRIX_FINALIZE_EXFAT_ROOT
+const volume =
+  process.env.MOTRIX_FINALIZE_EXFAT_ROOT ??
+  process.env.MOTRIX_FINALIZE_NTFS_ROOT
 // Set only by the disposable-image harness; never detach a user-supplied volume.
-const image = process.env.MOTRIX_FINALIZE_EXFAT_TEST_IMAGE
+const image = process.env.MOTRIX_FINALIZE_EXFAT_ROOT
+  ? process.env.MOTRIX_FINALIZE_EXFAT_TEST_IMAGE
+  : undefined
 // Disk Arbitration can take several seconds per attach/detach on CI runners.
 const diskImageCommandOptions = { timeout: 20_000 }
 const binary = path.resolve(
@@ -42,7 +46,7 @@ const binary = path.resolve(
 
 describe.runIf(
   process.platform === 'darwin' && Boolean(volume) && existsSync(binary)
-)('macOS exFAT publication and recovery', () => {
+)('macOS exFAT/Paragon NTFS publication and recovery', () => {
   const cleanup: (() => Promise<void>)[] = []
   afterEach(async () => {
     vi.restoreAllMocks()
@@ -205,6 +209,32 @@ describe.runIf(
     expect(copy).not.toHaveBeenCalled()
     expect(s.db.pragma('synchronous', { simple: true })).toBe(1)
   })
+
+  it('publishes successive downloads without reusing a stale marker digest', async () => {
+    const s = await setup()
+    for (let index = 0; index < 24; index++) {
+      const targetPath = path.join(s.root, `successive-${index}.bin`)
+      const sourcePath = `${targetPath}.motrix`
+      const content = `complete download ${index}`
+      await writeFile(sourcePath, content)
+      await s.runtime.commit({
+        ...s.input,
+        task: makeDownloadTask({
+          id: `successive-${index}`,
+          saveDir: s.root,
+          diskPath: sourcePath,
+          finalPath: targetPath,
+          status: TaskStatus.Finalizing,
+          transitionPhase: TransitionPhase.Renaming,
+        }),
+        sourcePath,
+        targetPath,
+      })
+      expect(await readFile(targetPath, 'utf8')).toBe(content)
+      expect(existsSync(sourcePath)).toBe(false)
+    }
+    expect(s.commits()).toBe(24)
+  }, 30_000)
 
   it('preserves an existing target without creating a reservation', async () => {
     const s = await setup()
