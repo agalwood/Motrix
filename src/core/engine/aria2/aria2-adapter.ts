@@ -51,6 +51,10 @@ import { legacyWirePath } from './aria2-legacy-path'
 import type { Aria2RpcClient } from './aria2-rpc-client'
 import { recommend } from './aria2-tuning'
 import { isConnectionLimitRangeError, isNotFoundError } from './error-utils'
+import {
+  BROWSER_COOKIES_FEATURE,
+  prepareAria2TaskCookies,
+} from './task-cookies'
 
 /**
  * Per-multicall cap for removeDownloadResults. One unbounded batch must
@@ -338,6 +342,13 @@ export class Aria2Adapter implements EngineAdapter {
     return this.featureReport
   }
 
+  validateDownloadCookies(cookies: readonly DownloadCookie[]): void {
+    prepareAria2TaskCookies(
+      cookies,
+      this.featureReport.features.includes(BROWSER_COOKIES_FEATURE)
+    )
+  }
+
   /**
    * Inject the feature report the EngineSupervisor already probed. Production
    * never calls `connect()`, so without this the adapter would keep its
@@ -419,6 +430,15 @@ export class Aria2Adapter implements EngineAdapter {
   }
 
   async createDownload(params: CreateDownloadParams): Promise<string> {
+    if (params.cookies !== undefined) {
+      params = {
+        ...params,
+        cookies: prepareAria2TaskCookies(
+          params.cookies,
+          this.featureReport.features.includes(BROWSER_COOKIES_FEATURE)
+        ),
+      }
+    }
     if (
       params.legacyCheckpointActivation &&
       !(await this.supportsLegacyHttpActivation())

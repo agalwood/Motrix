@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { handleCreateTask } from '@core/task/create-task-handler'
 import { TaskManager } from '@core/task/task-manager'
-import type { DownloadSubmitParams } from '@motrix/mdxp'
+import { type DownloadSubmitParams, ErrorCodes } from '@motrix/mdxp'
 import { ErrorCode } from '@shared/errors'
 import { DEFAULT_ENGINE_SETTINGS } from '@shared/schemas/engine-settings'
 import { DEFAULT_PROXY_SETTINGS } from '@shared/schemas/proxy-settings'
@@ -168,6 +168,98 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
         expect(records).not.toContain(secret)
       }
     }, 20_000)
+
+    it('negotiates browser cookie names and preserves the actual request header', async () => {
+      const cookies = [
+        { name: '', value: 'bare', domain: '127.0.0.1' },
+        { name: '中文', value: 'account-A', domain: '127.0.0.1' },
+        { name: 'a b', value: 'account-B', domain: '127.0.0.1' },
+      ]
+      const tasks = new TaskManager()
+      type Deps = Parameters<typeof handleCreateTask>[1]
+      const deps = {
+        adapter: wired.adapter,
+        settingsManager: {
+          getApp: () => ({ defaultSaveDir: root }),
+          getEngine: () => DEFAULT_ENGINE_SETTINGS,
+          getProxy: () => DEFAULT_PROXY_SETTINGS,
+        },
+        finalNamePicker: { pick: async (_dir: string, name: string) => name },
+        torrentMetaStore: {},
+        taskManager: tasks,
+        activityRecorder: { recordSubmitted: vi.fn() },
+        eventBus: { emit: vi.fn() },
+        publishTaskUpdate: vi.fn(),
+      } as unknown as Deps
+      const pipeline = new DirectPipeline({
+        createTask: (request, _unused, options) =>
+          handleCreateTask(request, deps, options),
+        removeTask: async () => {},
+      })
+      const submitAdapter = new SubmitDownloadAdapter({
+        getDefaultSaveDir: () => root,
+        pickName: async (_dir, name) => name,
+        mintTaskId: () => 'browser-names',
+      })
+      const adapted = await submitAdapter.adapt(
+        {
+          source: {
+            pageUrl: base,
+            pageTitle: 'Fixture',
+            detectedAt: Date.now(),
+          },
+          selection: {
+            kind: 'direct',
+            primary: {
+              url: `${base}/browser-names`,
+              headers: {},
+              refererPolicy: 'strict-origin-when-cross-origin',
+              cookies: cookies.map((cookie) => ({
+                ...cookie,
+                path: '/',
+                sameSite: 'lax',
+                secure: false,
+                httpOnly: false,
+              })),
+            },
+          },
+          meta: {
+            suggestedFilename: 'browser-names.bin',
+            qualityLabel: 'original',
+          },
+        },
+        { extensionId: 'fixture', browser: 'chromium' }
+      )
+      if (adapted.kind !== 'direct') throw new Error('expected direct')
+      if (
+        !wired.adapter.getFeatureReport().features.includes('Browser-Cookies')
+      ) {
+        await expect(pipeline.dispatch(adapted)).rejects.toMatchObject({
+          code: ErrorCodes.CapabilityNotSupported,
+          data: { context: { cookie: { reason: 'unsupportedEngine' } } },
+        })
+        expect(received.has('/browser-names')).toBe(false)
+        expect(tasks.getAll()).toHaveLength(0)
+        return
+      }
+      const { taskId } = await pipeline.dispatch(adapted)
+      const gid = tasks.getById(taskId)!.engineTaskId!
+      await vi.waitFor(
+        async () =>
+          expect((await wired.rpc.tellStatus(gid)).status).toBe('complete'),
+        { timeout: 10_000 }
+      )
+      const header = Buffer.from(
+        received.get('/browser-names') ?? '',
+        'latin1'
+      ).toString('utf8')
+      expect(
+        header
+          .split(';')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      ).toEqual(['bare', '中文=account-A', 'a b=account-B'])
+    })
 
     it('restores a task cookie from the engine database after restart', async () => {
       const restartDir = path.join(root, 'restart-cookie')

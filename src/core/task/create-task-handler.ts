@@ -107,6 +107,7 @@ import {
   admitTaskCreateRequest,
   DownloadSourceError,
 } from './source-admission'
+import { admitTaskCookies } from './task-cookie-admission'
 import type { TaskManager } from './task-manager'
 import type { TorrentMetaStore } from './torrent-meta-store'
 
@@ -312,6 +313,8 @@ async function createAdmittedTask(
     if (deps.waitForEngineReady) {
       await deps.waitForEngineReady()
     }
+    // Validate before directory preparation, plugins, durable intent or GID ownership.
+    if (opts.cookies !== undefined) admitTaskCookies(deps.adapter, opts.cookies)
     // Keep a runtime guard for untyped composition code: missing policy
     // injection must disable metadata I/O instead of consulting newer,
     // potentially unapplied SettingsManager values.

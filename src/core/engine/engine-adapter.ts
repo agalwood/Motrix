@@ -217,6 +217,8 @@ export interface EngineAdapter {
   getDirectResourceMetadataProfile?(): DirectResourceMetadataProfile | null
 
   createDownload(params: CreateDownloadParams): Promise<string>
+  /** Synchronous, side-effect-free validation against the current engine contract. */
+  validateDownloadCookies?(cookies: readonly DownloadCookie[]): void
   pauseTask(engineTaskId: string): Promise<void>
   resumeTask(engineTaskId: string): Promise<void>
   removeTask(engineTaskId: string): Promise<void>

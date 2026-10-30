@@ -549,6 +549,50 @@ describe('browser direct download filenames', () => {
 })
 
 describe('handleCreateTask', () => {
+  it.each([
+    { name: 'sid', value: 'secret\nvalue', domain: 'example.com' },
+    { name: '', value: 'secret', domain: 'example.com' },
+  ])(
+    'rejects cookies before creating directories, persistent intent or engine tasks',
+    async (cookie) => {
+      const deps = makeDeps()
+      const prepareSaveDir = vi.fn(async (directory: string) => directory)
+      deps.prepareSaveDir = prepareSaveDir
+      const persistTask = vi.fn()
+      deps.persistTask = persistTask
+      const request = {
+        type: 'http',
+        uris: ['https://example.com/file'],
+        saveDir: '/d',
+        headers: [],
+      }
+      await expect(
+        handleCreateTask(request, deps, { source: 'bridge', cookies: [cookie] })
+      ).rejects.toMatchObject({
+        diagnostic: { index: 0 },
+      })
+      for (const effect of [
+        prepareSaveDir,
+        persistTask,
+        deps.pick,
+        deps.reserveEngineTaskId,
+        deps.addUri,
+        deps.addUriWithCookies,
+        deps.forceRemove,
+      ]) {
+        expect(effect).not.toHaveBeenCalled()
+      }
+      expect(JSON.stringify(logInfo.mock.calls)).not.toContain('secret')
+      expect(logWarn.mock.calls[0]?.[0]).toMatchObject({
+        diagnostic: {
+          index: 0,
+          field: expect.any(String),
+          reason: expect.any(String),
+        },
+      })
+      expect(JSON.stringify(logWarn.mock.calls)).not.toContain('secret')
+    }
+  )
   it('reserves different final outputs for concurrent torrents with the same chosen name', async () => {
     const deps = makeDeps()
     const owners: DownloadTask[] = []
