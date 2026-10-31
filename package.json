@@ -1,0 +1,56 @@
+{
+  "name": "@motrix/torrent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./bencode": "./src/bencode.ts",
+    "./magnet": "./src/magnet.ts"
+  },
+  "scripts": {
+    "test": "vitest run --config vitest.config.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json",
+    "test:browser": "node test/browser.mjs"
+  },
+  "dependencies": {
+    "@noble/hashes": "2.4.0"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./bencode": {
+        "types": "./dist/bencode.d.ts",
+        "import": "./dist/bencode.js"
+      },
+      "./magnet": {
+        "types": "./dist/magnet.d.ts",
+        "import": "./dist/magnet.js"
+      }
+    }
+  },
+  "devDependencies": {
+    "typescript": "~7.0.2",
+    "vitest": "^5.0.5",
+    "parse-torrent": "11.0.24",
+    "playwright": "^1.64.1",
+    "esbuild": "^0.28.2"
+  },
+  "description": "Bounded, host-neutral BitTorrent v1/v2/hybrid metadata and magnet parsing",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agalwood/Motrix.git",
+    "directory": "packages/torrent"
+  }
+}
