@@ -53,15 +53,8 @@
     "@types/node": "^24.0.0"
   },
   "description": "Bounded, host-neutral BitTorrent v1/v2/hybrid metadata and magnet parsing",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/motrixapp/torrent.git"
-  },
   "author": "Motrix",
-  "homepage": "https://github.com/motrixapp/torrent#readme",
-  "bugs": {
-    "url": "https://github.com/motrixapp/torrent/issues"
-  },
+  "homepage": "https://www.npmjs.com/package/@motrix/torrent",
   "engines": {
     "node": ">=22.12.0"
   },

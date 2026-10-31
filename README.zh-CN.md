@@ -98,7 +98,8 @@ loopback HTTP 源上验证编译后的 ESM，无需 WebCrypto。浏览器结果�
 `output/playwright/manual/torrent-core/`。版本和许可见
 [fixture 来源说明](test/fixtures/README.md)。
 
-实现从 Motrix 提交 `a2aae7a02e4b93190ee6ff5aceae1c7429ffd30f` 提取，保留了包的 Git 历史。
+实现从 [Motrix 源码快照](https://github.com/agalwood/Motrix/tree/a2aae7a02e4b93190ee6ff5aceae1c7429ffd30f/packages/torrent)
+提取，保留了包的 Git 历史。npm 包独立维护。
 
 协议参考：[BEP 3](https://www.bittorrent.org/beps/bep_0003.html)、
 [BEP 9](https://www.bittorrent.org/beps/bep_0009.html)、

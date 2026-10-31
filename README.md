@@ -112,8 +112,9 @@ ESM build on an intercepted non-loopback HTTP origin without WebCrypto. Browser
 results go in `output/playwright/manual/torrent-core/`. See
 [fixture provenance](test/fixtures/README.md) for versions and licenses.
 
-The implementation was extracted from the Motrix repository at
-`a2aae7a02e4b93190ee6ff5aceae1c7429ffd30f`, preserving its package history.
+The implementation was extracted from the
+[Motrix source snapshot](https://github.com/agalwood/Motrix/tree/a2aae7a02e4b93190ee6ff5aceae1c7429ffd30f/packages/torrent),
+preserving its package history. The npm package is maintained independently.
 
 Protocol references: [BEP 3](https://www.bittorrent.org/beps/bep_0003.html),
 [BEP 9](https://www.bittorrent.org/beps/bep_0009.html),
