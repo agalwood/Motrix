@@ -94,6 +94,7 @@ import {
 } from './spake2-core'
 import {
   type TicketReplayCache,
+  validateBindingPub,
   verifyNmTicket,
   verifyTicketProofStrict,
 } from './ticket-verify'
@@ -238,6 +239,7 @@ interface HelloContext {
   browser: Browser
   claimedExtensionId: string
   clientInstallationId: string
+  safariInstallationKey?: string
   aId: Uint8Array
   aad: Uint8Array
   identity: IdentityTriState
@@ -455,6 +457,14 @@ export class PairSession {
       return
     }
 
+    if (
+      frame.safariInstallationKey !== undefined &&
+      !validateBindingPub(fromBase64Url(frame.safariInstallationKey))
+    ) {
+      this.violation()
+      return
+    }
+
     // §7.3, before any session state, ticket work, or prompt.
     const admission = this.deps.admit(this.deps.verifiedOrigin)
     if (!admission.ok) {
@@ -493,6 +503,9 @@ export class PairSession {
         verifiedOrigin: this.deps.verifiedOrigin,
         claimedExtensionId: frame.claimedExtensionId,
         clientInstallationId: frame.clientInstallationId,
+        ...(frame.safariInstallationKey === undefined
+          ? {}
+          : { safariInstallationKey: frame.safariInstallationKey }),
       })
     } catch {
       this.fail('pairingFailed')
@@ -503,6 +516,9 @@ export class PairSession {
       browser: frame.browser,
       claimedExtensionId: frame.claimedExtensionId,
       clientInstallationId: frame.clientInstallationId,
+      ...(frame.safariInstallationKey === undefined
+        ? {}
+        : { safariInstallationKey: frame.safariInstallationKey }),
       aId,
       aad,
       identity: resolved.identity,
@@ -913,6 +929,9 @@ export class PairSession {
       browser: this.deps.browser,
       verifiedOrigin: this.deps.verifiedOrigin,
       clientInstallationId: this.hello.clientInstallationId,
+      ...(this.hello.safariInstallationKey === undefined
+        ? {}
+        : { safariInstallationKey: this.hello.safariInstallationKey }),
     }
 
     let offer: { credentialId: string; mutualKeyB64: string }

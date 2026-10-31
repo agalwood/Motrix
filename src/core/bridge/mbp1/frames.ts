@@ -135,12 +135,15 @@ export const pairHelloFrameSchema = z
     browser: browserField,
     claimedExtensionId: asciiString(),
     clientInstallationId: asciiString(),
+    safariInstallationKey: base64UrlBytes(KEY_BYTES).optional(),
     nmTicket: z.unknown().optional(),
     ticketBindingKey: base64UrlBytes(KEY_BYTES).optional(),
   })
   .strict()
   .refine(
-    (f) => (f.nmTicket === undefined) === (f.ticketBindingKey === undefined),
+    (f) =>
+      (f.nmTicket === undefined) === (f.ticketBindingKey === undefined) &&
+      (f.safariInstallationKey === undefined || f.browser === 'safari'),
     {
       message:
         'ticketBindingKey is required if and only if nmTicket is present',
@@ -265,6 +268,14 @@ export type ReconnectChallengeFrame = z.infer<
 export const reconnectResponseFrameSchema = z
   .object({
     type: z.literal('reconnectResponse'),
+    safariResume: z
+      .object({
+        installationKey: base64UrlBytes(KEY_BYTES),
+        proof: base64UrlBytes(SIGNATURE_BYTES),
+        nmTicket: z.unknown().optional(),
+      })
+      .strict()
+      .optional(),
     credentialId: asciiString(),
     C: base64UrlBytes(NONCE_BYTES),
     mac: base64UrlBytes(MAC_BYTES),

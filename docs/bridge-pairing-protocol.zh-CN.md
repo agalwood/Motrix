@@ -680,6 +680,58 @@ kS2C = HKDF-SHA-256(ikm=mutualKey, salt=S ‖ C, info="MBP1-traffic-s2c", L=32)
 
 ---
 
+### 8.1 Safari 安装身份连续性
+
+Safari 每次启动都会更换扩展 URL 的 host，因此连接 Origin 不能标识长期
+安装身份。支持此能力的服务端在 `/discovery` 返回并向浏览器公开
+`X-Motrix-Safari-Continuity: 1`，保持严格 JSON discovery 文档不变。
+此标记仅用于兼容性检查，不授予权限。新版 Safari 客户端首次配对要求此
+能力；Chromium 与 Firefox 保持原有消息行为。
+
+每个 Safari 安装生成并持久保存一份随机 Ed25519 私钥，私钥只保存在扩展
+存储中。新的 `pairHello` 包含仅限 Safari 使用的 `safariInstallationKey`，
+即规范 base64url 编码的 32 字节公钥。在 §6.4 的 `A_id` 后追加
+`enc("MBP1/safari-installation/v1") ‖ enc(safariInstallationKey)`，后一项编码
+ASCII 消息字符串。配对码确认成功后，凭据 principal 绑定该公钥。它证明安装
+身份连续性，不提升 `official` / `unverified` 身份等级。
+
+重连客户端在 `reconnectResponse` 中增加：
+
+```json
+{ "safariResume": { "installationKey": "<public key>", "proof": "<signature>", "nmTicket": "<optional native ticket object>" } }
+```
+
+`RT0` 为按**当前连接 Origin** 计算的 §8 transcript；`Kpub` 为公钥原始
+32 字节；`D` 为 `nmTicket` 的 §6.4 digest，无票据时为空字节：
+
+```
+RT = RT0 ‖ enc("MBP1/safari-resume/v1") ‖ enc(Kpub) ‖ enc(D)
+proof = Ed25519.Sign(Kpriv, enc("MBP1/safari-resume-proof/v1") ‖ S ‖ C ‖ RT)
+```
+
+两方向重连 MAC 均使用扩展后的 `RT`。公钥必须为规范编码、非小阶、位于素数
+阶子群；签名按严格 RFC 8032 验证（`zip215: false`）。已绑定公钥必须完全
+匹配，完成绑定后即使 Origin 相同也不得省略证明。改变 Origin、challenge、
+实例、凭据、公钥或票据会导致认证失败。仅持有 `mutualKey` 不足以从新 Origin
+注册替代公钥。
+
+旧凭据可在原 Origin 尚未改变时注册公钥。跨 Origin 自动迁移还要求旧凭据
+是 `official` Safari 身份，并提供新的 §9 原生票据，证明调用方是
+`app.motrix.safari.extension` 且绑定到 `Kpub`；上述签名证明持有对应私钥。
+过期、重放、generation 不符、调用方不符、无效或降级的票据均不能授权迁移。
+原生请求保持 `allowLaunch: false`。远程旧凭据若 Origin 已变化，需要一次
+显式配对码配对，此后新凭据可跨 Safari 重启恢复，无需原生认证。
+
+注册必须在 `reconnectAccept` 前持久完成，并在存储事务中重新检查凭据、
+principal、密钥与 authorization epoch。保留凭据最初的 Origin 作为任务路由
+和撤销身份，单独认证当前连接 Origin。会话接入再次检查存储身份的准入与撤销
+状态，以保留任务路由、隔离浏览器配置文件，并防止撤销竞态恢复授权。
+
+扩展按后端 authority 与 Safari 安装 ID 查找凭据，将旧 Origin 索引读入此
+命名空间；查询命中本身不构成认证。只有验证服务端 MAC 后才能激活、保存公钥
+绑定及清理本地旧条目，其他后端与安装不受影响。服务端历史授权仍可分别撤销；
+持有一个凭据不代表可以凭自报安装 ID 删除其他服务端凭据。
+
 ## 9. NM attestation ticket
 
 浏览器会把调用方扩展的身份传给 NM host（Chromium：argv 中的 caller
