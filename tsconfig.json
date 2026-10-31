@@ -17,5 +17,5 @@
       "@test-utils/*": ["./src/test-utils/*"]
     }
   },
-  "include": ["src", "e2e", "*.config.ts"]
+  "include": ["src", "packages/torrent", "e2e", "*.config.ts"]
 }

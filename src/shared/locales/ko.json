@@ -1028,6 +1028,7 @@
       "createFailedByPlugin": "작업을 만들지 못했습니다. “{{pluginId}}” 플러그인이 작업을 중단했습니다({{detail}}). 설정 → 플러그인에서 해당 플러그인을 비활성화한 후 다시 시도하세요.",
       "createFailedPathTooLong": "작업을 만들지 못했습니다. 대상 경로가 {{length}}자로 Windows 제한인 {{limit}}자를 초과합니다. 더 짧은 저장 폴더 경로나 파일 이름을 선택하세요.",
       "parseFailed": "토렌트 파일을 분석하지 못했습니다.",
+      "unsupportedTorrent": "이 토렌트는 현재 다운로드 엔진이 지원하지 않는 기능을 사용합니다.",
       "urlsCount_other": "URL {{count}}개",
       "urlsWithInvalid": "유효 {{valid}}개, 유효하지 않음 {{invalid}}개",
       "validUrlCount": "유효 {{count}}개",

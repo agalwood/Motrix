@@ -23,7 +23,11 @@ export default defineConfig({
         test: {
           name: 'node',
           globalSetup: ['tests/setup/build-worker.ts'],
-          include: ['src/**/*.test.{ts,tsx}', 'tests/**/*.test.{ts,tsx}'],
+          include: [
+            'src/**/*.test.{ts,tsx}',
+            'tests/**/*.test.{ts,tsx}',
+            'packages/torrent/test/**/*.test.ts',
+          ],
           exclude: ['src/{renderer,preload}/**'],
         },
       },

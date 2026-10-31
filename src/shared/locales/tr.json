@@ -1040,6 +1040,7 @@
       "createFailedByPlugin": "Görev oluşturulamadı: “{{pluginId}}” eklentisi işlemi durdurdu ({{detail}}). Ayarlar → Eklentiler bölümünden bu eklentiyi devre dışı bırakıp tekrar deneyin.",
       "createFailedPathTooLong": "Görev oluşturulamadı: hedef yol {{length}} karakter uzunluğunda ve Windows’un {{limit}} karakter sınırını aşıyor. Daha kısa bir kayıt klasörü yolu veya dosya adı seçin.",
       "parseFailed": "Torrent dosyası ayrıştırılamadı.",
+      "unsupportedTorrent": "Bu torrent, mevcut indirme motorunun desteklemediği özellikler kullanıyor.",
       "urlsCount_one": "{{count}} URL",
       "urlsCount_other": "{{count}} URL",
       "urlsWithInvalid": "{{valid}} geçerli, {{invalid}} geçersiz",

@@ -2899,6 +2899,7 @@
       "invalidUrlCount": "غير الصالح: {{count}}",
       "links": "الروابط",
       "parseFailed": "تعذّر تحليل ملف التورنت.",
+      "unsupportedTorrent": "يستخدم هذا التورنت ميزات لا يدعمها محرك التنزيل الحالي.",
       "pickPathCustom": "مسار مخصص",
       "pickPathTitle": "اختيار مجلد الحفظ",
       "queueAdvanceFailed": "تعذّر فتح التورنت التالي.",

@@ -2,8 +2,8 @@ import { createHash } from 'node:crypto'
 import { constants } from 'node:fs'
 import { lstat, open, realpath } from 'node:fs/promises'
 import path from 'node:path'
+import { parseEngineTorrent as parseTorrent } from '@shared/lib/engine-torrent'
 import type { BtVerificationResult } from '@shared/schemas/bt-storage'
-import parseTorrent from 'parse-torrent'
 import { parseBtFileLayout, UnsafeTorrentPathError } from './bt-storage-layout'
 
 const READ_BYTES = 1024 * 1024
@@ -28,7 +28,7 @@ export async function verifyBtFiles(
     parseTorrent(input.metadata),
   ])
   const files = parsed.files ?? []
-  const pieces = parsed.pieces ?? []
+  const pieces = parsed.pieces
   const pieceLength = parsed.pieceLength ?? 0
   const totalLength = parsed.length ?? -1
   if (
@@ -36,8 +36,8 @@ export async function verifyBtFiles(
     pieceLength <= 0 ||
     !Number.isSafeInteger(totalLength) ||
     totalLength < 0 ||
-    pieces.length !== Math.ceil(totalLength / pieceLength) ||
-    pieces.some((hash) => !/^[a-f0-9]{40}$/i.test(hash))
+    !pieces ||
+    pieces.length !== Math.ceil(totalLength / pieceLength)
   )
     throw new UnsafeTorrentPathError('Invalid torrent piece table')
 
@@ -71,9 +71,9 @@ export async function verifyBtFiles(
     const key = (relative ?? path.basename(payload))
       .normalize('NFC')
       .toLowerCase()
-    if (names.has(key))
+    if (!file.padding && names.has(key))
       throw new UnsafeTorrentPathError('Overlapping torrent paths')
-    names.add(key)
+    if (!file.padding) names.add(key)
     if (selected.has(index) && file.length) {
       const start = Math.floor(file.offset / pieceLength)
       const end = Math.floor((offset - 1) / pieceLength)
@@ -249,7 +249,7 @@ export async function verifyBtFiles(
           position += length
         }
         result.checkedPieces++
-        if (valid && hash.digest('hex') === pieces[piece].toLowerCase())
+        if (valid && hash.digest('hex') === pieces.hex(piece))
           result.validPieces++
         if (Date.now() - lastProgress >= 200) {
           input.onProgress?.(result.checkedPieces, result.totalPieces)

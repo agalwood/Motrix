@@ -1028,6 +1028,7 @@
       "createFailedByPlugin": "Tugas tidak dapat dibuat: plugin “{{pluginId}}” menghentikannya ({{detail}}). Nonaktifkan plugin tersebut di Pengaturan → Plugin, lalu coba lagi.",
       "createFailedPathTooLong": "Tugas tidak dapat dibuat: panjang jalur tujuan adalah {{length}} karakter, melebihi batas Windows yaitu {{limit}}. Pilih jalur folder penyimpanan atau nama berkas yang lebih pendek.",
       "parseFailed": "Gagal mengurai berkas torrent.",
+      "unsupportedTorrent": "Torrent ini menggunakan fitur yang tidak didukung oleh mesin unduhan saat ini.",
       "urlsCount_other": "{{count}} URL",
       "urlsWithInvalid": "{{valid}} valid, {{invalid}} tidak valid",
       "validUrlCount": "{{count}} valid",

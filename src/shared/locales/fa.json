@@ -2819,6 +2819,7 @@
       "invalidUrlCount": "{{count}} نامعتبر",
       "links": "پیوندها",
       "parseFailed": "خواندن ساختار فایل تورنت ناموفق بود.",
+      "unsupportedTorrent": "این تورنت از قابلیت‌هایی استفاده می‌کند که موتور دانلود فعلی پشتیبانی نمی‌کند.",
       "pickPathCustom": "مسیر سفارشی",
       "pickPathTitle": "انتخاب پوشهٔ ذخیره",
       "queueAdvanceFailed": "باز کردن تورنت بعدی ممکن نشد.",

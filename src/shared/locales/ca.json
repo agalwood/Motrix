@@ -2839,6 +2839,7 @@
       "invalidUrlCount": "No vàlids: {{count}}",
       "links": "Enllaços",
       "parseFailed": "No s'ha pogut interpretar el fitxer torrent.",
+      "unsupportedTorrent": "Aquest torrent utilitza funcions que el motor de baixada actual no admet.",
       "pickPathCustom": "Camí personalitzat",
       "pickPathTitle": "Seleccionar la carpeta de destinació",
       "queueAdvanceFailed": "No s'ha pogut obrir el torrent següent.",

@@ -10,8 +10,8 @@ import {
 } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { parseEngineTorrent as parseTorrent } from '@shared/lib/engine-torrent'
 import Database from 'better-sqlite3'
-import parseTorrent from 'parse-torrent'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { recoverAria2SessionIdentity } from './aria2-session-identity-recovery'
 

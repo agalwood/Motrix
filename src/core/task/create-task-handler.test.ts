@@ -7,6 +7,7 @@ import {
   type AppliedDownloadProxySnapshot,
 } from '@core/proxy/applied-download-proxy-policy'
 import { proxyToDownloadRequestOptions } from '@core/proxy/serializers'
+import { encode } from '@motrix/torrent'
 import { AppError, ErrorCode } from '@shared/errors'
 import { DEFAULT_ENGINE_SETTINGS } from '@shared/schemas/engine-settings'
 import { DEFAULT_PROXY_SETTINGS } from '@shared/schemas/proxy-settings'
@@ -22,6 +23,7 @@ import {
   TaskType,
   TransitionPhase,
 } from '@shared/types/task'
+import { storageTorrent } from '@test-utils/bt-storage'
 import { makeDownloadTask as makeTestTask } from '@test-utils/task'
 import { v7 as uuidv7 } from 'uuid'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -30,6 +32,12 @@ import { DIRECT_RESOURCE_METADATA_PROFILE } from '../engine/engine-adapter'
 import { verifyBtFiles } from './bt-file-verifier'
 import { parseBtFileLayout } from './bt-storage-layout'
 import { handleCreateTask } from './create-task-handler'
+
+const sampleTorrentBase64 = storageTorrent([
+  { name: 'a', data: 'a' },
+  { name: 'b', data: 'b' },
+  { name: 'c', data: 'c' },
+]).toString('base64')
 
 vi.mock('./bt-file-verifier', () => ({ verifyBtFiles: vi.fn() }))
 
@@ -108,15 +116,15 @@ function buildMinimalTorrentBytes(
   name: string,
   isPrivate: boolean
 ): Uint8Array {
-  const privateField = isPrivate ? '7:privatei1e' : ''
-  const nameField = `4:name${Buffer.byteLength(name, 'utf8')}:${name}`
-  const prefix = Buffer.from(
-    `d4:infod${privateField}6:lengthi1024e${nameField}12:piece lengthi16384e6:pieces20:`,
-    'utf8'
-  )
-  const pieces = Buffer.alloc(20)
-  const suffix = Buffer.from('ee', 'utf8')
-  return new Uint8Array(Buffer.concat([prefix, pieces, suffix]))
+  return encode({
+    info: {
+      name,
+      length: 1024,
+      'piece length': 16384,
+      pieces: new Uint8Array(20),
+      ...(isPrivate ? { private: 1 } : {}),
+    },
+  })
 }
 
 function makePrivateTorrentFixture(): Uint8Array {
@@ -1241,7 +1249,7 @@ describe('handleCreateTask', () => {
     const result = await handleCreateTask(
       {
         type: 'bt',
-        payload: { kind: 'torrent-base64', base64: 'AAAA' },
+        payload: { kind: 'torrent-base64', base64: sampleTorrentBase64 },
         selectedFiles: [0],
         saveDir: '/d',
         displayName: 'mytorrent',
@@ -1251,7 +1259,7 @@ describe('handleCreateTask', () => {
     expect(result.gid).toMatch(/^[0-9a-f]{16}$/)
     expect(typeof result.taskId).toBe('string')
     expect(deps.addTorrent).toHaveBeenCalledWith(
-      'AAAA',
+      sampleTorrentBase64,
       [],
       expect.objectContaining({ 'select-file': '1' })
     )
@@ -1326,23 +1334,43 @@ describe('handleCreateTask', () => {
     expect(options['bt-prioritize-piece']).toBe('head=10M,tail=10M')
   })
 
-  it('falls back to "torrent" literal when bytes are unparseable', async () => {
-    const deps = makeDeps({ addTorrentGid: 'gid-bt' })
-    await handleCreateTask(
-      {
-        type: 'bt',
-        payload: { kind: 'torrent-base64', base64: 'AAAA' },
-        selectedFiles: [0],
-        saveDir: '/d',
-        // no displayName, and 'AAAA' decodes to invalid bencode
-      },
-      deps
-    )
-    const task = lastAddedTask(deps)
-    expect(task.finalName).toBe('torrent')
-    const [, , options] = deps.addTorrent.mock.calls[0]
-    expect(options).not.toHaveProperty('bt-prioritize-piece')
-  })
+  it.each([
+    { base64: 'AAAA', code: ErrorCode.TorrentParseFailed },
+    {
+      base64: Buffer.from(
+        encode({
+          info: {
+            name: 'v2',
+            'meta version': 2,
+            'piece length': 16384,
+            'file tree': { empty: { '': { length: 0 } } },
+          },
+        })
+      ).toString('base64'),
+      code: ErrorCode.EngineFeatureUnavailable,
+    },
+  ])(
+    'rejects unsupported or invalid metadata before allocating engine/storage state ($code)',
+    async ({ base64, code }) => {
+      const deps = makeDeps()
+      await expect(
+        handleCreateTask(
+          {
+            type: 'bt',
+            payload: { kind: 'torrent-base64', base64 },
+            selectedFiles: [0],
+            saveDir: '/d',
+          },
+          deps
+        )
+      ).rejects.toMatchObject({ code })
+      expect(deps.addTorrent).not.toHaveBeenCalled()
+      expect(deps.add).not.toHaveBeenCalled()
+      expect(deps.reserveEngineTaskId).not.toHaveBeenCalled()
+      expect(deps.persist).not.toHaveBeenCalled()
+      expect(mkdirMock).not.toHaveBeenCalled()
+    }
+  )
 
   it('rejects a parseable torrent with an unsafe root path', async () => {
     const deps = makeDeps({ addTorrentGid: 'gid-bt' })
@@ -1439,18 +1467,22 @@ describe('handleCreateTask download paths', () => {
     expect(options.out).toBe('foo.mp4.motrix')
   })
 
-  it('unparsed BT task: persists the final directory without a temporary output', async () => {
+  it('validated BT task: persists the final directory without a temporary output', async () => {
     const deps = makeDeps({
       persist: async (id) => `/torrents/${id}.torrent`,
     })
     await handleCreateTask(
       {
         type: 'bt',
-        payload: { kind: 'torrent-base64', base64: 'AAAA' },
+        payload: { kind: 'torrent-base64', base64: sampleTorrentBase64 },
         selectedFiles: [0],
         saveDir: '/d',
         displayName: 'mytorrent',
-        torrentBytes: new Uint8Array([1, 2, 3]),
+        torrentBytes: storageTorrent([
+          { name: 'a', data: 'a' },
+          { name: 'b', data: 'b' },
+          { name: 'c', data: 'c' },
+        ]),
       },
       deps
     )
@@ -1461,7 +1493,7 @@ describe('handleCreateTask download paths', () => {
     expect(task.instances[0].payload.btStorageLayout).toMatchObject({
       version: 2,
       strategy: 'direct',
-      torrentRootName: null,
+      torrentRootName: 'bundle',
     })
     expect(task.finalPath).toBe('/d/mytorrent')
     expect(task.finalName).toBe('mytorrent')
@@ -1469,12 +1501,12 @@ describe('handleCreateTask download paths', () => {
     expect(task.torrentMetaPath).toBe(`/torrents/${task.id}.torrent`)
   })
 
-  it('unparsed BT task: aria2 writes into the final directory without an output override', async () => {
+  it('validated BT task: aria2 uses explicit output mappings in the final directory', async () => {
     const deps = makeDeps()
     await handleCreateTask(
       {
         type: 'bt',
-        payload: { kind: 'torrent-base64', base64: 'AAAA' },
+        payload: { kind: 'torrent-base64', base64: sampleTorrentBase64 },
         selectedFiles: [0],
         saveDir: '/d',
         displayName: 'mytorrent',
@@ -1482,9 +1514,13 @@ describe('handleCreateTask download paths', () => {
       deps
     )
     const [, , options] = deps.addTorrent.mock.calls[0]
-    expect(options.dir).toBe('/d/mytorrent')
+    expect(options.dir).toBe(`${lastAddedTask(deps).torrentMetaPath}.state`)
     expect(options.out).toBeUndefined()
-    expect(options).not.toHaveProperty('index-out')
+    expect(options['index-out']).toEqual([
+      '1=/d/mytorrent/a',
+      '2=/d/mytorrent/b',
+      '3=/d/mytorrent/c',
+    ])
   })
 
   it('Magnet task: derives name from dn= when no displayName provided', async () => {
@@ -2055,7 +2091,7 @@ describe('handleCreateTask download paths', () => {
       await handleCreateTask(
         {
           type: 'bt',
-          payload: { kind: 'torrent-base64', base64: 'AAAA' },
+          payload: { kind: 'torrent-base64', base64: sampleTorrentBase64 },
           selectedFiles: [0],
           saveDir: '/d',
           displayName: 'mytorrent',
@@ -2125,22 +2161,28 @@ describe('handleCreateTask mkdir target by task type', () => {
   // — pre-creating the dir is required to keep that write from
   // silently failing (which would skip the sqlite3 task row and hit a
   // FK violation on the next pause).
-  it('BT task: mkdirs the final container (diskPath)', async () => {
+  it('BT task: creates the engine state directory before dispatch', async () => {
     const deps = makeDeps()
     await handleCreateTask(
       {
         type: 'bt',
-        payload: { kind: 'torrent-base64', base64: 'AAAA' },
+        payload: { kind: 'torrent-base64', base64: sampleTorrentBase64 },
         selectedFiles: [0],
         saveDir: '/d',
         displayName: 'mytorrent',
       },
       deps
     )
-    expect(mkdirMock).toHaveBeenCalledTimes(1)
-    expect(mkdirMock).toHaveBeenCalledWith(lastAddedTask(deps).finalPath, {
-      recursive: true,
-    })
+    expect(mkdirMock).toHaveBeenCalledWith(
+      `${lastAddedTask(deps).torrentMetaPath}.state`,
+      { recursive: true }
+    )
+    expect(mkdirMock).toHaveBeenCalledTimes(2)
+    expect(mkdirMock).toHaveBeenNthCalledWith(
+      2,
+      `${lastAddedTask(deps).torrentMetaPath}.state`,
+      { recursive: true }
+    )
   })
 
   it('Magnet task: mkdirs the final container (diskPath)', async () => {
@@ -2798,7 +2840,7 @@ describe('handleCreateTask plugin-hook chain (Plan C / T15)', () => {
     await handleCreateTask(
       {
         type: 'bt',
-        payload: { kind: 'torrent-base64', base64: 'AAAA' },
+        payload: { kind: 'torrent-base64', base64: sampleTorrentBase64 },
         selectedFiles: [0],
         saveDir: '/d',
         displayName: 'mytorrent',

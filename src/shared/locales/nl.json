@@ -2819,6 +2819,7 @@
       "invalidUrlCount": "{{count}} ongeldig",
       "links": "Links",
       "parseFailed": "Het torrentbestand kon niet worden verwerkt.",
+      "unsupportedTorrent": "Deze torrent gebruikt functies die de huidige downloadengine niet ondersteunt.",
       "pickPathCustom": "Aangepast pad",
       "pickPathTitle": "Opslagmap kiezen",
       "queueAdvanceFailed": "De volgende torrent kon niet worden geopend.",

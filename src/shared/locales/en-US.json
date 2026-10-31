@@ -1040,6 +1040,7 @@
       "createFailedByPlugin": "Couldn’t create the task: the plugin “{{pluginId}}” stopped it ({{detail}}). Disable that plugin under Settings → Plugins, then try again.",
       "createFailedPathTooLong": "Couldn’t create the task: the destination path is {{length}} characters, over the Windows limit of {{limit}}. Choose a shorter save folder or file name.",
       "parseFailed": "Failed to parse torrent file.",
+      "unsupportedTorrent": "This torrent uses features that the current download engine does not support.",
       "urlsCount_one": "{{count}} URL",
       "urlsCount_other": "{{count}} URLs",
       "urlsWithInvalid": "{{valid}} valid, {{invalid}} invalid",

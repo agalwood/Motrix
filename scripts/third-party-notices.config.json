@@ -35,14 +35,6 @@
       "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT"],
       "attribution": "James Sumners <james.sumners@gmail.com>"
     },
-    "cross-fetch-ponyfill@1.0.3": {
-      "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT"],
-      "attribution": "ThaUnknown"
-    },
-    "data-uri-to-buffer@4.0.1": {
-      "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT"],
-      "attribution": "Copyright (c) 2014 Nathan Rajlich <nathan@tootallnate.net>"
-    },
     "lazy-val@1.0.5": {
       "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT"],
       "attribution": "Vladimir Krivosheev"
@@ -50,10 +42,6 @@
     "react-remove-scroll-bar@2.3.8": {
       "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT"],
       "attribution": "Copyright (c) 2017 Anton Korzunov"
-    },
-    "uint8-util@2.3.2": {
-      "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT"],
-      "attribution": "ThaUnknown"
     },
     "victory-vendor@37.3.6": {
       "packageLicenseFiles": [

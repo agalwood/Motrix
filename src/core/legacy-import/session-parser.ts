@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import path from 'node:path'
+import { BDictionary, type BValue, decode } from '@motrix/torrent/bencode'
 import type { LegacyReason } from '@shared/schemas/legacy-import'
 
 export const MAX_LEGACY_BYTES = 8 * 1024 * 1024
@@ -371,49 +372,30 @@ export function safeLegacyOutput(dir: string, name: string): string | null {
   return root && safeLegacyComponent(name) ? path.join(root, name) : null
 }
 
-/** Validate bencode complexity before allowing a third-party decoder to recurse. */
+/** Apply the legacy import budget through the shared binary-safe decoder. */
 export function validateLegacyBencode(bytes: Uint8Array): void {
   if (bytes.length > MAX_LEGACY_BYTES) throw new Error('legacyImport.tooLarge')
-  let cursor = 0
-  let nodes = 0
-  const visit = (depth: number) => {
-    if (depth > 32 || ++nodes > 100000)
-      throw new Error('legacyImport.invalidSource')
-    const char = bytes[cursor++]
-    if (char === 100 || char === 108) {
-      while (bytes[cursor] !== 101) {
-        if (cursor >= bytes.length)
-          throw new Error('legacyImport.invalidSource')
-        visit(depth + 1)
-      }
-      cursor++
-    } else if (char === 105) {
-      const start = cursor
-      while (bytes[cursor] !== 101 && cursor < bytes.length) cursor++
-      const number = new TextDecoder().decode(bytes.slice(start, cursor))
+  try {
+    const { value } = decode(bytes, {
+      maxBytes: MAX_LEGACY_BYTES,
+      maxDepth: 32,
+      maxNodes: 100000,
+      maxIntegerDigits: 16,
+      allowUnsortedKeys: true,
+    })
+    const safeIntegers = (value: BValue): void => {
       if (
-        number.length > 20 ||
-        !/^-?\d+$/.test(number) ||
-        !Number.isSafeInteger(Number(number)) ||
-        cursor >= bytes.length
+        typeof value === 'bigint' &&
+        (value > BigInt(Number.MAX_SAFE_INTEGER) ||
+          value < BigInt(Number.MIN_SAFE_INTEGER))
       )
-        throw new Error('legacyImport.invalidSource')
-      cursor++
-    } else if (char >= 48 && char <= 57) {
-      let length = char - 48
-      let digits = 1
-      while (bytes[cursor] !== 58) {
-        const next = bytes[cursor++]
-        if (++digits > 8 || next < 48 || next > 57)
-          throw new Error('legacyImport.invalidSource')
-        length = length * 10 + next - 48
-      }
-      cursor++
-      if (length > bytes.length - cursor)
-        throw new Error('legacyImport.invalidSource')
-      cursor += length
-    } else throw new Error('legacyImport.invalidSource')
+        throw new Error('Unsafe legacy integer')
+      if (Array.isArray(value)) value.forEach(safeIntegers)
+      if (value instanceof BDictionary)
+        for (const [, child] of value.entries) safeIntegers(child)
+    }
+    safeIntegers(value)
+  } catch {
+    throw new Error('legacyImport.invalidSource')
   }
-  visit(0)
-  if (cursor !== bytes.length) throw new Error('legacyImport.invalidSource')
 }

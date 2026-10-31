@@ -197,6 +197,9 @@ importers:
       '@motrix/plugin-manifest-schema':
         specifier: ^2.2.0
         version: 2.2.0
+      '@motrix/torrent':
+        specifier: workspace:*
+        version: link:packages/torrent
       '@noble/curves':
         specifier: 2.4.0
         version: 2.4.0
@@ -260,9 +263,6 @@ importers:
       next-themes:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
-      parse-torrent:
-        specifier: ^11.0.24
-        version: 11.0.24
       pino:
         specifier: ^10.4.0
         version: 10.4.0
@@ -423,6 +423,28 @@ importers:
         version: 1.1.1
 
   packages/native-host: {}
+
+  packages/torrent:
+    dependencies:
+      '@noble/hashes':
+        specifier: 2.4.0
+        version: 2.4.0
+    devDependencies:
+      esbuild:
+        specifier: ^0.28.2
+        version: 0.28.2
+      parse-torrent:
+        specifier: 11.0.24
+        version: 11.0.24
+      playwright:
+        specifier: ^1.64.1
+        version: 1.64.1
+      typescript:
+        specifier: ~7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: ^5.0.5
+        version: 5.0.5(@types/node@26.6.5)(@vitest/coverage-v8@5.0.5)(jsdom@30.1.3(@noble/hashes@2.4.0))(vite@8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
 
 packages:
 

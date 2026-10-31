@@ -1,7 +1,7 @@
 import crypto from 'node:crypto'
 import fs from 'node:fs'
+import { parseEngineTorrent as parseTorrent } from '@shared/lib/engine-torrent'
 import type { DownloadTask } from '@shared/types/task'
-import parseTorrent from 'parse-torrent'
 
 const URI_HASH_LENGTH = 16
 

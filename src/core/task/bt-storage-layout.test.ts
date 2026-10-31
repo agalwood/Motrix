@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
+import { encode } from '@motrix/torrent'
 import { createBtStoragePlan } from '@test-utils/legacy-bt-storage'
 import { describe, expect, it } from 'vitest'
 import {
@@ -162,3 +163,29 @@ describe('direct BT storage layout', () => {
     expect(plan.layout).not.toHaveProperty('workspacePath')
   })
 })
+
+it.each([
+  '../escape',
+  'safe/nested',
+  'safe\\nested',
+  '..',
+  '.',
+  '',
+  'a\nb',
+  'a\rb',
+  'a\tb',
+  'a\u007fb',
+])(
+  'rejects unsafe original path component %j before joining paths',
+  async (component) => {
+    const metadata = encode({
+      info: {
+        name: 'root',
+        files: [{ length: 0, path: [component] }],
+        'piece length': 16384,
+        pieces: new Uint8Array(),
+      },
+    })
+    await expect(parseBtFileLayout(metadata)).rejects.toThrow()
+  }
+)

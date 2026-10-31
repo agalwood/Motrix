@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { normalizeBtih, parseMagnet } from '@motrix/torrent/magnet'
 import { AppError, ErrorCode } from '@shared/errors'
 import type {
   TaskCreateCommandResult,
@@ -11,9 +12,6 @@ import { getBtOutputReservations } from './bt-output-reservation'
 import { getBtDirectStorageLayout } from './bt-storage-layout'
 import { outputPathIdentity } from './output-path-identity'
 
-const HEX_INFO_HASH_RE = /^[a-f0-9]{40}$/i
-const BASE32_INFO_HASH_RE = /^[a-z2-7]{32}$/i
-const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
 const admissionTails = new Map<string, Promise<void>>()
 
 /**
@@ -132,39 +130,16 @@ export interface InspectBtDuplicateInput {
 
 /** Normalize a magnet/torrent BTIH to the 40-character domain form. */
 export function normalizeBtInfoHash(value: string): string | null {
-  const trimmed = value.trim()
-  if (HEX_INFO_HASH_RE.test(trimmed)) return trimmed.toLowerCase()
-  if (!BASE32_INFO_HASH_RE.test(trimmed)) return null
-
-  let bits = 0
-  let bitCount = 0
-  const bytes: number[] = []
-  for (const char of trimmed.toUpperCase()) {
-    const digit = BASE32_ALPHABET.indexOf(char)
-    if (digit < 0) return null
-    bits = (bits << 5) | digit
-    bitCount += 5
-    while (bitCount >= 8) {
-      bitCount -= 8
-      bytes.push((bits >> bitCount) & 0xff)
-      bits &= (1 << bitCount) - 1
-    }
-  }
-  if (bytes.length !== 20) return null
-  return bytes.map((byte) => byte.toString(16).padStart(2, '0')).join('')
+  return normalizeBtih(value.trim())
 }
 
 export function extractMagnetInfoHash(uri: string): string | null {
   try {
-    const params = new URL(uri).searchParams
-    for (const xt of params.getAll('xt')) {
-      const match = /^urn:btih:(.+)$/i.exec(xt)
-      if (match) return normalizeBtInfoHash(match[1])
-    }
+    const { identity } = parseMagnet(uri)
+    return identity.kind === 'v2' ? null : identity.sha1
   } catch {
-    // Invalid magnet URIs are rejected by the request schema/engine path.
+    return null
   }
-  return null
 }
 
 export function inspectBtDuplicate(

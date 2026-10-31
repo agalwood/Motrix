@@ -1,11 +1,11 @@
 import { getLogger } from '@core/logger'
 import { AppError, ErrorCode } from '@shared/errors'
+import { parseEngineTorrent as parseTorrent } from '@shared/lib/engine-torrent'
 import {
   MAX_TORRENT_BASE64_SIZE,
   projectTorrentMeta,
 } from '@shared/lib/torrent-meta'
 import type { TorrentMeta } from '@shared/types/torrent'
-import parseTorrent from 'parse-torrent'
 
 const log = getLogger('torrent-parser')
 
@@ -23,6 +23,7 @@ export class TorrentParser {
       const bytes = Buffer.from(base64, 'base64')
       parsed = await parseTorrent(new Uint8Array(bytes))
     } catch (err) {
+      if (err instanceof AppError) throw err
       log.warn({ err }, 'failed to parse torrent')
       throw new AppError(
         ErrorCode.TorrentParseFailed,

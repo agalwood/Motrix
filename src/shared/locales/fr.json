@@ -2839,6 +2839,7 @@
       "invalidUrlCount": "Invalides : {{count}}",
       "links": "Liens",
       "parseFailed": "Impossible d’analyser le fichier torrent.",
+      "unsupportedTorrent": "Ce torrent utilise des fonctionnalités non prises en charge par le moteur de téléchargement actuel.",
       "pickPathCustom": "Chemin personnalisé",
       "pickPathTitle": "Choisir le dossier de destination",
       "queueAdvanceFailed": "Impossible d’ouvrir le torrent suivant.",

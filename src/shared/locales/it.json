@@ -1052,6 +1052,7 @@
       "createFailedByPlugin": "Impossibile creare l’attività: il plugin “{{pluginId}}” l’ha bloccata ({{detail}}). Disattiva il plugin in Impostazioni → Plugin, quindi riprova.",
       "createFailedPathTooLong": "Impossibile creare l’attività: il percorso di destinazione contiene {{length}} caratteri e supera il limite di Windows di {{limit}}. Scegli un percorso di salvataggio o un nome file più corto.",
       "parseFailed": "Impossibile analizzare il file torrent.",
+      "unsupportedTorrent": "Questo torrent utilizza funzionalità non supportate dal motore di download attuale.",
       "urlsCount_one": "{{count}} URL",
       "urlsCount_other": "{{count}} URL",
       "urlsCount_many": "{{count}} URL",

@@ -1052,6 +1052,7 @@
       "createFailedByPlugin": "No se pudo crear la tarea: el plugin «{{pluginId}}» la detuvo ({{detail}}). Desactiva ese plugin en Ajustes → Plugins y vuelve a intentarlo.",
       "createFailedPathTooLong": "No se pudo crear la tarea: la ruta de destino tiene {{length}} caracteres y supera el límite de {{limit}} de Windows. Elige una carpeta o un nombre de archivo más corto.",
       "parseFailed": "No se pudo analizar el archivo torrent.",
+      "unsupportedTorrent": "Este torrent utiliza funciones que el motor de descarga actual no admite.",
       "urlsCount_one": "{{count}} URL",
       "urlsCount_other": "{{count}} URL",
       "urlsWithInvalid": "Válidas: {{valid}}; no válidas: {{invalid}}",

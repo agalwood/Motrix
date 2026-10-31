@@ -4,10 +4,10 @@ import { lstat, open, realpath } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { analyzeDownloadSource } from '@shared/lib/download-source'
+import { parseEngineTorrent as parseTorrent } from '@shared/lib/engine-torrent'
 import { projectTorrentMeta } from '@shared/lib/torrent-meta'
 import type { LegacyImportItem } from '@shared/schemas/legacy-import'
 import type { TorrentMeta } from '@shared/types/torrent'
-import parseTorrent from 'parse-torrent'
 import { parseBtFileLayout } from '../task/bt-storage-layout'
 import {
   digestBytes,
