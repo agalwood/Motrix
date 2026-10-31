@@ -35,14 +35,14 @@ minimumReleaseAgeExclude:
   - '@noble/curves@2.4.0'
   - '@noble/hashes@2.4.0'
   - i18next@26.3.6 || 26.5.6 || 26.5.10
-  - lucide-react@1.24.0 || 1.31.0 || 1.49.0 || 1.54.0 || 1.62.0 || 1.64.0
+  - lucide-react@1.24.0 || 1.31.0 || 1.49.0 || 1.54.0 || 1.62.0 || 1.64.0 || 1.66.0
   - react-i18next@17.0.9 || 17.0.15 || 17.1.3 || 17.1.8
   - '@motrix/mdxp@0.1.0 || 0.3.0 || 0.4.0 || 0.5.0 || 0.6.0 || 0.7.0 || 0.8.0 || 0.8.1'
   - '@motrix/nat@0.1.0 || 0.1.1 || 0.1.3 || 0.1.4'
   - '@motrix/cli@0.1.0'
   - '@motrix/plugin-api@2.1.0 || 2.2.0'
   - '@motrix/plugin-manifest-schema@2.0.0 || 2.1.1 || 2.2.0'
-  - '@hookform/resolvers@5.5.7 || 5.9.1 || 6.0.1'
+  - '@hookform/resolvers@5.5.7 || 5.9.1 || 6.0.1 || 6.0.2'
   - jsdom@30.0.0 || 30.1.1
   - magnet-uri@7.0.10
   - '@motrix/torrent@0.1.1'
@@ -50,7 +50,7 @@ minimumReleaseAgeExclude:
   - '@testing-library/user-event@14.6.3 || 14.6.4 || 14.6.7'
   - fastify@5.11.2 || 5.11.3
   - undici@8.10.0 || 8.11.0
-  - ws@8.21.2
+  - ws@8.21.2 || 8.22.1
   - '@xmldom/xmldom@0.8.15'
   - qs@6.16.0
   - '@esbuild/aix-ppc64@0.28.2'
@@ -90,7 +90,7 @@ minimumReleaseAgeExclude:
   - '@biomejs/cli-linux-x64@2.5.8 || 2.5.9 || 2.6.3 || 2.6.4'
   - '@biomejs/cli-win32-arm64@2.5.8 || 2.5.9 || 2.6.3 || 2.6.4'
   - '@biomejs/cli-win32-x64@2.5.8 || 2.5.9 || 2.6.3 || 2.6.4'
-  - electron@43.4.0 || 44.1.1 || 44.5.0 || 45.1.0
+  - electron@43.4.0 || 44.1.1 || 44.5.0 || 45.1.0 || 45.2.1
   - shadcn@4.17.0 || 4.18.0 || 4.20.0 || 4.20.1 || 4.23.0
   - zustand@5.0.15 || 5.0.16
   - js-yaml@5.4.2
@@ -105,16 +105,13 @@ minimumReleaseAgeExclude:
   - '@base-ui/utils@0.5.0'
   - '@electron/notarize@3.1.2'
   - vite@8.3.4
-  - '@tanstack/react-virtual@3.14.22'
-  - '@tanstack/virtual-core@3.19.7'
+  - '@tanstack/react-virtual@3.14.22 || 3.14.24'
+  - '@tanstack/virtual-core@3.19.7 || 3.19.9'
   - '@biomejs/cli-android-arm64@2.6.3 || 2.6.4'
   - '@biomejs/cli-android-x64@2.6.3 || 2.6.4'
   - '@fastify/static@10.1.8'
   - '@shadcn/registry@0.2.1'
   - react-router@8.5.1
-  - '@hookform/resolvers@6.0.2'
-  - '@tanstack/react-virtual@3.14.24'
-  - '@tanstack/virtual-core@3.19.9'
   - elkjs@0.12.1
   - electron-builder@26.18.1
   - electron-updater@6.8.12
@@ -124,3 +121,5 @@ minimumReleaseAgeExclude:
   - dmg-builder@26.18.1
   - electron-publish@26.18.1
   - electron-builder-squirrel-windows@26.18.1
+  - '@fastify/websocket@11.3.5'
+  - tslib@2.9.1
