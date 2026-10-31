@@ -42,7 +42,9 @@ dependency is `@noble/hashes`. See [简体中文](README.zh-CN.md).
   for creating new metadata, never for reconstructing an existing identity.
 - Dictionaries have binary keys (`BDictionary`) without prototype-sensitive
   object properties. Unknown keys and attributes remain inspectable in the
-  original dictionaries. Integers, byte lengths, duplicates, truncation and
+  original dictionaries. During decoding, lookup indices retain borrowed keys
+  and their entry count is bounded by the node budget; file-path indices also
+  avoid expanded strings. Integers, byte lengths, duplicates, truncation and
   trailing bytes are validated. Canonical key sorting is required by default.
 - `allowUnsortedKeys` explicitly admits historical v1 encodings while retaining
   their original hash. It never admits duplicate keys or invalid numbers. v2
@@ -55,8 +57,9 @@ dependency is `@noble/hashes`. See [简体中文](README.zh-CN.md).
   Merkle root verification with zero subtree padding. Work memory for this
   verification is logarithmic; piece tables are not eagerly expanded to hex.
 - Hybrid metadata must describe the same files in the same order, with matching
-  lengths, attributes, symlinks and piece alignment. Zero-byte files occupy no
-  piece space. Tail padding is optional. This checks metadata consistency; it
+  lengths, symlinks and piece alignment. Padding and symlink semantics stay
+  strict; hidden/executable hints and unknown flags are retained independently
+  and may differ between the two views. Zero-byte files occupy no piece space. Tail padding is optional. This checks metadata consistency; it
   cannot prove that v1 and v2 hashes describe identical payload bytes without
   reading and hashing those payloads.
 - Full `.torrent` input requires all necessary piece layers. Unlike libtorrent's

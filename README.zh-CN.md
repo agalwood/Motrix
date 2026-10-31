@@ -40,7 +40,8 @@ const magnet = parseMagnet('magnet:?xt=urn:btmh:1220' + 'ab'.repeat(32))
   请勿修改输入或返回的视图。`infoRange` 是原始 info 的半开字节区间。编码器用于
   创建新元数据，不能用来重建已有种子的身份。
 - 字典使用二进制键（`BDictionary`），没有对象原型属性碰撞。未知字段和属性保留
-  在原始字典中。解析器检查整数、长度、重复键、截断和多余尾随字节，默认要求键
+  在原始字典中。解码时的查询索引直接引用原始键，条目数受节点预算约束；文件路径
+  索引也不会展开为字符串。解析器检查整数、长度、重复键、截断和多余尾随字节，默认要求键
   按原始字节规范排序。
 - `allowUnsortedKeys` 可显式接受历史 v1 文件中未排序的字典，同时保留原始 hash；
   它不会允许重复键或非法数字。v2 始终要求规范编码，未知 `meta version` 会报错。
@@ -50,8 +51,9 @@ const magnet = parseMagnet('magnet:?xt=urn:btmh:1220' + 'ab'.repeat(32))
 - v1 检查 piece 数量与拼接后的文件长度是否匹配。v2 检查文件树、piece 大小、根
   hash 和完整 piece layers，并使用零子树 padding 验证 Merkle 根。校验临时内存
   为对数级，不会预先将整个 piece 表展开成十六进制字符串。
-- hybrid 的两种布局必须具有相同的文件顺序、长度、属性、symlink 和 piece 对齐。
-  零字节文件不占 piece 空间，末尾 padding 可省略。这验证的是元数据一致性；
+- hybrid 的两种布局必须具有相同的文件顺序、长度、symlink 和 piece 对齐。
+  padding 和 symlink 语义保持严格校验；隐藏、可执行等提示性属性与未知标志独立
+  保留，允许两种视图不同。零字节文件不占 piece 空间，末尾 padding 可省略。这验证的是元数据一致性；
   不读取实际数据，就无法证明 v1 与 v2 的 hash 指向完全相同的内容。
 - 完整 `.torrent` 输入必须包含所需的全部 piece layers。与 libtorrent 的部分
   元数据模式不同，缺失层会被拒绝。BEP 9 消息交换和部分元数据拼装不在范围内。

@@ -21,9 +21,14 @@ export class TorrentError extends Error {
 export const utf8 = new TextEncoder()
 export const textDecoder = new TextDecoder('utf-8', { ignoreBOM: true })
 export function hex(bytes: Uint8Array): string {
-  let result = ''
-  for (const byte of bytes) result += byte.toString(16).padStart(2, '0')
-  return result
+  const digits = '0123456789abcdef'
+  const encoded = new Uint8Array(bytes.length * 2)
+  for (let i = 0; i < bytes.length; i++) {
+    const byte = bytes[i] as number
+    encoded[i * 2] = digits.charCodeAt(byte >>> 4)
+    encoded[i * 2 + 1] = digits.charCodeAt(byte & 15)
+  }
+  return textDecoder.decode(encoded)
 }
 export function compareBytes(a: Uint8Array, b: Uint8Array): number {
   for (let i = 0; i < Math.min(a.length, b.length); i++) {
@@ -32,20 +37,40 @@ export function compareBytes(a: Uint8Array, b: Uint8Array): number {
   }
   return a.length - b.length
 }
+type DictionaryEntry = readonly [Uint8Array, BValue]
 export class BDictionary {
-  readonly entries: readonly (readonly [Uint8Array, BValue])[]
-  private readonly index = new Map<string, BValue>()
-  constructor(entries: readonly (readonly [Uint8Array, BValue])[]) {
+  readonly entries: readonly DictionaryEntry[]
+  // One reference per key, bounded by the decoder's node budget. Keep binary
+  // keys borrowed instead of expanding attacker-controlled keys into strings.
+  readonly #index: readonly DictionaryEntry[]
+  constructor(entries: readonly DictionaryEntry[]) {
     this.entries = entries
-    for (const [key, value] of entries) {
-      const id = hex(key)
-      if (this.index.has(id))
+    const index = [...entries]
+    index.sort(([a], [b]) => compareBytes(a, b))
+    for (let i = 1; i < index.length; i++) {
+      if (
+        compareBytes(
+          (index[i - 1] as DictionaryEntry)[0],
+          (index[i] as DictionaryEntry)[0]
+        ) === 0
+      )
         throw new TorrentError('bencode', 'Duplicate dictionary key')
-      this.index.set(id, value)
     }
+    this.#index = index
   }
   get(key: string | Uint8Array): BValue | undefined {
-    return this.index.get(hex(typeof key === 'string' ? utf8.encode(key) : key))
+    const bytes = typeof key === 'string' ? utf8.encode(key) : key
+    let start = 0
+    let end = this.#index.length
+    while (start < end) {
+      const middle = start + Math.floor((end - start) / 2)
+      const [candidate, value] = this.#index[middle] as DictionaryEntry
+      const order = compareBytes(candidate, bytes)
+      if (order === 0) return value
+      if (order < 0) start = middle + 1
+      else end = middle
+    }
+    return undefined
   }
   has(key: string | Uint8Array): boolean {
     return this.get(key) !== undefined
@@ -123,7 +148,6 @@ export function decode(
     if (token === 108 || token === 100) {
       const list: BValue[] = []
       const entries: [Uint8Array, BValue][] = []
-      const seen = new Set<string>()
       let previous: Uint8Array | undefined
       while (bytes[cursor] !== 101) {
         if (cursor >= bytes.length) fail('Truncated container')
@@ -132,19 +156,27 @@ export function decode(
           const key = visit(depth + 1)
           if (!(key instanceof Uint8Array))
             return fail('Dictionary key is not a byte string')
-          const id = hex(key)
-          if (seen.has(id)) fail('Duplicate dictionary key')
-          seen.add(id)
-          if (previous && compareBytes(previous, key) >= 0) {
-            canonical = false
-            unsortedDictionaries++
-            if (!options.allowUnsortedKeys) fail('Unsorted dictionary keys')
+          if (previous) {
+            const order = compareBytes(previous, key)
+            if (order === 0) fail('Duplicate dictionary key')
+            if (order > 0) {
+              canonical = false
+              unsortedDictionaries++
+              if (!options.allowUnsortedKeys) fail('Unsorted dictionary keys')
+            }
           }
           previous = key
           const start = cursor
           const before = unsortedDictionaries
           const value = visit(depth + 1)
-          if (depth === 0 && id === '696e666f') {
+          if (
+            depth === 0 &&
+            key.length === 4 &&
+            key[0] === 105 &&
+            key[1] === 110 &&
+            key[2] === 102 &&
+            key[3] === 111
+          ) {
             infoRange = [start, cursor]
             infoCanonical = before === unsortedDictionaries
           }

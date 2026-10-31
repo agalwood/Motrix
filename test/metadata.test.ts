@@ -170,6 +170,133 @@ describe('torrent metadata and integrity', () => {
       /version/
     )
   })
+  it.each(['x', 'h', 'z', 'xxhZ'])(
+    'accepts hybrid hint attributes %s without changing either file view',
+    (attributes) => {
+      const data = new Uint8Array([97])
+      const bytes = encode({
+        info: {
+          name: 'a',
+          length: 1,
+          attr: attributes,
+          'piece length': 16384,
+          pieces: digest('sha1', data),
+          'meta version': 2,
+          'file tree': {
+            a: { '': { length: 1, 'pieces root': sha256(data) } },
+          },
+        },
+      })
+      const parsed = parseTorrent(bytes)
+      expect(parsed.identity.kind).toBe('hybrid')
+      expect(parsed.v1?.files[0]?.attributes).toBe(attributes)
+      expect(parsed.v2?.files[0]?.attributes).toBe('')
+      expect(parsed.v1?.files[0]?.length).toBe(parsed.v2?.files[0]?.length)
+    }
+  )
+
+  it('keeps hybrid symlink semantics and targets strict when hints differ', () => {
+    const data = new Uint8Array([97])
+    const files: BInput[] = [
+      { path: ['link'], length: 0, attr: 'lhZ', 'symlink path': ['target'] },
+      { path: ['target'], length: 1 },
+    ]
+    const info = {
+      name: 'root',
+      'meta version': 2,
+      'piece length': 16384,
+      pieces: digest('sha1', data),
+      files,
+      'file tree': {
+        link: { '': { length: 0, attr: 'l', 'symlink path': ['target'] } },
+        target: { '': { length: 1, 'pieces root': sha256(data) } },
+      },
+    } satisfies BInput
+    expect(parseTorrent(encode({ info })).identity.kind).toBe('hybrid')
+    for (const link of [
+      { length: 0 },
+      { length: 0, attr: 'l', 'symlink path': ['elsewhere'] },
+    ] as BInput[]) {
+      expect(() =>
+        parseTorrent(
+          encode({
+            info: {
+              ...info,
+              'file tree': { ...info['file tree'], link: { '': link } },
+            },
+          })
+        )
+      ).toThrow(/Hybrid/)
+    }
+  })
+
+  it.each([14, 31, 49, 50, 51, 52])(
+    'checks v2 powers of two exactly near 2**%i',
+    (exponent) => {
+      const data = new Uint8Array([97])
+      const make = (size: number) =>
+        encode({
+          info: {
+            name: 'a',
+            'meta version': 2,
+            'piece length': size,
+            'file tree': {
+              a: { '': { length: 1, 'pieces root': sha256(data) } },
+            },
+          },
+        })
+      expect(parseTorrent(make(2 ** exponent)).pieceLength).toBe(2 ** exponent)
+      expect(() => parseTorrent(make(2 ** exponent - 1))).toThrow(
+        /power of two/
+      )
+      expect(() => parseTorrent(make(2 ** exponent + 1))).toThrow(
+        /power of two/
+      )
+    }
+  )
+
+  it('preserves declared v1 file order and detects exact binary path conflicts', () => {
+    const make = (files: BInput[]) =>
+      encode({
+        info: {
+          name: 'root',
+          files,
+          'piece length': 16384,
+          pieces: new Uint8Array(),
+        },
+      })
+    const files = [
+      { path: [new Uint8Array([255])], length: 0 },
+      { path: [new Uint8Array([0])], length: 0 },
+    ]
+    const parsed = parseTorrent(make(files))
+    expect(parsed.v1?.files.map((file) => [...file.path[0]!])).toEqual([
+      [255],
+      [0],
+    ])
+    expect(() =>
+      parseTorrent(
+        make([...files, { path: [new Uint8Array([255])], length: 0 }])
+      )
+    ).toThrow(/Conflicting/)
+    expect(() =>
+      parseTorrent(
+        make([
+          { path: ['a', 'b'], length: 0 },
+          { path: ['a'], length: 0 },
+        ])
+      )
+    ).toThrow(/file\/directory/)
+    const pads = [
+      { path: ['.pad', '0'], length: 0, attr: 'p' },
+      { path: ['.pad', '0'], length: 0, attr: 'p' },
+    ]
+    expect(parseTorrent(make(pads)).v1?.files).toHaveLength(2)
+    expect(() =>
+      parseTorrent(make([pads[0]!, { path: ['.pad', '0'], length: 0 }]))
+    ).toThrow(/Conflicting/)
+  })
+
   it('hashes original unsorted v1 info bytes, never a canonical reconstruction', () => {
     const rawInfo = Buffer.concat([
       Buffer.from('d4:name1:a6:lengthi1e12:piece lengthi16384e6:pieces20:'),

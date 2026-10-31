@@ -166,6 +166,16 @@ function file(
     properties,
   }
 }
+function comparePaths(
+  left: readonly Uint8Array[],
+  right: readonly Uint8Array[]
+): number {
+  for (let i = 0; i < Math.min(left.length, right.length); i++) {
+    const order = compareBytes(left[i] as Uint8Array, right[i] as Uint8Array)
+    if (order) return order
+  }
+  return left.length - right.length
+}
 function parseV1(
   info: BDictionary,
   pieceLength: number
@@ -192,23 +202,28 @@ function parseV1(
     files.push(parsed)
     length += parsed.length
   }
-  const names = new Map<string, TorrentFile>()
-  for (const entry of files) {
-    if (entry.padding && !entry.path.length) continue
-    const key = entry.path.map(hex).join('/')
-    const previous = names.get(key)
+  // Sort references, preserving the declared file order and all raw components.
+  // Adjacent paths reveal both duplicates and file/directory prefix conflicts
+  // without expanding paths into hex strings or rebuilding every prefix.
+  const ordered = files
+    .filter((entry) => !(entry.padding && !entry.path.length))
+    .sort((left, right) => comparePaths(left.path, right.path))
+  for (let i = 1; i < ordered.length; i++) {
+    const previous = ordered[i - 1] as TorrentFile
+    const entry = ordered[i] as TorrentFile
+    const prefix =
+      previous.path.length <= entry.path.length &&
+      previous.path.every(
+        (part, index) =>
+          compareBytes(part, entry.path[index] as Uint8Array) === 0
+      )
+    if (!prefix) continue
+    if (previous.path.length !== entry.path.length)
+      invalid('v1 file/directory conflict')
     if (
-      previous &&
       !(previous.padding && entry.padding && previous.length === entry.length)
     )
       invalid('Conflicting v1 file path')
-    names.set(key, entry)
-  }
-  for (const key of names.keys()) {
-    const components = key.split('/')
-    for (let i = 1; i < components.length; i++)
-      if (names.has(components.slice(0, i).join('/')))
-        invalid('v1 file/directory conflict')
   }
   const pieces = new HashTable(bytes(info.get('pieces'), 'pieces'), 20)
   if (
@@ -245,7 +260,8 @@ function parseV2(
   metainfo: BDictionary,
   pieceLength: number
 ): NonNullable<TorrentMetadata['v2']> {
-  if (pieceLength < 16384 || !Number.isInteger(Math.log2(pieceLength)))
+  const pieceSize = BigInt(pieceLength)
+  if (pieceSize < 16384n || (pieceSize & (pieceSize - 1n)) !== 0n)
     invalid('v2 piece length must be a power of two >= 16 KiB')
   const files: TorrentFile[] = []
   let offset = 0n
@@ -309,6 +325,8 @@ function validateHybrid(
   name: Uint8Array,
   pieceLength: number
 ) {
+  // Hidden/executable hints and unknown BEP 47 flags do not change content.
+  // Padding and symlink semantics are still validated independently.
   const content = v1.files.filter((entry) => !entry.padding)
   if (content.length !== v2.files.length) invalid('Hybrid file count mismatch')
   for (let i = 0; i < content.length; i++) {
@@ -322,8 +340,7 @@ function validateHybrid(
       path.some((part, index) =>
         compareBytes(part, b.path[index] as Uint8Array)
       ) ||
-      [...new Set(a.attributes)].sort().join('') !==
-        [...new Set(b.attributes)].sort().join('')
+      Boolean(a.symlinkPath) !== Boolean(b.symlinkPath)
     )
       invalid('Hybrid file layout mismatch')
     const al = a.symlinkPath ?? []

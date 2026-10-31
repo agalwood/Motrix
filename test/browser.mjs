@@ -88,11 +88,66 @@ for (const name of selected) {
           .kind !== 'v2'
       )
         throw new Error('v2 magnet identity lost')
+      const key = new Uint8Array(2 * 1024 * 1024).fill(255)
+      const keyed = encode(
+        new Map([
+          [key, 7n],
+          [
+            'info',
+            {
+              name: 'a',
+              length: 0,
+              'piece length': 16384,
+              pieces: new Uint8Array(),
+            },
+          ],
+        ])
+      )
+      if (parseTorrent(keyed).metainfo.get(key) !== 7n)
+        throw new Error('Large binary key lookup failed')
+      const hybridSource = new Uint8Array(
+        fixtures.find((f) => f.name === 'libtorrent/v2').bytes
+      )
+      const outer = decode(hybridSource).value
+      const info = outer.get('info')
+      const readKey = (value) => new TextDecoder().decode(value)
+      const withHints = new Map(
+        info.entries.filter(([name]) => readKey(name) !== 'attr')
+      )
+      withHints.set('attr', 'xhZ')
+      const withInfo = new Map(
+        outer.entries.filter(([name]) => readKey(name) !== 'info')
+      )
+      withInfo.set('info', withHints)
+      const hybrid = parseTorrent(encode(withInfo))
+      if (
+        hybrid.identity.kind !== 'hybrid' ||
+        hybrid.v1.files[0].attributes !== 'xhZ'
+      )
+        throw new Error('Hybrid hints lost')
+      let badPieceRejected = false
+      try {
+        parseTorrent(
+          encode({
+            info: {
+              name: 'empty',
+              'meta version': 2,
+              'piece length': 2 ** 49 - 1,
+              'file tree': { empty: { '': { length: 0 } } },
+            },
+          })
+        )
+      } catch (error) {
+        badPieceRejected = error.code === 'metadata'
+      }
+      if (!badPieceRejected)
+        throw new Error('Non-power-of-two piece length accepted')
       return {
         secureContext: isSecureContext,
         webCrypto: Boolean(globalThis.crypto?.subtle),
         hashes,
         callerFileIo: true,
+        adversarialRegressions: true,
       }
     }, files)
     assert.equal(

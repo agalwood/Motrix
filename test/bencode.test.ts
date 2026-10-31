@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type BDictionary, type BInput, decode, encode } from '../src/index.js'
+import { BDictionary, type BInput, decode, encode } from '../src/index.js'
 
 const utf8 = new TextEncoder()
 
@@ -79,6 +79,46 @@ describe('bounded binary bencode', () => {
     const bytes = encode(new Uint8Array(10000))
     expect((decode(bytes).value as Uint8Array).buffer).toBe(bytes.buffer)
   })
+  it('indexes binary keys by contents while retaining the original entry order', () => {
+    const entries = [
+      [new Uint8Array([255]), 3n],
+      [new Uint8Array([0, 255]), 2n],
+      [new Uint8Array(), 0n],
+      [new Uint8Array([0]), 1n],
+    ] as const
+    const dictionary = new BDictionary(entries)
+    expect(dictionary.entries).toEqual(entries)
+    for (const [key, value] of entries)
+      expect(dictionary.get(key.slice())).toBe(value)
+    expect(dictionary.get(new Uint8Array([0, 254]))).toBeUndefined()
+    expect(dictionary.has(new Uint8Array([255, 0]))).toBe(false)
+    expect(
+      () => new BDictionary([...entries, [new Uint8Array([0, 255]), 9n]])
+    ).toThrow(/Duplicate/)
+  })
+
+  it('rejects nonadjacent duplicate keys in compatibility mode', () => {
+    expect(() =>
+      decode(utf8.encode('d1:bi1e1:ai2e1:bi3ee'), { allowUnsortedKeys: true })
+    ).toThrow(/Duplicate/)
+    const dictionary = decode(utf8.encode('d1:bi1e1:ai2ee'), {
+      allowUnsortedKeys: true,
+    }).value as BDictionary
+    expect(dictionary.get('a')).toBe(2n)
+    expect(dictionary.get('b')).toBe(1n)
+    expect(
+      dictionary.entries.map(([key]) => new TextDecoder().decode(key))
+    ).toEqual(['b', 'a'])
+  })
+
+  it('charges dictionary keys and values to the node budget before indexing', () => {
+    const bytes = encode({ a: 1, b: 2 })
+    expect(() => decode(bytes, { maxNodes: 4 })).toThrow(/complexity/)
+    expect((decode(bytes, { maxNodes: 5 }).value as BDictionary).get('b')).toBe(
+      2n
+    )
+  })
+
   it('property checks canonical roundtrips and deterministic malformed-byte fuzzing', () => {
     let seed = 0x12345678
     const random = () => {
