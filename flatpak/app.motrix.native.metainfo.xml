@@ -68,6 +68,15 @@
   </screenshots>
 
   <releases>
+    <release version="2.2.0" date="2026-11-01">
+      <description>
+        <p>
+          Adds optional desktop download progress and Server extension media
+          downloads. Improves torrent metadata validation, browser-profile
+          connections, cookie handoff, speed modes and Paragon NTFS completion.
+        </p>
+      </description>
+    </release>
     <release version="2.1.1" date="2026-10-30">
       <description>
         <p>

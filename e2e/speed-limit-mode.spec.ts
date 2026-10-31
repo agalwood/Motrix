@@ -56,11 +56,12 @@ test('the Downloads speed menu changes the limit of an already-running transfer 
     })
     return task
   }
-  const measureRate = async (seconds = 4) => {
+  const measureRate = async (seconds = 12) => {
     const before = await sample()
     const start = performance.now()
-    // Sample transferred bytes over multiple engine polls, rather than only
-    // checking the configured limit or a smoothed speed label.
+    // Cover the engine's burst and subsequent throttling after a mode change.
+    // A four-second sample can capture the burst but miss several idle polls;
+    // use the same sustained-byte window for every profile, not a speed label.
     let after = before
     for (let i = 0; i < seconds; i++) {
       await new Promise((resolve) => setTimeout(resolve, 1000))
