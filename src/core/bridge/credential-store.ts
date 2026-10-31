@@ -34,8 +34,17 @@ const CredentialPrincipalSchema = z
     browser: BrowserSchema,
     verifiedOrigin: z.string().min(1).max(MAX_VERIFIED_ORIGIN_LENGTH),
     clientInstallationId: z.string().min(1).max(MAX_INSTALLATION_ID_LENGTH),
+    safariInstallationKey: z
+      .string()
+      .regex(/^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/)
+      .optional(),
   })
   .strict()
+  .refine(
+    (principal) =>
+      principal.safariInstallationKey === undefined ||
+      principal.browser === 'safari'
+  )
 
 /** Spec §6.7: a second browser profile is a new principal, so issuing or
  *  rotating one credential never affects another. */
@@ -348,6 +357,11 @@ export class Mbp1CredentialStore {
           !isExpiredAt(c, operationNow)
       )
       if (slot) {
+        if (
+          slot.principal.safariInstallationKey !==
+          parsedPrincipal.safariInstallationKey
+        )
+          throw new Error(CommittedExtensionCredentialError.InvalidInput)
         return {
           credentialId: slot.credentialId,
           mutualKeyB64: slot.mutualKeyB64,
@@ -381,6 +395,38 @@ export class Mbp1CredentialStore {
         credentialId: fresh.credentialId,
         mutualKeyB64: fresh.mutualKeyB64,
       }
+    })
+  }
+
+  /** Register continuity only after MAC, installation proof and migration policy pass.
+   * The exact credential and authorization epoch are compared again inside the queue.
+   * Its original principal remains the stable routing/revocation identity. */
+  async bindSafariInstallation(
+    expected: StoredCredential,
+    publicKey: string
+  ): Promise<void> {
+    await this.enqueue(async () => {
+      const current = this.credentials.find(
+        (c) => c.credentialId === expected.credentialId
+      )
+      if (
+        current?.principal.browser !== 'safari' ||
+        current.mutualKeyB64 !== expected.mutualKeyB64 ||
+        current.authorizationEpoch !== expected.authorizationEpoch ||
+        principalKey(current.principal) !== principalKey(expected.principal) ||
+        (current.principal.safariInstallationKey !== undefined &&
+          current.principal.safariInstallationKey !== publicKey) ||
+        isExpiredAt(current, this.readNow())
+      )
+        throw new Error('Safari continuity credential changed')
+      const principal = parseCredentialPrincipal({
+        ...current.principal,
+        safariInstallationKey: publicKey,
+      })
+      if (current.principal.safariInstallationKey === publicKey) return
+      await this.persist(
+        this.credentials.map((c) => (c === current ? { ...c, principal } : c))
+      )
     })
   }
 

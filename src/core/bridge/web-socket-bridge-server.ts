@@ -706,7 +706,6 @@ export class WebSocketBridgeServer {
           socket,
           head,
           peer,
-          identity,
           mbp1,
           route.releaseAdmission ?? (() => undefined)
         )
@@ -736,6 +735,11 @@ export class WebSocketBridgeServer {
           res.end()
           return
         }
+        res.setHeader('X-Motrix-Safari-Continuity', '1')
+        res.setHeader(
+          'Access-Control-Expose-Headers',
+          'X-Motrix-Safari-Continuity'
+        )
         writeJson(res, 200, {
           app: 'motrix-bridge',
           apiVersion: 1,
@@ -2027,7 +2031,6 @@ export class WebSocketBridgeServer {
     socket: Duplex,
     head: Buffer,
     peer: ExtensionPeer,
-    identity: ClientIdentity & { kind: 'extension' },
     mbp1: Mbp1Wiring,
     releaseAdmission: () => void
   ): void {
@@ -2075,6 +2078,11 @@ export class WebSocketBridgeServer {
       ws.on('error', () => {})
 
       const session = new ReconnectSession({
+        safariTicketContext: {
+          localToken: this.opts.localToken,
+          serverGeneration: mbp1.serverGeneration,
+          replay: this.replay,
+        },
         verifiedOrigin: peer.origin,
         // Derived from the Origin scheme, never from a stored or claimed
         // field: §8 binds the live connection's values into the MAC.
@@ -2087,9 +2095,24 @@ export class WebSocketBridgeServer {
           detachPreAuth()
           this.preAuthReconnect.settle(entry)
           entry.releaseAdmission()
+          const authenticatedTransport = transportIdentityForPrincipal(
+            credential.principal
+          )
+          if (!authenticatedTransport) {
+            ws.close()
+            return
+          }
+          const authenticatedIdentity = {
+            kind: 'extension' as const,
+            ...authenticatedTransport,
+          }
+          if (!this.canAdmitExtensionIdentity(authenticatedIdentity)) {
+            ws.close()
+            return
+          }
           this.adoptAuthenticatedSession(
             ws,
-            identity,
+            authenticatedIdentity,
             channel,
             credential.credentialId
           )

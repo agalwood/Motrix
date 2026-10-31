@@ -10,9 +10,11 @@ import {
   WebSocketBridgeServer,
 } from '@core/bridge/web-socket-bridge-server'
 import { ErrorCodes, Notifications } from '@motrix/mdxp'
+import { ed25519 } from '@noble/curves/ed25519.js'
 import { utf8ToBytes } from '@noble/hashes/utils.js'
 import type { Browser, ClientIdentity } from '@shared/protocol/bridge'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { toBase64Url } from '../mbp1/canonical'
 import {
   type FakeDialogs,
   makeAllowlist,
@@ -173,6 +175,7 @@ async function pairFully(
     browser?: Browser
     claimedExtensionId?: string
     clientInstallationId?: string
+    safariInstallationKey?: string
   } = {}
 ): Promise<{
   wire: WireClient
@@ -183,6 +186,9 @@ async function pairFully(
     port: h.port,
     origin: opts.origin ?? OFFICIAL_ORIGIN,
     browser: opts.browser ?? 'chromium',
+    ...(opts.safariInstallationKey === undefined
+      ? {}
+      : { safariInstallationKey: opts.safariInstallationKey }),
     claimedExtensionId: opts.claimedExtensionId ?? OFFICIAL_ID,
     ...(opts.clientInstallationId
       ? { clientInstallationId: opts.clientInstallationId }
@@ -2641,3 +2647,74 @@ function closeServer(
     server.close((err) => (err ? reject(err) : resolve()))
   )
 }
+
+describe('Safari continuity over a real WebSocket', () => {
+  let h: Harness
+  beforeEach(async () => {
+    h = await makeHarness()
+  })
+  afterEach(async () => {
+    await h.server.stop()
+  })
+
+  it('pairs with a signing key, adopts a changed origin under the original identity, and revokes that live connection', async () => {
+    const origin = 'safari-web-extension://41cf2a73-eb74-4f1d-a74b-da20e9f24d8b'
+    const changed =
+      'safari-web-extension://dc0ebd48-d655-4c58-baca-87b4960e6534'
+    const key = new Uint8Array(32).fill(17)
+    const paired = await pairFully(h, {
+      origin,
+      browser: 'safari',
+      claimedExtensionId: 'app.motrix.safari.extension',
+      safariInstallationKey: toBase64Url(ed25519.getPublicKey(key)),
+    })
+    expect(
+      h.credentials.findForAuth(paired.credential.credentialId)?.principal
+        .safariInstallationKey
+    ).toBe(toBase64Url(ed25519.getPublicKey(key)))
+    paired.wire.ws.close()
+    await paired.wire.closed
+    const resumed = await reconnect({
+      port: h.port,
+      origin: changed,
+      instanceId: INSTANCE_ID,
+      credential: paired.credential,
+      safariKey: key,
+    })
+    const conn = mdxpOverChannel(resumed.wire, resumed.channel)
+    const params = initializeParams('app.motrix.safari.extension')
+    await conn.sendRequest('motrix/initialize', {
+      ...params,
+      client: { ...params.client, browser: 'safari' },
+    })
+    await conn.sendNotification('motrix/initialized', undefined)
+    await conn.sendRequest('task/list', {})
+    const sessionKey = installationSessionKey(origin, 'safari', 'install-1')
+    expect(h.server.getSession(sessionKey)?.conn.isAuthorized()).toBe(true)
+    expect(h.authenticated.at(-1)?.identity).toEqual({
+      kind: 'extension',
+      browser: 'safari',
+      extensionId: origin.slice('safari-web-extension://'.length),
+    })
+    await h.server.revokeExtensionAccess(
+      {
+        kind: 'extension',
+        browser: 'safari',
+        extensionId: origin.slice('safari-web-extension://'.length),
+      },
+      'user-revoked'
+    )
+    await resumed.wire.closed
+    expect(h.server.getSession(sessionKey)).toBeUndefined()
+    await expect(
+      reconnect({
+        port: h.port,
+        origin: changed,
+        instanceId: INSTANCE_ID,
+        credential: paired.credential,
+        safariKey: key,
+      })
+    ).rejects.toBeInstanceOf(PairAborted)
+    conn.dispose()
+  })
+})

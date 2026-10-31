@@ -15,11 +15,12 @@ import { randomBytes } from 'node:crypto'
 import { request as httpRequest } from 'node:http'
 import { request as httpsRequest } from 'node:https'
 import { createMdxpConnection, type MdxpConnection } from '@motrix/mdxp'
+import { ed25519 } from '@noble/curves/ed25519.js'
 import { utf8ToBytes } from '@noble/hashes/utils.js'
 import type { Browser } from '@shared/protocol/bridge'
 import WebSocket, { type RawData } from 'ws'
 import { principalKey } from '../credential-store'
-import { fromBase64Url, toBase64Url } from '../mbp1/canonical'
+import { concatBytes, enc, fromBase64Url, toBase64Url } from '../mbp1/canonical'
 import {
   DIR_C2S,
   DIR_S2C,
@@ -37,6 +38,7 @@ import {
   reconnectMacServer,
   reconnectTrafficKeys,
 } from '../mbp1/reconnect-mac'
+import { bindSafariResume } from '../mbp1/safari-installation'
 import { deriveW } from '../mbp1/scrypt-w'
 import {
   buildTT,
@@ -197,6 +199,7 @@ export interface PairAttemptOptions {
   browser: Browser
   claimedExtensionId: string
   clientInstallationId?: string
+  safariInstallationKey?: string
   ticket?: ClientTicket
   /** Test-only public surface prefix, such as `/bridge`. */
   routePrefix?: string
@@ -323,6 +326,9 @@ export async function startPair(
     browser: opts.browser,
     claimedExtensionId: opts.claimedExtensionId,
     clientInstallationId,
+    ...(opts.safariInstallationKey === undefined
+      ? {}
+      : { safariInstallationKey: opts.safariInstallationKey }),
     ...(opts.ticket
       ? {
           nmTicket: opts.ticket.wire,
@@ -347,6 +353,9 @@ export async function startPair(
       verifiedOrigin: opts.transcriptOrigin ?? opts.origin,
       claimedExtensionId: opts.claimedExtensionId,
       clientInstallationId,
+      ...(opts.safariInstallationKey === undefined
+        ? {}
+        : { safariInstallationKey: opts.safariInstallationKey }),
     }),
     aad: buildAad(
       MBP1_PROTOCOL_VERSION,
@@ -535,6 +544,8 @@ export async function reconnect(opts: {
   instanceId: string
   credential: IssuedCredential
   /** Overrides the credentialId actually sent, for the unknown-id case. */
+  safariKey?: Uint8Array
+  safariTicket?: unknown
   credentialIdOverride?: string
   /** Corrupts the MAC, for the bad-MAC case. */
   corruptMac?: boolean
@@ -560,16 +571,23 @@ export async function reconnect(opts: {
   const s = fromBase64Url(challenge.S)
   const c = random(32)
   const credentialId = opts.credentialIdOverride ?? opts.credential.credentialId
-  const rt = buildRT({
+  let rt = buildRT({
     protocolVersion: MBP1_PROTOCOL_VERSION,
     credentialId,
     // The caller-supplied principal, not automatically `opts.origin` — see the
     // doc comment above. This distinction lets tests model both honest drift
     // and an active stolen-key attacker.
     browser: opts.credential.browser,
-    verifiedOrigin: opts.credential.origin,
+    verifiedOrigin:
+      opts.safariKey === undefined ? opts.credential.origin : opts.origin,
     instanceId: opts.instanceId,
   })
+  const safariPublicKey =
+    opts.safariKey === undefined
+      ? undefined
+      : toBase64Url(ed25519.getPublicKey(opts.safariKey))
+  if (safariPublicKey !== undefined)
+    rt = bindSafariResume(rt, safariPublicKey, opts.safariTicket)
   const mac = reconnectMacClient(opts.credential.mutualKey, s, c, rt)
   if (opts.corruptMac) {
     mac[0] ^= 0xff
@@ -580,6 +598,22 @@ export async function reconnect(opts: {
     credentialId,
     C: toBase64Url(c),
     mac: toBase64Url(mac),
+    ...(opts.safariKey === undefined
+      ? {}
+      : {
+          safariResume: {
+            installationKey: safariPublicKey,
+            proof: toBase64Url(
+              ed25519.sign(
+                concatBytes(enc('MBP1/safari-resume-proof/v1'), s, c, rt),
+                opts.safariKey
+              )
+            ),
+            ...(opts.safariTicket === undefined
+              ? {}
+              : { nmTicket: opts.safariTicket }),
+          },
+        }),
   })
 
   const accept = await wire.takeJson<{ type: string; mac: string }>()

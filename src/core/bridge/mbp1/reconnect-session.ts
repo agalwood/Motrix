@@ -56,6 +56,8 @@ import {
   reconnectMacServer,
   reconnectTrafficKeys,
 } from './reconnect-mac'
+import { bindSafariResume, verifySafariResume } from './safari-installation'
+import { type TicketContext, verifyNmTicket } from './ticket-verify'
 
 /** The whole challenge–response must complete within this many ms of `start()` (§8). */
 const RECONNECT_DEADLINE_MS = 10_000
@@ -87,6 +89,10 @@ export interface ReconnectCredentialAuthenticator {
    * whose `state` is `provisional` — the store rejects anything else.
    */
   promoteOnReconnect(credentialId: string): Promise<void>
+  bindSafariInstallation?(
+    expected: StoredCredential,
+    publicKey: string
+  ): Promise<void>
 }
 
 export interface ReconnectSessionDeps {
@@ -94,6 +100,10 @@ export interface ReconnectSessionDeps {
   verifiedOrigin: string
   browser: Browser
   instanceId: string
+  safariTicketContext?: Pick<
+    TicketContext,
+    'localToken' | 'serverGeneration' | 'replay'
+  >
   credentials: ReconnectCredentialAuthenticator
   sendText(json: object): void
   close(reason: string): void
@@ -244,6 +254,12 @@ export class ReconnectSession {
         verifiedOrigin: this.deps.verifiedOrigin,
         instanceId: this.deps.instanceId,
       })
+      if (parsed.data.safariResume)
+        rt = bindSafariResume(
+          rt,
+          parsed.data.safariResume.installationKey,
+          parsed.data.safariResume.nmTicket
+        )
       key =
         credential === null
           ? DUMMY_MUTUAL_KEY
@@ -263,8 +279,52 @@ export class ReconnectSession {
       rt,
       presentedMac
     )
-    const principalMatches =
+    const resume = parsed.data.safariResume
+    let principalMatches =
       credential !== null && this.matchesLivePrincipal(credential)
+    if (resume !== undefined) {
+      principalMatches = false
+      if (
+        macOk &&
+        credential !== null &&
+        this.deps.browser === 'safari' &&
+        credential.principal.browser === 'safari' &&
+        verifySafariResume(
+          resume.installationKey,
+          resume.proof,
+          this.challengeS,
+          c,
+          rt
+        )
+      ) {
+        const bound = credential.principal.safariInstallationKey
+        if (bound !== undefined) {
+          principalMatches = bound === resume.installationKey
+        } else if (
+          credential.principal.verifiedOrigin === this.deps.verifiedOrigin
+        ) {
+          principalMatches = true
+        } else if (
+          resume.nmTicket !== undefined &&
+          credential.identity === 'official' &&
+          this.deps.safariTicketContext
+        ) {
+          const verdict = verifyNmTicket(resume.nmTicket, {
+            ...this.deps.safariTicketContext,
+            nowMs: this.deps.now(),
+            helloBrowser: 'safari',
+            helloClaimedExtensionId: 'app.motrix.safari.extension',
+            helloTicketBindingKey: fromBase64Url(resume.installationKey),
+          })
+          principalMatches =
+            verdict.kind === 'attested' &&
+            verdict.callerId === 'app.motrix.safari.extension'
+        }
+      }
+    } else if (credential?.principal.safariInstallationKey !== undefined) {
+      // Once continuity is enrolled, an origin match cannot strip its proof.
+      principalMatches = false
+    }
 
     if (credential === null || !macOk || !principalMatches) {
       this.fail('authFailed')
@@ -311,7 +371,11 @@ export class ReconnectSession {
         this.terminate('reconnectPromotedCredentialMissing')
         return
       }
-      if (!this.matchesLivePrincipal(promoted)) {
+      if (
+        JSON.stringify(promoted.principal) !==
+          JSON.stringify(credential.principal) ||
+        promoted.mutualKeyB64 !== credential.mutualKeyB64
+      ) {
         // A store replacement/race must not change the principal between MAC
         // verification and adoption. Keep the peer-facing result uniform with
         // every other credential authentication failure.
@@ -319,6 +383,36 @@ export class ReconnectSession {
         return
       }
       authenticated = promoted
+    }
+
+    if (resume !== undefined) {
+      if (!this.deps.credentials.bindSafariInstallation) {
+        this.fail('authFailed')
+        return
+      }
+      try {
+        await this.deps.credentials.bindSafariInstallation(
+          authenticated,
+          resume.installationKey
+        )
+      } catch {
+        this.fail('authFailed')
+        return
+      }
+      if (this.state !== 'processing') return
+      const current = this.deps.credentials.findForAuth(
+        authenticated.credentialId
+      )
+      if (
+        !current ||
+        current.principal.safariInstallationKey !== resume.installationKey ||
+        current.mutualKeyB64 !== authenticated.mutualKeyB64 ||
+        current.authorizationEpoch !== authenticated.authorizationEpoch
+      ) {
+        this.fail('authFailed')
+        return
+      }
+      authenticated = current
     }
 
     // §8's 10 s deadline covers the whole exchange, including the durable

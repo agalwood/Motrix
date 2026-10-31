@@ -956,6 +956,70 @@ the first application message, now inside the envelope.
 
 ---
 
+### 8.1 Safari installation continuity
+
+Safari changes its extension URL host on every browser launch. A transport
+Origin therefore cannot identify a long-lived Safari installation. Supporting
+servers advertise `X-Motrix-Safari-Continuity: 1` on `/discovery`, exposing that
+header to browser clients without changing the strict JSON discovery document.
+This is an unauthenticated compatibility hint, never authorization. Updated
+Safari clients require support for first pairing; Chromium and Firefox retain
+their existing wire behavior.
+
+A Safari installation generates and durably stores one random Ed25519 private
+key. The private key never leaves extension storage. A new `pairHello` includes
+`safariInstallationKey`, the canonical base64url 32-byte public key, allowed only
+for Safari. Append `enc("MBP1/safari-installation/v1") ‖ enc(safariInstallationKey)`
+to §6.4's `A_id` (the latter is the ASCII wire string). Successful code confirmation
+binds this public key to the credential principal. It proves installation
+continuity; it does not raise the `official` / `unverified` identity classification.
+
+A returning client adds this object to `reconnectResponse`:
+
+```json
+{ "safariResume": { "installationKey": "<public key>", "proof": "<signature>", "nmTicket": "<optional native ticket object>" } }
+```
+
+Let `RT0` be §8's transcript using the **live** transport Origin, `Kpub` the raw
+32-byte installation public key, and `D` the §6.4 digest of `nmTicket`, or empty
+bytes when absent:
+
+```
+RT = RT0 ‖ enc("MBP1/safari-resume/v1") ‖ enc(Kpub) ‖ enc(D)
+proof = Ed25519.Sign(Kpriv, enc("MBP1/safari-resume-proof/v1") ‖ S ‖ C ‖ RT)
+```
+
+Both reconnect MACs use this extended `RT`. Verify a canonical non-small-order,
+prime-subgroup public key and a strict RFC 8032 signature (`zip215: false`). A
+bound public key must match exactly; even a same-Origin connection must supply
+its proof once enrolled. Replacing the Origin, challenge, instance, credential,
+public key, or ticket invalidates authentication. Possession of `mutualKey` alone
+cannot enroll a replacement key from a new Origin.
+
+A legacy credential may enroll while its original Origin still matches. Across
+Origins, automatic enrollment additionally requires an `official` Safari
+credential and a fresh §9 ticket attesting `app.motrix.safari.extension`, bound
+to `Kpub`; the signature above proves possession. Expired, replayed, wrong-generation,
+wrong-caller, invalid or downgraded tickets cannot authorize migration. The native
+request preserves `allowLaunch: false`. A remote legacy credential whose Origin
+has already changed requires one explicit code pairing; the new credential then
+survives subsequent Safari restarts without native attestation.
+
+Enrollment is durable before `reconnectAccept`, with the credential, principal,
+key and authorization epoch rechecked inside the store transaction. Preserve the
+credential's original Origin as its routing and revocation identity; authenticate
+the current transport Origin separately. Session adoption rechecks the stored
+identity's admission/revocation gate. This preserves task routing, keeps browser
+profiles separate, and prevents revocation races from resurrecting authorization.
+
+Extension lookup uses backend authority plus Safari installation ID. Legacy
+origin-bound entries are read into that namespace without trusting the lookup as
+authentication. Only a verified server MAC permits activation, key enrollment and
+pruning of stale local rows. Other authorities and installations are untouched.
+Historical server approvals remain independently revocable; possession of one
+credential does not authorize deleting other server credentials by a claimed
+installation ID.
+
 ## 9. NM attestation ticket
 
 Browsers pass the calling extension's identity to NM hosts (Chromium: caller
