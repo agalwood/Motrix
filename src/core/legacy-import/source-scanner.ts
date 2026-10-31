@@ -193,7 +193,7 @@ export async function authorizeLegacyTorrent(
     throw new Error('legacyImport.changedSource')
   try {
     validateLegacyBencode(file.bytes)
-    const parsed = await parseTorrent(new Uint8Array(file.bytes))
+    const parsed = await parseTorrent(file.bytes)
     const torrent = projectTorrentMeta(parsed)
     await parseBtFileLayout(file.bytes)
     if (
@@ -429,7 +429,7 @@ export async function scanLegacySource(
           torrentByPath.set(relative, file)
         }
         validateLegacyBencode(file.bytes)
-        const parsed = await parseTorrent(new Uint8Array(file.bytes))
+        const parsed = await parseTorrent(file.bytes)
         const torrent = projectTorrentMeta(parsed)
         await parseBtFileLayout(file.bytes)
         if (

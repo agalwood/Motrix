@@ -32,7 +32,7 @@ export async function deriveInfoHash(
   try {
     // Async read so the autosave pass does not block the event loop.
     const bytes = await fs.promises.readFile(task.torrentMetaPath)
-    const parsed = await parseTorrent(new Uint8Array(bytes))
+    const parsed = await parseTorrent(bytes)
     const hash = parsed.infoHash ?? null
     if (hash) infoHashByTorrentPath.set(task.torrentMetaPath, hash)
     return hash

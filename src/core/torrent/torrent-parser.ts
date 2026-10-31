@@ -21,7 +21,7 @@ export class TorrentParser {
     let parsed: Awaited<ReturnType<typeof parseTorrent>>
     try {
       const bytes = Buffer.from(base64, 'base64')
-      parsed = await parseTorrent(new Uint8Array(bytes))
+      parsed = await parseTorrent(bytes)
     } catch (err) {
       if (err instanceof AppError) throw err
       log.warn({ err }, 'failed to parse torrent')

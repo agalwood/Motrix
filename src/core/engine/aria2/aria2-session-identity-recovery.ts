@@ -157,7 +157,7 @@ export async function recoverAria2SessionIdentity(
         )
           throw new Error('invalid metadata size')
         bytes = await readFile(metadataPath)
-        const torrent = await parseTorrent(new Uint8Array(bytes))
+        const torrent = await parseTorrent(bytes)
         if (torrent.infoHash !== magnet.infoHash || !torrent.files?.length)
           throw new Error('metadata does not match magnet')
       } catch {
