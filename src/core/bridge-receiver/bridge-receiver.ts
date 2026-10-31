@@ -185,8 +185,8 @@ export class BridgeReceiver {
   private readonly terminalEmitted = new Map<string, string>()
   /**
    * In-flight and settled download/submit results keyed by
-   * [clientKey(identity), idempotencyKey]. A retransmit of the same logical
-   * submit (lost response, reconnect replay) awaits or receives the original
+   * [authenticated installation key, idempotencyKey]. A retransmit of the same
+   * logical submit (lost response, reconnect replay) awaits or receives the original
    * result instead of creating a duplicate task — dedup semantics live in
    * IdempotencyCache (failure eviction, settled-only capacity eviction).
    */
@@ -309,13 +309,14 @@ export class BridgeReceiver {
       )
     }
     const identity = ctx.identity
+    const sessionKey = ctx.sessionKey ?? clientKey(identity)
     const key = params.idempotencyKey
-    if (!key) return this.dispatchSubmit(params, identity)
+    if (!key) return this.dispatchSubmit(params, identity, sessionKey)
 
     const result = await this.submitsByKey.run(
-      JSON.stringify([clientKey(identity), key]),
+      JSON.stringify([sessionKey, key]),
       async () => ({
-        ...(await this.dispatchSubmit(params, identity)),
+        ...(await this.dispatchSubmit(params, identity, sessionKey)),
         requestedSaveDir: params.saveDir,
       })
     )
@@ -330,7 +331,8 @@ export class BridgeReceiver {
 
   private async dispatchSubmit(
     params: DownloadSubmitParams,
-    identity: Extract<MdxpSessionContext['identity'], { kind: 'extension' }>
+    identity: Extract<MdxpSessionContext['identity'], { kind: 'extension' }>,
+    sessionKey: string
   ): Promise<{ taskId: string }> {
     // Hold the submit until startup restore has settled (see the dep doc).
     // Awaited before adapt so even the name pick sees the
@@ -341,6 +343,7 @@ export class BridgeReceiver {
     const adapted = await this.adapter.adapt(params, {
       extensionId: identity.extensionId,
       browser: identity.browser,
+      sessionKey,
     })
 
     const result = await this.dispatchAdapted(adapted, params)

@@ -14,6 +14,8 @@ import type { PairRequestArgs } from './web-socket-bridge-server'
 export interface MdxpSessionContext {
   /** Who the peer is. Spec 1 only ever produces the `extension` kind. */
   readonly identity: ClientIdentity
+  /** Authenticated installation routing key; absent for unary CLI contexts. */
+  readonly sessionKey?: string
   readonly startedAt: number
   isReady(): boolean
   markReady(): void
@@ -57,6 +59,7 @@ export function contextFromConnection(
       browser: conn.session.browser,
       extensionId: conn.session.extensionId,
     },
+    sessionKey: conn.sessionKey,
     startedAt: conn.session.startedAt,
     isReady: () => conn.isReady(),
     markReady: () => conn.markReady(),

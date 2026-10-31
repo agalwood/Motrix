@@ -2394,6 +2394,10 @@
         },
         "pairUnavailable": "Denne sammenkoblingsforespørselen venter ikke lenger — prøv sammenkoblingen på nytt fra nettleserutvidelsen.",
         "pairedEmpty": "Ingen utvidelser er tilkoblet ennå.",
+        "profile": "Nettleserprofil {{number}}",
+        "connected": "Tilkoblet",
+        "disconnected": "Ikke tilkoblet",
+        "revokeAll": "Koble fra alle",
         "pairedTitle": "Tilkoblede utvidelser",
         "pairingStateDegraded": {
           "description": "Motrix kunne ikke oppdatere registreringene for sammenkoblede utvidelser trygt. Eksisterende utvidelsesøkter er lukket, og ny tilgang er blokkert for denne kjøringen. Start Motrix på nytt for å prøve reparasjonen igjen; ikke stol på listen nedenfor før denne meldingen forsvinner.",

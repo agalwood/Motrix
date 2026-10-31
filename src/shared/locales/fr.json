@@ -2413,6 +2413,10 @@
         },
         "pairUnavailable": "Cette demande d’association n’est plus en attente. Relancez l’association depuis l’extension du navigateur.",
         "pairedEmpty": "Aucune extension connectée pour le moment.",
+        "profile": "Profil du navigateur {{number}}",
+        "connected": "Connecté",
+        "disconnected": "Non connecté",
+        "revokeAll": "Tout déconnecter",
         "pairedTitle": "Extensions connectées",
         "pairingStateDegraded": {
           "description": "Motrix n’a pas pu mettre à jour en toute sécurité les enregistrements des extensions associées. Les sessions existantes sont fermées et les nouveaux accès sont bloqués pour cette exécution. Redémarrez Motrix pour retenter la réparation ; ne vous fiez pas à la liste ci-dessous tant que ce message est présent.",

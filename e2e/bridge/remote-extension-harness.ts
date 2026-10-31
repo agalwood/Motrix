@@ -1,11 +1,11 @@
 import { request as httpRequest } from 'node:http'
 import { createServer as createHttpsServer } from 'node:https'
 import { connect as connectTcp } from 'node:net'
+import type { Duplex } from 'node:stream'
 import type { BridgeEventBus } from '@core/bridge/bridge-event-bus'
 import type { ReadHandlerDeps } from '@core/bridge/handlers/read-handlers'
 import type { WriteHandlerDeps } from '@core/bridge/handlers/write-handlers'
 import type { DownloadSubmitParams } from '@motrix/mdxp'
-import { makeSessionKey } from '@shared/protocol/bridge'
 import { EngineState } from '@shared/types/engine'
 import {
   bootstrapBridgeForServer,
@@ -58,14 +58,15 @@ function createReceiver(
       submissions.push(structuredClone(params))
       const taskId = `browser-task-${submissions.length}`
       const identity = context.identity
-      if (identity.kind !== 'extension') {
+      if (identity.kind !== 'extension' || !context.sessionKey) {
         throw new Error('remote Extension receiver got a non-Extension session')
       }
+      const sessionKey = context.sessionKey
       const progressTimer = setTimeout(() => {
         progressTimers.delete(progressTimer)
         if (stopped) return
         bridgeBus.emitTaskProgress({
-          sessionKey: makeSessionKey(identity.browser, identity.extensionId),
+          sessionKey,
           params: {
             taskId,
             bytesDone: 512,
@@ -128,6 +129,12 @@ export async function startTlsProxy(input: {
   cert: string
 }): Promise<() => Promise<void>> {
   const proxy = createHttpsServer({ key: input.key, cert: input.cert })
+  const sockets = new Set<Duplex>()
+  const track = (socket: Duplex) => {
+    sockets.add(socket)
+    socket.once('close', () => sockets.delete(socket))
+  }
+  proxy.on('connection', track)
   proxy.on('request', (request, response) => {
     const upstream = httpRequest(
       {
@@ -153,6 +160,10 @@ export async function startTlsProxy(input: {
   })
   proxy.on('upgrade', (request, downstream, head) => {
     const upstream = connectTcp(input.upstreamPort, '127.0.0.1')
+    track(downstream)
+    track(upstream)
+    downstream.once('close', () => upstream.destroy())
+    upstream.once('close', () => downstream.destroy())
     upstream.once('connect', () => {
       upstream.write(
         `${request.method ?? 'GET'} ${request.url ?? '/'} HTTP/${request.httpVersion}\r\n`
@@ -174,6 +185,9 @@ export async function startTlsProxy(input: {
   })
   return () =>
     new Promise<void>((resolve, reject) => {
+      // HTTPS close does not terminate upgraded tunnels. Own them explicitly
+      // so a failed assertion cannot hide behind a hanging fixture teardown.
+      for (const socket of sockets) socket.destroy()
       proxy.close((error) => (error ? reject(error) : resolve()))
     })
 }

@@ -279,6 +279,8 @@ export async function bootstrapBridgeForServer(
       localToken,
       deviceCode,
       onPairRequested: (payload) => bridgeBus.emitPairRequested(payload),
+      onExtensionSessionsChanged: () =>
+        opts.eventBus.emit(BridgeEvents.ExtensionSessionsChanged, {}),
       verificationUri: opts.verificationUri,
       ...(extensionMbp1 === null
         ? {}
@@ -371,8 +373,10 @@ export async function bootstrapBridgeForServer(
     }
     const bridgeQueryHandlers: Record<string, Handler> = {
       [BridgeQueries.ListPaired]: async () => [
-        ...(extensionMbp1?.extensionPairings.list().map(toPairedClientInfo) ??
-          []),
+        ...(extensionMbp1?.extensionPairings.list().map((entry) => ({
+          ...toPairedClientInfo(entry),
+          installations: server.getExtensionInstallations(entry.identity),
+        })) ?? []),
         ...pairing.listPaired().map(toPairedClientInfo),
       ],
       [BridgeQueries.ListPendingPairRequests]: async () => [
@@ -433,25 +437,23 @@ export async function bootstrapBridgeForServer(
     const port = await server.start(opts.host, opts.port)
     boundPort = port
 
-    // Per-session Extension task lifecycle push. This mirrors the Desktop
-    // shell: BridgeReceiver publishes against the authenticated session key;
-    // the shell converts those events into encrypted MDXP notifications on
-    // that session only. The global SSE stream below remains a separate agent
-    // surface and must not substitute for this routing.
+    // Match Desktop routing: modern tasks target their installation; legacy
+    // extension-wide task keys reach every ready profile of that extension.
+    // The global SSE stream remains a separate agent surface.
     bridgeBus.on('TaskProgress', ({ sessionKey, params }) => {
-      server
-        .getSession(sessionKey)
-        ?.conn.sendNotification(Notifications.TaskProgress, params)
+      for (const session of server.getTaskNotificationSessions(sessionKey)) {
+        session.conn.sendNotification(Notifications.TaskProgress, params)
+      }
     })
     bridgeBus.on('TaskCompleted', ({ sessionKey, params }) => {
-      server
-        .getSession(sessionKey)
-        ?.conn.sendNotification(Notifications.TaskCompleted, params)
+      for (const session of server.getTaskNotificationSessions(sessionKey)) {
+        session.conn.sendNotification(Notifications.TaskCompleted, params)
+      }
     })
     bridgeBus.on('TaskError', ({ sessionKey, params }) => {
-      server
-        .getSession(sessionKey)
-        ?.conn.sendNotification(Notifications.TaskError, params)
+      for (const session of server.getTaskNotificationSessions(sessionKey)) {
+        session.conn.sendNotification(Notifications.TaskError, params)
+      }
     })
 
     const streamSource = new BridgeStreamSource(server, opts.localize)

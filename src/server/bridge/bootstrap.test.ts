@@ -26,7 +26,11 @@ import { BridgeStreamSource } from '@core/bridge-receiver/bridge-stream-source'
 import { EventBus } from '@core/events/event-bus'
 import { SettingsManager } from '@core/settings/settings-manager'
 import { Methods, Notifications } from '@motrix/mdxp'
-import { BridgeEvents, BridgeQueries } from '@shared/protocol/bridge'
+import {
+  BridgeEvents,
+  BridgeQueries,
+  type PairedClientInfo,
+} from '@shared/protocol/bridge'
 import { Events } from '@shared/protocol/events'
 import { EngineState } from '@shared/types/engine'
 import { TaskStatus } from '@shared/types/task'
@@ -36,6 +40,7 @@ import {
 } from '@test-utils/bridge-receiver'
 import { makeDownloadTask } from '@test-utils/task'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import WebSocket from 'ws'
 import { createApp } from '../http/app'
 import { OperatorAdminExitCode, runOperatorAdmin } from '../operator-admin'
 import {
@@ -459,6 +464,163 @@ describe('bootstrapBridgeForServer', () => {
     }
   })
 
+  it('broadcasts profile readiness, disconnect, and reconnect to an authenticated Web UI socket', async () => {
+    const eventBus = new EventBus()
+    const remoteExtensionConfig = parseRemoteExtensionConfig({
+      MOTRIX_REMOTE_EXTENSION_ENABLED: 'true',
+      MOTRIX_REMOTE_EXTENSION_PUBLIC_URL: 'ws://motrix.example/bridge',
+      MOTRIX_PUBLIC_URL: 'https://motrix.example',
+    })
+    runtime = await bootstrapBridgeForServer({
+      userDataDir,
+      host: '127.0.0.1',
+      port: 0,
+      motrixVersion: '2.0',
+      eventBus,
+      readHandlerDeps: readDeps(),
+      writeHandlerDeps: writeDeps(),
+      remoteExtensionConfig,
+      createExtensionReceiver: extensionReceiver,
+    })
+    const bridge = runtime
+    const token = 'web-event-test-operator'
+    const app = await createApp({
+      eventBus,
+      remoteExtensionConfig,
+      operatorAuth: { operatorToken: token },
+      bridgeQueryHandlers: bridge.bridgeQueryHandlers,
+    })
+    const closeExtensions: Array<() => void> = []
+    let webSocket: WebSocket | undefined
+    try {
+      const base = await app.listen({ host: '127.0.0.1', port: 0 })
+      const login = await fetch(`${base}/rpc/auth/login`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ token }),
+      })
+      expect(login.status).toBe(200)
+      const cookie = login.headers.get('set-cookie')!.split(';')[0]
+      const readInstallations = async () => {
+        const response = await fetch(
+          `${base}/rpc/query/${encodeURIComponent(BridgeQueries.ListPaired)}`,
+          {
+            method: 'POST',
+            headers: {
+              'content-type': 'application/json',
+              cookie,
+              origin: base,
+            },
+            body: JSON.stringify({ args: [] }),
+          }
+        )
+        expect(response.status).toBe(200)
+        const paired = (await response.json()) as PairedClientInfo[]
+        return paired.flatMap((client) =>
+          client.kind === 'extension' ? (client.installations ?? []) : []
+        )
+      }
+      webSocket = new WebSocket(`${base.replace('http:', 'ws:')}/rpc/events`, {
+        headers: { cookie, origin: base },
+      })
+      const changes: unknown[][] = []
+      webSocket.on('message', (data) => {
+        const frame = JSON.parse(String(data)) as {
+          channel: string
+          args: unknown[]
+        }
+        if (frame.channel === BridgeEvents.ExtensionSessionsChanged) {
+          changes.push(frame.args)
+        }
+      })
+      await new Promise<void>((resolve, reject) => {
+        webSocket!.once('open', resolve)
+        webSocket!.once('error', reject)
+      })
+
+      const extensionId = 'a'.repeat(32)
+      const origin = `chrome-extension://${extensionId}`
+      const handshake = await startPair({
+        port: bridge.port,
+        origin,
+        browser: 'chromium',
+        claimedExtensionId: extensionId,
+        routePrefix: '/bridge',
+        hostHeader: 'motrix.example',
+      })
+      closeExtensions.push(() => handshake.wire.ws.terminate())
+      const pending = (await bridge.bridgeQueryHandlers[
+        BridgeQueries.ListPendingPairRequests
+      ]()) as Array<{ code?: string }>
+      const code = pending[0]?.code
+      if (!code) throw new Error('pairing code missing')
+      const { channel } = await runPake(handshake, code)
+      const credential = await exchangeCredential(handshake, channel)
+      const connection = mdxpOverChannel(handshake.wire, channel)
+      closeExtensions.push(() => connection.dispose())
+      await connection.sendRequest(
+        Methods.MotrixInitialize,
+        initializeParams(extensionId)
+      )
+      await vi.waitFor(async () =>
+        expect(await readInstallations()).toEqual([
+          expect.objectContaining({ connected: false }),
+        ])
+      )
+      expect(changes).toEqual([])
+
+      await connection.sendNotification(
+        Notifications.MotrixInitialized,
+        undefined
+      )
+      await vi.waitFor(() => expect(changes).toEqual([[{}]]))
+      const ready = await readInstallations()
+      expect(ready).toEqual([expect.objectContaining({ connected: true })])
+
+      handshake.wire.ws.close()
+      await handshake.wire.closed
+      await vi.waitFor(() => expect(changes).toEqual([[{}], [{}]]))
+      expect(await readInstallations()).toEqual([
+        { ...ready[0], connected: false },
+      ])
+
+      const instanceId = (
+        await readFile(
+          join(userDataDir, 'bridge', 'server-instance-id'),
+          'utf8'
+        )
+      ).trim()
+      const back = await reconnect({
+        port: bridge.port,
+        origin,
+        instanceId,
+        credential,
+        routePrefix: '/bridge',
+        hostHeader: 'motrix.example',
+      })
+      closeExtensions.push(() => back.wire.ws.terminate())
+      const reconnected = mdxpOverChannel(back.wire, back.channel)
+      closeExtensions.push(() => reconnected.dispose())
+      await reconnected.sendRequest(
+        Methods.MotrixInitialize,
+        initializeParams(extensionId)
+      )
+      await reconnected.sendNotification(
+        Notifications.MotrixInitialized,
+        undefined
+      )
+      await vi.waitFor(() => expect(changes).toEqual([[{}], [{}], [{}]]))
+      expect(await readInstallations()).toEqual(ready)
+    } finally {
+      try {
+        webSocket?.terminate()
+        await app.close()
+      } finally {
+        for (const close of closeExtensions.reverse()) close()
+      }
+    }
+  })
+
   it.each([true, false])(
     'serves direct-LAN Extension routes across restart with operator URL=%s',
     async (withOperatorUrl) => {
@@ -793,75 +955,82 @@ describe('bootstrapBridgeForServer', () => {
     ).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
-  it('routes Extension task lifecycle events only to their authenticated session', async () => {
-    const remoteExtensionConfig = parseRemoteExtensionConfig({
-      MOTRIX_REMOTE_EXTENSION_ENABLED: 'true',
-      MOTRIX_REMOTE_EXTENSION_PUBLIC_URL: 'wss://motrix.example/bridge',
-      MOTRIX_PUBLIC_URL: 'https://motrix.example',
-    })
-    const captured: { bridgeBus?: BridgeEventBus } = {}
-    const sendNotification = vi.fn()
-    vi.spyOn(WebSocketBridgeServer.prototype, 'getSession').mockImplementation(
-      (sessionKey) =>
-        sessionKey === 'chromium:target'
-          ? ({ conn: { sendNotification } } as never)
-          : undefined
-    )
+  it.each([1, 2])(
+    'routes task lifecycle events once to each of %i eligible sessions',
+    async (count) => {
+      const remoteExtensionConfig = parseRemoteExtensionConfig({
+        MOTRIX_REMOTE_EXTENSION_ENABLED: 'true',
+        MOTRIX_REMOTE_EXTENSION_PUBLIC_URL: 'wss://motrix.example/bridge',
+        MOTRIX_PUBLIC_URL: 'https://motrix.example',
+      })
+      const captured: { bridgeBus?: BridgeEventBus } = {}
+      const recipients = Array.from({ length: count }, () => ({
+        conn: { sendNotification: vi.fn() },
+      }))
+      vi.spyOn(
+        WebSocketBridgeServer.prototype,
+        'getTaskNotificationSessions'
+      ).mockImplementation((sessionKey) =>
+        sessionKey === 'chromium:target' ? (recipients as never) : []
+      )
 
-    runtime = await bootstrapBridgeForServer({
-      userDataDir,
-      host: '127.0.0.1',
-      port: 0,
-      motrixVersion: '2.0',
-      eventBus: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
-      readHandlerDeps: readDeps(),
-      writeHandlerDeps: writeDeps(),
-      remoteExtensionConfig,
-      createExtensionReceiver: (context) => {
-        captured.bridgeBus = context.bridgeBus
-        return extensionReceiver()
-      },
-    })
-    const bridgeBus = captured.bridgeBus
-    if (bridgeBus === undefined) throw new Error('bridge event bus missing')
+      runtime = await bootstrapBridgeForServer({
+        userDataDir,
+        host: '127.0.0.1',
+        port: 0,
+        motrixVersion: '2.0',
+        eventBus: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
+        readHandlerDeps: readDeps(),
+        writeHandlerDeps: writeDeps(),
+        remoteExtensionConfig,
+        createExtensionReceiver: (context) => {
+          captured.bridgeBus = context.bridgeBus
+          return extensionReceiver()
+        },
+      })
+      const bridgeBus = captured.bridgeBus
+      if (bridgeBus === undefined) throw new Error('bridge event bus missing')
 
-    const progress = {
-      taskId: 'task-1',
-      bytesDone: 1,
-      bytesTotal: 2,
-      speedBps: 3,
-      etaSec: 4,
-      phase: 'downloading' as const,
+      const progress = {
+        taskId: 'task-1',
+        bytesDone: 1,
+        bytesTotal: 2,
+        speedBps: 3,
+        etaSec: 4,
+        phase: 'downloading' as const,
+      }
+      bridgeBus.emitTaskProgress({
+        sessionKey: 'chromium:target',
+        params: progress,
+      })
+      const completed = {
+        taskId: 'task-1',
+        filePath: '/downloads/file.bin',
+        durationMs: 5,
+      }
+      bridgeBus.emitTaskCompleted({
+        sessionKey: 'chromium:target',
+        params: completed,
+      })
+      const failed = { taskId: 'task-2', code: 'disk-full', message: 'full' }
+      bridgeBus.emitTaskError({
+        sessionKey: 'chromium:target',
+        params: failed,
+      })
+      bridgeBus.emitTaskProgress({
+        sessionKey: 'chromium:other',
+        params: progress,
+      })
+
+      for (const { conn } of recipients) {
+        expect(conn.sendNotification.mock.calls).toEqual([
+          [Notifications.TaskProgress, progress],
+          [Notifications.TaskCompleted, completed],
+          [Notifications.TaskError, failed],
+        ])
+      }
     }
-    bridgeBus.emitTaskProgress({
-      sessionKey: 'chromium:target',
-      params: progress,
-    })
-    const completed = {
-      taskId: 'task-1',
-      filePath: '/downloads/file.bin',
-      durationMs: 5,
-    }
-    bridgeBus.emitTaskCompleted({
-      sessionKey: 'chromium:target',
-      params: completed,
-    })
-    const failed = { taskId: 'task-2', code: 'disk-full', message: 'full' }
-    bridgeBus.emitTaskError({
-      sessionKey: 'chromium:target',
-      params: failed,
-    })
-    bridgeBus.emitTaskProgress({
-      sessionKey: 'chromium:other',
-      params: progress,
-    })
-
-    expect(sendNotification.mock.calls).toEqual([
-      [Notifications.TaskProgress, progress],
-      [Notifications.TaskCompleted, completed],
-      [Notifications.TaskError, failed],
-    ])
-  })
+  )
 
   it('device-code: request emits a web prompt, approve issues a token, listPaired shows the cli', async () => {
     const emit = vi.fn()

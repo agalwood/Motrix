@@ -2413,6 +2413,10 @@
         },
         "pairUnavailable": "Această cerere de asociere nu mai este în așteptare — reîncearcă asocierea din extensia de browser.",
         "pairedEmpty": "Încă nu există extensii conectate.",
+        "profile": "Profil de browser {{number}}",
+        "connected": "Conectat",
+        "disconnected": "Neconectat",
+        "revokeAll": "Deconectează toate",
         "pairedTitle": "Extensii conectate",
         "pairingStateDegraded": {
           "description": "Motrix nu a putut actualiza în siguranță înregistrările extensiilor asociate. Sesiunile existente ale extensiilor sunt închise, iar accesul nou este blocat pentru această rulare. Repornește Motrix pentru a reîncerca repararea; nu te baza pe lista de mai jos până când dispare acest mesaj.",

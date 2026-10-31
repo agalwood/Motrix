@@ -718,6 +718,8 @@ export async function bootstrapBridge(args: {
       queueMbp1Dialog: (req) => dialog.queueMbp1Prompt(req),
       canAdmitExtensionIdentity: (identity) =>
         extensionPairings.canAdmitIdentity(identity),
+      onExtensionSessionsChanged: () =>
+        forwardToRenderer(BridgeEvents.ExtensionSessionsChanged, {}),
       // The only remaining signal that an extension became usable now that
       // `motrix/initialize` mints nothing (R18-10): refresh the extension
       // management projection from the authoritative MBP1 credential set, then
@@ -813,16 +815,19 @@ export async function bootstrapBridge(args: {
     )
 
     bus.on('TaskProgress', ({ sessionKey, params }) => {
-      const session = server.getSession(sessionKey)
-      session?.conn.sendNotification(Notifications.TaskProgress, params)
+      for (const session of server.getTaskNotificationSessions(sessionKey)) {
+        session.conn.sendNotification(Notifications.TaskProgress, params)
+      }
     })
     bus.on('TaskCompleted', ({ sessionKey, params }) => {
-      const session = server.getSession(sessionKey)
-      session?.conn.sendNotification(Notifications.TaskCompleted, params)
+      for (const session of server.getTaskNotificationSessions(sessionKey)) {
+        session.conn.sendNotification(Notifications.TaskCompleted, params)
+      }
     })
     bus.on('TaskError', ({ sessionKey, params }) => {
-      const session = server.getSession(sessionKey)
-      session?.conn.sendNotification(Notifications.TaskError, params)
+      for (const session of server.getTaskNotificationSessions(sessionKey)) {
+        session.conn.sendNotification(Notifications.TaskError, params)
+      }
     })
 
     // Spec 5 — global SSE firehose. BridgeStreamSource subscribes the core
@@ -925,7 +930,10 @@ export async function bootstrapBridge(args: {
     }
 
     installIpcHandler(BridgeQueries.ListPaired, () => [
-      ...extensionPairings.list().map(toPairedClientInfo),
+      ...extensionPairings.list().map((entry) => ({
+        ...toPairedClientInfo(entry),
+        installations: server.getExtensionInstallations(entry.identity),
+      })),
       ...pairing
         .listPaired()
         .filter((entry) => entry.identity.kind === 'cli')

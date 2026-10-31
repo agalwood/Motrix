@@ -18,6 +18,7 @@ import { createMdxpConnection, type MdxpConnection } from '@motrix/mdxp'
 import { utf8ToBytes } from '@noble/hashes/utils.js'
 import type { Browser } from '@shared/protocol/bridge'
 import WebSocket, { type RawData } from 'ws'
+import { principalKey } from '../credential-store'
 import { fromBase64Url, toBase64Url } from '../mbp1/canonical'
 import {
   DIR_C2S,
@@ -698,4 +699,13 @@ function digestOf(wire: Record<string, unknown>): Uint8Array {
     bindingPub: fromBase64Url(wire.bindingPub as string),
     mac: fromBase64Url(wire.mac as string),
   })
+}
+
+/** Routing identity retained across reconnects and credential rotation. */
+export function installationSessionKey(
+  verifiedOrigin: string,
+  browser: Browser = 'chromium',
+  clientInstallationId = 'install-1'
+): string {
+  return principalKey({ browser, verifiedOrigin, clientInstallationId })
 }

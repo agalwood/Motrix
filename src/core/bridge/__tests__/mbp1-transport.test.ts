@@ -26,6 +26,7 @@ import {
   fetchNonce,
   type IssuedCredential,
   initializeParams,
+  installationSessionKey,
   mdxpOverChannel,
   openSealedJson,
   PairAborted,
@@ -167,7 +168,12 @@ function upgradeWithHost(
 /** Drive a complete first pair and return the credential the client stored. */
 async function pairFully(
   h: Harness,
-  opts: { origin?: string; browser?: Browser; claimedExtensionId?: string } = {}
+  opts: {
+    origin?: string
+    browser?: Browser
+    claimedExtensionId?: string
+    clientInstallationId?: string
+  } = {}
 ): Promise<{
   wire: WireClient
   credential: IssuedCredential
@@ -178,6 +184,9 @@ async function pairFully(
     origin: opts.origin ?? OFFICIAL_ORIGIN,
     browser: opts.browser ?? 'chromium',
     claimedExtensionId: opts.claimedExtensionId ?? OFFICIAL_ID,
+    ...(opts.clientInstallationId
+      ? { clientInstallationId: opts.clientInstallationId }
+      : {}),
   })
   const { channel } = await runPake(hs, h.dialogs.latestCode())
   const credential = await exchangeCredential(hs, channel)
@@ -838,7 +847,9 @@ describe('§6 first pair over the wire', () => {
     // The token mint is gone: extensions never receive one again.
     expect(result.pairToken).toBeUndefined()
 
-    const session = h.server.getSession(`chromium:${OFFICIAL_ID}`)
+    const session = h.server.getSession(
+      installationSessionKey(`chrome-extension://${OFFICIAL_ID}`)
+    )
     expect(session).toBeDefined()
     expect(Array.from(h.server.iterSessions())).toHaveLength(1)
     expect(h.authenticated).toEqual([
@@ -897,7 +908,9 @@ describe('§6 first pair over the wire', () => {
     const conn = mdxpOverChannel(hs.wire, channel)
     await conn.sendRequest('motrix/initialize', initializeParams(OFFICIAL_ID))
 
-    const session = h.server.getSession(`chromium:${OFFICIAL_ID}`)
+    const session = h.server.getSession(
+      installationSessionKey(`chrome-extension://${OFFICIAL_ID}`)
+    )
     // The sealer arrived with two frames already spent on the credential
     // exchange, and the initialize response is the third.
     expect(session?.envelope.usage.frames).toBe(3)
@@ -921,7 +934,11 @@ describe('§6 first pair over the wire', () => {
     paired.wire.sendBytes(paired.channel.sealer.seal(plaintext))
     await vi.waitFor(() =>
       expect(
-        h.server.getSession(`chromium:${OFFICIAL_ID}`)?.conn.isReady()
+        h.server
+          .getSession(
+            installationSessionKey(`chrome-extension://${OFFICIAL_ID}`)
+          )
+          ?.conn.isReady()
       ).toBe(true)
     )
 
@@ -1080,7 +1097,9 @@ describe('§6 first pair over the wire', () => {
     const conn = mdxpOverChannel(hs.wire, channel)
     await conn.sendRequest('motrix/initialize', initializeParams(OFFICIAL_ID))
 
-    const session = h.server.getSession(`chromium:${OFFICIAL_ID}`)
+    const session = h.server.getSession(
+      installationSessionKey(`chrome-extension://${OFFICIAL_ID}`)
+    )
     expect(session).toBeDefined()
     for (const ws of (
       h.server as unknown as {
@@ -1200,7 +1219,9 @@ describe('R3 adoption boundary', () => {
       'motrix/initialize',
       initializeParams(OFFICIAL_ID)
     )
-    const liveSession = h.server.getSession(`chromium:${OFFICIAL_ID}`)
+    const liveSession = h.server.getSession(
+      installationSessionKey(`chrome-extension://${OFFICIAL_ID}`)
+    )
     expect(liveSession).toBeDefined()
 
     // A second /pair for the SAME principal, driven only to mid-handshake.
@@ -1221,6 +1242,317 @@ describe('R3 adoption boundary', () => {
     live.wire.ws.close()
   })
 
+  it('keeps independent installations online and routes task notifications to their submitting installation', async () => {
+    const a = await pairFully(h, { clientInstallationId: 'profile-a' })
+    const b = await pairFully(h, { clientInstallationId: 'profile-b' })
+    const aConn = mdxpOverChannel(a.wire, a.channel)
+    const bConn = mdxpOverChannel(b.wire, b.channel)
+    const keyA = installationSessionKey(
+      OFFICIAL_ORIGIN,
+      'chromium',
+      'profile-a'
+    )
+    const keyB = installationSessionKey(
+      OFFICIAL_ORIGIN,
+      'chromium',
+      'profile-b'
+    )
+    const aNotifications = vi.fn()
+    const bNotifications = vi.fn()
+    aConn.onNotification(Notifications.TaskCompleted, aNotifications)
+    bConn.onNotification(Notifications.TaskCompleted, bNotifications)
+    try {
+      for (const conn of [aConn, bConn]) {
+        await conn.sendRequest(
+          'motrix/initialize',
+          initializeParams(OFFICIAL_ID)
+        )
+        conn.sendNotification('motrix/initialized', undefined)
+        expect(
+          await conn.sendRequest('system/ping', { sentAt: 12 })
+        ).toMatchObject({ sentAt: 12 })
+      }
+      expect(h.credentials.listCommitted()).toHaveLength(2)
+      expect([...h.server.iterSessions()]).toHaveLength(2)
+      expect(
+        h.server.getExtensionInstallations({
+          kind: 'extension',
+          browser: 'chromium',
+          extensionId: OFFICIAL_ID,
+        })
+      ).toEqual([
+        { id: keyA, pairedAt: expect.any(Number), connected: true },
+        { id: keyB, pairedAt: expect.any(Number), connected: true },
+      ])
+      const completed = {
+        taskId: 'task-a',
+        filePath: '/tmp/task-a',
+        durationMs: 1000,
+      }
+      for (const session of h.server.getTaskNotificationSessions(keyA)) {
+        session.conn.sendNotification(Notifications.TaskCompleted, completed)
+      }
+      await vi.waitFor(() =>
+        expect(aNotifications).toHaveBeenCalledWith(completed)
+      )
+      expect(bNotifications).not.toHaveBeenCalled()
+      // Exact session lookup does not guess a legacy task’s profile.
+      expect(h.server.getSession(`chromium:${OFFICIAL_ID}`)).toBeUndefined()
+
+      const back = await reconnect({
+        port: h.port,
+        origin: OFFICIAL_ORIGIN,
+        instanceId: INSTANCE_ID,
+        credential: a.credential,
+      })
+      const backConn = mdxpOverChannel(back.wire, back.channel)
+      try {
+        await a.wire.closed
+        expect(a.wire.ws.readyState).toBe(3)
+        expect([...h.server.iterSessions()]).toHaveLength(2)
+        expect(
+          await backConn.sendRequest('system/ping', { sentAt: 13 })
+        ).toMatchObject({ sentAt: 13 })
+        expect(
+          await bConn.sendRequest('system/ping', { sentAt: 14 })
+        ).toMatchObject({ sentAt: 14 })
+        expect(h.server.getSession(keyA)?.conn.isAuthorized()).toBe(true)
+        expect(h.server.getSession(keyB)?.conn.isAuthorized()).toBe(true)
+      } finally {
+        backConn.dispose()
+        back.wire.ws.close()
+        await back.wire.closed
+      }
+      await vi.waitFor(() => expect(h.server.getSession(keyA)).toBeUndefined())
+      expect(
+        h.server.getExtensionInstallations({
+          kind: 'extension',
+          browser: 'chromium',
+          extensionId: OFFICIAL_ID,
+        })
+      ).toEqual([
+        { id: keyA, pairedAt: expect.any(Number), connected: false },
+        { id: keyB, pairedAt: expect.any(Number), connected: true },
+      ])
+    } finally {
+      aConn.dispose()
+      bConn.dispose()
+      a.wire.ws.close()
+      b.wire.ws.close()
+    }
+  })
+
+  it('broadcasts legacy task notifications to matching ready profiles while preserving exact modern routing', async () => {
+    const a = await pairFully(h, { clientInstallationId: 'profile-a' })
+    const b = await pairFully(h, { clientInstallationId: 'profile-b' })
+    const unready = await pairFully(h, { clientInstallationId: 'profile-c' })
+    const other = await pairFully(h, {
+      origin: SIDELOADED_ORIGIN,
+      claimedExtensionId: SIDELOADED_ID,
+    })
+    const peers = [a, b, unready, other]
+    const conns = peers.map((peer) => mdxpOverChannel(peer.wire, peer.channel))
+    const received = conns.map(() => [] as string[])
+    conns.forEach((conn, index) => {
+      conn.onNotification(Notifications.TaskProgress, () =>
+        received[index].push('progress')
+      )
+      conn.onNotification(Notifications.TaskCompleted, () =>
+        received[index].push('completed')
+      )
+      conn.onNotification(Notifications.TaskError, () =>
+        received[index].push('error')
+      )
+    })
+    const legacyKey = `chromium:${OFFICIAL_ID}`
+    const keyA = installationSessionKey(
+      OFFICIAL_ORIGIN,
+      'chromium',
+      'profile-a'
+    )
+    const keyC = installationSessionKey(
+      OFFICIAL_ORIGIN,
+      'chromium',
+      'profile-c'
+    )
+    const lifecycle = ['progress', 'completed', 'error']
+    const publish = (sessionKey: string) => {
+      for (const { conn } of h.server.getTaskNotificationSessions(sessionKey)) {
+        conn.sendNotification(Notifications.TaskProgress, {
+          taskId: 'restored-task',
+          bytesDone: 1,
+          bytesTotal: 2,
+          speedBps: 1,
+          etaSec: 1,
+          phase: 'downloading',
+        })
+        conn.sendNotification(Notifications.TaskCompleted, {
+          taskId: 'restored-task',
+          filePath: '/tmp/restored-task',
+          durationMs: 1,
+        })
+        conn.sendNotification(Notifications.TaskError, {
+          taskId: 'restored-task',
+          code: 'disk-full',
+          message: 'full',
+        })
+      }
+    }
+    const flush = (clients = conns) =>
+      Promise.all(
+        clients.map((conn) => conn.sendRequest('system/ping', { sentAt: 1 }))
+      )
+    try {
+      for (const [index, conn] of conns.entries()) {
+        await conn.sendRequest(
+          'motrix/initialize',
+          initializeParams(index === 3 ? SIDELOADED_ID : OFFICIAL_ID)
+        )
+        if (index !== 2) conn.sendNotification('motrix/initialized', undefined)
+      }
+      await flush()
+      publish(legacyKey)
+      await flush()
+      expect(received).toEqual([lifecycle, lifecycle, [], []])
+
+      publish(keyA)
+      publish(keyC) // An authenticated but unready modern peer must not fall back to siblings.
+      publish('chromium:unknown-extension')
+      await flush()
+      expect(received).toEqual([
+        [...lifecycle, ...lifecycle],
+        lifecycle,
+        [],
+        [],
+      ])
+
+      a.wire.ws.close()
+      await a.wire.closed
+      await vi.waitFor(() => expect(h.server.getSession(keyA)).toBeUndefined())
+      publish(keyA) // An offline modern peer must not fall back to siblings either.
+      await flush(conns.slice(1))
+      expect(received[1]).toEqual(lifecycle)
+      publish(legacyKey)
+      await flush(conns.slice(1))
+      expect(received[1]).toEqual([...lifecycle, ...lifecycle])
+      expect(received[2]).toEqual([])
+      expect(received[3]).toEqual([])
+
+      const lease = h.server.beginExtensionRevocation({
+        kind: 'extension',
+        browser: 'chromium',
+        extensionId: OFFICIAL_ID,
+      })
+      publish(legacyKey)
+      await flush(conns.slice(1))
+      expect(received[1]).toEqual([...lifecycle, ...lifecycle])
+      expect(received[2]).toEqual([])
+      await h.server.deleteExtensionAuthorization(lease, 'user-revoked')
+      h.server.completeExtensionRevocation(lease)
+    } finally {
+      for (const conn of conns) conn.dispose()
+      for (const peer of peers) peer.wire.ws.close()
+    }
+  })
+
+  it('revokes all installations of an extension without disconnecting another extension', async () => {
+    const a = await pairFully(h, { clientInstallationId: 'profile-a' })
+    const b = await pairFully(h, { clientInstallationId: 'profile-b' })
+    const other = await pairFully(h, {
+      origin: SIDELOADED_ORIGIN,
+      claimedExtensionId: SIDELOADED_ID,
+    })
+    const peers = [a, b, other]
+    const conns = peers.map((peer) => mdxpOverChannel(peer.wire, peer.channel))
+    const revoked = conns.map((conn) => {
+      const handler = vi.fn()
+      conn.onNotification(Notifications.PairRevoked, handler)
+      return handler
+    })
+    try {
+      const sessions = [...h.server.iterSessions()]
+      const lease = h.server.beginExtensionRevocation({
+        kind: 'extension',
+        browser: 'chromium',
+        extensionId: OFFICIAL_ID,
+      })
+      expect(sessions.map((session) => session.conn.isAuthorized())).toEqual([
+        false,
+        false,
+        true,
+      ])
+      await expect(
+        h.server.deleteExtensionAuthorization(lease, 'user-revoked')
+      ).resolves.toBe(2)
+      await Promise.all([a.wire.closed, b.wire.closed])
+      expect(revoked[0]).toHaveBeenCalledWith({ reason: 'user-revoked' })
+      expect(revoked[1]).toHaveBeenCalledWith({ reason: 'user-revoked' })
+      expect(revoked[2]).not.toHaveBeenCalled()
+      expect([...h.server.iterSessions()]).toHaveLength(1)
+      expect(h.credentials.findForAuth(a.credential.credentialId)).toBeNull()
+      expect(h.credentials.findForAuth(b.credential.credentialId)).toBeNull()
+      expect(
+        await conns[2].sendRequest('system/ping', { sentAt: 15 })
+      ).toMatchObject({ sentAt: 15 })
+      h.server.completeExtensionRevocation(lease)
+    } finally {
+      for (const conn of conns) conn.dispose()
+      for (const peer of peers) peer.wire.ws.close()
+    }
+  })
+
+  it('closes every installation and retains the shared deny gate if durable revocation fails', async () => {
+    const a = await pairFully(h, { clientInstallationId: 'profile-a' })
+    const b = await pairFully(h, { clientInstallationId: 'profile-b' })
+    const conns = [a, b].map((peer) => mdxpOverChannel(peer.wire, peer.channel))
+    const revoked = vi.fn()
+    for (const conn of conns)
+      conn.onNotification(Notifications.PairRevoked, revoked)
+    const identity = {
+      kind: 'extension' as const,
+      browser: 'chromium' as const,
+      extensionId: OFFICIAL_ID,
+    }
+    try {
+      vi.spyOn(h.credentials, 'revokeExtensionIdentity').mockRejectedValueOnce(
+        new Error('write failed')
+      )
+      const lease = h.server.beginExtensionRevocation(identity)
+      await expect(
+        h.server.deleteExtensionAuthorization(lease, 'user-revoked')
+      ).rejects.toThrow('write failed')
+      await Promise.all([a.wire.closed, b.wire.closed])
+      expect([...h.server.iterSessions()]).toHaveLength(0)
+      expect(revoked).not.toHaveBeenCalled()
+      expect(h.credentials.listCommitted()).toHaveLength(2)
+      expect(
+        h.server
+          .getExtensionInstallations(identity)
+          .map((entry) => entry.connected)
+      ).toEqual([false, false])
+      for (const credential of [a.credential, b.credential]) {
+        await expect(
+          reconnect({
+            port: h.port,
+            origin: OFFICIAL_ORIGIN,
+            instanceId: INSTANCE_ID,
+            credential,
+          })
+        ).rejects.toThrow('401')
+      }
+      expect(h.server.beginExtensionRevocation(identity)).toBe(lease)
+      await expect(
+        h.server.deleteExtensionAuthorization(lease, 'user-revoked')
+      ).resolves.toBe(2)
+      h.server.completeExtensionRevocation(lease)
+      expect(h.credentials.listCommitted()).toHaveLength(0)
+    } finally {
+      for (const conn of conns) conn.dispose()
+      a.wire.ws.close()
+      b.wire.ws.close()
+    }
+  })
+
   it('replaces a live session atomically, and the old close does not undo it', async () => {
     const first = await pairFully(h)
     const firstConn = mdxpOverChannel(first.wire, first.channel)
@@ -1228,10 +1560,14 @@ describe('R3 adoption boundary', () => {
       'motrix/initialize',
       initializeParams(OFFICIAL_ID)
     )
-    const firstSession = h.server.getSession(`chromium:${OFFICIAL_ID}`)
+    const firstSession = h.server.getSession(
+      installationSessionKey(`chrome-extension://${OFFICIAL_ID}`)
+    )
 
     const second = await pairFully(h)
-    const secondSession = h.server.getSession(`chromium:${OFFICIAL_ID}`)
+    const secondSession = h.server.getSession(
+      installationSessionKey(`chrome-extension://${OFFICIAL_ID}`)
+    )
 
     expect(second.credential.credentialId).not.toBe(
       first.credential.credentialId
@@ -1250,7 +1586,11 @@ describe('R3 adoption boundary', () => {
     first.wire.ws.close()
     await first.wire.closed
     await new Promise((r) => setTimeout(r, 20))
-    expect(h.server.getSession(`chromium:${OFFICIAL_ID}`)).toBe(secondSession)
+    expect(
+      h.server.getSession(
+        installationSessionKey(`chrome-extension://${OFFICIAL_ID}`)
+      )
+    ).toBe(secondSession)
 
     const secondConn = mdxpOverChannel(second.wire, second.channel)
     const pong = await secondConn.sendRequest('system/ping', { sentAt: 5 })
@@ -1265,14 +1605,22 @@ describe('R3 adoption boundary', () => {
     const paired = await pairFully(h)
     const conn = mdxpOverChannel(paired.wire, paired.channel)
     await conn.sendRequest('motrix/initialize', initializeParams(OFFICIAL_ID))
-    expect(h.server.getSession(`chromium:${OFFICIAL_ID}`)).toBeDefined()
+    expect(
+      h.server.getSession(
+        installationSessionKey(`chrome-extension://${OFFICIAL_ID}`)
+      )
+    ).toBeDefined()
 
     conn.dispose()
     paired.wire.ws.close()
     await paired.wire.closed
     await new Promise((r) => setTimeout(r, 20))
 
-    expect(h.server.getSession(`chromium:${OFFICIAL_ID}`)).toBeUndefined()
+    expect(
+      h.server.getSession(
+        installationSessionKey(`chrome-extension://${OFFICIAL_ID}`)
+      )
+    ).toBeUndefined()
   })
 
   it('keys a Firefox session by its moz-extension UUID, not the claimed id', async () => {
@@ -1289,7 +1637,9 @@ describe('R3 adoption boundary', () => {
       initializeParams('motrix@example.org', 'firefox')
     )
 
-    expect(h.server.getSession(`firefox:${FIREFOX_UUID}`)).toBeDefined()
+    expect(
+      h.server.getSession(installationSessionKey(FIREFOX_ORIGIN, 'firefox'))
+    ).toBeDefined()
     expect(h.server.getSession('firefox:motrix@example.org')).toBeUndefined()
 
     conn.dispose()
@@ -1603,7 +1953,11 @@ describe('§8 reconnect over the wire', () => {
     )
 
     expect(result.server.name).toBe('motrix')
-    expect(h.server.getSession(`chromium:${OFFICIAL_ID}`)).toBeDefined()
+    expect(
+      h.server.getSession(
+        installationSessionKey(`chrome-extension://${OFFICIAL_ID}`)
+      )
+    ).toBeDefined()
     expect(h.authenticated.map(({ credentialId }) => credentialId)).toEqual([
       paired.credential.credentialId,
       paired.credential.credentialId,
@@ -1643,7 +1997,11 @@ describe('§8 reconnect over the wire', () => {
     })
     await expect(revoke).resolves.toBe(1)
     await expect(paired.wire.closed).resolves.toMatchObject({ code: 1000 })
-    expect(h.server.getSession(`chromium:${OFFICIAL_ID}`)).toBeUndefined()
+    expect(
+      h.server.getSession(
+        installationSessionKey(`chrome-extension://${OFFICIAL_ID}`)
+      )
+    ).toBeUndefined()
     await expect(
       reconnect({
         port: h.port,
@@ -1854,7 +2212,11 @@ describe('§8 reconnect over the wire', () => {
       await Promise.resolve()
       await Promise.resolve()
       expect(h.authenticated).toHaveLength(0)
-      expect(h.server.getSession(`chromium:${OFFICIAL_ID}`)).toBeUndefined()
+      expect(
+        h.server.getSession(
+          installationSessionKey(`chrome-extension://${OFFICIAL_ID}`)
+        )
+      ).toBeUndefined()
 
       const credential = delayedCredential.value
       if (credential === undefined) {

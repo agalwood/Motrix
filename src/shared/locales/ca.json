@@ -2413,6 +2413,10 @@
         },
         "pairUnavailable": "Aquesta petició d'aparellament ja no està pendent; torneu a aparellar des de l'extensió del navegador.",
         "pairedEmpty": "Encara no hi ha extensions connectades.",
+        "profile": "Perfil del navegador {{number}}",
+        "connected": "Connectat",
+        "disconnected": "No connectat",
+        "revokeAll": "Desconnecta’ls tots",
         "pairedTitle": "Extensions connectades",
         "pairingStateDegraded": {
           "description": "El Motrix no ha pogut actualitzar de manera segura els registres d'extensions aparellades. S'han tancat les sessions d'extensions existents i s'ha bloquejat l'accés nou durant aquesta execució. Reinicieu el Motrix per tornar a provar la reparació; no us refieu de la llista següent fins que desaparegui aquest missatge.",
