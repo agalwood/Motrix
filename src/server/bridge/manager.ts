@@ -18,6 +18,7 @@ export type ServerBridgeRuntimeFactory = () => Promise<ServerBridgeRuntime>
  */
 export class ServerBridgeManager {
   private runtime: ServerBridgeRuntime | null = null
+  private drainingRuntime: ServerBridgeRuntime | null = null
   private transition: Promise<void> = Promise.resolve()
   private registryTransition: Promise<void> = Promise.resolve()
   private desiredEnabled = false
@@ -79,6 +80,13 @@ export class ServerBridgeManager {
 
   get current(): ServerBridgeRuntime | null {
     return this.runtime
+  }
+
+  /** Web removal may race a bridge restart while holding the task mutation
+   * lock. Reach the draining receiver directly; waiting for the whole bridge
+   * transition here could deadlock its cancellation on that same lock. */
+  async cancelMedia(taskId: string): Promise<void> {
+    await (this.runtime ?? this.drainingRuntime)?.cancelMedia(taskId)
   }
 
   start(): Promise<void> {
@@ -148,7 +156,12 @@ export class ServerBridgeManager {
   private async stopCurrent(): Promise<void> {
     const runtime = this.runtime
     this.runtime = null
-    await runtime?.shutdown()
+    this.drainingRuntime = runtime
+    try {
+      await runtime?.shutdown()
+    } finally {
+      this.drainingRuntime = null
+    }
   }
 
   private async availableRuntime(): Promise<ServerBridgeRuntime> {

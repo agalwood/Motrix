@@ -21,7 +21,7 @@ import { MotrixDatabase } from '@core/session/motrix-database'
 import { SettingsManager } from '@core/settings/settings-manager'
 import type { FileCleanupService } from '@core/task/file-cleanup-service'
 import type { FinalNamePicker } from '@core/task/final-name-picker'
-import type { TaskManager } from '@core/task/task-manager'
+import { TaskManager } from '@core/task/task-manager'
 import type { TorrentMetaStore } from '@core/task/torrent-meta-store'
 import type { MagnetTracker } from '@core/torrent/magnet-tracker'
 import type { TrackerManager } from '@core/tracker'
@@ -1321,6 +1321,93 @@ describe('server Commands.CreateTask magnet metadata selection', () => {
 })
 
 describe('server plural task commands', () => {
+  it.each(['singular', 'plural'] as const)(
+    'controls media segments through %s Web commands',
+    async (arity) => {
+      const ctx = makeFakeCtx()
+      ctx.taskManager = new TaskManager()
+      ctx.taskManager.set(
+        'media',
+        makeDownloadTask({
+          id: 'media',
+          engineTaskId: '',
+          kind: TaskKind.Hls,
+          status: TaskStatus.Downloading,
+        })
+      )
+      ctx.adapter.pauseTask = vi.fn(async () => {})
+      ctx.adapter.resumeTask = vi.fn(async () => {})
+      let gids = ['video-segment', 'audio-segment']
+      const handlers = buildServerCommandHandlers({
+        ...ctx,
+        persistTask: vi.fn(async () => {}),
+        getMediaSegmentGids: () => gids,
+      } as ServerCommandContext)
+      await handlers[
+        arity === 'singular' ? Commands.PauseTask : Commands.PauseTasks
+      ]!(arity === 'singular' ? 'media' : ['media'])
+      expect(ctx.adapter.pauseTask).toHaveBeenCalledWith('video-segment')
+      expect(ctx.adapter.pauseTask).toHaveBeenCalledWith('audio-segment')
+      expect(ctx.taskManager.getById('media')?.status).toBe(TaskStatus.Paused)
+      gids = ['next-segment']
+      await handlers[
+        arity === 'singular' ? Commands.ResumeTask : Commands.ResumeTasks
+      ]!(arity === 'singular' ? 'media' : ['media'])
+      expect(ctx.adapter.resumeTask).toHaveBeenCalledExactlyOnceWith(
+        'next-segment'
+      )
+      expect(ctx.taskManager.getById('media')?.status).toBe(
+        TaskStatus.Downloading
+      )
+    }
+  )
+
+  it.each(['singular', 'plural'] as const)(
+    'awaits media cancellation before %s Web removal deletes the parent',
+    async (arity) => {
+      const ctx = makeFakeCtx()
+      ctx.taskManager = new TaskManager()
+      ctx.taskManager.set(
+        'media',
+        makeDownloadTask({
+          id: 'media',
+          engineTaskId: '',
+          kind: TaskKind.Hls,
+          status: TaskStatus.Downloading,
+        })
+      )
+      ctx.motrixDatabase.deleteTask = vi.fn()
+      let release!: () => void
+      const draining = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      const cancelMedia = vi.fn(() => draining)
+      const handlers = buildServerCommandHandlers({
+        ...ctx,
+        cancelMedia,
+      } as ServerCommandContext)
+      const pending =
+        arity === 'singular'
+          ? handlers[Commands.RemoveTask]!({
+              taskId: 'media',
+              deleteWithFiles: false,
+            })
+          : handlers[Commands.RemoveTasks]!({
+              taskIds: ['media'],
+              deleteWithFiles: false,
+            })
+      await vi.waitFor(() =>
+        expect(cancelMedia).toHaveBeenCalledExactlyOnceWith('media')
+      )
+      expect(ctx.taskManager.getById('media')).toBeDefined()
+      expect(ctx.motrixDatabase.deleteTask).not.toHaveBeenCalled()
+      release()
+      await pending
+      expect(ctx.taskManager.getById('media')).toBeUndefined()
+      expect(ctx.motrixDatabase.deleteTask).toHaveBeenCalledWith('media')
+    }
+  )
+
   it('MoveTasks validates the payload and changes the actual engine queue', async () => {
     const ctx = makeFakeCtx()
     const queue = ['first', 'second']

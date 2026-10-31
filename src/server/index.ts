@@ -13,7 +13,6 @@ import { FileRegistryStoreAdapter } from '@core/bridge/registry-store-adapter'
 import { TrustedExtensionRegistry } from '@core/bridge/trusted-extension-registry'
 import { BridgeReceiver } from '@core/bridge-receiver/bridge-receiver'
 import { createDownloadDirectories } from '@core/bridge-receiver/download-directories'
-import { Aria2SegmentClient } from '@core/download/aria2-segment-client'
 import { Aria2Adapter } from '@core/engine/aria2/aria2-adapter'
 import { Aria2ConfigBuilder } from '@core/engine/aria2/aria2-config-builder'
 import { Aria2ProcessManager } from '@core/engine/aria2/aria2-process-manager'
@@ -167,6 +166,7 @@ import {
 import { createApp } from './http/app'
 import { buildServerCommandHandlers } from './ipc/commands'
 import { buildServerQueryHandlers } from './ipc/queries'
+import { createServerMediaRuntime } from './media-runtime'
 import { provisionOperatorToken } from './operator-token'
 import { createNodePlatformServices } from './platform/services'
 import { createServerCapabilityHost } from './plugin/capability-host'
@@ -744,12 +744,18 @@ async function main() {
       await proxyBridge.close()
     }
   }
+  const mediaRuntime = createServerMediaRuntime({
+    rpcClient,
+    adapter,
+    tempDir: runtimeDirectories.tempDir,
+    detectFfmpeg: detectServerFfmpeg,
+  })
   const sessionManager = new SessionManager(
     taskManager,
     rpcClient,
     db,
     adapter,
-    undefined,
+    mediaRuntime.tmpRoot,
     undefined,
     undefined,
     () => {
@@ -771,6 +777,9 @@ async function main() {
       rpc: rpcClient,
       removeResult: (gid) => adapter.removeDownloadResult(gid),
     })
+  )
+  supervisor.setPreReadyMaintenance(() =>
+    sessionManager.purgeEphemeralMediaRows()
   )
   shutdownActions.drainSession = () => sessionManager.stopAndDrain()
   const persistTask = createServerPersistTask(taskManager, sessionManager)
@@ -960,6 +969,7 @@ async function main() {
     if (supervisor.getState() !== EngineState.Ready) return
     let dirty = false
     for (const raw of rawTasks) {
+      if (mediaRuntime.isSegmentTask(raw)) continue
       if (shouldSkipForPendingMagnetMetadata(raw, magnetTracker)) {
         continue
       }
@@ -1207,6 +1217,9 @@ async function main() {
     adapter,
     trackerManager,
     bridgeControl: bridgeManager,
+    getMediaSegmentGids: (taskId) =>
+      bridgeManager.current?.getMediaSegmentGids(taskId) ?? [],
+    cancelMedia: (taskId) => bridgeManager.cancelMedia(taskId),
     aria2BinaryPath: platform.aria2BinaryPath,
     finalNamePicker,
     torrentMetaStore,
@@ -1857,7 +1870,9 @@ async function main() {
     // The manager keeps every bridge:* RPC registered while this factory owns
     // only the optional listener/runtime portion.
     bridgeRuntimeFactory = async (): Promise<ServerBridgeRuntime> => {
+      let receiver: BridgeReceiver | null = null
       const removeTaskDeps = {
+        cancelMedia: async (taskId: string) => receiver?.cancelMedia(taskId),
         taskManager,
         adapter,
         log,
@@ -1924,6 +1939,8 @@ async function main() {
           }),
       }
       const taskActionDeps = {
+        getMediaSegmentGids: (taskId: string) =>
+          receiver?.getMediaSegmentGids(taskId) ?? [],
         onPauseRequested: (taskId: string) =>
           trackerManager.noteTaskControl(taskId, true),
         onResumeRequested: (taskId: string) =>
@@ -2005,13 +2022,14 @@ async function main() {
         port: mdxpPort,
         fixedPort,
         motrixVersion: appVersion,
+        ffmpegAvailable: mediaRuntime.ffmpegAvailable,
         eventBus,
         bridgeDataDirLockRecoveryAuthority,
         bridgeDataDirLock: dataDirLock,
         remoteExtensionConfig,
         trustedExtensionRegistry,
         createExtensionReceiver: ({ bridgeBus }) =>
-          new BridgeReceiver({
+          (receiver = new BridgeReceiver({
             mediaMetaStore,
             getDefaultSaveDir: () => settingsManager.getApp().defaultSaveDir,
             resolveSaveDir: downloadDirectories.resolveSelection,
@@ -2042,17 +2060,14 @@ async function main() {
             eventBus,
             bridgeBus,
             localize: (code) => code,
-            // The Server currently advertises direct selection only. Keeping
-            // media disabled here makes that capability statement executable,
-            // while direct/magnet submissions reuse the same validated paths
-            // and cookie/header hygiene as Desktop.
             ffmpegBinaryPath: null,
+            resolveFfmpegBinaryPath: mediaRuntime.resolveFfmpegBinaryPath,
             publishTaskUpdate,
             publishTaskUpdateNow,
             taskManager,
             activityRecorder: taskActivityService,
-            segmentAria2: new Aria2SegmentClient(rpcClient, adapter),
-            tmpRoot: runtimeDirectories.tempDir,
+            segmentAria2: mediaRuntime.segmentAria2,
+            tmpRoot: mediaRuntime.tmpRoot,
             persistTask,
             persistTaskWithOccurrence,
             occurrenceDispatcher,
@@ -2067,7 +2082,7 @@ async function main() {
               taskInspectorActivityRuntime.runTaskMutation(taskIds, operation),
             waitForReady: () =>
               supervisor.waitUntilReady(ENGINE_READY_TIMEOUT_MS),
-          }),
+          })),
         // The web approval UI is a separate (Fastify) service; the operator points
         // device-code clients at it via MOTRIX_PUBLIC_URL. Unset → no URL printed.
         verificationUri: process.env.MOTRIX_PUBLIC_URL,

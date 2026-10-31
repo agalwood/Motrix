@@ -557,8 +557,13 @@ operator 可用的管理选项包括：
 - `MOTRIX_SECRETS_SEED`：可选的 64 位十六进制 secret，应来自编排器 secret
   store；否则会生成并持久化 `/data/secrets.lockbox`。
 
-官方镜像不包含 FFmpeg。依赖 FFmpeg 的插件需要基于官方镜像安装 Alpine
-`ffmpeg` 包，并设置 `MOTRIX_FFMPEG_PATH=/usr/bin/ffmpeg`。
+官方镜像不包含 FFmpeg。浏览器扩展的 HLS/DASH 下载、分离音视频合并，以及
+依赖 FFmpeg 的插件，都需要容器内可执行的 FFmpeg。例如，基于官方镜像安装
+Alpine `ffmpeg` 包，并设置 `MOTRIX_FFMPEG_PATH=/usr/bin/ffmpeg`。也可以将
+兼容的可执行文件放在 `/data/binaries/ffmpeg`，或在 Web 界面配置自定义路径。
+在 **设置 → 集成 → 媒体工具** 中确认检测成功后，点击扩展中的 **重新扫描**。
+Server 会刷新媒体能力，无需重启；仅在浏览器所在电脑安装 FFmpeg，不会使其
+在容器内可用。
 
 ## 升级、回滚、备份与恢复
 

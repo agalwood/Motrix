@@ -37,6 +37,35 @@ function actions(
 }
 
 describe('createServerShutdown', () => {
+  it('drains media cancellation before stopping engine RPC and Session writes', async () => {
+    const order: string[] = []
+    let release!: () => void
+    const mediaDrain = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const shutdown = createServerShutdown(
+      actions(order, {
+        closeBridge: async () => {
+          order.push('media-cancelling')
+          await mediaDrain
+          order.push('media-drained')
+        },
+      }),
+      vi.fn()
+    )
+    const pending = shutdown()
+    await vi.waitFor(() => expect(order).toContain('dispose-tracker'))
+    expect(order).not.toContain('stop-engine')
+    expect(order).not.toContain('drain-session')
+    release()
+    await pending
+    expect(order.indexOf('media-drained')).toBeLessThan(
+      order.indexOf('stop-engine')
+    )
+    expect(order.indexOf('media-drained')).toBeLessThan(
+      order.indexOf('drain-session')
+    )
+  })
   it('closes ingress and drains every producer before closing SQLite', async () => {
     const order: string[] = []
     const shutdown = createServerShutdown(actions(order), vi.fn())
