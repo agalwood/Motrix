@@ -1328,6 +1328,9 @@
       "themeDark": "ダーク",
       "language": "言語",
       "traySpeedometer": "メニューバーに速度を表示",
+      "dockAndMenuBar": "Dock とメニューバー",
+      "dockProgress": "Dock にダウンロードの進捗を表示",
+      "dockProgressDesc": "Dock アイコンに実行中のダウンロード全体の進捗を表示します。",
       "traySpeedometerDesc": "アプリのアイコンの横にダウンロード速度とアップロード速度を表示します。",
       "trayIconColor": "トレイアイコンの色",
       "trayIconColorDesc": "システムパネル上で見やすい色を選択します。",
@@ -1665,7 +1668,7 @@
         "turtle_auto": "自動",
         "unitFor": "{{field}}の単位",
         "baseSection": "標準の制限",
-        "baseSectionDesc": "通常のダウンロードに使用し、どのモードでもこの上限を守ります。",
+        "baseSectionDesc": "標準モード、および低速ルールが適用されていないときに使用します。",
         "baseDownload": "ダウンロード",
         "baseDownloadDesc": "通常時の最大ダウンロード速度です。",
         "baseUpload": "アップロード",
@@ -1675,7 +1678,7 @@
         "standardLimit": "標準を使用",
         "useStandardLimit": "標準の制限を使用",
         "altSection": "低速モードの制限",
-        "altSectionDesc": "低速モードまたはスケジュールルールで使用します。標準の制限より速度を下げることだけができます。",
+        "altSectionDesc": "低速モード、または自動ルールがこの設定を選択したときに使用します。",
         "altDownload": "ダウンロード",
         "altDownloadDesc": "低速モード有効時の最大ダウンロード速度です。",
         "altUpload": "アップロード",
@@ -1746,7 +1749,7 @@
           "adaptiveRulePending": "回線の帯域幅を入力すると、ほかのアプリ用に {{reserved}}% を確保します",
           "ruleSeparator": "。また、",
           "autoRules": "Motrix は{{rules}}。",
-          "lowerWins": "有効な制限のうち、最も低い値を適用します。"
+          "profileSelection": "選択したモードの制限が適用されます。低速モードの空欄には標準の制限が使われ、自動モードでは適応型の制限が追加される場合があります。"
         },
         "bandwidthUsed": "Motrix は最大 {{motrix}}% を使用できます。",
         "bandwidthPending": "この制限を適用するには、回線のダウンロード速度とアップロード速度の両方を入力してください。"

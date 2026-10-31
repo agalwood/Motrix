@@ -1328,6 +1328,9 @@
       "themeDark": "深色",
       "language": "語言",
       "traySpeedometer": "在選單列顯示速度",
+      "dockAndMenuBar": "Dock 和選單列",
+      "dockProgress": "在 Dock 圖示上顯示下載進度",
+      "dockProgressDesc": "在 Dock 圖示上顯示下載中工作的整體進度。",
       "traySpeedometerDesc": "在應用程式圖示旁顯示下載和上傳速度。",
       "trayIconColor": "系統匣圖示色彩",
       "trayIconColorDesc": "選擇在系統面板上容易看清的顏色。",
@@ -1665,7 +1668,7 @@
         "turtle_auto": "自動",
         "unitFor": "{{field}}的單位",
         "baseSection": "一般限速",
-        "baseSectionDesc": "用於日常下載，且在每個模式下都會遵守。",
+        "baseSectionDesc": "用於一般模式，以及未觸發低速規則時。",
         "baseDownload": "下載",
         "baseDownloadDesc": "日常下載的最高速度。",
         "baseUpload": "上傳",
@@ -1675,7 +1678,7 @@
         "standardLimit": "沿用一般上限",
         "useStandardLimit": "沿用標準限制",
         "altSection": "低速限速",
-        "altSectionDesc": "用於低速模式或排程規則。這些限制只能低於標準限制。",
+        "altSectionDesc": "用於低速模式，或自動規則選擇低速設定時。",
         "altDownload": "下載",
         "altDownloadDesc": "低速模式啟用時的最高下載速度。",
         "altUpload": "上傳",
@@ -1746,7 +1749,7 @@
           "adaptiveRulePending": "輸入連線頻寬後，為其他應用程式保留 {{reserved}}% 的頻寬",
           "ruleSeparator": "，並且",
           "autoRules": "Motrix 將{{rules}}。",
-          "lowerWins": "多項限速同時生效時取最低值。"
+          "profileSelection": "依所選模式套用限速。低速限速留空時沿用一般值；自動模式還可能受到自適應限速限制。"
         },
         "bandwidthUsed": "Motrix 最多使用 {{motrix}}%。",
         "bandwidthPending": "填入下載和上傳速度後生效。"

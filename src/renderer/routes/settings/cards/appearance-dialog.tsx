@@ -66,6 +66,7 @@ type AppearanceFields = Pick<
   | 'language'
   | 'byteUnitSystem'
   | 'traySpeedometer'
+  | 'dockProgress'
   | 'trayIconColor'
   | 'liquidGlassEffect'
 >
@@ -81,6 +82,7 @@ const DEFAULTS: AppearanceFields = {
   language: DEFAULT_APP_SETTINGS.language,
   byteUnitSystem: DEFAULT_APP_SETTINGS.byteUnitSystem,
   traySpeedometer: DEFAULT_APP_SETTINGS.traySpeedometer,
+  dockProgress: DEFAULT_APP_SETTINGS.dockProgress,
   trayIconColor: DEFAULT_APP_SETTINGS.trayIconColor,
   liquidGlassEffect: DEFAULT_APP_SETTINGS.liquidGlassEffect,
 }
@@ -117,6 +119,7 @@ export function AppearanceDialog({
         language: all.app.language,
         byteUnitSystem: all.app.byteUnitSystem ?? DEFAULTS.byteUnitSystem,
         traySpeedometer: all.app.traySpeedometer,
+        dockProgress: all.app.dockProgress ?? DEFAULTS.dockProgress,
         trayIconColor: all.app.trayIconColor ?? DEFAULTS.trayIconColor,
         liquidGlassEffect: all.app.liquidGlassEffect,
       })
@@ -465,7 +468,11 @@ export function AppearanceDialog({
                       <>
                         <Separator className="my-4" />
                         <h3 className="text-sm font-semibold">
-                          {t('settings.appearance.menuBar')}
+                          {t(
+                            isMac
+                              ? 'settings.appearance.dockAndMenuBar'
+                              : 'settings.appearance.menuBar'
+                          )}
                         </h3>
                       </>
                     )}
@@ -507,6 +514,30 @@ export function AppearanceDialog({
                                   </SelectGroup>
                                 </SelectContent>
                               </Select>
+                            </FormControl>
+                          </SettingsFormRow>
+                        )}
+                      />
+                    )}
+                    {isMac && (
+                      <FormField
+                        control={form.control}
+                        name="dockProgress"
+                        render={({ field }) => (
+                          <SettingsFormRow>
+                            <div className="space-y-1">
+                              <FormLabel>
+                                {t('settings.appearance.dockProgress')}
+                              </FormLabel>
+                              <FormDescription className="text-xs">
+                                {t('settings.appearance.dockProgressDesc')}
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
                             </FormControl>
                           </SettingsFormRow>
                         )}

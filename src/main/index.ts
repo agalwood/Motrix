@@ -210,6 +210,7 @@ import { setupCompletionShutdown } from './platform/completion-shutdown'
 import { resolveDefaultSaveDirOptions } from './platform/default-save-dir'
 import { resolveDesktopBackgroundPolicy } from './platform/desktop-background-policy'
 import { resolveDistributionContext } from './platform/distribution-context'
+import { setupDockProgress } from './platform/dock-progress'
 import { removePathRecursive, renameAtomic } from './platform/fs-helpers'
 import { setupGraphicsRecovery } from './platform/graphics-recovery-runtime'
 import { getMacUpdateInstallBlockReason } from './platform/mac-update-install-policy'
@@ -3145,6 +3146,11 @@ async function initializeMainProcess(): Promise<void> {
     speedLimitController,
     updateManager,
   })
+  const disposeDockProgress = setupDockProgress({
+    eventBus,
+    getTasks: () => taskManager.getAll(),
+    isEnabled: () => settingsManager.getApp().dockProgress,
+  })
   const disposeCompletionShutdown = setupCompletionShutdown({
     getMainWindow: () => windowManager.get('main') ?? null,
     showMainWindow: () => windowManager.show('main'),
@@ -3173,6 +3179,7 @@ async function initializeMainProcess(): Promise<void> {
   })
   disposeIpcIngress = () => {
     disposeLegacyImportIpc()
+    disposeDockProgress()
     disposeCompletionShutdown()
     disposeCommandHandlers()
     disposeQueryHandlers()

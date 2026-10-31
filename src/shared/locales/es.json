@@ -1356,6 +1356,9 @@
       "themeDark": "Oscuro",
       "language": "Idioma",
       "traySpeedometer": "Mostrar velocidad en la barra de menús",
+      "dockAndMenuBar": "Dock y barra de menús",
+      "dockProgress": "Mostrar el progreso de las descargas en el Dock",
+      "dockProgressDesc": "Muestra el progreso conjunto de las descargas activas en el icono del Dock.",
       "traySpeedometerDesc": "Muestra la velocidad de descarga y subida junto al icono de la aplicación.",
       "trayIconColor": "Color del icono de la bandeja",
       "trayIconColorDesc": "Elige un color que destaque en el panel del sistema.",
@@ -1693,7 +1696,7 @@
         "turtle_auto": "Automático",
         "unitFor": "Unidad de {{field}}",
         "baseSection": "Límites estándar",
-        "baseSectionDesc": "Se usan en las descargas habituales y se respetan en todos los modos.",
+        "baseSectionDesc": "Se usan en el modo normal y cuando no hay ninguna regla de baja velocidad activa.",
         "baseDownload": "Descarga",
         "baseDownloadDesc": "Velocidad máxima de descarga habitual.",
         "baseUpload": "Subida",
@@ -1703,7 +1706,7 @@
         "standardLimit": "Usar estándar",
         "useStandardLimit": "Usar límite estándar",
         "altSection": "Límites de baja velocidad",
-        "altSectionDesc": "Se usan en el modo de baja velocidad o mediante reglas programadas. Estos límites solo pueden reducir los límites estándar.",
+        "altSectionDesc": "Se usan en el modo de baja velocidad o cuando una regla automática selecciona este perfil.",
         "altDownload": "Descarga",
         "altDownloadDesc": "Velocidad máxima de descarga en el modo de baja velocidad.",
         "altUpload": "Subida",
@@ -1774,7 +1777,7 @@
           "adaptiveRulePending": "reservar el {{reserved}} % del ancho de banda para otras aplicaciones tras introducir el ancho de banda de la conexión",
           "ruleSeparator": " y ",
           "autoRules": "Motrix va a {{rules}}.",
-          "lowerWins": "Se aplica el menor de los límites activos."
+          "profileSelection": "Se aplican los límites del modo seleccionado. Los límites de baja velocidad vacíos usan los normales; el modo automático puede añadir un límite adaptativo."
         },
         "bandwidthUsed": "Motrix puede usar hasta el {{motrix}} %.",
         "bandwidthPending": "Introduce ambas velocidades de conexión para aplicar este límite."

@@ -1328,6 +1328,9 @@
       "themeDark": "다크",
       "language": "언어",
       "traySpeedometer": "메뉴 막대에 속도 표시",
+      "dockAndMenuBar": "Dock 및 메뉴 막대",
+      "dockProgress": "Dock에 다운로드 진행률 표시",
+      "dockProgressDesc": "Dock 아이콘에 진행 중인 다운로드의 전체 진행률을 표시합니다.",
       "traySpeedometerDesc": "앱 아이콘 옆에 다운로드 및 업로드 속도를 표시합니다.",
       "trayIconColor": "트레이 아이콘 색상",
       "trayIconColorDesc": "시스템 패널에서 잘 보이는 색상을 선택하세요.",
@@ -1665,7 +1668,7 @@
         "turtle_auto": "자동",
         "unitFor": "{{field}} 단위",
         "baseSection": "표준 제한",
-        "baseSectionDesc": "일반적인 다운로드에 사용하며 모든 모드에서 이 제한을 준수합니다.",
+        "baseSectionDesc": "기본 모드에서, 또는 활성화된 저속 규칙이 없을 때 사용합니다.",
         "baseDownload": "다운로드",
         "baseDownloadDesc": "일반적인 사용 시 최대 다운로드 속도입니다.",
         "baseUpload": "업로드",
@@ -1675,7 +1678,7 @@
         "standardLimit": "표준값 사용",
         "useStandardLimit": "표준 제한 사용",
         "altSection": "저속 제한",
-        "altSectionDesc": "저속 모드 또는 예약 규칙에서 사용합니다. 표준 제한보다 속도를 낮출 수만 있습니다.",
+        "altSectionDesc": "저속 모드에서, 또는 자동 규칙이 이 프로필을 선택할 때 사용합니다.",
         "altDownload": "다운로드",
         "altDownloadDesc": "저속 모드가 활성화되었을 때의 최대 다운로드 속도입니다.",
         "altUpload": "업로드",
@@ -1746,7 +1749,7 @@
           "adaptiveRulePending": "회선 대역폭을 입력하면 다른 앱을 위해 대역폭의 {{reserved}}%를 확보",
           "ruleSeparator": "하고 ",
           "autoRules": "Motrix가 {{rules}}합니다.",
-          "lowerWins": "활성 제한 중 가장 낮은 값이 적용됩니다."
+          "profileSelection": "선택한 모드의 제한이 적용됩니다. 저속 제한이 비어 있으면 기본 제한을 사용하며, 자동 모드에서는 적응형 제한이 추가로 적용될 수 있습니다."
         },
         "bandwidthUsed": "Motrix는 최대 {{motrix}}%를 사용할 수 있습니다.",
         "bandwidthPending": "이 제한을 적용하려면 다운로드와 업로드 회선 속도를 모두 입력하세요."

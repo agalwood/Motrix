@@ -71,6 +71,81 @@ beforeEach(async () => {
 })
 
 describe('<AppearanceDialog>', () => {
+  it.each(['Save', 'Cancel'])(
+    'keeps Dock progress in the draft until %s',
+    async (action) => {
+      const onClose = vi.fn()
+      render(
+        <AppearanceDialog
+          open
+          onClose={onClose}
+          labelKey="settings.cards.appearance.title"
+          descKey="settings.cards.appearance.desc"
+        />
+      )
+      const user = userEvent.setup()
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled()
+      )
+      const control = screen.getByRole('switch', {
+        name: 'Show download progress in Dock',
+      })
+      expect(control).not.toBeChecked()
+      await user.click(control)
+      expect(transport.invoke).not.toHaveBeenCalledWith(
+        Commands.UpdateSettings,
+        expect.anything()
+      )
+      await user.click(screen.getByRole('button', { name: action }))
+      if (action === 'Save') {
+        expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+          app: { dockProgress: true },
+        })
+      } else {
+        expect(transport.invoke).not.toHaveBeenCalledWith(
+          Commands.UpdateSettings,
+          expect.anything()
+        )
+      }
+      expect(onClose).toHaveBeenCalledOnce()
+    }
+  )
+
+  it.each(['linux', 'win32', 'web'])(
+    'preserves the hidden Dock preference on %s when saving another field',
+    async (platform) => {
+      Object.defineProperty(transport, 'platform', {
+        configurable: true,
+        value: platform,
+      })
+      vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+        if (channel === Queries.GetSettings)
+          return { ...FIXTURE, app: { ...FIXTURE.app, dockProgress: true } }
+        return { saved: true, requiresRestart: false, changedRestartKeys: [] }
+      })
+      render(
+        <AppearanceDialog
+          open
+          onClose={vi.fn()}
+          labelKey="settings.cards.appearance.title"
+          descKey="settings.cards.appearance.desc"
+        />
+      )
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled()
+      )
+      expect(
+        screen.queryByRole('switch', { name: 'Show download progress in Dock' })
+      ).toBeNull()
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('switch', { name: 'Reduce motion' }))
+      await user.click(screen.getByRole('button', { name: 'Save' }))
+      expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+        app: { reduceMotion: true },
+      })
+    }
+  )
+
   it('keeps acceleration changes in the draft until Save', async () => {
     render(
       <AppearanceDialog

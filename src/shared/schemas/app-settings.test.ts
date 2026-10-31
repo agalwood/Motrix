@@ -6,6 +6,18 @@ import {
 } from './app-settings'
 
 describe('appSettingsSchema', () => {
+  it('leaves Dock progress off for existing or damaged profiles and rejects malformed changes', () => {
+    for (const dockProgress of [undefined, null, 'true', 1]) {
+      expect(appSettingsSchema.parse({ dockProgress }).dockProgress).toBe(false)
+    }
+    expect(appSettingsSchema.parse({ dockProgress: true }).dockProgress).toBe(
+      true
+    )
+    expect(
+      appSettingsInputSchema.partial().safeParse({ dockProgress: 'true' })
+        .success
+    ).toBe(false)
+  })
   it('defaults acceleration on for existing profiles and strictly validates changes', () => {
     expect(DEFAULT_APP_SETTINGS.hardwareAcceleration).toBe(true)
     expect(

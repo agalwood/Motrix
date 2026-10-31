@@ -1342,6 +1342,9 @@
       "themeDark": "Dunkel",
       "language": "Sprache",
       "traySpeedometer": "Geschwindigkeit in der Menüleiste anzeigen",
+      "dockAndMenuBar": "Dock und Menüleiste",
+      "dockProgress": "Downloadfortschritt im Dock anzeigen",
+      "dockProgressDesc": "Zeigt den Gesamtfortschritt aktiver Downloads auf dem Dock-Symbol an.",
       "traySpeedometerDesc": "Download- und Upload-Geschwindigkeit neben dem Anwendungssymbol anzeigen.",
       "trayIconColor": "Symbolfarbe im Infobereich",
       "trayIconColorDesc": "Wählen Sie eine Farbe, die sich von Ihrer Systemleiste abhebt.",
@@ -1679,7 +1682,7 @@
         "turtle_auto": "Automatisch",
         "unitFor": "Einheit für {{field}}",
         "baseSection": "Standardlimits",
-        "baseSectionDesc": "Für alltägliche Downloads; gelten in jedem Modus.",
+        "baseSectionDesc": "Gilt im Standardmodus und wenn keine Regel für niedrige Geschwindigkeit aktiv ist.",
         "baseDownload": "Download",
         "baseDownloadDesc": "Die maximale Download-Geschwindigkeit im Alltag.",
         "baseUpload": "Upload",
@@ -1689,7 +1692,7 @@
         "standardLimit": "Standard verwenden",
         "useStandardLimit": "Standardlimit verwenden",
         "altSection": "Niedrige Geschwindigkeitslimits",
-        "altSectionDesc": "Für den langsamen Modus oder geplante Regeln. Diese Limits können die Standardlimits nur weiter verringern.",
+        "altSectionDesc": "Gilt im Modus für niedrige Geschwindigkeit oder wenn eine automatische Regel dieses Profil auswählt.",
         "altDownload": "Download",
         "altDownloadDesc": "Die maximale Download-Geschwindigkeit im langsamen Modus.",
         "altUpload": "Upload",
@@ -1760,7 +1763,7 @@
           "adaptiveRulePending": "nach Eingabe der Verbindungsbandbreite {{reserved}} % für andere Apps reservieren",
           "ruleSeparator": " und ",
           "autoRules": "Motrix wird {{rules}}.",
-          "lowerWins": "Es gilt das niedrigste aktive Limit."
+          "profileSelection": "Es gelten die Limits des gewählten Modus. Leere Limits für niedrige Geschwindigkeit übernehmen die Standardlimits; der Automatikmodus kann zusätzlich adaptiv begrenzen."
         },
         "bandwidthUsed": "Motrix kann bis zu {{motrix}} % nutzen.",
         "bandwidthPending": "Geben Sie beide Verbindungsgeschwindigkeiten ein, um dieses Limit anzuwenden."

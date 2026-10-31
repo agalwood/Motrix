@@ -1328,6 +1328,9 @@
       "themeDark": "Tối",
       "language": "Ngôn ngữ",
       "traySpeedometer": "Hiện tốc độ trên thanh menu",
+      "dockAndMenuBar": "Dock và thanh menu",
+      "dockProgress": "Hiển thị tiến độ tải xuống trên Dock",
+      "dockProgressDesc": "Hiển thị tiến độ tổng hợp của các lượt tải đang hoạt động trên biểu tượng Dock.",
       "traySpeedometerDesc": "Xem tốc độ tải xuống và tải lên bên cạnh biểu tượng ứng dụng.",
       "trayIconColor": "Màu biểu tượng khay hệ thống",
       "trayIconColorDesc": "Chọn màu dễ nhìn trên thanh hệ thống.",
@@ -1665,7 +1668,7 @@
         "turtle_auto": "Tự động",
         "unitFor": "Đơn vị cho {{field}}",
         "baseSection": "Giới hạn tiêu chuẩn",
-        "baseSectionDesc": "Dùng cho các lượt tải xuống hằng ngày và được tuân thủ trong mọi chế độ.",
+        "baseSectionDesc": "Dùng trong chế độ tiêu chuẩn và khi không có quy tắc tốc độ thấp đang hoạt động.",
         "baseDownload": "Tải xuống",
         "baseDownloadDesc": "Tốc độ tải xuống tối đa thường dùng.",
         "baseUpload": "Tải lên",
@@ -1675,7 +1678,7 @@
         "standardLimit": "Dùng tiêu chuẩn",
         "useStandardLimit": "Dùng giới hạn tiêu chuẩn",
         "altSection": "Giới hạn tốc độ thấp",
-        "altSectionDesc": "Dùng trong chế độ Tốc độ thấp hoặc theo lịch. Các giới hạn này chỉ có thể giảm giới hạn tiêu chuẩn.",
+        "altSectionDesc": "Dùng trong chế độ tốc độ thấp hoặc khi một quy tắc tự động chọn cấu hình này.",
         "altDownload": "Tải xuống",
         "altDownloadDesc": "Tốc độ tải xuống tối đa khi chế độ Tốc độ thấp đang bật.",
         "altUpload": "Tải lên",
@@ -1746,7 +1749,7 @@
           "adaptiveRulePending": "dành {{reserved}}% băng thông cho ứng dụng khác sau khi nhập băng thông kết nối",
           "ruleSeparator": " và ",
           "autoRules": "Motrix sẽ {{rules}}.",
-          "lowerWins": "Áp dụng giới hạn đang có hiệu lực thấp nhất."
+          "profileSelection": "Áp dụng giới hạn của chế độ đã chọn. Giới hạn tốc độ thấp để trống sẽ dùng giới hạn tiêu chuẩn; chế độ tự động có thể thêm giới hạn thích ứng."
         },
         "bandwidthUsed": "Motrix có thể dùng tối đa {{motrix}}%.",
         "bandwidthPending": "Nhập cả hai tốc độ kết nối để áp dụng giới hạn này."

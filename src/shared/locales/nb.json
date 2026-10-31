@@ -1921,6 +1921,9 @@
       "trayIconColorDesc": "Velg en farge som skiller seg ut på systempanelet.",
       "trayIconColorLight": "Lyst ikon (mørkt panel)",
       "traySpeedometer": "Vis hastighet i menylinjen",
+      "dockAndMenuBar": "Dock og menylinje",
+      "dockProgress": "Vis nedlastingsfremdrift i Dock",
+      "dockProgressDesc": "Vis samlet fremdrift for aktive nedlastinger på Dock-symbolet.",
       "traySpeedometerDesc": "Se nedlastings- og opplastingshastighet ved siden av appikonet."
     },
     "bittorrent": {
@@ -2156,7 +2159,7 @@
         "altDownload": "Nedlasting",
         "altDownloadDesc": "Maksimal nedlastingshastighet når lavhastighetsmodus er aktiv.",
         "altSection": "Grenser for lav hastighet",
-        "altSectionDesc": "Brukes i lavhastighetsmodus eller av tidsplanregler. Disse grensene kan bare redusere standardgrensene.",
+        "altSectionDesc": "Brukes i lavhastighetsmodus eller når en automatisk regel velger denne profilen.",
         "altUpload": "Opplasting",
         "altUploadDesc": "Maksimal opplastingshastighet når lavhastighetsmodus er aktiv.",
         "autoAdaptive": "La andre apper få båndbredde",
@@ -2169,7 +2172,7 @@
         "baseDownloadDesc": "Maksimal nedlastingshastighet til daglig bruk.",
         "unitFor": "Enhet for {{field}}",
         "baseSection": "Standardgrenser",
-        "baseSectionDesc": "Brukes til daglige nedlastinger og overholdes i alle moduser.",
+        "baseSectionDesc": "Brukes i standardmodus og når ingen lavhastighetsregel er aktiv.",
         "baseUpload": "Opplasting",
         "baseUploadDesc": "Maksimal opplastingshastighet til daglig bruk.",
         "effect": {
@@ -2177,7 +2180,7 @@
           "adaptiveRulePending": "reservere {{reserved}}% av båndbredden til andre apper etter at tilkoblingens båndbredde er angitt",
           "autoRules": "Motrix vil {{rules}}.",
           "lowSpeed": "Bruker nå grensene for lav hastighet: nedlasting {{download}}, opplasting {{upload}}.",
-          "lowerWins": "Den laveste aktive grensen gjelder.",
+          "profileSelection": "Grensene for valgt modus gjelder. Tomme lavhastighetsgrenser bruker standardgrensene; automatisk modus kan legge til en adaptiv grense.",
           "nextDay": " neste dag",
           "noAutoRules": "Ingen automatiske regler er aktivert. Dette fungerer foreløpig som standardmodus.",
           "ruleSeparator": " og ",

@@ -1343,6 +1343,9 @@
       "language": "Dil",
       "traySpeedometer": "Menü çubuğunda hızı göster",
       "traySpeedometerDesc": "Uygulama simgesinin yanında indirme ve gönderme hızlarını görün.",
+      "dockAndMenuBar": "Dock ve menü çubuğu",
+      "dockProgress": "Dock’ta indirme ilerlemesini göster",
+      "dockProgressDesc": "Etkin indirmelerin toplam ilerlemesini Dock simgesinde gösterir.",
       "trayIconColor": "Sistem tepsisi simgesinin rengi",
       "trayIconColorDesc": "Sistem panelinizde belirgin görünen bir renk seçin.",
       "trayIconColorAuto": "Uygulama temasını kullan",
@@ -1679,7 +1682,7 @@
         "turtle_auto": "Otomatik",
         "unitFor": "{{field}} birimi",
         "baseSection": "Standart sınırlar",
-        "baseSectionDesc": "Günlük indirmelerde kullanılır ve her modda geçerlidir.",
+        "baseSectionDesc": "Standart modda ve hiçbir düşük hız kuralı etkin değilken kullanılır.",
         "baseDownload": "İndirme",
         "baseDownloadDesc": "Günlük kullanım için en yüksek indirme hızı.",
         "baseUpload": "Gönderme",
@@ -1689,7 +1692,7 @@
         "standardLimit": "Standart sınırı kullan",
         "useStandardLimit": "Standart sınırı kullan",
         "altSection": "Düşük hız sınırları",
-        "altSectionDesc": "Düşük hız modunda veya zamanlanmış kurallarla kullanılır. Bu sınırlar standart sınırları yalnızca düşürebilir.",
+        "altSectionDesc": "Düşük hız modunda veya otomatik bir kural bu profili seçtiğinde kullanılır.",
         "altDownload": "İndirme",
         "altDownloadDesc": "Düşük hız modu etkinken en yüksek indirme hızı.",
         "altUpload": "Gönderme",
@@ -1760,7 +1763,7 @@
           "adaptiveRulePending": "bağlantı bant genişliği girildikten sonra diğer uygulamalar için %{{reserved}} bant genişliği ayırır",
           "ruleSeparator": " ve ",
           "autoRules": "Motrix {{rules}}.",
-          "lowerWins": "Etkin sınırların en düşüğü uygulanır."
+          "profileSelection": "Seçilen modun sınırları uygulanır. Boş bırakılan düşük hız sınırları standart değerleri kullanır; otomatik mod ek bir uyarlanabilir sınır uygulayabilir."
         },
         "bandwidthUsed": "Motrix en fazla %{{motrix}} kullanabilir.",
         "bandwidthPending": "Bu sınırı uygulamak için her iki bağlantı hızını da girin."

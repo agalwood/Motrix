@@ -139,8 +139,8 @@ export interface SpeedLimitAutoSettings {
 }
 
 export interface SpeedLimitSettings {
-  base: SpeedLimitProfile // always-on floor; 0 = unlimited
-  alt: SpeedLimitProfile // alternative / turtle profile
+  base: SpeedLimitProfile // standard profile; 0 = unlimited
+  alt: SpeedLimitProfile // low speed profile; 0 inherits the corresponding base limit
   turtle: TurtleState // off = base only; on = force alt; auto = triggers decide
   auto: SpeedLimitAutoSettings
 }
@@ -256,6 +256,8 @@ export interface MotrixAppSettings {
   /** Release renderer windows while the desktop UI is closed. Background
    *  services such as downloads, notifications, and the tray keep running. */
   lightweightMode: boolean
+  /** Show download progress in the macOS Dock. Default false; applied live. */
+  dockProgress: boolean
   traySpeedometer: boolean
   /** Linux tray artwork color; auto follows the resolved application theme. */
   trayIconColor: TrayIconColor

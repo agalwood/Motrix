@@ -1328,6 +1328,9 @@
       "themeDark": "Gelap",
       "language": "Bahasa",
       "traySpeedometer": "Tampilkan kecepatan di bar menu",
+      "dockAndMenuBar": "Dock dan bar menu",
+      "dockProgress": "Tampilkan progres unduhan di Dock",
+      "dockProgressDesc": "Tampilkan progres gabungan unduhan aktif pada ikon Dock.",
       "traySpeedometerDesc": "Lihat kecepatan unduh dan unggah di samping ikon aplikasi.",
       "trayIconColor": "Warna ikon baki",
       "trayIconColorDesc": "Pilih warna yang terlihat jelas pada panel sistem.",
@@ -1665,7 +1668,7 @@
         "turtle_auto": "Otomatis",
         "unitFor": "Satuan untuk {{field}}",
         "baseSection": "Batas standar",
-        "baseSectionDesc": "Digunakan untuk unduhan sehari-hari dan dipatuhi dalam semua mode.",
+        "baseSectionDesc": "Digunakan dalam mode standar dan saat tidak ada aturan kecepatan rendah yang aktif.",
         "baseDownload": "Unduh",
         "baseDownloadDesc": "Kecepatan unduh maksimum untuk penggunaan sehari-hari.",
         "baseUpload": "Unggah",
@@ -1675,7 +1678,7 @@
         "standardLimit": "Gunakan standar",
         "useStandardLimit": "Gunakan batas standar",
         "altSection": "Batas kecepatan rendah",
-        "altSectionDesc": "Digunakan dalam mode Kecepatan rendah atau oleh aturan terjadwal. Batas ini hanya dapat mengurangi batas standar.",
+        "altSectionDesc": "Digunakan dalam mode kecepatan rendah atau saat aturan otomatis memilih profil ini.",
         "altDownload": "Unduh",
         "altDownloadDesc": "Kecepatan unduh maksimum saat mode Kecepatan rendah aktif.",
         "altUpload": "Unggah",
@@ -1746,7 +1749,7 @@
           "adaptiveRulePending": "mencadangkan {{reserved}}% bandwidth untuk aplikasi lain setelah bandwidth koneksi dimasukkan",
           "ruleSeparator": " dan ",
           "autoRules": "Motrix akan {{rules}}.",
-          "lowerWins": "Batas aktif terendah yang berlaku."
+          "profileSelection": "Batas mode yang dipilih berlaku. Batas kecepatan rendah yang kosong mengikuti batas standar; mode otomatis dapat menambahkan batas adaptif."
         },
         "bandwidthUsed": "Motrix dapat menggunakan hingga {{motrix}}%.",
         "bandwidthPending": "Masukkan kedua kecepatan koneksi untuk menerapkan batas ini."

@@ -1940,6 +1940,9 @@
       "trayIconColorDesc": "Trieu un color que destaqui al tauler del sistema.",
       "trayIconColorLight": "Icona clara (tauler fosc)",
       "traySpeedometer": "Mostrar la velocitat a la barra de menús",
+      "dockAndMenuBar": "Dock i barra de menús",
+      "dockProgress": "Mostra el progrés de les baixades al Dock",
+      "dockProgressDesc": "Mostra el progrés combinat de les baixades actives a la icona del Dock.",
       "traySpeedometerDesc": "Mostra les velocitats de baixada i pujada al costat de la icona de l'aplicació."
     },
     "bittorrent": {
@@ -2175,7 +2178,7 @@
         "altDownload": "Baixada",
         "altDownloadDesc": "Velocitat màxima de baixada mentre el mode de baixa velocitat és actiu.",
         "altSection": "Límits de baixa velocitat",
-        "altSectionDesc": "S'utilitzen en el mode de baixa velocitat o segons un horari. Aquests límits només poden reduir els límits estàndard.",
+        "altSectionDesc": "S’utilitzen en mode de velocitat baixa o quan una regla automàtica selecciona aquest perfil.",
         "altUpload": "Pujada",
         "altUploadDesc": "Velocitat màxima de pujada mentre el mode de baixa velocitat és actiu.",
         "autoAdaptive": "Deixar amplada de banda per a altres aplicacions",
@@ -2188,7 +2191,7 @@
         "baseDownloadDesc": "Velocitat màxima de baixada per a l'ús habitual.",
         "unitFor": "Unitat de {{field}}",
         "baseSection": "Límits estàndard",
-        "baseSectionDesc": "S'utilitzen per a les baixades habituals i es respecten en tots els modes.",
+        "baseSectionDesc": "S’utilitzen en mode estàndard i quan no hi ha cap regla de velocitat baixa activa.",
         "baseUpload": "Pujada",
         "baseUploadDesc": "Velocitat màxima de pujada per a l'ús habitual.",
         "effect": {
@@ -2196,7 +2199,7 @@
           "adaptiveRulePending": "reservarà el {{reserved}}% de l'amplada de banda per a altres aplicacions quan s'introdueixi l'amplada de banda de la connexió",
           "autoRules": "El Motrix {{rules}}.",
           "lowSpeed": "Ara s'utilitzen els límits de baixa velocitat: baixada {{download}}, pujada {{upload}}.",
-          "lowerWins": "S'aplica el límit actiu més baix.",
+          "profileSelection": "S’apliquen els límits del mode seleccionat. Els límits de velocitat baixa buits utilitzen els estàndard; el mode automàtic pot afegir un límit adaptatiu.",
           "nextDay": " de l'endemà",
           "noAutoRules": "No hi ha cap regla automàtica activada. Actualment es comporta com el mode estàndard.",
           "ruleSeparator": " i ",
