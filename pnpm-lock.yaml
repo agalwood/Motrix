@@ -198,8 +198,8 @@ importers:
         specifier: ^2.2.0
         version: 2.2.0
       '@motrix/torrent':
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: ^0.1.1
+        version: 0.1.1
       '@noble/curves':
         specifier: 2.4.0
         version: 2.4.0
@@ -1123,8 +1123,8 @@ packages:
   '@motrix/plugin-manifest-schema@2.2.0':
     resolution: {integrity: sha512-lR1D7+AHM6ElzaP5BvCgVkxL5WXmU3v/WO0GwGs2bP8+axm5PK8jnxzd+JlgGja3/b1nl+lCSksf6G9VOyVc+w==}
 
-  '@motrix/torrent@0.1.0':
-    resolution: {integrity: sha512-Mr/3kurSdsYoOXzjuC7+lCtYv805Q6n/e53oh3IElBPd1BvFicXYx6pFiq2gCmWZGAtcHf9/Ar5U4qBdX6aGyA==}
+  '@motrix/torrent@0.1.1':
+    resolution: {integrity: sha512-ab9Et5ZH+8KnkGFAO5tl1PdRm51k6UzGNm90Hj1OCjBVeWXv4EKg4EBgrbzLoV1Lmjbyw3BTLwaGfvzGTZAmFA==}
     engines: {node: '>=22.12.0'}
 
   '@noble/curves@2.4.0':
@@ -5174,7 +5174,7 @@ snapshots:
     dependencies:
       zod: 4.6.7
 
-  '@motrix/torrent@0.1.0':
+  '@motrix/torrent@0.1.1':
     dependencies:
       '@noble/hashes': 2.4.0
 

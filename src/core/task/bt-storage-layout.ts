@@ -334,7 +334,7 @@ function validatePathComponent(value: unknown, description: string): string {
     (process.platform === 'win32' &&
       (/[<>:"|?*]/.test(value) ||
         /[. ]$/.test(value) ||
-        /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(value)))
+        /^(con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/i.test(value)))
   ) {
     throw new UnsafeTorrentPathError(`Invalid ${description}`)
   }

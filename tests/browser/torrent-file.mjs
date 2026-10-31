@@ -80,6 +80,29 @@ for (const name of selected) {
       const file = await readTorrentFile(new File([seed], 'alice.torrent'))
       if (file.base64 !== btoa(String.fromCharCode(...seed)))
         throw new Error('File bytes changed')
+      const hybridSource = new Uint8Array(
+        fixtures.find((f) => f.name === 'hybrid').bytes
+      )
+      const outer = decode(hybridSource).value
+      const info = outer.get('info')
+      const readKey = (key) => new TextDecoder().decode(key)
+      const amendedInfo = new Map(
+        info.entries.filter(([key]) => readKey(key) !== 'attr')
+      )
+      amendedInfo.set('attr', 'xhZ')
+      const amended = new Map(
+        outer.entries.filter(([key]) => readKey(key) !== 'info')
+      )
+      amended.set('info', amendedInfo)
+      const hybridBytes = encode(amended)
+      const hybridFile = await readTorrentFile(
+        new File([hybridBytes], 'hybrid.torrent')
+      )
+      if (
+        hybridFile.base64 !== btoa(String.fromCharCode(...hybridBytes)) ||
+        hybridFile.meta.files.length !== 1
+      )
+        throw new Error('Hybrid hint compatibility or original bytes lost')
       const v2 = new Uint8Array(fixtures.find((f) => f.name === 'v2').bytes)
       let rejected = false
       try {
@@ -105,6 +128,7 @@ for (const name of selected) {
         hashes,
         originalFilePreserved: true,
         unsupportedV2Rejected: true,
+        hybridHintsAccepted: true,
       }
     }, files)
     assert.equal(

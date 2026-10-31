@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { encode } from '@motrix/torrent'
 import { createBtStoragePlan } from '@test-utils/legacy-bt-storage'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import {
   buildFinalOutputFilePaths,
   createBtDirectStoragePlan,
@@ -189,3 +189,60 @@ it.each([
     await expect(parseBtFileLayout(metadata)).rejects.toThrow()
   }
 )
+
+describe('Windows torrent device names', () => {
+  const platform = Object.getOwnPropertyDescriptor(
+    process,
+    'platform'
+  ) as PropertyDescriptor
+  afterEach(() => {
+    Object.defineProperty(process, 'platform', platform)
+  })
+
+  it.each([
+    'COM1',
+    'com9.txt',
+    'COM¹.txt',
+    'COM²',
+    'COM³.bin',
+    'LPT¹',
+    'lpt².bin',
+    'LPT³',
+    'NUL.tar.gz',
+  ])(
+    'rejects reserved name %s at the root and within a multi-file path',
+    async (name) => {
+      Object.defineProperty(process, 'platform', {
+        ...platform,
+        value: 'win32',
+      })
+      await expect(parseBtFileLayout(singleFileTorrent(name))).rejects.toThrow(
+        'Invalid torrent name'
+      )
+      const metadata = encode({
+        info: {
+          name: 'root',
+          files: [{ length: 0, path: ['nested', name] }],
+          'piece length': 16384,
+          pieces: new Uint8Array(),
+        },
+      })
+      await expect(parseBtFileLayout(metadata)).rejects.toThrow(
+        'Invalid torrent file path'
+      )
+    }
+  )
+
+  it.each(['COM10.txt', 'COM¹-not-device.txt', 'report.LPT²', 'COM⁴.txt'])(
+    'preserves ordinary filename %s',
+    async (name) => {
+      Object.defineProperty(process, 'platform', {
+        ...platform,
+        value: 'win32',
+      })
+      expect(
+        (await parseBtFileLayout(singleFileTorrent(name))).torrentRootName
+      ).toBe(name)
+    }
+  )
+})

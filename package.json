@@ -129,7 +129,7 @@
     "@motrix/mdxp": "^0.9.0",
     "@motrix/nat": "^0.1.4",
     "@motrix/plugin-manifest-schema": "^2.2.0",
-    "@motrix/torrent": "^0.1.0",
+    "@motrix/torrent": "^0.1.1",
     "@noble/curves": "2.4.0",
     "@noble/hashes": "2.4.0",
     "@resvg/resvg-wasm": "^2.6.2",

@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { encode } from '@motrix/torrent'
+import { BDictionary, type BInput, decode, encode } from '@motrix/torrent'
 import { ErrorCode } from '@shared/errors'
 import {
   parseEngineTorrent,
@@ -29,6 +29,29 @@ describe('current engine torrent capability projection', () => {
       'task.add.unsupportedTorrent'
     )
   })
+  it('accepts hybrid metadata with advisory flags on only the v1 file view', async () => {
+    const original = decode(fixture('v2')).value
+    if (!(original instanceof BDictionary))
+      throw new Error('Expected dictionary fixture')
+    const readKey = (key: Uint8Array) => new TextDecoder().decode(key)
+    const info = original.get('info')
+    if (!(info instanceof BDictionary))
+      throw new Error('Expected info dictionary')
+    const modifiedInfo = new Map(
+      info.entries.filter(([key]) => readKey(key) !== 'attr')
+    )
+    const infoWithHints = new Map<string | Uint8Array, BInput>(modifiedInfo)
+    infoWithHints.set('attr', 'xhZ')
+    const modified = new Map<string | Uint8Array, BInput>(
+      original.entries.filter(([key]) => readKey(key) !== 'info')
+    )
+    modified.set('info', infoWithHints)
+    const parsed = await parseEngineTorrent(encode(modified))
+    expect(parsed.identity.kind).toBe('hybrid')
+    expect(parsed.infoHash).toHaveLength(40)
+    expect(parsed.files?.[0]?.length).toBe(65536)
+  })
+
   it('uses aria2 utf-8 extensions while preserving boundaries and original metadata bytes', async () => {
     const bytes = encode({
       info: {
