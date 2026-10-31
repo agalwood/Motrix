@@ -2819,6 +2819,7 @@
       "invalidUrlCount": "Ugyldige: {{count}}",
       "links": "Lenker",
       "parseFailed": "Kunne ikke tolke torrentfilen.",
+      "unsupportedTorrent": "Denne torrenten bruker funksjoner som den nåværende nedlastingsmotoren ikke støtter.",
       "pickPathCustom": "Egendefinert sti",
       "pickPathTitle": "Velg lagringsmappe",
       "queueAdvanceFailed": "Kunne ikke åpne neste torrent.",

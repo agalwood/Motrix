@@ -1064,6 +1064,7 @@
       "createFailedByPlugin": "Nie udało się utworzyć zadania: wtyczka „{{pluginId}}” je zatrzymała ({{detail}}). Wyłącz tę wtyczkę w Ustawienia → Wtyczki i spróbuj ponownie.",
       "createFailedPathTooLong": "Nie udało się utworzyć zadania: liczba znaków w ścieżce docelowej ({{length}}) przekracza limit w systemie Windows ({{limit}}). Wybierz krótszą ścieżkę folderu zapisu lub nazwę pliku.",
       "parseFailed": "Nie udało się odczytać pliku torrent.",
+      "unsupportedTorrent": "Ten torrent używa funkcji nieobsługiwanych przez obecny silnik pobierania.",
       "urlsCount_one": "{{count}} adres URL",
       "urlsCount_other": "{{count}} adresu URL",
       "urlsCount_few": "{{count}} adresy URL",

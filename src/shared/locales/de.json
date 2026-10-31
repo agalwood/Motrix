@@ -1040,6 +1040,7 @@
       "createFailedByPlugin": "Die Aufgabe konnte nicht erstellt werden: Das Plugin „{{pluginId}}“ hat sie gestoppt ({{detail}}). Deaktivieren Sie dieses Plugin unter Einstellungen → Plugins und versuchen Sie es erneut.",
       "createFailedPathTooLong": "Die Aufgabe konnte nicht erstellt werden: Der Zielpfad ist {{length}} Zeichen lang und überschreitet das Windows-Limit von {{limit}}. Wählen Sie einen kürzeren Speicherpfad oder Dateinamen.",
       "parseFailed": "Die Torrent-Datei konnte nicht eingelesen werden.",
+      "unsupportedTorrent": "Dieser Torrent verwendet Funktionen, die die aktuelle Download-Engine nicht unterstützt.",
       "urlsCount_one": "{{count}} URL",
       "urlsCount_other": "{{count}} URLs",
       "urlsWithInvalid": "{{valid}} gültig, {{invalid}} ungültig",

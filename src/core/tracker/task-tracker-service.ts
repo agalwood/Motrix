@@ -7,13 +7,13 @@ import type {
 import { hasLegacyImport } from '@core/legacy-import/legacy-task-policy'
 import type { TaskManager } from '@core/task/task-manager'
 import { AppError, ErrorCode } from '@shared/errors'
+import { parseEngineTorrent as parseTorrent } from '@shared/lib/engine-torrent'
 import type {
   TaskTrackerOwnership,
   TaskTrackerPlan,
   TaskTrackerState,
 } from '@shared/schemas/task-tracker'
 import { type DownloadTask, TaskStatus } from '@shared/types/task'
-import parseTorrent from 'parse-torrent'
 import type { TaskTrackerRepository } from './task-tracker-repository'
 import type { TrackerTaskActions } from './tracker-manager'
 

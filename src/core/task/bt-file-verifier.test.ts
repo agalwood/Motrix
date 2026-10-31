@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { writeFileSync } from 'node:fs'
 // @vitest-environment node
 import {
@@ -11,6 +12,7 @@ import {
 } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { encode } from '@motrix/torrent'
 import { storageTorrent } from '@test-utils/bt-storage'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { verifyBtFiles } from './bt-file-verifier'
@@ -24,6 +26,41 @@ describe('read-only torrent verification', () => {
   })
   afterEach(async () => {
     await rm(root, { recursive: true, force: true })
+  })
+
+  it('verifies physical padding files required by the current v1 engine', async () => {
+    await writeFile(path.join(root, 'a'), 'a')
+    await writeFile(path.join(root, 'b'), 'b')
+    await writeFile(path.join(root, 'c'), 'c')
+    await mkdir(path.join(root, '.pad'))
+    await writeFile(path.join(root, '.pad', '3'), Buffer.alloc(3))
+    const pieces = Buffer.concat(
+      ['a\0\0\0', 'b\0\0\0', 'c'].map((data) =>
+        createHash('sha1').update(data).digest()
+      )
+    )
+    const metadata = encode({
+      info: {
+        name: 'root',
+        'piece length': 4,
+        pieces,
+        files: [
+          { path: ['a'], length: 1 },
+          { path: ['.pad', '3'], length: 3, attr: 'p' },
+          { path: ['b'], length: 1 },
+          { path: ['.pad', '3'], length: 3, attr: 'p' },
+          { path: ['c'], length: 1 },
+        ],
+      },
+    })
+    expect(await verifyBtFiles({ metadata, payloadPath: root })).toMatchObject({
+      complete: true,
+      validPieces: 3,
+      missingFiles: [],
+    })
+    expect(await readFile(path.join(root, '.pad', '3'))).toEqual(
+      Buffer.alloc(3)
+    )
   })
 
   it.each(['abcdefghij', 'x', ''])(
@@ -220,7 +257,7 @@ describe('read-only torrent verification', () => {
         ]),
         payloadPath: root,
       })
-    ).rejects.toThrow('Overlapping')
+    ).rejects.toThrow(/Overlapping|file\/directory conflict/)
   })
 
   it('rejects out-of-range selected indices', async () => {

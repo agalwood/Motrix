@@ -2819,6 +2819,7 @@
       "invalidUrlCount": "Μη έγκυρα: {{count}}",
       "links": "Σύνδεσμοι",
       "parseFailed": "Δεν ήταν δυνατή η ανάλυση του αρχείου torrent.",
+      "unsupportedTorrent": "Αυτό το torrent χρησιμοποιεί λειτουργίες που δεν υποστηρίζει η τρέχουσα μηχανή λήψης.",
       "pickPathCustom": "Προσαρμοσμένη διαδρομή",
       "pickPathTitle": "Επιλογή φακέλου αποθήκευσης",
       "queueAdvanceFailed": "Δεν ήταν δυνατό το άνοιγμα του επόμενου torrent.",

@@ -2839,6 +2839,7 @@
       "invalidUrlCount": "Nevalide: {{count}}",
       "links": "Linkuri",
       "parseFailed": "Fișierul torrent nu a putut fi analizat.",
+      "unsupportedTorrent": "Acest torrent folosește funcții pe care motorul de descărcare actual nu le acceptă.",
       "pickPathCustom": "Cale personalizată",
       "pickPathTitle": "Selectează dosarul de salvare",
       "queueAdvanceFailed": "Următorul torrent nu a putut fi deschis.",

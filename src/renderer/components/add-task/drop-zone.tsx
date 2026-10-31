@@ -5,6 +5,7 @@ import {
 } from '@renderer/lib/parse-torrent-file'
 import { cn } from '@renderer/lib/utils'
 import { usePlatformServices } from '@renderer/platform/services'
+import { torrentFileErrorKey } from '@shared/lib/engine-torrent'
 import type { AddTaskFormValues } from '@shared/schemas/add-task'
 import { useCallback, useRef, useState } from 'react'
 import { useFormContext } from 'react-hook-form'
@@ -24,15 +25,15 @@ export function DropZone({
   const loadFiles = useCallback(
     async (files: FileList | File[]) => {
       const parsed: ParsedTorrentFile[] = []
-      let failed = false
+      const failures = new Set<ReturnType<typeof torrentFileErrorKey>>()
       for (const file of Array.from(files)) {
         try {
           parsed.push(await readTorrentFile(file))
-        } catch {
-          failed = true
+        } catch (error) {
+          failures.add(torrentFileErrorKey(error))
         }
       }
-      if (failed) platform.notify('error', 'task.add.parseFailed')
+      for (const key of failures) platform.notify('error', key)
       if (parsed.length === 0) return
 
       const first = parsed[0]

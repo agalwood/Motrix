@@ -1052,6 +1052,7 @@
       "createFailedByPlugin": "Não foi possível criar a tarefa: o plugin “{{pluginId}}” a interrompeu ({{detail}}). Desative esse plugin em Configurações → Plugins e tente novamente.",
       "createFailedPathTooLong": "Não foi possível criar a tarefa: o caminho de destino tem {{length}} caracteres, acima do limite de {{limit}} do Windows. Escolha uma pasta de destino ou um nome de arquivo mais curto.",
       "parseFailed": "Não foi possível analisar o arquivo torrent.",
+      "unsupportedTorrent": "Este torrent usa recursos que o mecanismo de download atual não suporta.",
       "urlsCount_one": "{{count}} URL",
       "urlsCount_other": "{{count}} URLs",
       "urlsCount_many": "{{count}} URLs",

@@ -1,8 +1,9 @@
 import { createHash } from 'node:crypto'
 import path from 'node:path'
 import { containsOnlyVideoFiles } from '@shared/constants/file-types'
+import { parseEngineTorrent as parseTorrent } from '@shared/lib/engine-torrent'
 import type { DownloadTask } from '@shared/types/task'
-import parseTorrent from 'parse-torrent'
+import { outputNameIdentity } from './output-path-identity'
 
 const STORAGE_ROOT = '.motrix'
 const PAYLOAD_ENTRY = 'p'
@@ -139,7 +140,7 @@ export class UnsafeTorrentPathError extends Error {
 
 /**
  * Parse and validate the paths declared by untrusted torrent metadata.
- * parse-torrent returns root-inclusive paths; validated relative paths are
+ * The engine projection preserves raw component boundaries; relative paths are
  * mapped into the selected output directory.
  */
 export async function parseBtFileLayout(
@@ -158,9 +159,11 @@ export async function parseBtFileLayout(
     throw new UnsafeTorrentPathError('Torrent contains no files')
   }
 
-  const multiFile = Array.isArray(parsed.info?.files)
+  const multiFile = parsed.multiFile === true
   const files = parsedFiles.map((file, fileIndex) => {
-    const components = splitAndValidateTorrentPath(file.path)
+    const components = file.pathComponents.map((component) =>
+      validatePathComponent(component, 'torrent file path')
+    )
     if (components[0] !== torrentRootName) {
       throw new UnsafeTorrentPathError(
         `Torrent file ${fileIndex} is outside its declared root directory`
@@ -184,6 +187,25 @@ export async function parseBtFileLayout(
       pathInsideRoot: path.join(...components.slice(1)),
     }
   })
+
+  const mapped = new Map<string, (typeof parsedFiles)[number]>()
+  for (const [index, entry] of files.entries()) {
+    const key = outputNameIdentity(entry.pathInsideRoot ?? torrentRootName)
+    const previous = mapped.get(key)
+    const source = parsedFiles[index]
+    if (
+      previous &&
+      !(previous.padding && source.padding && previous.length === source.length)
+    )
+      throw new UnsafeTorrentPathError('Overlapping torrent paths')
+    mapped.set(key, source)
+  }
+  for (const key of mapped.keys()) {
+    const parts = key.split(path.sep)
+    for (let i = 1; i < parts.length; i++)
+      if (mapped.has(parts.slice(0, i).join(path.sep)))
+        throw new UnsafeTorrentPathError('Overlapping torrent paths')
+  }
 
   return {
     infoHash: parsed.infoHash.toLowerCase(),
@@ -298,23 +320,6 @@ function assertLayoutMatchesMetadata(
   }
 }
 
-function splitAndValidateTorrentPath(value: string): string[] {
-  if (
-    value.length === 0 ||
-    value.startsWith('/') ||
-    value.startsWith('\\') ||
-    /^[A-Za-z]:[\\/]/.test(value)
-  ) {
-    throw new UnsafeTorrentPathError(
-      'Torrent contains an absolute or empty file path'
-    )
-  }
-  const components = value.replace(/\\/g, '/').split('/')
-  return components.map((component) =>
-    validatePathComponent(component, 'torrent file path')
-  )
-}
-
 function validatePathComponent(value: unknown, description: string): string {
   if (
     typeof value !== 'string' ||
@@ -323,7 +328,13 @@ function validatePathComponent(value: unknown, description: string): string {
     value === '..' ||
     value.includes('/') ||
     value.includes('\\') ||
-    value.includes('\0')
+    [...value].some(
+      (char) => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127
+    ) ||
+    (process.platform === 'win32' &&
+      (/[<>:"|?*]/.test(value) ||
+        /[. ]$/.test(value) ||
+        /^(con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/i.test(value)))
   ) {
     throw new UnsafeTorrentPathError(`Invalid ${description}`)
   }

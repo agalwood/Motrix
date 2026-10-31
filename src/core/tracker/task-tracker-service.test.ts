@@ -1,5 +1,6 @@
 import type { EngineAdapter } from '@core/engine/engine-adapter'
 import { TaskManager } from '@core/task/task-manager'
+import { parseEngineTorrent as parseTorrent } from '@shared/lib/engine-torrent'
 import type { TaskTrackerState } from '@shared/schemas/task-tracker'
 import {
   makeDefaultBtExtension,
@@ -8,11 +9,10 @@ import {
   TransitionPhase,
 } from '@shared/types/task'
 import { makeDownloadTask } from '@test-utils/task'
-import parseTorrent from 'parse-torrent'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { TaskTrackerService } from './task-tracker-service'
 
-vi.mock('parse-torrent', () => ({ default: vi.fn() }))
+vi.mock('@shared/lib/engine-torrent', () => ({ parseEngineTorrent: vi.fn() }))
 const a = 'udp://a.example:80/announce'
 const b = 'https://b.example/announce?passkey=Secret'
 const c = 'https://c.example/announce'

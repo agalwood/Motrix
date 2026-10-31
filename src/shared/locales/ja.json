@@ -1028,6 +1028,7 @@
       "createFailedByPlugin": "タスクを作成できませんでした。プラグイン「{{pluginId}}」が処理を停止しました（{{detail}}）。設定 → プラグインでそのプラグインを無効にして、もう一度お試しください。",
       "createFailedPathTooLong": "タスクを作成できませんでした。保存先のパスは {{length}} 文字あり、Windows の上限 {{limit}} 文字を超えています。保存先フォルダーまたはファイル名を短くしてください。",
       "parseFailed": "トレントファイルを解析できませんでした。",
+      "unsupportedTorrent": "このトレントには、現在のダウンロードエンジンが対応していない機能が使用されています。",
       "urlsCount_other": "{{count}} 件の URL",
       "urlsWithInvalid": "有効: {{valid}} 件、無効: {{invalid}} 件",
       "validUrlCount": "有効: {{count}} 件",

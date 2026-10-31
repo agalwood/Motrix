@@ -1,3 +1,4 @@
+import { torrentFileErrorKey } from '@shared/lib/engine-torrent'
 import './application-menu.css'
 import { useAddTaskDialogStore } from '@renderer/components/add-task-dialog/use-add-task-dialog-store'
 import { ArrowLeftIcon, ChevronRightIcon } from '@renderer/components/icons'
@@ -421,8 +422,11 @@ export function WebMenuButton() {
               if (picker.current !== request) return
               try {
                 parsed.push(await readTorrentFile(file))
-              } catch {
-                toast.add({ title: t('task.add.parseFailed'), type: 'error' })
+              } catch (error) {
+                toast.add({
+                  title: t(torrentFileErrorKey(error)),
+                  type: 'error',
+                })
               }
             }
             if (picker.current !== request) return

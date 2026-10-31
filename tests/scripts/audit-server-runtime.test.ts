@@ -320,7 +320,6 @@ describe('Server package contracts', () => {
       'i18next',
       'libsodium-wrappers',
       'mmdb-lib',
-      'parse-torrent',
       'pino',
       'proxy-chain',
       'quickjs-emscripten-core',

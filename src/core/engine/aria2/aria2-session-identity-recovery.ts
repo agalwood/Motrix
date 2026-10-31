@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto'
 import { chmod, mkdtemp, readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
+import { parseEngineTorrent as parseTorrent } from '@shared/lib/engine-torrent'
 import { MAX_TORRENT_BASE64_SIZE } from '@shared/lib/torrent-meta'
 import Database from 'better-sqlite3'
-import parseTorrent from 'parse-torrent'
 import writeFileAtomic from 'write-file-atomic'
 import { z } from 'zod'
 
@@ -157,7 +157,7 @@ export async function recoverAria2SessionIdentity(
         )
           throw new Error('invalid metadata size')
         bytes = await readFile(metadataPath)
-        const torrent = await parseTorrent(new Uint8Array(bytes))
+        const torrent = await parseTorrent(bytes)
         if (torrent.infoHash !== magnet.infoHash || !torrent.files?.length)
           throw new Error('metadata does not match magnet')
       } catch {

@@ -23,6 +23,8 @@ function isExternal(id: string): boolean {
   if (id === 'electron') return true
   if (id.startsWith('node:')) return true
   if (nodeBuiltinSet.has(id)) return true
+  // Bundle the pure metadata parser into each host target.
+  if (matchesPackage(id, '@motrix/torrent')) return false
   return productionDeps.some((name) => matchesPackage(id, name))
 }
 

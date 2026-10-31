@@ -24,9 +24,16 @@ import {
   TaskType,
   TransitionPhase,
 } from '@shared/types/task'
+import { storageTorrent } from '@test-utils/bt-storage'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MagnetTracker } from './magnet-tracker'
 import { swapMagnetMetadataForBt } from './swap-magnet-metadata-for-bt'
+
+const sampleTorrentBase64 = storageTorrent([
+  { name: 'a', data: 'a' },
+  { name: 'b', data: 'b' },
+  { name: 'c', data: 'c' },
+]).toString('base64')
 
 type FaultSeam = 'parent' | 'instances' | 'files'
 
@@ -120,7 +127,7 @@ describe('swapMagnetMetadataForBt atomic commit', () => {
 
       const input = {
         taskId,
-        base64: Buffer.from('resolved torrent bytes').toString('base64'),
+        base64: sampleTorrentBase64,
         selectedFiles: [0, 2],
         saveDir,
         name: 'resolved.torrent',
@@ -150,14 +157,27 @@ describe('swapMagnetMetadataForBt atomic commit', () => {
         ...initialTask,
         torrentMetaPath: fallbackMetaPath,
       }
+      const reservation = {
+        finalPath: path.join(saveDir, 'resolved.torrent'),
+        infoHash: '88cdf64e9ed56c55047123c95fbf5c4d23ee451b',
+        multiFile: true,
+      }
+      const fallbackInstance = {
+        ...initialInstance,
+        payload: {
+          ...initialInstance.payload,
+          btOutputReservation: reservation,
+          btOutputReservations: [reservation],
+        },
+      }
 
       expect(db.getTask(taskId)).toEqual({
         task: fallbackTask,
-        instances: [initialInstance],
+        instances: [fallbackInstance],
       })
       expect(db.getTaskFiles(taskId)).toEqual(initialFiles)
       expect(taskManager.getAll()).toEqual([
-        taskRowToDownloadTask(fallbackTask, [initialInstance]),
+        taskRowToDownloadTask(fallbackTask, [fallbackInstance]),
       ])
       expect(taskUpdated).not.toHaveBeenCalled()
       expect(recordTransition).not.toHaveBeenCalled()
@@ -267,7 +287,7 @@ describe('swapMagnetMetadataForBt atomic commit', () => {
 
       const input = {
         taskId,
-        base64: Buffer.from('resolved torrent bytes').toString('base64'),
+        base64: sampleTorrentBase64,
         selectedFiles: [0, 2],
         saveDir,
         name: 'resolved.torrent',
@@ -296,6 +316,19 @@ describe('swapMagnetMetadataForBt atomic commit', () => {
       const fallbackTask = {
         ...initialTask,
         torrentMetaPath: fallbackMetaPath,
+      }
+      const reservation = {
+        finalPath: path.join(saveDir, 'resolved.torrent'),
+        infoHash: '88cdf64e9ed56c55047123c95fbf5c4d23ee451b',
+        multiFile: true,
+      }
+      const fallbackInstance = {
+        ...initialInstance,
+        payload: {
+          ...initialInstance.payload,
+          btOutputReservation: reservation,
+          btOutputReservations: [reservation],
+        },
       }
 
       const tombstone = db.getTask(taskId)
@@ -343,7 +376,11 @@ describe('swapMagnetMetadataForBt atomic commit', () => {
 
       expect(tracking.allEngineGids).toEqual(new Set([failedGid]))
       await expectPathExists(
-        path.join(saveDir, 'resolved.torrent', `${failedGid}.aria2-artifact`)
+        path.join(
+          torrentMetaDir,
+          `${taskId}.torrent.state`,
+          `${failedGid}.aria2-artifact`
+        )
       )
       await expectPathExists(path.join(torrentMetaDir, `${taskId}.torrent`))
 
@@ -396,7 +433,7 @@ describe('swapMagnetMetadataForBt atomic commit', () => {
       expect(restartedRpc.removeDownloadResult).toHaveBeenCalledWith(failedGid)
       expect(db.getTask(taskId)).toEqual({
         task: fallbackTask,
-        instances: [initialInstance],
+        instances: [fallbackInstance],
       })
       expect(db.getTaskFiles(taskId)).toEqual(initialFiles)
       expect(restartedTaskManager.getById(taskId)).toMatchObject({
@@ -462,7 +499,7 @@ describe('swapMagnetMetadataForBt atomic commit', () => {
       swapMagnetMetadataForBt(
         {
           taskId,
-          base64: Buffer.from('resolved torrent bytes').toString('base64'),
+          base64: sampleTorrentBase64,
           selectedFiles: [0, 2],
           saveDir,
           name: 'resolved.torrent',
@@ -497,9 +534,22 @@ describe('swapMagnetMetadataForBt atomic commit', () => {
       ...initialTask,
       torrentMetaPath: fallbackMetaPath,
     }
+    const reservation = {
+      finalPath: path.join(saveDir, 'resolved.torrent'),
+      infoHash: '88cdf64e9ed56c55047123c95fbf5c4d23ee451b',
+      multiFile: true,
+    }
+    const fallbackInstance = {
+      ...initialInstance,
+      payload: {
+        ...initialInstance.payload,
+        btOutputReservation: reservation,
+        btOutputReservations: [reservation],
+      },
+    }
     expect(db.getTask(taskId)).toEqual({
       task: fallbackTask,
-      instances: [initialInstance],
+      instances: [fallbackInstance],
     })
     expect(db.getTaskFiles(taskId)).toEqual(initialFiles)
     expect(recordTransition).not.toHaveBeenCalled()
@@ -553,13 +603,11 @@ describe('swapMagnetMetadataForBt atomic commit', () => {
     await expect(restartedTracker.reopenFileSelection(taskId)).resolves.toBe(
       undefined
     )
-    expect(parseTorrent).toHaveBeenCalledWith(
-      Buffer.from('resolved torrent bytes').toString('base64')
-    )
+    expect(parseTorrent).toHaveBeenCalledWith(sampleTorrentBase64)
     expect(selection).toHaveBeenCalledWith(
       expect.objectContaining({
         taskId,
-        torrentBase64: Buffer.from('resolved torrent bytes').toString('base64'),
+        torrentBase64: sampleTorrentBase64,
       })
     )
     await restartedTracker.stopAndDrain()

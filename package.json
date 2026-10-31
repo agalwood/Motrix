@@ -87,7 +87,8 @@
     "pack:mac": "pnpm run check:third-party-notices && pnpm run build:mac-arm64 && pnpm run stage:electron -- --platform darwin --arch arm64 && CSC_IDENTITY_AUTO_DISCOVERY=false pnpm exec electron-builder --mac --arm64 -c.mac.target=dir && codesign --force --deep --sign - release/mac-arm64/Motrix.app",
     "dist:mac": "pnpm run check:third-party-notices && pnpm run build:mac-arm64 && pnpm run stage:electron -- --platform darwin --arch arm64 && CSC_IDENTITY_AUTO_DISCOVERY=false pnpm exec electron-builder --mac --arm64 --publish never",
     "release:mac": "pnpm run check:third-party-notices && pnpm run build:mac-arm64 && pnpm run stage:electron -- --platform darwin --arch arm64 && pnpm exec electron-builder --mac --arm64 --publish never",
-    "build:safari-bootstrap": "node packages/safari-bootstrap/build.mjs"
+    "build:safari-bootstrap": "node packages/safari-bootstrap/build.mjs",
+    "test:browser:torrent": "node tests/browser/torrent-file.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "~2.6.4",
@@ -128,6 +129,7 @@
     "@motrix/mdxp": "^0.9.0",
     "@motrix/nat": "^0.1.4",
     "@motrix/plugin-manifest-schema": "^2.2.0",
+    "@motrix/torrent": "^0.1.1",
     "@noble/curves": "2.4.0",
     "@noble/hashes": "2.4.0",
     "@resvg/resvg-wasm": "^2.6.2",
@@ -149,7 +151,6 @@
     "lucide-react": "^1.64.0",
     "mmdb-lib": "^3.0.3",
     "next-themes": "^0.4.6",
-    "parse-torrent": "^11.0.24",
     "pino": "^10.4.0",
     "pino-pretty": "^13.2.0",
     "proxy-chain": "^3.0.1",

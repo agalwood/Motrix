@@ -80,6 +80,12 @@ jobs:
       - name: Type-check (root)
         run: pnpm exec tsc --noEmit
 
+      - name: Install torrent conformance browsers
+        run: pnpm exec playwright install --with-deps chromium firefox webkit
+
+      - name: Torrent conformance on HTTP without WebCrypto
+        run: pnpm test:browser:torrent
+
       - name: Native host JavaScript tooling tests
         run: >-
           node --test

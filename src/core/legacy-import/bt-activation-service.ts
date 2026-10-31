@@ -13,6 +13,7 @@ import { outputPathIdentity } from '@core/task/output-path-identity'
 import type { TaskManager } from '@core/task/task-manager'
 import { taskRowToDownloadTask } from '@core/task/task-row-to-download-task'
 import { AppError, ErrorCode } from '@shared/errors'
+import { parseEngineTorrent as parseTorrent } from '@shared/lib/engine-torrent'
 import {
   type LegacyBtActivation,
   legacyBtActivationSchema,
@@ -20,7 +21,6 @@ import {
 import type { LegacyCheckpointFile } from '@shared/schemas/legacy-checkpoint'
 import { legacyTaskMetadataSchema } from '@shared/schemas/legacy-import'
 import { TaskStatus, TaskType } from '@shared/types/task'
-import parseTorrent from 'parse-torrent'
 import { isUnresolvedLegacyMagnet } from './legacy-task-policy'
 import { authorizeLegacySource, readLegacyFile } from './source-scanner'
 

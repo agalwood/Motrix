@@ -450,16 +450,13 @@ async function handleCreateTaskUnderAdmission(
       torrentInfoName = parsedBtLayout.torrentRootName
       isPrivateFromTorrent = parsedBtLayout.isPrivate
     } catch (err) {
-      if (err instanceof UnsafeTorrentPathError) {
-        throw new AppError(
-          ErrorCode.TorrentParseFailed,
-          'Torrent contains an unsafe file path',
-          err
-        )
-      }
-      log.warn(
-        { err },
-        'failed to parse torrent paths; using engine paths inside the final directory'
+      if (err instanceof AppError) throw err
+      throw new AppError(
+        ErrorCode.TorrentParseFailed,
+        err instanceof UnsafeTorrentPathError
+          ? 'Torrent contains an unsafe file path'
+          : 'Invalid torrent metadata',
+        err
       )
     }
   }

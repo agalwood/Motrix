@@ -1040,6 +1040,7 @@
       "createFailedByPlugin": "Nem sikerült létrehozni a feladatot: a(z) „{{pluginId}}” bővítmény leállította ({{detail}}). Tiltsd le ezt a bővítményt a Beállítások → Bővítmények alatt, majd próbáld újra.",
       "createFailedPathTooLong": "Nem sikerült létrehozni a feladatot: a cél elérési útja {{length}} karakter hosszú, ami meghaladja a Windows {{limit}} karakteres korlátját. Válassz rövidebb mentési útvonalat vagy fájlnevet.",
       "parseFailed": "A torrentfájl feldolgozása sikertelen.",
+      "unsupportedTorrent": "Ez a torrent a jelenlegi letöltőmotor által nem támogatott funkciókat használ.",
       "urlsCount_one": "{{count}} URL",
       "urlsCount_other": "{{count}} URL",
       "urlsWithInvalid": "{{valid}} érvényes, {{invalid}} érvénytelen",

@@ -1028,6 +1028,7 @@
       "createFailedByPlugin": "Không thể tạo tác vụ: tiện ích “{{pluginId}}” đã chặn tác vụ ({{detail}}). Hãy tắt tiện ích đó trong Cài đặt → Tiện ích rồi thử lại.",
       "createFailedPathTooLong": "Không thể tạo tác vụ: đường dẫn đích dài {{length}} ký tự, vượt giới hạn {{limit}} của Windows. Hãy chọn thư mục lưu hoặc tên tệp ngắn hơn.",
       "parseFailed": "Không thể phân tích tệp torrent.",
+      "unsupportedTorrent": "Torrent này sử dụng các tính năng mà công cụ tải xuống hiện tại không hỗ trợ.",
       "urlsCount_other": "{{count}} URL",
       "urlsWithInvalid": "{{valid}} hợp lệ, {{invalid}} không hợp lệ",
       "validUrlCount": "{{count}} hợp lệ",

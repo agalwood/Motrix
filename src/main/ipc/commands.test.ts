@@ -30,6 +30,7 @@ import {
   TaskType,
   TransitionPhase,
 } from '@shared/types/task'
+import { storageTorrent } from '@test-utils/bt-storage'
 import { makeMediaMetaStoreStub } from '@test-utils/media-meta-store'
 import { makeDownloadTask } from '@test-utils/task'
 import { directTaskUpdatePublication } from '@test-utils/task-update'
@@ -1123,7 +1124,13 @@ describe('buildCommandHandlers', () => {
       }
       ctx.protocolManager.downloadAllTorrents.mockResolvedValueOnce([
         {
-          payload: { name: 'first.torrent', dataBase64: 'Zmlyc3Q=' },
+          payload: {
+            name: 'first.torrent',
+            dataBase64: storageTorrent([
+              { name: 'skip.bin', data: 'a' },
+              { name: 'keep.bin', data: 'b' },
+            ]).toString('base64'),
+          },
           meta: {
             name: 'first.bin',
             files: [
@@ -1133,7 +1140,13 @@ describe('buildCommandHandlers', () => {
           },
         },
         {
-          payload: { name: 'second.torrent', dataBase64: 'c2Vjb25k' },
+          payload: {
+            name: 'second.torrent',
+            dataBase64: storageTorrent([
+              { name: 'one.bin', data: 'c' },
+              { name: 'two.bin', data: 'd' },
+            ]).toString('base64'),
+          },
           meta: {
             name: 'second.bin',
             files: [
@@ -1162,7 +1175,10 @@ describe('buildCommandHandlers', () => {
       })
       expect(ctx.rpcClient.addTorrent).toHaveBeenNthCalledWith(
         1,
-        'Zmlyc3Q=',
+        storageTorrent([
+          { name: 'skip.bin', data: 'a' },
+          { name: 'keep.bin', data: 'b' },
+        ]).toString('base64'),
         [],
         expect.objectContaining({
           'select-file': '2',
@@ -1173,7 +1189,10 @@ describe('buildCommandHandlers', () => {
       )
       expect(ctx.rpcClient.addTorrent).toHaveBeenNthCalledWith(
         2,
-        'c2Vjb25k',
+        storageTorrent([
+          { name: 'one.bin', data: 'c' },
+          { name: 'two.bin', data: 'd' },
+        ]).toString('base64'),
         [],
         expect.objectContaining({
           'select-file': '1,2',
