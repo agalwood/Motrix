@@ -5,8 +5,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 const MIB = 1024 * 1024
 const ROOT = path.resolve(import.meta.dirname, '../..')
 const TARGETS = [
-  // Installation-aware bridge routing and localized profile summaries add
-  // ~5 KiB over the resource-lifetime baseline; retain the 2 MiB startup ceiling.
+  // Keep the 2 MiB startup ceiling and bound the complete lazy-loaded output.
   { name: 'main', initial: 2 * MIB, total: 5.5 * MIB + 12 * 1024 },
   { name: 'preload', initial: 80 * 1024, total: 80 * 1024 },
   { name: 'worker', initial: 48 * 1024, total: 48 * 1024 },
