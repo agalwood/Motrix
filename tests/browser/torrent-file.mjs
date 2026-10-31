@@ -4,14 +4,14 @@ import { fileURLToPath } from 'node:url'
 import { build } from 'esbuild'
 import { chromium, firefox, webkit } from 'playwright'
 
-const root = fileURLToPath(new URL('../../../', import.meta.url))
+const root = fileURLToPath(new URL('../../', import.meta.url))
 const output = `${root}/output/playwright/manual/torrent-core`
 await mkdir(output, { recursive: true })
 const bundle = await build({
   absWorkingDir: root,
   stdin: {
     contents:
-      "export * from './packages/torrent/src/index.ts'; export { readTorrentFile } from './src/renderer/lib/parse-torrent-file.ts'",
+      "export { parseTorrent, encode, decode, parseMagnet } from '@motrix/torrent'; export { readTorrentFile } from './src/renderer/lib/parse-torrent-file.ts'",
     resolveDir: root,
     loader: 'ts',
   },
@@ -23,20 +23,17 @@ const bundle = await build({
 })
 const files = await Promise.all(
   [
-    'webtorrent/alice',
-    'webtorrent/numbers',
-    'webtorrent/lots-of-numbers',
-    'webtorrent/folder',
-    'libtorrent/v2',
-    'libtorrent/v2-multipiece-file',
-    'libtorrent/v2-only',
-    'libtorrent/empty-files-1',
-    'libtorrent/v2-symlinks',
-  ].map(async (name) => ({
+    ['v1', 'test'],
+    ['hybrid', 'libtorrent/v2'],
+    ['v2', 'libtorrent/v2-only'],
+  ].map(async ([name, fixture]) => ({
     name,
     bytes: [
       ...(await readFile(
-        new URL(`./fixtures/${name}.torrent`, import.meta.url)
+        new URL(
+          `../../src/core/torrent/__fixtures__/${fixture}.torrent`,
+          import.meta.url
+        )
       )),
     ],
   }))
@@ -83,9 +80,7 @@ for (const name of selected) {
       const file = await readTorrentFile(new File([seed], 'alice.torrent'))
       if (file.base64 !== btoa(String.fromCharCode(...seed)))
         throw new Error('File bytes changed')
-      const v2 = new Uint8Array(
-        fixtures.find((f) => f.name === 'libtorrent/v2-only').bytes
-      )
+      const v2 = new Uint8Array(fixtures.find((f) => f.name === 'v2').bytes)
       let rejected = false
       try {
         await readTorrentFile(new File([v2], 'v2.torrent'))
@@ -113,8 +108,7 @@ for (const name of selected) {
       }
     }, files)
     assert.equal(
-      result.hashes.find((f) => f.name === 'libtorrent/v2-only').identity
-        .sha256,
+      result.hashes.find((f) => f.name === 'v2').identity.sha256,
       '95e04d0c4bad94ab206efa884666fd89777dbe4f7bd9945af1829037a85c6192'
     )
     results.push({ browser: name, version: browser.version(), ...result })

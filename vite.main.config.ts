@@ -35,7 +35,7 @@ const nodeBuiltinSet = new Set(builtinModules)
 //      build time. `pino` is the canonical example — its grandchildren
 //      (pino-std-serializers, safe-stable-stringify, thread-stream,
 //      etc.) get dropped from the asar otherwise.
-// The workspace torrent package exposes TypeScript sources and is bundled too.
+// Bundle the pure torrent metadata parser into the host output.
 export const BUNDLED_PACKAGES = ['bittorrent-peerid', '@motrix/torrent', 'pino']
 
 function matchesPackage(id: string, name: string): boolean {

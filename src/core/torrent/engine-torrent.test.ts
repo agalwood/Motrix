@@ -11,10 +11,7 @@ import { describe, expect, it } from 'vitest'
 const fixture = (name: string) =>
   new Uint8Array(
     readFileSync(
-      new URL(
-        `../../../packages/torrent/test/fixtures/libtorrent/${name}.torrent`,
-        import.meta.url
-      )
+      new URL(`./__fixtures__/libtorrent/${name}.torrent`, import.meta.url)
     )
   )
 describe('current engine torrent capability projection', () => {

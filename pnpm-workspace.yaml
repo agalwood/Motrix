@@ -45,7 +45,7 @@ minimumReleaseAgeExclude:
   - '@hookform/resolvers@5.5.7 || 5.9.1 || 6.0.1'
   - jsdom@30.0.0 || 30.1.1
   - magnet-uri@7.0.10
-  - parse-torrent@11.0.24
+  - '@motrix/torrent@0.1.0'
   - mmdb-lib@3.0.3
   - '@testing-library/user-event@14.6.3 || 14.6.4 || 14.6.7'
   - fastify@5.11.2 || 5.11.3
