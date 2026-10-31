@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { access, mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
+import { TaskCookieError } from '@core/engine/task-cookie-error'
 import { getLogger } from '@core/logger'
 import {
   extractAria2ProxyCredentials,
@@ -51,6 +52,7 @@ import { legacyWirePath } from './aria2-legacy-path'
 import type { Aria2RpcClient } from './aria2-rpc-client'
 import { recommend } from './aria2-tuning'
 import { isConnectionLimitRangeError, isNotFoundError } from './error-utils'
+import { prepareAria2TaskCookies } from './task-cookies'
 
 /**
  * Per-multicall cap for removeDownloadResults. One unbounded batch must
@@ -338,6 +340,10 @@ export class Aria2Adapter implements EngineAdapter {
     return this.featureReport
   }
 
+  prepareDownloadCookies(cookies: readonly DownloadCookie[]) {
+    return prepareAria2TaskCookies(cookies)
+  }
+
   /**
    * Inject the feature report the EngineSupervisor already probed. Production
    * never calls `connect()`, so without this the adapter would keep its
@@ -419,6 +425,19 @@ export class Aria2Adapter implements EngineAdapter {
   }
 
   async createDownload(params: CreateDownloadParams): Promise<string> {
+    if (params.cookies !== undefined) {
+      const prepared = prepareAria2TaskCookies(params.cookies)
+      // Only admission may choose a reduced credential set. Later corruption or
+      // mutation must not silently change a task after its durable intent exists.
+      const incompatible = prepared.discarded.find(
+        (d) => d.reason !== 'expired' && d.reason !== 'duplicate'
+      )
+      if (incompatible) throw new TaskCookieError(incompatible)
+      params = {
+        ...params,
+        cookies: prepared.cookies,
+      }
+    }
     if (
       params.legacyCheckpointActivation &&
       !(await this.supportsLegacyHttpActivation())

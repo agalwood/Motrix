@@ -107,6 +107,7 @@ import {
   admitTaskCreateRequest,
   DownloadSourceError,
 } from './source-admission'
+import { admitTaskCookies } from './task-cookie-admission'
 import type { TaskManager } from './task-manager'
 import type { TorrentMetaStore } from './torrent-meta-store'
 
@@ -305,6 +306,10 @@ async function createAdmittedTask(
 ): Promise<TaskCreateSuccessResult> {
   const parsed = taskCreateRequestSchema.safeParse(rawRequest)
   if (parsed.success && parsed.data.type === 'http') {
+    // Snapshot and clean credentials before any await or task side effect.
+    // Existing idempotent receipts are resolved before reaching this admission.
+    if (opts.cookies !== undefined)
+      opts = { ...opts, cookies: admitTaskCookies(deps.adapter, opts.cookies) }
     const policy = deps.directResourceProxyPolicy
     // Cold-start waiting happens before taking the proxy read lease. Once the
     // lease is held, a later disconnect must fail fast instead of waiting on

@@ -242,7 +242,7 @@ export class SubmitDownloadAdapter {
         httpOnly: cookie.httpOnly,
         ...(cookie.expiresAt === undefined
           ? {}
-          : { expiresAt: Math.max(0, Math.floor(cookie.expiresAt)) }),
+          : { expiresAt: Math.floor(cookie.expiresAt) }),
       })),
       sourceMeta: this.makeSourceMeta('direct', input, source, meta),
       pageUrl: source.pageUrl,

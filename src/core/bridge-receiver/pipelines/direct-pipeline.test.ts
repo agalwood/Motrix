@@ -1,3 +1,6 @@
+import { TaskCookieError } from '@core/engine/task-cookie-error'
+import { TaskCookieAdmissionError } from '@core/task/task-cookie-admission'
+import { ErrorCodes } from '@motrix/mdxp'
 import { taskCreateRequestSchema } from '@shared/schemas/add-task'
 import { describe, expect, it, vi } from 'vitest'
 import type { AdaptedDirect } from '../submit-download-adapter'
@@ -36,6 +39,40 @@ function buildAdapted(): AdaptedDirect {
 }
 
 describe('DirectPipeline.dispatch', () => {
+  it.each(['noUsableCookies', 'count'] as const)(
+    'reports pre-dispatch %s as a definite rejection',
+    async (reason) => {
+      const diagnostic = { index: 1, field: 'name', reason }
+      const createTask = vi
+        .fn()
+        .mockRejectedValue(new TaskCookieAdmissionError(diagnostic))
+      const pipeline = new DirectPipeline({ createTask, removeTask: vi.fn() })
+      await expect(pipeline.dispatch(buildAdapted())).rejects.toMatchObject({
+        code: ErrorCodes.InvalidParams,
+        data: {
+          appCode: 'download-cookies-rejected',
+          retryable: false,
+          context: { diagnostic },
+        },
+      })
+      expect(createTask).toHaveBeenCalledOnce()
+    }
+  )
+
+  it.each([
+    new Error('RPC timed out'),
+    new TaskCookieError({
+      index: 0,
+      field: 'name',
+      reason: 'syntax',
+    }),
+  ])('keeps post-admission failures uncertain', async (error) => {
+    const pipeline = new DirectPipeline({
+      createTask: vi.fn().mockRejectedValue(error),
+      removeTask: vi.fn(),
+    })
+    await expect(pipeline.dispatch(buildAdapted())).rejects.toBe(error)
+  })
   it('calls createTask with HTTP type, headers, cookies, referer, source meta', async () => {
     const createTask = vi.fn(async () => ({
       gid: 'gid-1',

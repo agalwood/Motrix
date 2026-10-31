@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { handleCreateTask } from '@core/task/create-task-handler'
 import { TaskManager } from '@core/task/task-manager'
-import type { DownloadSubmitParams } from '@motrix/mdxp'
+import { type DownloadSubmitParams, ErrorCodes } from '@motrix/mdxp'
 import { ErrorCode } from '@shared/errors'
 import { DEFAULT_ENGINE_SETTINGS } from '@shared/schemas/engine-settings'
 import { DEFAULT_PROXY_SETTINGS } from '@shared/schemas/proxy-settings'
@@ -168,6 +168,128 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
         expect(records).not.toContain(secret)
       }
     }, 20_000)
+
+    it('cleans incompatible cookies for the released engine and rejects unsafe jars before dispatch', async () => {
+      const invalidCookies = [
+        { name: '', value: 'bare', domain: '127.0.0.1' },
+        { name: '中文', value: 'account-A', domain: '127.0.0.1' },
+        { name: 'a b', value: 'account-B', domain: '127.0.0.1' },
+      ]
+      const validCookies = [
+        { name: 'sid', value: 'account-A', domain: '127.0.0.1' },
+        ...Array.from({ length: 49 }, (_, i) => ({
+          name: `tracking${i}`,
+          value: `value${i}`,
+          domain: '127.0.0.1',
+        })),
+      ]
+      const cookies = [...validCookies, ...invalidCookies]
+      const tasks = new TaskManager()
+      type Deps = Parameters<typeof handleCreateTask>[1]
+      const deps = {
+        adapter: wired.adapter,
+        settingsManager: {
+          getApp: () => ({ defaultSaveDir: root }),
+          getEngine: () => DEFAULT_ENGINE_SETTINGS,
+          getProxy: () => DEFAULT_PROXY_SETTINGS,
+        },
+        finalNamePicker: { pick: async (_dir: string, name: string) => name },
+        torrentMetaStore: {},
+        taskManager: tasks,
+        activityRecorder: { recordSubmitted: vi.fn() },
+        eventBus: { emit: vi.fn() },
+        publishTaskUpdate: vi.fn(),
+      } as unknown as Deps
+      const pipeline = new DirectPipeline({
+        createTask: (request, _unused, options) =>
+          handleCreateTask(request, deps, options),
+        removeTask: async () => {},
+      })
+      const submitAdapter = new SubmitDownloadAdapter({
+        getDefaultSaveDir: () => root,
+        pickName: async (_dir, name) => name,
+        mintTaskId: () => 'browser-names',
+      })
+      const adapted = await submitAdapter.adapt(
+        {
+          source: {
+            pageUrl: base,
+            pageTitle: 'Fixture',
+            detectedAt: Date.now(),
+          },
+          selection: {
+            kind: 'direct',
+            primary: {
+              url: `${base}/browser-names`,
+              headers: {},
+              refererPolicy: 'strict-origin-when-cross-origin',
+              cookies: cookies.map((cookie) => ({
+                ...cookie,
+                path: '/',
+                sameSite: 'lax',
+                secure: false,
+                httpOnly: false,
+              })),
+            },
+          },
+          meta: {
+            suggestedFilename: 'browser-names.bin',
+            qualityLabel: 'original',
+          },
+        },
+        { extensionId: 'fixture', browser: 'chromium' }
+      )
+      if (adapted.kind !== 'direct') throw new Error('expected direct')
+      const { taskId } = await pipeline.dispatch(adapted)
+      const gid = tasks.getById(taskId)!.engineTaskId!
+      await vi.waitFor(
+        async () =>
+          expect((await wired.rpc.tellStatus(gid)).status).toBe('complete'),
+        { timeout: 10_000 }
+      )
+      const header = Buffer.from(
+        received.get('/browser-names') ?? '',
+        'latin1'
+      ).toString('utf8')
+      const sentCookies = header
+        .split(';')
+        .map((s) => s.trim())
+        .filter(Boolean)
+      expect(sentCookies).toHaveLength(50)
+      expect(sentCookies).toEqual(
+        expect.arrayContaining(
+          validCookies.map((cookie) => `${cookie.name}=${cookie.value}`)
+        )
+      )
+      expect(await readFile(tasks.getById(taskId)!.diskPath, 'utf8')).toBe(
+        'REAL_FILE'
+      )
+      for (const [label, invalid] of [
+        ['unusable', invalidCookies],
+        [
+          'capacity',
+          Array.from({ length: 51 }, (_, i) => ({
+            name: `c${i}`,
+            value: 'secret',
+            domain: '127.0.0.1',
+          })),
+        ],
+      ] as const) {
+        await expect(
+          pipeline.dispatch({
+            ...adapted,
+            primaryUrl: `${base}/${label}`,
+            finalName: `${label}.bin`,
+            cookies: [...invalid],
+          })
+        ).rejects.toMatchObject({
+          code: ErrorCodes.InvalidParams,
+          data: { appCode: 'download-cookies-rejected', retryable: false },
+        })
+        expect(received.has(`/${label}`)).toBe(false)
+        expect(tasks.getAll()).toHaveLength(1)
+      }
+    })
 
     it('restores a task cookie from the engine database after restart', async () => {
       const restartDir = path.join(root, 'restart-cookie')

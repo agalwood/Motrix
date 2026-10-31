@@ -549,6 +549,88 @@ describe('browser direct download filenames', () => {
 })
 
 describe('handleCreateTask', () => {
+  it('cleans and snapshots credentials before waiting and reports only safe filtering metadata', async () => {
+    const deps = makeDeps()
+    let ready!: () => void
+    deps.waitForEngineReady = () =>
+      new Promise<void>((resolve) => {
+        ready = resolve
+      })
+    const cookies = [
+      { name: 'sid', value: 'auth-secret', domain: 'example.com' },
+      { name: '', value: 'discarded-secret', domain: 'example.com' },
+    ]
+    const pending = handleCreateTask(
+      {
+        type: 'http',
+        uris: ['https://example.com/file'],
+        saveDir: '/d',
+        headers: [],
+      },
+      deps,
+      { source: 'bridge', cookies }
+    )
+    cookies[0]!.value = 'mutated\nsecret'
+    ready()
+    await pending
+    expect(deps.addUriWithCookies).toHaveBeenCalledWith(
+      expect.any(Array),
+      [{ name: 'sid', value: 'auth-secret', domain: 'example.com' }],
+      expect.any(Object)
+    )
+    expect(logWarn.mock.calls[0]?.[0]).toMatchObject({
+      inputCount: 2,
+      keptCount: 1,
+      discardedCount: 1,
+      diagnostics: [{ index: 1, field: 'name', reason: 'syntax' }],
+    })
+    expect(JSON.stringify(logWarn.mock.calls)).not.toContain('secret')
+    expect(JSON.stringify(lastAddedTask(deps))).not.toContain('secret')
+  })
+  it.each([
+    { name: 'sid', value: 'secret\nvalue', domain: 'example.com' },
+    { name: '', value: 'secret', domain: 'example.com' },
+  ])(
+    'rejects cookies before creating directories, persistent intent or engine tasks',
+    async (cookie) => {
+      const deps = makeDeps()
+      const prepareSaveDir = vi.fn(async (directory: string) => directory)
+      deps.prepareSaveDir = prepareSaveDir
+      const persistTask = vi.fn()
+      deps.persistTask = persistTask
+      const request = {
+        type: 'http',
+        uris: ['https://example.com/file'],
+        saveDir: '/d',
+        headers: [],
+      }
+      await expect(
+        handleCreateTask(request, deps, { source: 'bridge', cookies: [cookie] })
+      ).rejects.toMatchObject({
+        diagnostic: { index: -1, reason: 'noUsableCookies' },
+      })
+      for (const effect of [
+        prepareSaveDir,
+        persistTask,
+        deps.pick,
+        deps.reserveEngineTaskId,
+        deps.addUri,
+        deps.addUriWithCookies,
+        deps.forceRemove,
+      ]) {
+        expect(effect).not.toHaveBeenCalled()
+      }
+      expect(JSON.stringify(logInfo.mock.calls)).not.toContain('secret')
+      expect(logWarn.mock.calls[0]?.[0]).toMatchObject({
+        diagnostic: {
+          index: -1,
+          field: expect.any(String),
+          reason: expect.any(String),
+        },
+      })
+      expect(JSON.stringify(logWarn.mock.calls)).not.toContain('secret')
+    }
+  )
   it('reserves different final outputs for concurrent torrents with the same chosen name', async () => {
     const deps = makeDeps()
     const owners: DownloadTask[] = []

@@ -1,4 +1,6 @@
 import type { CreateTaskOptions } from '@core/task/create-task-handler'
+import { TaskCookieAdmissionError } from '@core/task/task-cookie-admission'
+import { ErrorCodes, makeMdxpError } from '@motrix/mdxp'
 import type { AdaptedDirect } from '../submit-download-adapter'
 
 export interface DirectPipelineDeps {
@@ -53,12 +55,24 @@ export class DirectPipeline {
       headers,
       proxy: undefined,
     }
-    const { taskId } = await this.deps.createTask(req, undefined, {
-      source: 'bridge',
-      sourceMeta: adapted.sourceMeta,
-      // Even [] requests an isolated task cookie jar in the engine.
-      cookies: adapted.cookies,
-    })
+    const { taskId } = await this.deps
+      .createTask(req, undefined, {
+        source: 'bridge',
+        sourceMeta: adapted.sourceMeta,
+        // Even [] requests an isolated task cookie jar in the engine.
+        cookies: adapted.cookies,
+      })
+      .catch((error: unknown) => {
+        // Only admission before side effects proves that browser fallback is safe.
+        if (error instanceof TaskCookieAdmissionError) {
+          throw makeMdxpError(ErrorCodes.InvalidParams, error.message, {
+            appCode: 'download-cookies-rejected',
+            retryable: false,
+            context: { diagnostic: error.diagnostic },
+          })
+        }
+        throw error
+      })
     return { taskId }
   }
 
