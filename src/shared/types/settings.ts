@@ -256,8 +256,8 @@ export interface MotrixAppSettings {
   /** Release renderer windows while the desktop UI is closed. Background
    *  services such as downloads, notifications, and the tray keep running. */
   lightweightMode: boolean
-  /** Show download progress in the macOS Dock. Default false; applied live. */
-  dockProgress: boolean
+  /** Show download progress in the macOS Dock or Windows taskbar. Default false. */
+  showDownloadProgress: boolean
   traySpeedometer: boolean
   /** Linux tray artwork color; auto follows the resolved application theme. */
   trayIconColor: TrayIconColor

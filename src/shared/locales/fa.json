@@ -1922,6 +1922,9 @@
       "trayIconColorLight": "آیکون روشن (پنل تیره)",
       "traySpeedometer": "نمایش سرعت در نوار منو",
       "dockAndMenuBar": "Dock و نوار منو",
+      "taskbar": "نوار وظیفه",
+      "taskbarProgress": "نمایش پیشرفت دانلود در نوار وظیفه",
+      "taskbarProgressDesc": "نمایش پیشرفت کلی دانلودهای فعال روی دکمهٔ پنجرهٔ اصلی در نوار وظیفه.",
       "dockProgress": "نمایش پیشرفت دانلود در Dock",
       "dockProgressDesc": "نمایش پیشرفت کلی دانلودهای فعال روی نماد Dock.",
       "traySpeedometerDesc": "سرعت دانلود و بارگذاری کنار آیکون برنامه نمایش داده شود."

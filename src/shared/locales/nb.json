@@ -1922,6 +1922,9 @@
       "trayIconColorLight": "Lyst ikon (mørkt panel)",
       "traySpeedometer": "Vis hastighet i menylinjen",
       "dockAndMenuBar": "Dock og menylinje",
+      "taskbar": "Oppgavelinje",
+      "taskbarProgress": "Vis nedlastingsfremdrift på oppgavelinjen",
+      "taskbarProgressDesc": "Vis samlet fremdrift for aktive nedlastinger på hovedvinduets knapp på oppgavelinjen.",
       "dockProgress": "Vis nedlastingsfremdrift i Dock",
       "dockProgressDesc": "Vis samlet fremdrift for aktive nedlastinger på Dock-symbolet.",
       "traySpeedometerDesc": "Se nedlastings- og opplastingshastighet ved siden av appikonet."

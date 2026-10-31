@@ -10,7 +10,9 @@ import {
 import { BaseWindow } from 'electron'
 
 /** Progress of current transfers, excluding paused, queued and finished work. */
-export function getDockProgress(tasks: readonly DownloadTask[]): number {
+export function getDownloadProgressValue(
+  tasks: readonly DownloadTask[]
+): number {
   let active = 0
   let totalBytes = 0
   let completedBytes = 0
@@ -57,16 +59,22 @@ interface Dependencies {
   eventBus: EventBus
   getTasks(): readonly DownloadTask[]
   isEnabled(): boolean
+  setTaskbarProgress(progress: number): void
   platform?: string
 }
 
-export function setupDockProgress(deps: Dependencies): () => void {
-  if ((deps.platform ?? process.platform) !== 'darwin') return () => {}
+export function setupDownloadProgress(deps: Dependencies): () => void {
+  const platform = deps.platform ?? process.platform
+  if (platform !== 'darwin' && platform !== 'win32') return () => {}
   let window: BaseWindow | null = null
   let lastProgress = -1
   let disposed = false
 
   const clear = () => {
+    if (platform === 'win32') {
+      deps.setTaskbarProgress(-1)
+      return
+    }
     if (window && !window.isDestroyed()) {
       window.setProgressBar(-1)
       window.destroy()
@@ -76,7 +84,15 @@ export function setupDockProgress(deps: Dependencies): () => void {
   }
   const update = () => {
     if (disposed) return
-    const progress = deps.isEnabled() ? getDockProgress(deps.getTasks()) : -1
+    const progress = deps.isEnabled()
+      ? getDownloadProgressValue(deps.getTasks())
+      : -1
+    if (platform === 'win32') {
+      // Windows progress belongs to the real main window. WindowManager caches
+      // it across renderer release/recreation; a hidden helper has no taskbar button.
+      deps.setTaskbarProgress(progress)
+      return
+    }
     if (progress < 0) {
       clear()
       return

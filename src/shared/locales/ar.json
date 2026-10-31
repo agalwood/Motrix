@@ -1998,6 +1998,9 @@
       "trayIconColorLight": "أيقونة فاتحة (لوحة داكنة)",
       "traySpeedometer": "إظهار السرعة في شريط القوائم",
       "dockAndMenuBar": "Dock وشريط القوائم",
+      "taskbar": "شريط المهام",
+      "taskbarProgress": "إظهار تقدم التنزيل في شريط المهام",
+      "taskbarProgressDesc": "إظهار التقدم الإجمالي للتنزيلات النشطة على زر النافذة الرئيسية في شريط المهام.",
       "dockProgress": "إظهار تقدم التنزيل في Dock",
       "dockProgressDesc": "إظهار التقدم الإجمالي للتنزيلات النشطة على أيقونة Dock.",
       "traySpeedometerDesc": "عرض سرعتي التنزيل والرفع بجانب أيقونة التطبيق."

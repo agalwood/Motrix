@@ -1922,6 +1922,9 @@
       "trayIconColorLight": "Licht pictogram (donker paneel)",
       "traySpeedometer": "Snelheid tonen in menubalk",
       "dockAndMenuBar": "Dock en menubalk",
+      "taskbar": "Taakbalk",
+      "taskbarProgress": "Downloadvoortgang in taakbalk tonen",
+      "taskbarProgressDesc": "Toon de gezamenlijke voortgang van actieve downloads op de taakbalkknop van het hoofdvenster.",
       "dockProgress": "Downloadvoortgang in Dock tonen",
       "dockProgressDesc": "Toon de gezamenlijke voortgang van actieve downloads op het Dock-symbool.",
       "traySpeedometerDesc": "Download- en uploadsnelheden naast het apppictogram tonen."

@@ -98,9 +98,11 @@ describe('SettingsManager', () => {
   })
 
   it('keeps Dock progress opt-in and persists changes without requiring a restart', async () => {
-    expect(manager.getApp().dockProgress).toBe(false)
-    for (const dockProgress of [true, false]) {
-      expect(await manager.update({ app: { dockProgress } })).toMatchObject({
+    expect(manager.getApp().showDownloadProgress).toBe(false)
+    for (const showDownloadProgress of [true, false]) {
+      expect(
+        await manager.update({ app: { showDownloadProgress } })
+      ).toMatchObject({
         saved: true,
         requiresRestart: false,
         requiresAppRestart: false,
@@ -108,13 +110,13 @@ describe('SettingsManager', () => {
       expect(onChange).toHaveBeenLastCalledWith(
         expect.anything(),
         expect.objectContaining({
-          app: expect.objectContaining({ dockProgress }),
+          app: expect.objectContaining({ showDownloadProgress }),
         })
       )
       mockReadFile.mockResolvedValue(mockWriteFileAtomic.mock.lastCall![1])
       const restored = new SettingsManager(TEST_PATH)
       await restored.load()
-      expect(restored.getApp().dockProgress).toBe(dockProgress)
+      expect(restored.getApp().showDownloadProgress).toBe(showDownloadProgress)
     }
   })
 

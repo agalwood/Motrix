@@ -71,9 +71,34 @@ beforeEach(async () => {
 })
 
 describe('<AppearanceDialog>', () => {
-  it.each(['Save', 'Cancel'])(
-    'keeps Dock progress in the draft until %s',
-    async (action) => {
+  it.each([
+    {
+      platform: 'darwin',
+      action: 'Save',
+      label: 'Show download progress in Dock',
+    },
+    {
+      platform: 'darwin',
+      action: 'Cancel',
+      label: 'Show download progress in Dock',
+    },
+    {
+      platform: 'win32',
+      action: 'Save',
+      label: 'Show download progress in taskbar',
+    },
+    {
+      platform: 'win32',
+      action: 'Cancel',
+      label: 'Show download progress in taskbar',
+    },
+  ])(
+    'keeps $platform progress in the draft until $action',
+    async ({ platform, action, label }) => {
+      Object.defineProperty(transport, 'platform', {
+        configurable: true,
+        value: platform,
+      })
       const onClose = vi.fn()
       render(
         <AppearanceDialog
@@ -88,7 +113,7 @@ describe('<AppearanceDialog>', () => {
         expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled()
       )
       const control = screen.getByRole('switch', {
-        name: 'Show download progress in Dock',
+        name: label,
       })
       expect(control).not.toBeChecked()
       await user.click(control)
@@ -99,7 +124,7 @@ describe('<AppearanceDialog>', () => {
       await user.click(screen.getByRole('button', { name: action }))
       if (action === 'Save') {
         expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
-          app: { dockProgress: true },
+          app: { showDownloadProgress: true },
         })
       } else {
         expect(transport.invoke).not.toHaveBeenCalledWith(
@@ -111,8 +136,8 @@ describe('<AppearanceDialog>', () => {
     }
   )
 
-  it.each(['linux', 'win32', 'web'])(
-    'preserves the hidden Dock preference on %s when saving another field',
+  it.each(['linux', 'web'])(
+    'preserves the hidden download progress preference on %s when saving another field',
     async (platform) => {
       Object.defineProperty(transport, 'platform', {
         configurable: true,
@@ -120,7 +145,10 @@ describe('<AppearanceDialog>', () => {
       })
       vi.mocked(transport.invoke).mockImplementation(async (channel) => {
         if (channel === Queries.GetSettings)
-          return { ...FIXTURE, app: { ...FIXTURE.app, dockProgress: true } }
+          return {
+            ...FIXTURE,
+            app: { ...FIXTURE.app, showDownloadProgress: true },
+          }
         return { saved: true, requiresRestart: false, changedRestartKeys: [] }
       })
       render(
@@ -135,7 +163,7 @@ describe('<AppearanceDialog>', () => {
         expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled()
       )
       expect(
-        screen.queryByRole('switch', { name: 'Show download progress in Dock' })
+        screen.queryByRole('switch', { name: /Show download progress/ })
       ).toBeNull()
       const user = userEvent.setup()
       await user.click(screen.getByRole('switch', { name: 'Reduce motion' }))

@@ -28,14 +28,19 @@ vi.mock('electron', () => ({
   },
 }))
 
-import { getDockProgress, setupDockProgress } from './dock-progress'
+import {
+  getDownloadProgressValue,
+  setupDownloadProgress,
+} from './download-progress'
 
 const download = (downloadedBytes = 25, totalBytes = 100) =>
   makeDownloadTask({ downloadedBytes, totalBytes })
 
 describe('Dock download progress', () => {
   it('weights current downloads by bytes instead of averaging percentages', () => {
-    expect(getDockProgress([download(50, 100), download(90, 900)])).toBe(0.14)
+    expect(
+      getDownloadProgressValue([download(50, 100), download(90, 900)])
+    ).toBe(0.14)
   })
 
   it.each([
@@ -48,34 +53,34 @@ describe('Dock download progress', () => {
     TaskStatus.Seeding,
   ])('excludes %s tasks, even when their counters are nonzero', (status) => {
     const task = { ...download(900, 1000), status }
-    expect(getDockProgress([task])).toBe(-1)
-    expect(getDockProgress([task, download()])).toBe(0.25)
+    expect(getDownloadProgressValue([task])).toBe(-1)
+    expect(getDownloadProgressValue([task, download()])).toBe(0.25)
   })
 
   it('does not treat transient storage operations as downloads', () => {
-    expect(getDockProgress([{ ...download(), storageOperation: true }])).toBe(
-      -1
-    )
+    expect(
+      getDownloadProgressValue([{ ...download(), storageOperation: true }])
+    ).toBe(-1)
   })
 
   it('shows an empty bar for metadata or unknown sizes, never a full indeterminate bar', () => {
-    expect(getDockProgress([download(100, 0)])).toBe(0)
+    expect(getDownloadProgressValue([download(100, 0)])).toBe(0)
     expect(
-      getDockProgress([
+      getDownloadProgressValue([
         { ...download(100, 100), status: TaskStatus.FetchingMetadata },
       ])
     ).toBe(0)
-    expect(getDockProgress([download(), download(100, 0)])).toBe(0.25)
+    expect(getDownloadProgressValue([download(), download(100, 0)])).toBe(0.25)
   })
 
   it('keeps a not-quite-complete bar during finalization and media processing', () => {
     expect(
-      getDockProgress([
+      getDownloadProgressValue([
         { ...download(100, 100), status: TaskStatus.Finalizing },
       ])
     ).toBe(0.99)
     expect(
-      getDockProgress([
+      getDownloadProgressValue([
         makeDownloadTask({
           kind: TaskKind.Hls,
           mediaProgress: makeMediaProgress({
@@ -95,7 +100,7 @@ describe('Dock download progress', () => {
 
   it('uses media segment progress when the final download size is unknown', () => {
     expect(
-      getDockProgress([
+      getDownloadProgressValue([
         makeDownloadTask({
           kind: TaskKind.Hls,
           progress: 0,
@@ -113,11 +118,13 @@ describe('Dock download progress', () => {
   })
 
   it('bounds malformed counters and handles an empty task list', () => {
-    expect(getDockProgress([])).toBe(-1)
-    expect(getDockProgress([download(-10, 100)])).toBe(0)
-    expect(getDockProgress([download(200, 100)])).toBe(0.99)
-    expect(getDockProgress([download(Number.NaN, 100)])).toBe(0)
-    expect(getDockProgress([download(10, Number.POSITIVE_INFINITY)])).toBe(0)
+    expect(getDownloadProgressValue([])).toBe(-1)
+    expect(getDownloadProgressValue([download(-10, 100)])).toBe(0)
+    expect(getDownloadProgressValue([download(200, 100)])).toBe(0.99)
+    expect(getDownloadProgressValue([download(Number.NaN, 100)])).toBe(0)
+    expect(
+      getDownloadProgressValue([download(10, Number.POSITIVE_INFINITY)])
+    ).toBe(0)
   })
 })
 
@@ -128,13 +135,15 @@ describe('Dock progress lifecycle', () => {
     const eventBus = new EventBus()
     const state = { enabled, tasks: [download()] }
     const getTasks = vi.fn(() => state.tasks)
-    const dispose = setupDockProgress({
+    const setTaskbarProgress = vi.fn()
+    const dispose = setupDownloadProgress({
       eventBus,
       getTasks,
+      setTaskbarProgress,
       isEnabled: () => state.enabled,
       platform,
     })
-    return { eventBus, state, getTasks, dispose }
+    return { eventBus, state, getTasks, setTaskbarProgress, dispose }
   }
 
   it('does no native work or task scanning until enabled, and applies settings immediately', () => {
@@ -200,13 +209,40 @@ describe('Dock progress lifecycle', () => {
     expect(f.getTasks).toHaveBeenCalledOnce()
   })
 
-  it.each(['linux', 'win32'])(
+  it('routes Windows progress to the main-window owner without creating a hidden window', () => {
+    const f = fixture(false, 'win32')
+    expect(f.getTasks).not.toHaveBeenCalled()
+    expect(f.setTaskbarProgress).toHaveBeenLastCalledWith(-1)
+    f.state.enabled = true
+    f.eventBus.emit(Events.SettingsChanged)
+    expect(f.setTaskbarProgress).toHaveBeenLastCalledWith(0.25)
+    f.state.tasks = [download(70)]
+    f.eventBus.emit(Events.TaskUpdated)
+    expect(f.setTaskbarProgress).toHaveBeenLastCalledWith(0.7)
+    f.state.tasks = []
+    f.eventBus.emit(Events.TaskUpdated)
+    expect(f.setTaskbarProgress).toHaveBeenLastCalledWith(-1)
+    f.state.tasks = [download()]
+    f.eventBus.emit(Events.TaskUpdated)
+    f.state.enabled = false
+    f.eventBus.emit(Events.SettingsChanged)
+    expect(f.setTaskbarProgress).toHaveBeenLastCalledWith(-1)
+    expect(native.create).not.toHaveBeenCalled()
+    f.dispose()
+    f.setTaskbarProgress.mockClear()
+    f.eventBus.emit(Events.TaskUpdated)
+    f.eventBus.emit(Events.SettingsChanged)
+    expect(f.setTaskbarProgress).not.toHaveBeenCalled()
+  })
+
+  it.each(['linux', 'web'])(
     'does nothing on %s even with an imported enabled preference',
     (platform) => {
       const f = fixture(true, platform)
       f.eventBus.emit(Events.TaskUpdated)
       expect(f.getTasks).not.toHaveBeenCalled()
       expect(native.create).not.toHaveBeenCalled()
+      expect(f.setTaskbarProgress).not.toHaveBeenCalled()
       f.dispose()
     }
   )

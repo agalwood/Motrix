@@ -1941,6 +1941,9 @@
       "trayIconColorLight": "Pictogramă de culoare deschisă (panou întunecat)",
       "traySpeedometer": "Arată viteza în bara de meniu",
       "dockAndMenuBar": "Dock și bara de meniu",
+      "taskbar": "Bară de activități",
+      "taskbarProgress": "Afișează progresul descărcărilor în bara de activități",
+      "taskbarProgressDesc": "Afișează progresul total al descărcărilor active pe butonul ferestrei principale din bara de activități.",
       "dockProgress": "Afișează progresul descărcărilor în Dock",
       "dockProgressDesc": "Afișează progresul total al descărcărilor active pe pictograma din Dock.",
       "traySpeedometerDesc": "Arată vitezele de descărcare și încărcare lângă pictograma aplicației."

@@ -8,8 +8,13 @@ import {
 } from './fixtures/electron-app'
 import { startHttpFixture } from './fixtures/http-server'
 
-type DockProbe = typeof globalThis & { dockProgressCalls: number[] }
-const label = 'Show download progress in Dock'
+type ProgressProbe = typeof globalThis & {
+  downloadProgressCalls: Array<{ progress: number; windowId: number }>
+}
+const isMac = process.platform === 'darwin'
+const label = isMac
+  ? 'Show download progress in Dock'
+  : 'Show download progress in taskbar'
 
 async function openSettings(page: Page, card = 'Appearance') {
   await page.getByRole('link', { name: 'Settings', exact: true }).click()
@@ -19,25 +24,30 @@ async function openSettings(page: Page, card = 'Appearance') {
   ).toBeEnabled()
 }
 
-test('Dock progress is opt-in, survives renderer release, and clears when disabled or finished', async ({
+test('application icon progress is opt-in, handles renderer release, and clears when disabled or finished', async ({
   electronApp,
   mainWindow,
 }, testInfo) => {
-  test.skip(process.platform !== 'darwin', 'macOS Dock integration')
+  test.skip(
+    !isMac && process.platform !== 'win32',
+    'macOS Dock and Windows taskbar integration'
+  )
   test.setTimeout(90_000)
   await waitForEngineReady(mainWindow)
   await electronApp.evaluate(({ BaseWindow }) => {
-    const probe = globalThis as DockProbe
-    probe.dockProgressCalls = []
+    const probe = globalThis as ProgressProbe
+    probe.downloadProgressCalls = []
     const original = BaseWindow.prototype.setProgressBar
     BaseWindow.prototype.setProgressBar = function (progress, options) {
-      probe.dockProgressCalls.push(progress)
+      probe.downloadProgressCalls.push({ progress, windowId: this.id })
       return original.call(this, progress, options)
     }
   })
   const calls = () =>
-    electronApp.evaluate(() => (globalThis as DockProbe).dockProgressCalls)
-  const latest = async () => (await calls()).at(-1)
+    electronApp.evaluate(
+      () => (globalThis as ProgressProbe).downloadProgressCalls
+    )
+  const latest = async () => (await calls()).at(-1)?.progress
   const server = await startHttpFixture({
     size: 2 * 1024 * 1024,
     throttleBytesPerSecond: 64 * 1024,
@@ -64,10 +74,25 @@ test('Dock progress is opt-in, survives renderer release, and clears when disabl
     expect(await calls()).toEqual([])
     await mainWindow.getByRole('switch', { name: label }).click()
     await mainWindow.screenshot({
-      path: testInfo.outputPath('dock-progress-setting.png'),
+      path: testInfo.outputPath('download-progress-setting.png'),
     })
     await mainWindow.getByRole('button', { name: 'Save', exact: true }).click()
     await expect.poll(latest).toBeGreaterThan(0)
+
+    if (!isMac) {
+      const mainId = await electronApp.evaluate(({ BrowserWindow }) => {
+        const main = BrowserWindow.getAllWindows().find((window) =>
+          window.webContents.getURL().includes('w=main')
+        )!
+        main.minimize()
+        return main.id
+      })
+      const progress = (await latest()) as number
+      await expect.poll(latest).toBeGreaterThan(progress)
+      expect((await calls()).every(({ windowId }) => windowId === mainId)).toBe(
+        true
+      )
+    }
 
     await electronApp.evaluate(({ BrowserWindow }) => {
       BrowserWindow.getAllWindows()
@@ -81,13 +106,21 @@ test('Dock progress is opt-in, survives renderer release, and clears when disabl
         )
       )
       .toBe(0)
-    const previous = (await latest()) as number
-    await expect.poll(latest).toBeGreaterThan(previous)
-    expect(
-      await electronApp.evaluate(({ BaseWindow }) =>
-        BaseWindow.getAllWindows().every((window) => !window.isVisible())
-      )
-    ).toBe(true)
+    if (isMac) {
+      const previous = (await latest()) as number
+      await expect.poll(latest).toBeGreaterThan(previous)
+      expect(
+        await electronApp.evaluate(({ BaseWindow }) =>
+          BaseWindow.getAllWindows().every((window) => !window.isVisible())
+        )
+      ).toBe(true)
+    } else {
+      expect(
+        await electronApp.evaluate(
+          ({ BaseWindow }) => BaseWindow.getAllWindows().length
+        )
+      ).toBe(0)
+    }
 
     const reopened = electronApp.waitForEvent('window')
     await electronApp.evaluate(({ app }) => {
@@ -95,6 +128,18 @@ test('Dock progress is opt-in, survives renderer release, and clears when disabl
     })
     const page = await reopened
     await page.waitForLoadState('domcontentloaded')
+    if (!isMac) {
+      const reopenedId = await electronApp.evaluate(
+        ({ BrowserWindow }) =>
+          BrowserWindow.getAllWindows().find((window) =>
+            window.webContents.getURL().includes('w=main')
+          )!.id
+      )
+      await expect
+        .poll(async () => (await calls()).at(-1)?.windowId)
+        .toBe(reopenedId)
+      expect(await latest()).toBeGreaterThan(0)
+    }
     await openSettings(page)
     await expect(page.getByRole('switch', { name: label })).toBeChecked()
     await page.getByRole('switch', { name: label }).click()
@@ -117,7 +162,7 @@ test('Dock progress is opt-in, survives renderer release, and clears when disabl
     expect(statuses).toEqual(['completed'])
     expect(
       (await calls()).every(
-        (value) => value === -1 || (value >= 0 && value < 1)
+        ({ progress }) => progress === -1 || (progress >= 0 && progress < 1)
       )
     ).toBe(true)
   } finally {
