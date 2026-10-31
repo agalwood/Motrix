@@ -20,6 +20,7 @@ describe('desktop main locale projection', () => {
       expect(original.operatorAdmin).toBeDefined()
       const result = JSON.parse(transform(source, path.join(root, file))!.code)
       expect(result.operatorAdmin).toBeUndefined()
+      expect(result.settings.integration.browser).toBeUndefined()
       expect(result.task.add.duplicate).toBeUndefined()
       expect(result.task.storage).toEqual({
         incomplete: original.task.storage.incomplete,
@@ -27,6 +28,7 @@ describe('desktop main locale projection', () => {
         errors: original.task.storage.errors,
       })
       delete original.operatorAdmin
+      delete original.settings.integration.browser
       delete original.task.add.duplicate
       original.task.storage = {
         incomplete: original.task.storage.incomplete,
@@ -35,6 +37,12 @@ describe('desktop main locale projection', () => {
       }
       expect(result).toEqual(original)
       // The source catalogs, consumed by renderer and Server, stay complete.
+      expect(
+        JSON.parse(source).settings.integration.browser.profile
+      ).toBeDefined()
+      expect(
+        JSON.parse(source).settings.integration.browser.pairToast
+      ).toBeDefined()
       expect(JSON.parse(source).task.storage.move).toBeDefined()
       expect(JSON.parse(source).task.add.duplicate).toBeDefined()
     }

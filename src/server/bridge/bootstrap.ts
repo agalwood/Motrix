@@ -61,6 +61,8 @@ export interface ServerBridgeRuntime {
   bridgeCommandHandlers: Record<string, Handler>
   bridgeQueryHandlers: Record<string, Handler>
   shutdown: () => Promise<void>
+  cancelMedia: (taskId: string) => Promise<void>
+  getMediaSegmentGids: (taskId: string) => string[]
 }
 
 /** Extension-only download application surface. The Server composition root
@@ -69,6 +71,8 @@ export interface ServerBridgeRuntime {
 export interface ServerExtensionReceiver {
   handle: NonNullable<MethodHandlers['submitDownload']>
   cancel: (taskId: string) => Promise<void>
+  cancelMedia: (taskId: string) => Promise<void>
+  getMediaSegmentGids: (taskId: string) => string[]
   restoreInflight: () => Promise<void>
   start: () => void
   stopAndDrain: () => Promise<void>
@@ -84,6 +88,8 @@ export interface ServerBridgeOptions {
    * the requested listener port. */
   fixedPort?: BridgeStatusInfo['fixedPort']
   motrixVersion: string
+  /** Recheck the same live resolver used by the receiver on each handshake. */
+  ffmpegAvailable?: () => Promise<boolean>
   /** The process-lifetime core EventBus (for the SSE firehose + re-emitting
    *  bridge approval events so the web broadcaster forwards them). */
   eventBus: {
@@ -275,7 +281,8 @@ export async function bootstrapBridgeForServer(
       registry,
       motrixVersion: opts.motrixVersion,
       runtime: 'server',
-      ffmpegAvailable: false,
+      ffmpegAvailable:
+        extensionReceiver != null ? (opts.ffmpegAvailable ?? false) : false,
       localToken,
       deviceCode,
       onPairRequested: (payload) => bridgeBus.emitPairRequested(payload),
@@ -479,6 +486,9 @@ export async function bootstrapBridgeForServer(
       localToken,
       bridgeCommandHandlers,
       bridgeQueryHandlers,
+      cancelMedia: async (taskId) => extensionReceiver?.cancelMedia(taskId),
+      getMediaSegmentGids: (taskId) =>
+        extensionReceiver?.getMediaSegmentGids(taskId) ?? [],
       shutdown: () => ownership.dispose(),
     }
   } catch (error) {

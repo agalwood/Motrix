@@ -68,10 +68,13 @@ export function createServerShutdown(
       // Startup/handlers may be blocked on the engine, plugin host, or session;
       // waiting for tracked work first would deadlock the only operations able
       // to release them.
+      const pollingDrain = safely('polling', actions.stopPolling)
+      const ingressDrain = safely('http-ingress', actions.closeIngress)
+      const bridgeDrain = safely('bridge-ingress', actions.closeBridge)
       const cancellationDrain = Promise.all([
-        safely('polling', actions.stopPolling),
-        safely('http-ingress', actions.closeIngress),
-        safely('bridge-ingress', actions.closeBridge),
+        pollingDrain,
+        ingressDrain,
+        bridgeDrain,
         safely('rpc-notifications', actions.unsubscribeProducers),
         safely('dev-watcher', actions.drainDevWatcher),
         safely('plugin-host', actions.drainPluginHost),
@@ -84,6 +87,9 @@ export function createServerShutdown(
       // persistence and engine RPC alive until its unconditional resume
       // compensation settles.
       await safely('tracker', actions.disposeTracker)
+      // Media cancellation purges aria2 segments and persists the parent task.
+      // Keep RPC and Session writes available until the bridge has drained it.
+      await bridgeDrain
       await Promise.all([
         cancellationDrain,
         safely('session', actions.drainSession),

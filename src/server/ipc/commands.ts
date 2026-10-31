@@ -147,6 +147,8 @@ export interface ServerCommandContext {
     setEnabled(enabled: boolean): Promise<void>
     restart(): Promise<void>
   }
+  getMediaSegmentGids?: (taskId: string) => string[]
+  cancelMedia?: (taskId: string) => Promise<void>
   aria2BinaryPath: string
   finalNamePicker: FinalNamePicker
   mediaMetaStore: MediaMetaStore
@@ -309,6 +311,7 @@ export function buildServerCommandHandlers(
   // Shared by the singular AND plural task command handlers below — one
   // deps bundle per action family so the two arities cannot drift.
   const pauseResumeDeps = {
+    getMediaSegmentGids: ctx.getMediaSegmentGids,
     onPauseRequested: (taskId: string) =>
       trackerManager.noteTaskControl?.(taskId, true),
     onResumeRequested: (taskId: string) =>
@@ -399,6 +402,7 @@ export function buildServerCommandHandlers(
   // Commands.ReAddTasks so the automatic and user-initiated paths match.
   bindTaskRetry?.((id) => reAddTask(id, reAddDeps))
   const removeDeps = {
+    cancelMedia: ctx.cancelMedia,
     taskManager,
     adapter,
     log,

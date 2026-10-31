@@ -656,9 +656,15 @@ Operator-managed options are:
 - `MOTRIX_SECRETS_SEED`: optional 64-hex secret from an orchestrator secret
   store. Otherwise `/data/secrets.lockbox` is generated and persisted.
 
-The official image does not include FFmpeg. A plugin that requires it needs a
-derived image with Alpine's `ffmpeg` package and
-`MOTRIX_FFMPEG_PATH=/usr/bin/ffmpeg`.
+The official image does not include FFmpeg. Browser Extension HLS/DASH downloads,
+separate audio/video merging, and plugins that require FFmpeg need an executable
+inside the container. For example, use a derived image with Alpine's `ffmpeg`
+package and `MOTRIX_FFMPEG_PATH=/usr/bin/ffmpeg`. A compatible executable in
+`/data/binaries/ffmpeg` or a custom path configured in the Web UI also works.
+Confirm detection in **Settings → Integration → Media Tools**, then click
+**Rescan** in the Extension. The Server refreshes its media capabilities without
+requiring a restart; installing FFmpeg only on the browser's computer does not
+make it available inside the container.
 
 ## Upgrade, rollback, backup, and restore
 
