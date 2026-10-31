@@ -1,5 +1,6 @@
 // Adapted scenarios from parse-torrent v11.0.24 (MIT, test/LICENSE.upstream).
 import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import reference from 'parse-torrent'
 import { describe, expect, it } from 'vitest'
 import { type BInput, encode, parseMagnet, parseTorrent } from '../src/index.js'
@@ -23,11 +24,13 @@ describe('parse-torrent v11.0.24 legal v1 differential', () => {
       expect(
         parsed.v1!.files.map((f) => ({
           name: f.path.length ? text.decode(f.path.at(-1)) : parsed.name,
-          path: [parsed.name, ...f.path.map((p) => text.decode(p))].join('/'),
+          path: [parsed.name, ...f.path.map((p) => text.decode(p))],
           length: Number(f.length),
           offset: Number(f.offset),
         }))
-      ).toEqual(old.files)
+      ).toEqual(
+        old.files?.map((file) => ({ ...file, path: file.path.split(path.sep) }))
+      )
       expect(
         Array.from({ length: parsed.v1!.pieces.length }, (_, i) =>
           parsed.v1!.pieces.hex(i)
