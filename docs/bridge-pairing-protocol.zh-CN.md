@@ -542,8 +542,10 @@ kS2C = HKDF-SHA-256(ikm=Ke, salt="MBP1/pair/v1", info="MBP1-pair-traffic-s2c", L
   浏览器 profile 是**新的 principal**，作为新凭据配对；签发或轮换一个凭据
   MUST NOT 影响另一个。
   活动连接也 MUST 按完整的已认证 principal 索引。重连只替换并关闭同一安装
-  实例的旧连接，其他安装实例继续可用。任务通知路由和提交幂等性 MUST 保留
-  安装实例边界。扩展级撤销仍作用于所选 verified Origin 下的全部 principal。
+  实例的旧连接，其他安装实例继续可用。新任务的通知路由和提交幂等性 MUST
+  保留安装实例边界。只保存 `{browser, extensionId}` 的旧任务将通知广播到
+  该扩展所有已授权、就绪的安装实例，无需迁移凭据或任务数据。扩展级撤销
+  仍作用于所选 verified Origin 下的全部 principal。
 - 过期或被吊销的凭据一律要求重新 code-entry 配对——绝不静默重新信任。
 
 这与扩展既有的“先持久化、再发送 `motrix/initialized`”顺序保持一致。

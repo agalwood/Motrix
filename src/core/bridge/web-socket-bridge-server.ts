@@ -1253,6 +1253,17 @@ export class WebSocketBridgeServer {
     return this.sessions.get(sessionKey)
   }
 
+  /** Older task metadata identifies an extension, but not its installation.
+   * Deliver those notifications to all ready profiles of that extension. A
+   * modern installation key remains exact even when its peer is offline. */
+  getTaskNotificationSessions(sessionKey: string): BridgeSession[] {
+    const exact = this.sessions.get(sessionKey)
+    const candidates = exact ? [exact] : this.sessionsForExtension(sessionKey)
+    return candidates.filter(
+      ({ conn }) => conn.isAuthorized() && conn.isReady()
+    )
+  }
+
   /** Public installation summaries contain no credential IDs or key material. */
   getExtensionInstallations(
     identity: ClientIdentity & { kind: 'extension' }

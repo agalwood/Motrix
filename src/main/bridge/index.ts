@@ -815,16 +815,19 @@ export async function bootstrapBridge(args: {
     )
 
     bus.on('TaskProgress', ({ sessionKey, params }) => {
-      const session = server.getSession(sessionKey)
-      session?.conn.sendNotification(Notifications.TaskProgress, params)
+      for (const session of server.getTaskNotificationSessions(sessionKey)) {
+        session.conn.sendNotification(Notifications.TaskProgress, params)
+      }
     })
     bus.on('TaskCompleted', ({ sessionKey, params }) => {
-      const session = server.getSession(sessionKey)
-      session?.conn.sendNotification(Notifications.TaskCompleted, params)
+      for (const session of server.getTaskNotificationSessions(sessionKey)) {
+        session.conn.sendNotification(Notifications.TaskCompleted, params)
+      }
     })
     bus.on('TaskError', ({ sessionKey, params }) => {
-      const session = server.getSession(sessionKey)
-      session?.conn.sendNotification(Notifications.TaskError, params)
+      for (const session of server.getTaskNotificationSessions(sessionKey)) {
+        session.conn.sendNotification(Notifications.TaskError, params)
+      }
     })
 
     // Spec 5 — global SSE firehose. BridgeStreamSource subscribes the core

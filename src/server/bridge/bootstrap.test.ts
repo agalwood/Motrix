@@ -955,75 +955,82 @@ describe('bootstrapBridgeForServer', () => {
     ).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
-  it('routes Extension task lifecycle events only to their authenticated session', async () => {
-    const remoteExtensionConfig = parseRemoteExtensionConfig({
-      MOTRIX_REMOTE_EXTENSION_ENABLED: 'true',
-      MOTRIX_REMOTE_EXTENSION_PUBLIC_URL: 'wss://motrix.example/bridge',
-      MOTRIX_PUBLIC_URL: 'https://motrix.example',
-    })
-    const captured: { bridgeBus?: BridgeEventBus } = {}
-    const sendNotification = vi.fn()
-    vi.spyOn(WebSocketBridgeServer.prototype, 'getSession').mockImplementation(
-      (sessionKey) =>
-        sessionKey === 'chromium:target'
-          ? ({ conn: { sendNotification } } as never)
-          : undefined
-    )
+  it.each([1, 2])(
+    'routes task lifecycle events once to each of %i eligible sessions',
+    async (count) => {
+      const remoteExtensionConfig = parseRemoteExtensionConfig({
+        MOTRIX_REMOTE_EXTENSION_ENABLED: 'true',
+        MOTRIX_REMOTE_EXTENSION_PUBLIC_URL: 'wss://motrix.example/bridge',
+        MOTRIX_PUBLIC_URL: 'https://motrix.example',
+      })
+      const captured: { bridgeBus?: BridgeEventBus } = {}
+      const recipients = Array.from({ length: count }, () => ({
+        conn: { sendNotification: vi.fn() },
+      }))
+      vi.spyOn(
+        WebSocketBridgeServer.prototype,
+        'getTaskNotificationSessions'
+      ).mockImplementation((sessionKey) =>
+        sessionKey === 'chromium:target' ? (recipients as never) : []
+      )
 
-    runtime = await bootstrapBridgeForServer({
-      userDataDir,
-      host: '127.0.0.1',
-      port: 0,
-      motrixVersion: '2.0',
-      eventBus: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
-      readHandlerDeps: readDeps(),
-      writeHandlerDeps: writeDeps(),
-      remoteExtensionConfig,
-      createExtensionReceiver: (context) => {
-        captured.bridgeBus = context.bridgeBus
-        return extensionReceiver()
-      },
-    })
-    const bridgeBus = captured.bridgeBus
-    if (bridgeBus === undefined) throw new Error('bridge event bus missing')
+      runtime = await bootstrapBridgeForServer({
+        userDataDir,
+        host: '127.0.0.1',
+        port: 0,
+        motrixVersion: '2.0',
+        eventBus: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
+        readHandlerDeps: readDeps(),
+        writeHandlerDeps: writeDeps(),
+        remoteExtensionConfig,
+        createExtensionReceiver: (context) => {
+          captured.bridgeBus = context.bridgeBus
+          return extensionReceiver()
+        },
+      })
+      const bridgeBus = captured.bridgeBus
+      if (bridgeBus === undefined) throw new Error('bridge event bus missing')
 
-    const progress = {
-      taskId: 'task-1',
-      bytesDone: 1,
-      bytesTotal: 2,
-      speedBps: 3,
-      etaSec: 4,
-      phase: 'downloading' as const,
+      const progress = {
+        taskId: 'task-1',
+        bytesDone: 1,
+        bytesTotal: 2,
+        speedBps: 3,
+        etaSec: 4,
+        phase: 'downloading' as const,
+      }
+      bridgeBus.emitTaskProgress({
+        sessionKey: 'chromium:target',
+        params: progress,
+      })
+      const completed = {
+        taskId: 'task-1',
+        filePath: '/downloads/file.bin',
+        durationMs: 5,
+      }
+      bridgeBus.emitTaskCompleted({
+        sessionKey: 'chromium:target',
+        params: completed,
+      })
+      const failed = { taskId: 'task-2', code: 'disk-full', message: 'full' }
+      bridgeBus.emitTaskError({
+        sessionKey: 'chromium:target',
+        params: failed,
+      })
+      bridgeBus.emitTaskProgress({
+        sessionKey: 'chromium:other',
+        params: progress,
+      })
+
+      for (const { conn } of recipients) {
+        expect(conn.sendNotification.mock.calls).toEqual([
+          [Notifications.TaskProgress, progress],
+          [Notifications.TaskCompleted, completed],
+          [Notifications.TaskError, failed],
+        ])
+      }
     }
-    bridgeBus.emitTaskProgress({
-      sessionKey: 'chromium:target',
-      params: progress,
-    })
-    const completed = {
-      taskId: 'task-1',
-      filePath: '/downloads/file.bin',
-      durationMs: 5,
-    }
-    bridgeBus.emitTaskCompleted({
-      sessionKey: 'chromium:target',
-      params: completed,
-    })
-    const failed = { taskId: 'task-2', code: 'disk-full', message: 'full' }
-    bridgeBus.emitTaskError({
-      sessionKey: 'chromium:target',
-      params: failed,
-    })
-    bridgeBus.emitTaskProgress({
-      sessionKey: 'chromium:other',
-      params: progress,
-    })
-
-    expect(sendNotification.mock.calls).toEqual([
-      [Notifications.TaskProgress, progress],
-      [Notifications.TaskCompleted, completed],
-      [Notifications.TaskError, failed],
-    ])
-  })
+  )
 
   it('device-code: request emits a web prompt, approve issues a token, listPaired shows the cli', async () => {
     const emit = vi.fn()

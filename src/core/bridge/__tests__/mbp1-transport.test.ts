@@ -1289,14 +1289,14 @@ describe('R3 adoption boundary', () => {
         filePath: '/tmp/task-a',
         durationMs: 1000,
       }
-      h.server
-        .getSession(keyA)
-        ?.conn.sendNotification(Notifications.TaskCompleted, completed)
+      for (const session of h.server.getTaskNotificationSessions(keyA)) {
+        session.conn.sendNotification(Notifications.TaskCompleted, completed)
+      }
       await vi.waitFor(() =>
         expect(aNotifications).toHaveBeenCalledWith(completed)
       )
       expect(bNotifications).not.toHaveBeenCalled()
-      // Old task metadata cannot identify which installation submitted it.
+      // Exact session lookup does not guess a legacy task’s profile.
       expect(h.server.getSession(`chromium:${OFFICIAL_ID}`)).toBeUndefined()
 
       const back = await reconnect({
@@ -1339,6 +1339,119 @@ describe('R3 adoption boundary', () => {
       bConn.dispose()
       a.wire.ws.close()
       b.wire.ws.close()
+    }
+  })
+
+  it('broadcasts legacy task notifications to matching ready profiles while preserving exact modern routing', async () => {
+    const a = await pairFully(h, { clientInstallationId: 'profile-a' })
+    const b = await pairFully(h, { clientInstallationId: 'profile-b' })
+    const unready = await pairFully(h, { clientInstallationId: 'profile-c' })
+    const other = await pairFully(h, {
+      origin: SIDELOADED_ORIGIN,
+      claimedExtensionId: SIDELOADED_ID,
+    })
+    const peers = [a, b, unready, other]
+    const conns = peers.map((peer) => mdxpOverChannel(peer.wire, peer.channel))
+    const received = conns.map(() => [] as string[])
+    conns.forEach((conn, index) => {
+      conn.onNotification(Notifications.TaskProgress, () =>
+        received[index].push('progress')
+      )
+      conn.onNotification(Notifications.TaskCompleted, () =>
+        received[index].push('completed')
+      )
+      conn.onNotification(Notifications.TaskError, () =>
+        received[index].push('error')
+      )
+    })
+    const legacyKey = `chromium:${OFFICIAL_ID}`
+    const keyA = installationSessionKey(
+      OFFICIAL_ORIGIN,
+      'chromium',
+      'profile-a'
+    )
+    const keyC = installationSessionKey(
+      OFFICIAL_ORIGIN,
+      'chromium',
+      'profile-c'
+    )
+    const lifecycle = ['progress', 'completed', 'error']
+    const publish = (sessionKey: string) => {
+      for (const { conn } of h.server.getTaskNotificationSessions(sessionKey)) {
+        conn.sendNotification(Notifications.TaskProgress, {
+          taskId: 'restored-task',
+          bytesDone: 1,
+          bytesTotal: 2,
+          speedBps: 1,
+          etaSec: 1,
+          phase: 'downloading',
+        })
+        conn.sendNotification(Notifications.TaskCompleted, {
+          taskId: 'restored-task',
+          filePath: '/tmp/restored-task',
+          durationMs: 1,
+        })
+        conn.sendNotification(Notifications.TaskError, {
+          taskId: 'restored-task',
+          code: 'disk-full',
+          message: 'full',
+        })
+      }
+    }
+    const flush = (clients = conns) =>
+      Promise.all(
+        clients.map((conn) => conn.sendRequest('system/ping', { sentAt: 1 }))
+      )
+    try {
+      for (const [index, conn] of conns.entries()) {
+        await conn.sendRequest(
+          'motrix/initialize',
+          initializeParams(index === 3 ? SIDELOADED_ID : OFFICIAL_ID)
+        )
+        if (index !== 2) conn.sendNotification('motrix/initialized', undefined)
+      }
+      await flush()
+      publish(legacyKey)
+      await flush()
+      expect(received).toEqual([lifecycle, lifecycle, [], []])
+
+      publish(keyA)
+      publish(keyC) // An authenticated but unready modern peer must not fall back to siblings.
+      publish('chromium:unknown-extension')
+      await flush()
+      expect(received).toEqual([
+        [...lifecycle, ...lifecycle],
+        lifecycle,
+        [],
+        [],
+      ])
+
+      a.wire.ws.close()
+      await a.wire.closed
+      await vi.waitFor(() => expect(h.server.getSession(keyA)).toBeUndefined())
+      publish(keyA) // An offline modern peer must not fall back to siblings either.
+      await flush(conns.slice(1))
+      expect(received[1]).toEqual(lifecycle)
+      publish(legacyKey)
+      await flush(conns.slice(1))
+      expect(received[1]).toEqual([...lifecycle, ...lifecycle])
+      expect(received[2]).toEqual([])
+      expect(received[3]).toEqual([])
+
+      const lease = h.server.beginExtensionRevocation({
+        kind: 'extension',
+        browser: 'chromium',
+        extensionId: OFFICIAL_ID,
+      })
+      publish(legacyKey)
+      await flush(conns.slice(1))
+      expect(received[1]).toEqual([...lifecycle, ...lifecycle])
+      expect(received[2]).toEqual([])
+      await h.server.deleteExtensionAuthorization(lease, 'user-revoked')
+      h.server.completeExtensionRevocation(lease)
+    } finally {
+      for (const conn of conns) conn.dispose()
+      for (const peer of peers) peer.wire.ws.close()
     }
   })
 

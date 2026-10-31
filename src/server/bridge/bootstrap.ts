@@ -437,25 +437,23 @@ export async function bootstrapBridgeForServer(
     const port = await server.start(opts.host, opts.port)
     boundPort = port
 
-    // Per-session Extension task lifecycle push. This mirrors the Desktop
-    // shell: BridgeReceiver publishes against the authenticated session key;
-    // the shell converts those events into encrypted MDXP notifications on
-    // that session only. The global SSE stream below remains a separate agent
-    // surface and must not substitute for this routing.
+    // Match Desktop routing: modern tasks target their installation; legacy
+    // extension-wide task keys reach every ready profile of that extension.
+    // The global SSE stream remains a separate agent surface.
     bridgeBus.on('TaskProgress', ({ sessionKey, params }) => {
-      server
-        .getSession(sessionKey)
-        ?.conn.sendNotification(Notifications.TaskProgress, params)
+      for (const session of server.getTaskNotificationSessions(sessionKey)) {
+        session.conn.sendNotification(Notifications.TaskProgress, params)
+      }
     })
     bridgeBus.on('TaskCompleted', ({ sessionKey, params }) => {
-      server
-        .getSession(sessionKey)
-        ?.conn.sendNotification(Notifications.TaskCompleted, params)
+      for (const session of server.getTaskNotificationSessions(sessionKey)) {
+        session.conn.sendNotification(Notifications.TaskCompleted, params)
+      }
     })
     bridgeBus.on('TaskError', ({ sessionKey, params }) => {
-      server
-        .getSession(sessionKey)
-        ?.conn.sendNotification(Notifications.TaskError, params)
+      for (const session of server.getTaskNotificationSessions(sessionKey)) {
+        session.conn.sendNotification(Notifications.TaskError, params)
+      }
     })
 
     const streamSource = new BridgeStreamSource(server, opts.localize)

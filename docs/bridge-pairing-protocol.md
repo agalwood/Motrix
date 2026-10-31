@@ -792,9 +792,12 @@ Atomicity rules:
   credential; issuing or rotating one credential MUST NOT affect another.
   Live connections MUST also be indexed by this full authenticated principal.
   A reconnect replaces and closes only that installation's previous connection;
-  other installations remain usable. Task notification routing and submission
-  idempotency MUST retain the installation boundary. Extension-wide revocation
-  still applies to every principal for the selected verified Origin.
+  other installations remain usable. New task notification routing and
+  submission idempotency MUST retain the installation boundary. Legacy tasks
+  that only store `{browser, extensionId}` broadcast their notifications to all
+  authorized, ready installations of that extension; no credential or task
+  migration is required. Extension-wide revocation still applies to every
+  principal for the selected verified Origin.
 - Expired or revoked credentials always require a fresh code-entry pairing —
   never silent re-trust.
 

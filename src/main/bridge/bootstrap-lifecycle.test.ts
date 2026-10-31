@@ -20,6 +20,7 @@ import { BridgeReceiver } from '@core/bridge-receiver/bridge-receiver'
 import { BridgeStreamSource } from '@core/bridge-receiver/bridge-stream-source'
 import { CompletionShutdownController } from '@core/task/completion-shutdown-controller'
 import * as taskCreation from '@core/task/create-task-handler'
+import { Notifications } from '@motrix/mdxp'
 import {
   BridgeCommands,
   BridgeQueries,
@@ -341,6 +342,46 @@ describe('desktop bridge bootstrap ownership', () => {
         WebSocketBridgeServer.prototype.startOnFirstFree
       ).toHaveBeenCalledOnce()
       expect(WebSocketBridgeServer.prototype.stop).not.toHaveBeenCalled()
+    } finally {
+      await runtime.shutdown()
+    }
+  })
+
+  it('delivers every task lifecycle event once to each eligible profile', async () => {
+    const runtime = await bootstrapBridge(args())
+    if (!runtime) throw new Error('bridge did not start')
+    const recipients = [vi.fn(), vi.fn()]
+    vi.spyOn(runtime.server, 'getTaskNotificationSessions').mockReturnValue(
+      recipients.map((sendNotification) => ({
+        conn: { sendNotification },
+      })) as never
+    )
+    try {
+      const sessionKey = 'chromium:legacy-extension'
+      const progress = {
+        taskId: 'old-task',
+        bytesDone: 1,
+        bytesTotal: 2,
+        speedBps: 1,
+        etaSec: 1,
+        phase: 'downloading' as const,
+      }
+      const completed = {
+        taskId: 'old-task',
+        filePath: '/downloads/file.bin',
+        durationMs: 1,
+      }
+      const failed = { taskId: 'old-task', code: 'disk-full', message: 'full' }
+      runtime.bus.emitTaskProgress({ sessionKey, params: progress })
+      runtime.bus.emitTaskCompleted({ sessionKey, params: completed })
+      runtime.bus.emitTaskError({ sessionKey, params: failed })
+      for (const recipient of recipients) {
+        expect(recipient.mock.calls).toEqual([
+          [Notifications.TaskProgress, progress],
+          [Notifications.TaskCompleted, completed],
+          [Notifications.TaskError, failed],
+        ])
+      }
     } finally {
       await runtime.shutdown()
     }
