@@ -19,13 +19,13 @@ The same core powers two ways to run Motrix:
 - **Desktop app:** Runs on macOS, Windows, and Linux
 - **Headless server:** Runs without a desktop environment, either directly on Node.js or in Docker, and includes a web UI for NAS devices and home servers
 
-## Motrix 2.1.1
+## Motrix 2.2.0
 
-Motrix 2.1.1 raises the simultaneous-download limit to 200 and fixes false
-path conflicts caused by unresolved magnet tasks during legacy migration.
-The default remains 10 concurrent downloads.
-Download [v2.1.1 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.1.1)
-and read the [full release notes](./docs/release-notes/2.1.1.md).
+Motrix 2.2.0 restores optional Dock and taskbar progress, enables extension
+media downloads on Server, and strengthens torrent metadata validation. It also
+improves browser-profile isolation, cookie handoff, and download compatibility.
+Download [v2.2.0 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.2.0)
+and read the [full release notes](./docs/release-notes/2.2.0.md).
 
 Back up your existing Motrix profile and downloads before upgrading. The desktop
 Migration Assistant imports selected v1 tasks as paused records and preserves
@@ -178,14 +178,14 @@ You can also install it from Settings → Integration → Command-line tools in 
 ### Headless server with Docker
 
 Tagged releases publish a multi-architecture Server image to Docker Hub and
-GHCR. Stable releases also update `2.1`, `2`, `stable`, and `latest` after runtime
+GHCR. Stable releases also update `2.2`, `2`, `stable`, and `latest` after runtime
 verification; beta releases publish only their immutable version tag. The
 included `compose.yaml` keeps Server state separate from downloaded resources:
 
 ```bash
 mkdir -p motrix-data downloads
 sudo chown 1000:1000 motrix-data downloads
-export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.1.1'
+export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.2.0'
 export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
 docker compose pull server
 docker compose up -d --wait

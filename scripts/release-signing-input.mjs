@@ -41,7 +41,7 @@ const TRUSTED_INPUT_SHA256 = Object.freeze({
   'scripts/sign-macos.mjs':
     '98bda5c77dce2a3e5d9c9a2f8211f4d5594d060bf9d2839326db50dc41f8c58b',
   'electron-builder.signing.json':
-    '7c5cbd95fd32218a46bef23a6ceedb63e94d5a0e3f25514c789a4ca15601e318',
+    '204d4da99fc903be9b0222c85ff1da4465332ea6e4dd5fb3827f7c36115a46f6',
   'signing-build-resources/256x256.png':
     '044d3b64a14aa512ca41469372d1ad630557daaeb2cb4e709d34f2d3c57d4c3b',
   'signing-build-resources/background.tiff':
