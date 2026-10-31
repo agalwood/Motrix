@@ -6,7 +6,7 @@ are written as hyphens to follow this repository's naming convention.
 
 - `webtorrent/`: `webtorrent/webtorrent-fixtures` tag **v2.0.3**, commit
   `f0f6cef` (GitHub tag archive). `alice.torrent` identifies Lewis Carroll's
-  public-domain *Alice's Adventures in Wonderland*. `numbers.torrent`,
+  public-domain _Alice's Adventures in Wonderland_. `numbers.torrent`,
   `lots-of-numbers.torrent` and `folder.torrent` identify the repository's
   synthetic numeric/plain-text test data. These small metadata files come from
   the MIT-licensed repository; its README additionally classifies content as
@@ -28,8 +28,6 @@ this API accepts complete metainfo, while libtorrent also supports partial
 metadata admission. Invalid filename bytes are retained rather than silently
 sanitized; filesystem mapping is a separate application responsibility.
 
-Application fixture `src/core/torrent/__fixtures__/test.torrent` is synthetic.
-Its piece table now contains five SHA-1 hashes of zero-filled payload pieces,
-matching its declared 1,101,824-byte total and 262,144-byte piece length. Earlier
-versions had only one hash and were inconsistent; parser validation is not
-relaxed to accept that fixture.
+This corpus was extracted with the parser from Motrix commit
+`4893edf3df8688e7669f8d19908dd68add8f0e61`. Application-specific fixtures and
+admission checks remain in the Motrix repository.

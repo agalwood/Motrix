@@ -1,0 +1,6 @@
+allowBuilds:
+  esbuild: true
+
+minimumReleaseAgeExclude:
+  - "@noble/hashes@2.4.0"
+  - parse-torrent@11.0.24

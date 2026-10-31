@@ -4,17 +4,12 @@ import { fileURLToPath } from 'node:url'
 import { build } from 'esbuild'
 import { chromium, firefox, webkit } from 'playwright'
 
-const root = fileURLToPath(new URL('../../../', import.meta.url))
+const root = fileURLToPath(new URL('../', import.meta.url))
 const output = `${root}/output/playwright/manual/torrent-core`
 await mkdir(output, { recursive: true })
 const bundle = await build({
   absWorkingDir: root,
-  stdin: {
-    contents:
-      "export * from './packages/torrent/src/index.ts'; export { readTorrentFile } from './src/renderer/lib/parse-torrent-file.ts'",
-    resolveDir: root,
-    loader: 'ts',
-  },
+  entryPoints: ['dist/index.js'],
   bundle: true,
   format: 'iife',
   globalName: 'Torrent',
@@ -68,8 +63,7 @@ for (const name of selected) {
     await page.goto('http://torrent.test/')
     await page.addScriptTag({ content: bundle.outputFiles[0].text })
     const result = await page.evaluate(async (fixtures) => {
-      const { parseTorrent, encode, decode, parseMagnet, readTorrentFile } =
-        globalThis.Torrent
+      const { parseTorrent, encode, decode, parseMagnet } = globalThis.Torrent
       if (isSecureContext || globalThis.crypto?.subtle)
         throw new Error('Expected HTTP without WebCrypto')
       const hashes = fixtures.map(({ name, bytes }) => {
@@ -80,20 +74,10 @@ for (const name of selected) {
         return { name, identity: parsed.identity }
       })
       const seed = new Uint8Array(fixtures[0].bytes)
-      const file = await readTorrentFile(new File([seed], 'alice.torrent'))
-      if (file.base64 !== btoa(String.fromCharCode(...seed)))
-        throw new Error('File bytes changed')
-      const v2 = new Uint8Array(
-        fixtures.find((f) => f.name === 'libtorrent/v2-only').bytes
-      )
-      let rejected = false
-      try {
-        await readTorrentFile(new File([v2], 'v2.torrent'))
-      } catch (error) {
-        rejected = error.code === 'ENGINE_FEATURE_UNAVAILABLE'
-      }
-      if (!rejected)
-        throw new Error('Unsupported v2 reached the engine projection')
+      const file = new File([seed], 'fixture.torrent')
+      const fromFile = parseTorrent(new Uint8Array(await file.arrayBuffer()))
+      if (fromFile.identity.sha1 !== hashes[0].identity.sha1)
+        throw new Error('Caller-owned File IO changed identity')
       const parsed = decode(
         encode({ large: 9007199254740993n, binary: new Uint8Array([0, 255]) })
       ).value
@@ -108,8 +92,7 @@ for (const name of selected) {
         secureContext: isSecureContext,
         webCrypto: Boolean(globalThis.crypto?.subtle),
         hashes,
-        originalFilePreserved: true,
-        unsupportedV2Rejected: true,
+        callerFileIo: true,
       }
     }, files)
     assert.equal(
@@ -119,7 +102,7 @@ for (const name of selected) {
     )
     results.push({ browser: name, version: browser.version(), ...result })
     console.log(
-      `${name}: ${files.length} metadata vectors, File IO and unsupported v2 rejection passed without WebCrypto`
+      `${name}: ${files.length} metadata vectors and caller-owned File IO passed without WebCrypto`
     )
   } finally {
     await browser.close()

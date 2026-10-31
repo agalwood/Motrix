@@ -1,28 +1,36 @@
 # @motrix/torrent
 
-An unpublished, host-neutral TypeScript metadata library. It performs no network
+A host-neutral TypeScript/ESM metadata library for BitTorrent v1, v2 and hybrid torrents. It performs no network
 or filesystem IO and has no Node, Buffer, fetch, Streams or WebCrypto dependency.
 SHA-1 and SHA-256 use `@noble/hashes`, including on insecure HTTP browser origins.
 This is a metadata library, not a peer-wire protocol or download engine.
+
+```sh
+npm install @motrix/torrent
+```
 
 ```ts
 import { parseTorrent, parseMagnet } from '@motrix/torrent'
 
 const metadata = parseTorrent(bytes) // Uint8Array, synchronous
 switch (metadata.identity.kind) {
-  case 'v1': console.log(metadata.identity.sha1); break
-  case 'v2': console.log(metadata.identity.sha256); break
-  case 'hybrid': console.log(metadata.identity.sha1, metadata.identity.sha256)
+  case 'v1':
+    console.log(metadata.identity.sha1)
+    break
+  case 'v2':
+    console.log(metadata.identity.sha256)
+    break
+  case 'hybrid':
+    console.log(metadata.identity.sha1, metadata.identity.sha256)
 }
 const piece = metadata.v1?.pieces.at(0) // borrowed 20-byte view
 const magnet = parseMagnet('magnet:?xt=urn:btmh:1220' + 'ab'.repeat(32))
 ```
 
-The workspace exports TypeScript sources for bundlers. `pnpm --dir packages/torrent
-build` produces standalone ESM JavaScript and declarations in `dist/`; publication
-export paths are prepared in `publishConfig`. The package is private and is not
-published by the application release process. The only runtime dependency is
-`@noble/hashes`. All exports are side-effect free and tree-shakeable.
+The package ships ESM JavaScript and TypeScript declarations, with tree-shakeable
+exports at `@motrix/torrent`, `@motrix/torrent/bencode`, and `@motrix/torrent/magnet`.
+It supports Node.js 22.12+, Electron and modern browsers. Its only runtime
+dependency is `@noble/hashes`. See [简体中文](README.zh-CN.md).
 
 ## Parsing contract
 
@@ -71,36 +79,41 @@ published by the application release process. The only runtime dependency is
   filesystem overloads from parse-torrent are intentionally absent. Callers
   perform IO before passing Uint8Array bytes to the explicit parser.
 
-## Motrix adapter
+## Consumer responsibilities
 
-`src/shared/lib/engine-torrent.ts` is the current engine projection. It selects
-v1 SHA-1 for v1/hybrid, rejects pure v2 and symlinks, checks numeric limits,
-decodes paths without replacing invalid UTF-8, and retains component boundaries.
-It rejects noncanonical info dictionaries because aria2 re-encodes info before
-hashing; unsorted outer v1 fields are admitted when info itself is canonical.
-Storage policy validates components before joining them. Uploaded torrent bytes
-are never rewritten. Hybrid download and local verification currently use the
-v1 swarm and SHA-1 piece table; v2 payload verification is not advertised.
-The current aria2 path treats padding as physical files; local verification
-checks those engine-visible files, including symlink and integrity checks.
+Reading files, fetching URLs, validating network destinations, mapping filesystem
+paths and choosing a download engine belong to the consumer. For example:
+
+```ts
+const metadata = parseTorrent(new Uint8Array(await file.arrayBuffer()))
+```
+
+The [Motrix application](https://github.com/agalwood/Motrix) consumes this package
+through an engine-specific projection. Metadata support does not imply that a
+particular engine can download v2 or verify both hybrid hash algorithms.
 
 ## Verification
 
 ```sh
-pnpm --dir packages/torrent typecheck
-pnpm --dir packages/torrent build
-pnpm --dir packages/torrent test
+pnpm install --frozen-lockfile
+pnpm check
 pnpm exec playwright install chromium firefox webkit
-pnpm --dir packages/torrent test:browser
+pnpm test:browser
 ```
 
-The root Vitest suite also runs these Node tests once. They include independent
-libtorrent expectations, legal-v1 differential tests against test-only
-parse-torrent 11.0.24, malformed inputs, deterministic roundtrip properties and
-byte fuzzing. Browser checks run in Chromium, Firefox and WebKit on an intercepted
-non-loopback HTTP origin without WebCrypto, including Motrix File IO and v2
-admission. Results are written under `output/playwright/manual/torrent-core/`.
-See [fixture provenance](test/fixtures/README.md) for versions and licenses.
+`pnpm check` runs lint, strict source/test type checks, Node tests, the ESM build,
+and an isolated consumer installed from the actual npm tarball. The verified
+publish artifact is retained in ignored `output/package/`.
+
+Tests include libtorrent expectations, legal-v1 differential checks against
+test-only parse-torrent 11.0.24, malformed inputs, deterministic roundtrip
+properties and byte fuzzing. Chromium, Firefox and WebKit exercise the compiled
+ESM build on an intercepted non-loopback HTTP origin without WebCrypto. Browser
+results go in `output/playwright/manual/torrent-core/`. See
+[fixture provenance](test/fixtures/README.md) for versions and licenses.
+
+The implementation was extracted from the Motrix repository at
+`a2aae7a02e4b93190ee6ff5aceae1c7429ffd30f`, preserving its package history.
 
 Protocol references: [BEP 3](https://www.bittorrent.org/beps/bep_0003.html),
 [BEP 9](https://www.bittorrent.org/beps/bep_0009.html),

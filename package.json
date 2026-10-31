@@ -1,20 +1,34 @@
 {
   "name": "@motrix/torrent",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "license": "MIT",
   "sideEffects": false,
   "exports": {
-    ".": "./src/index.ts",
-    "./bencode": "./src/bencode.ts",
-    "./magnet": "./src/magnet.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./bencode": {
+      "types": "./dist/bencode.d.ts",
+      "import": "./dist/bencode.js"
+    },
+    "./magnet": {
+      "types": "./dist/magnet.d.ts",
+      "import": "./dist/magnet.js"
+    }
   },
   "scripts": {
-    "test": "vitest run --config vitest.config.ts",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
     "build": "tsc -p tsconfig.build.json",
-    "test:browser": "node test/browser.mjs"
+    "test": "vitest run",
+    "test:browser": "pnpm build && node test/browser.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "verify:package": "node scripts/verify-package.mjs",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm verify:package",
+    "prepack": "pnpm build",
+    "prepublishOnly": "pnpm check"
   },
   "dependencies": {
     "@noble/hashes": "2.4.0"
@@ -22,35 +36,45 @@
   "files": [
     "dist",
     "README.md",
-    "LICENSE"
+    "README.zh-CN.md",
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "publishConfig": {
-    "exports": {
-      ".": {
-        "types": "./dist/index.d.ts",
-        "import": "./dist/index.js"
-      },
-      "./bencode": {
-        "types": "./dist/bencode.d.ts",
-        "import": "./dist/bencode.js"
-      },
-      "./magnet": {
-        "types": "./dist/magnet.d.ts",
-        "import": "./dist/magnet.js"
-      }
-    }
+    "access": "public"
   },
   "devDependencies": {
     "typescript": "~7.0.2",
     "vitest": "^5.0.5",
     "parse-torrent": "11.0.24",
     "playwright": "^1.64.1",
-    "esbuild": "^0.28.2"
+    "esbuild": "^0.28.2",
+    "@biomejs/biome": "~2.6.4",
+    "@types/node": "^24.0.0"
   },
   "description": "Bounded, host-neutral BitTorrent v1/v2/hybrid metadata and magnet parsing",
   "repository": {
     "type": "git",
-    "url": "https://github.com/agalwood/Motrix.git",
-    "directory": "packages/torrent"
-  }
+    "url": "git+https://github.com/motrixapp/torrent.git"
+  },
+  "author": "Motrix",
+  "homepage": "https://github.com/motrixapp/torrent#readme",
+  "bugs": {
+    "url": "https://github.com/motrixapp/torrent/issues"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "packageManager": "pnpm@12.16.1",
+  "keywords": [
+    "bittorrent",
+    "torrent",
+    "magnet",
+    "bencode",
+    "bep52",
+    "typescript",
+    "motrix"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts"
 }

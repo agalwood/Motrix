@@ -1,0 +1,10 @@
+node_modules/
+dist/
+output/
+coverage/
+*.tgz
+.DS_Store
+.env
+.env.*
+.npmrc
+CLAUDE.local.md
