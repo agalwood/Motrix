@@ -581,7 +581,7 @@ export function SpeedLimitSection({
       )}
 
       <p className="text-xs text-muted-foreground">
-        {t('settings.downloads.speedLimit.effect.lowerWins')}
+        {t('settings.downloads.speedLimit.effect.profileSelection')}
       </p>
     </>
   )

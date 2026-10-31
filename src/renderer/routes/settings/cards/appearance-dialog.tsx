@@ -66,6 +66,7 @@ type AppearanceFields = Pick<
   | 'language'
   | 'byteUnitSystem'
   | 'traySpeedometer'
+  | 'showDownloadProgress'
   | 'trayIconColor'
   | 'liquidGlassEffect'
 >
@@ -81,6 +82,7 @@ const DEFAULTS: AppearanceFields = {
   language: DEFAULT_APP_SETTINGS.language,
   byteUnitSystem: DEFAULT_APP_SETTINGS.byteUnitSystem,
   traySpeedometer: DEFAULT_APP_SETTINGS.traySpeedometer,
+  showDownloadProgress: DEFAULT_APP_SETTINGS.showDownloadProgress,
   trayIconColor: DEFAULT_APP_SETTINGS.trayIconColor,
   liquidGlassEffect: DEFAULT_APP_SETTINGS.liquidGlassEffect,
 }
@@ -117,6 +119,8 @@ export function AppearanceDialog({
         language: all.app.language,
         byteUnitSystem: all.app.byteUnitSystem ?? DEFAULTS.byteUnitSystem,
         traySpeedometer: all.app.traySpeedometer,
+        showDownloadProgress:
+          all.app.showDownloadProgress ?? DEFAULTS.showDownloadProgress,
         trayIconColor: all.app.trayIconColor ?? DEFAULTS.trayIconColor,
         liquidGlassEffect: all.app.liquidGlassEffect,
       })
@@ -201,6 +205,7 @@ export function AppearanceDialog({
     label: string
   }>
   const isMac = transport.platform === 'darwin'
+  const isWindows = transport.platform === 'win32'
   const isLinux = transport.platform === 'linux'
   const trayIconColorOptions = [
     { value: 'auto', label: t('settings.appearance.trayIconColorAuto') },
@@ -461,11 +466,17 @@ export function AppearanceDialog({
                         </SettingsFormRow>
                       )}
                     />
-                    {(isMac || isLinux) && (
+                    {(isMac || isWindows || isLinux) && (
                       <>
                         <Separator className="my-4" />
                         <h3 className="text-sm font-semibold">
-                          {t('settings.appearance.menuBar')}
+                          {t(
+                            isMac
+                              ? 'settings.appearance.dockAndMenuBar'
+                              : isWindows
+                                ? 'settings.appearance.taskbar'
+                                : 'settings.appearance.menuBar'
+                          )}
                         </h3>
                       </>
                     )}
@@ -507,6 +518,38 @@ export function AppearanceDialog({
                                   </SelectGroup>
                                 </SelectContent>
                               </Select>
+                            </FormControl>
+                          </SettingsFormRow>
+                        )}
+                      />
+                    )}
+                    {(isMac || isWindows) && (
+                      <FormField
+                        control={form.control}
+                        name="showDownloadProgress"
+                        render={({ field }) => (
+                          <SettingsFormRow>
+                            <div className="space-y-1">
+                              <FormLabel>
+                                {t(
+                                  isMac
+                                    ? 'settings.appearance.dockProgress'
+                                    : 'settings.appearance.taskbarProgress'
+                                )}
+                              </FormLabel>
+                              <FormDescription className="text-xs">
+                                {t(
+                                  isMac
+                                    ? 'settings.appearance.dockProgressDesc'
+                                    : 'settings.appearance.taskbarProgressDesc'
+                                )}
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
                             </FormControl>
                           </SettingsFormRow>
                         )}

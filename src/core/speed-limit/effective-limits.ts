@@ -45,23 +45,21 @@ export function computeEffectiveLimits(
   ctx: EffectiveLimitContext
 ): SpeedLimitProfile {
   if (s.turtle === 'off') return { ...s.base }
-  if (s.turtle === 'on') {
-    return {
-      download: minCap([s.base.download, s.alt.download]),
-      upload: minCap([s.base.upload, s.alt.upload]),
-    }
+  // Empty low speed fields inherit the corresponding standard limit. An
+  // explicit value selects that profile even when it is higher than standard.
+  const lowSpeed = {
+    download: s.alt.download > 0 ? s.alt.download : s.base.download,
+    upload: s.alt.upload > 0 ? s.alt.upload : s.base.upload,
   }
+  if (s.turtle === 'on') return lowSpeed
   // turtle === 'auto'
-  const downs: number[] = [s.base.download]
-  const ups: number[] = [s.base.upload]
   const { schedule, videoApp, adaptive } = s.auto
   const altActive =
     (schedule.enabled && withinWindow(ctx.now, schedule)) ||
     (videoApp.enabled && ctx.videoAppRunning)
-  if (altActive) {
-    downs.push(s.alt.download)
-    ups.push(s.alt.upload)
-  }
+  const selected = altActive ? lowSpeed : s.base
+  const downs: number[] = [selected.download]
+  const ups: number[] = [selected.upload]
   if (adaptive.enabled) {
     downs.push(Math.floor((adaptive.linkDown * adaptive.headroomPercent) / 100))
     ups.push(Math.floor((adaptive.linkUp * adaptive.headroomPercent) / 100))

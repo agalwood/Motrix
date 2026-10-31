@@ -65,6 +65,7 @@ export class WindowManager {
   private pendingMaximize = new WeakSet<BrowserWindow>()
   private boundsTimers = new Map<WindowId, ReturnType<typeof setTimeout>>()
   private rendererUrlPolicy: RendererUrlPolicy
+  private taskbarProgress: number | null = null
   // The window the user most recently asked to be brought to the
   // foreground. Read by each window's `ready-to-show` handler: a window
   // that finishes loading after this changes (e.g. main rendering after
@@ -284,6 +285,20 @@ export class WindowManager {
     return result
   }
 
+  /** Keep Windows taskbar progress current without retaining or opening a renderer. */
+  setTaskbarProgress(progress: number): void {
+    if ((this.deps.platform ?? process.platform) !== 'win32') return
+    if (
+      progress < 0 &&
+      (this.taskbarProgress === null || this.taskbarProgress < 0)
+    )
+      return
+    this.taskbarProgress = progress
+    // Reapply active values on task polls too: the Windows shell may create its
+    // taskbar button after the synchronous show event has already fired.
+    this.get('main')?.setProgressBar(progress)
+  }
+
   updateWindowControlsTheme(shouldUseDarkColors: boolean): void {
     if ((this.deps.platform ?? process.platform) !== 'linux') return
     for (const win of this.getAllWindows()) {
@@ -382,6 +397,20 @@ export class WindowManager {
           process.env.MOTRIX_PREVIEW_MAC_MENU === '1'))
 
     this.windows.set(id, win)
+    if (id === 'main' && (this.deps.platform ?? process.platform) === 'win32') {
+      const restoreProgress = () => {
+        if (
+          !win.isDestroyed() &&
+          !this.willQuit &&
+          this.taskbarProgress !== null
+        ) {
+          win.setProgressBar(this.taskbarProgress)
+        }
+      }
+      win.on('show', restoreProgress)
+      win.on('restore', restoreProgress)
+      restoreProgress()
+    }
     if (config.liquidGlass) {
       this.deps.liquidGlass?.attach(id, win)
     }

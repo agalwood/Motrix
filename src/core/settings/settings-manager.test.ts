@@ -97,6 +97,29 @@ describe('SettingsManager', () => {
     })
   })
 
+  it('keeps Dock progress opt-in and persists changes without requiring a restart', async () => {
+    expect(manager.getApp().showDownloadProgress).toBe(false)
+    for (const showDownloadProgress of [true, false]) {
+      expect(
+        await manager.update({ app: { showDownloadProgress } })
+      ).toMatchObject({
+        saved: true,
+        requiresRestart: false,
+        requiresAppRestart: false,
+      })
+      expect(onChange).toHaveBeenLastCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          app: expect.objectContaining({ showDownloadProgress }),
+        })
+      )
+      mockReadFile.mockResolvedValue(mockWriteFileAtomic.mock.lastCall![1])
+      const restored = new SettingsManager(TEST_PATH)
+      await restored.load()
+      expect(restored.getApp().showDownloadProgress).toBe(showDownloadProgress)
+    }
+  })
+
   it('reports an app restart only when window limits change', async () => {
     const app = { mainWindowMinWidth: 320, mainWindowMinHeight: 0 }
     expect(await manager.update({ app })).toMatchObject({

@@ -6,6 +6,22 @@ import {
 } from './app-settings'
 
 describe('appSettingsSchema', () => {
+  it('leaves Dock progress off for existing or damaged profiles and rejects malformed changes', () => {
+    for (const showDownloadProgress of [undefined, null, 'true', 1]) {
+      expect(
+        appSettingsSchema.parse({ showDownloadProgress }).showDownloadProgress
+      ).toBe(false)
+    }
+    expect(
+      appSettingsSchema.parse({ showDownloadProgress: true })
+        .showDownloadProgress
+    ).toBe(true)
+    expect(
+      appSettingsInputSchema
+        .partial()
+        .safeParse({ showDownloadProgress: 'true' }).success
+    ).toBe(false)
+  })
   it('defaults acceleration on for existing profiles and strictly validates changes', () => {
     expect(DEFAULT_APP_SETTINGS.hardwareAcceleration).toBe(true)
     expect(

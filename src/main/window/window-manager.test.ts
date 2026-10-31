@@ -39,11 +39,11 @@ vi.mock('electron', () => {
     loadFile = vi.fn().mockResolvedValue(undefined)
     show = vi.fn(() => {
       this._visible = true
-      this.fireOnce('show')
+      this.fire('show')
     })
     showInactive = vi.fn(() => {
       this._visible = true
-      this.fireOnce('show')
+      this.fire('show')
     })
     hide = vi.fn(() => {
       this._visible = false
@@ -63,6 +63,7 @@ vi.mock('electron', () => {
     })
     restore = vi.fn(() => {
       this._minimized = false
+      this.fire('restore')
     })
     isFullScreen = vi.fn(() => false)
     getBounds = vi.fn(() => ({ ...this._bounds }))
@@ -81,6 +82,7 @@ vi.mock('electron', () => {
     setMenuBarVisibility = vi.fn()
     setTitleBarOverlay = vi.fn()
     setWindowButtonVisibility = vi.fn()
+    setProgressBar = vi.fn()
     center = vi.fn()
     on = vi.fn().mockReturnThis()
     onceListeners: Record<string, ((...args: unknown[]) => void)[]> = {}
@@ -96,6 +98,13 @@ vi.mock('electron', () => {
       const listeners = this.onceListeners[event] ?? []
       this.onceListeners[event] = []
       for (const fn of listeners) fn()
+    }
+
+    fire(event: string) {
+      for (const [registered, listener] of this.on.mock.calls) {
+        if (registered === event) listener()
+      }
+      this.fireOnce(event)
     }
 
     fireReadyToShow() {
@@ -152,6 +161,99 @@ describe('WindowManager', () => {
       nativeTheme as unknown as { shouldUseDarkColors: boolean }
     ).shouldUseDarkColors = false
     vi.clearAllMocks()
+  })
+
+  describe('Windows taskbar progress', () => {
+    function setup(platform = 'win32') {
+      return new WindowManager({
+        settingsManager: createMockSettingsManager(),
+        preloadPath: '/fake/preload.cjs',
+        loadUrl: vi.fn(),
+        platform,
+        retentionPolicy: {
+          releaseMainOnDismiss: () => true,
+          prewarmAddTask: () => false,
+        },
+      })
+    }
+
+    it('starts empty and updates only the main taskbar button, including when minimized', () => {
+      const wm = setup()
+      const main = wm.open('main')!
+      const addTask = wm.open('add-task')!
+      wm.setTaskbarProgress(-1)
+      expect(main.setProgressBar).not.toHaveBeenCalled()
+      wm.setTaskbarProgress(0.25)
+      expect(main.setProgressBar).toHaveBeenLastCalledWith(0.25)
+      main.minimize()
+      wm.setTaskbarProgress(0.5)
+      expect(main.setProgressBar).toHaveBeenLastCalledWith(0.5)
+      expect(addTask.setProgressBar).not.toHaveBeenCalled()
+      wm.setTaskbarProgress(-1)
+      expect(main.setProgressBar).toHaveBeenLastCalledWith(-1)
+    })
+
+    it('reapplies cached progress when a window is shown or restored', () => {
+      const wm = setup()
+      const main = wm.open('main')!
+      wm.setTaskbarProgress(0.4)
+      wm.hide('main')
+      vi.mocked(main.setProgressBar).mockClear()
+      wm.show('main')
+      expect(main.setProgressBar).toHaveBeenLastCalledWith(0.4)
+      main.minimize()
+      vi.mocked(main.setProgressBar).mockClear()
+      main.restore()
+      expect(main.setProgressBar).toHaveBeenLastCalledWith(0.4)
+    })
+
+    it('retains the latest progress through lightweight release and window recreation', () => {
+      const wm = setup()
+      const oldMain = wm.open('main')!
+      wm.setTaskbarProgress(0.2)
+      wm.close('main')
+      expect(wm.get('main')).toBeNull()
+      wm.setTaskbarProgress(0.7)
+      expect(wm.getAllWindows()).toHaveLength(0)
+      expect(oldMain.setProgressBar).toHaveBeenLastCalledWith(0.2)
+      const reopened = wm.open('main')!
+      expect(reopened.setProgressBar).toHaveBeenLastCalledWith(0.7)
+      const recovered = wm.recreate('main', 'recovery')!
+      expect(recovered.setProgressBar).toHaveBeenLastCalledWith(0.7)
+    })
+
+    it('does not restore stale progress when disabled while no main window exists', () => {
+      const wm = setup()
+      wm.setTaskbarProgress(0.6)
+      expect(wm.getAllWindows()).toHaveLength(0)
+      wm.setTaskbarProgress(-1)
+      const main = wm.open('main')!
+      wm.show('main')
+      expect(main.setProgressBar).toHaveBeenLastCalledWith(-1)
+      expect(main.setProgressBar).not.toHaveBeenCalledWith(0.6)
+    })
+
+    it('reapplies the cleared state when a hidden window returns to the taskbar', () => {
+      const wm = setup()
+      const main = wm.open('main')!
+      wm.setTaskbarProgress(0.6)
+      wm.hide('main')
+      wm.setTaskbarProgress(-1)
+      vi.mocked(main.setProgressBar).mockClear()
+      wm.show('main')
+      expect(main.setProgressBar).toHaveBeenCalledWith(-1)
+    })
+
+    it.each(['darwin', 'linux'])(
+      'does not apply window-scoped taskbar progress on %s',
+      (platform) => {
+        const wm = setup(platform)
+        const main = wm.open('main')!
+        wm.setTaskbarProgress(0.5)
+        wm.show('main')
+        expect(main.setProgressBar).not.toHaveBeenCalled()
+      }
+    )
   })
 
   describe.each(['closing', 'destroyed'] as const)(
