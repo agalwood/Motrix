@@ -765,6 +765,9 @@ async function main() {
         : null
     }
   )
+  supervisor.setSessionRecoveryStore(
+    sessionManager.getEngineSessionRecoveryStore()
+  )
   supervisor.setStartupGuard(
     new CompletedTaskStartupGuard({
       completedGids: () => sessionManager.getCompletedDirectEngineTaskIds(),

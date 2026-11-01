@@ -861,7 +861,8 @@ describe('EngineSupervisor', () => {
     await supervisor.start('/usr/bin/aria2c')
     expect(recoverSessionMock).toHaveBeenCalledWith(
       '/tmp/aria2.db',
-      expect.any(Function)
+      expect.any(Function),
+      undefined
     )
     expect(recoverSessionMock.mock.invocationCallOrder.at(-1)).toBeLessThan(
       prepare.mock.invocationCallOrder[0]!
@@ -887,6 +888,28 @@ describe('EngineSupervisor', () => {
     expect(supervisor.getState()).toBe(EngineState.Failed)
     expect(processManager.spawn).not.toHaveBeenCalled()
     expect(supervisor.getLastError()).toBe('saved metadata unavailable')
+  })
+
+  it('starts after durable per-task quarantine and passes the application recovery store', async () => {
+    const store = {
+      getContext: vi.fn(() => ({ metadataPaths: [], retired: false })),
+      quarantine: vi.fn().mockResolvedValue(undefined),
+    }
+    supervisor.setSessionRecoveryStore(store)
+    recoverSessionMock.mockResolvedValueOnce({
+      backupPath: '/backup/aria2.db',
+      repairedGids: [],
+      retiredMetadataGids: ['1111111111111111'],
+      quarantinedGids: ['2222222222222222'],
+    })
+    await supervisor.start('/usr/bin/aria2c')
+    expect(recoverSessionMock).toHaveBeenLastCalledWith(
+      '/tmp/aria2.db',
+      expect.any(Function),
+      store
+    )
+    expect(processManager.spawn).toHaveBeenCalledOnce()
+    expect(supervisor.getState()).toBe(EngineState.Ready)
   })
 
   it('preserves only the GID conflict diagnostic when RPC fails', async () => {

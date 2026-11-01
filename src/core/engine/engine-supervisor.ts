@@ -43,6 +43,7 @@ import {
   STANDARD_ARIA2_CONNECTION_LIMIT,
 } from './aria2/feature-report'
 import type { DirectResourceMetadataProfile } from './engine-adapter'
+import type { EngineSessionRecoveryStore } from './engine-session-recovery'
 import { checkPort, findAvailablePort } from './port-check'
 
 const log = getLogger('engine')
@@ -88,6 +89,7 @@ function getBackoffDelay(attempt: number): number {
 }
 
 export class EngineSupervisor {
+  private sessionRecoveryStore?: EngineSessionRecoveryStore
   private state: EngineState = EngineState.Stopped
   private featureReport: EngineFeatureReport | null = null
   private getEffectiveLimits:
@@ -200,6 +202,10 @@ export class EngineSupervisor {
   /** Required reconciliation runs under a paused startup, before Ready. */
   setStartupGuard(guard: EngineStartupGuard): void {
     this.startupGuard = guard
+  }
+
+  setSessionRecoveryStore(store: EngineSessionRecoveryStore): void {
+    this.sessionRecoveryStore = store
   }
 
   /** Register best-effort engine maintenance that runs after RPC connects but before Ready. */
@@ -531,10 +537,11 @@ export class EngineSupervisor {
       if (sqliteActive) {
         const recovery = await recoverAria2SessionIdentity(
           this.configBuilder.resolveSqliteDbPath(engineSettings),
-          () => !this.stopping && !this.processManager.isRunning()
+          () => !this.stopping && !this.processManager.isRunning(),
+          this.sessionRecoveryStore
         )
         if (recovery)
-          log.warn(recovery, 'repaired aria2 metadata task identities')
+          log.warn(recovery, 'recovered aria2 metadata task identities')
       }
 
       // Step 4: Spawn process (abort if stop() was called during earlier awaits)

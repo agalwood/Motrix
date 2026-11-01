@@ -6,6 +6,10 @@ import { MAX_TORRENT_BASE64_SIZE } from '@shared/lib/torrent-meta'
 import Database from 'better-sqlite3'
 import writeFileAtomic from 'write-file-atomic'
 import { z } from 'zod'
+import type {
+  EngineSessionRecoveryStore,
+  EngineSessionTaskFailure,
+} from '../engine-session-recovery'
 
 const gidSchema = z.string().regex(/^[0-9a-f]{16}$/)
 const rowSchema = z.object({
@@ -57,17 +61,51 @@ export interface SessionIdentityRecovery {
   backupPath: string
   repairedGids: string[]
   retiredMetadataGids: string[]
+  quarantinedGids: string[]
+}
+
+async function readMatchingMetadata(
+  metadataPath: string,
+  infoHash: string
+): Promise<Buffer | null> {
+  let bytes: Buffer
+  try {
+    const metadataStat = await stat(metadataPath)
+    if (
+      !metadataStat.isFile() ||
+      metadataStat.size > (MAX_TORRENT_BASE64_SIZE * 3) / 4
+    )
+      return null
+    bytes = await readFile(metadataPath)
+  } catch (error) {
+    if (
+      ['ENOENT', 'ENOTDIR'].includes(
+        (error as NodeJS.ErrnoException).code ?? ''
+      )
+    )
+      return null
+    // Permission and storage failures are not evidence that a task was deleted.
+    throw error
+  }
+  try {
+    const torrent = await parseTorrent(bytes)
+    return torrent.infoHash === infoHash && torrent.files?.length ? bytes : null
+  } catch {
+    return null
+  }
 }
 
 /**
  * Repair the fork's metadata-ancestor GID serialization (schema v1–v5) before spawn.
  * The actual row key remains the owner of progress, cookies and app identity.
  * A verified local torrent replaces the magnet so aria2 recreates that exact
- * payload task directly. No engine schema, setting or download data changes.
+ * payload task directly. Unrecoverable tasks are backed up and retained in the
+ * application before their engine rows are retired. Download data is untouched.
  */
 export async function recoverAria2SessionIdentity(
   databasePath: string,
-  canRepair: () => boolean = () => true
+  canRepair: () => boolean = () => true,
+  recoveryStore?: EngineSessionRecoveryStore
 ): Promise<SessionIdentityRecovery | null> {
   try {
     await stat(databasePath)
@@ -110,6 +148,7 @@ export async function recoverAria2SessionIdentity(
 
     const retiredMetadataGids = new Set<string>()
     const plans: Array<{ row: Row; entry: Entry; bytes: Buffer }> = []
+    const quarantined: EngineSessionTaskFailure[] = []
     for (const { row, entry } of candidates) {
       if (!['waiting', 'paused'].includes(row.state))
         throw failure(row.gid, 'unsupported task state')
@@ -141,32 +180,62 @@ export async function recoverAria2SessionIdentity(
         retiredMetadataGids.add(parent.gid)
       }
 
-      let bytes: Buffer
+      let infoHash: string
       try {
         const magnet = await parseTorrent(entry.source)
         if (!magnet.infoHash || !/^[a-f0-9]{40}$/.test(magnet.infoHash))
           throw new Error('invalid infohash')
-        const metadataPath = path.join(
-          entry.directory,
-          `${magnet.infoHash}.torrent`
-        )
-        const metadataStat = await stat(metadataPath)
-        if (
-          !metadataStat.isFile() ||
-          metadataStat.size > (MAX_TORRENT_BASE64_SIZE * 3) / 4
-        )
-          throw new Error('invalid metadata size')
-        bytes = await readFile(metadataPath)
-        const torrent = await parseTorrent(bytes)
-        if (torrent.infoHash !== magnet.infoHash || !torrent.files?.length)
-          throw new Error('metadata does not match magnet')
+        infoHash = magnet.infoHash
       } catch {
+        throw failure(row.gid, 'invalid magnet identity')
+      }
+      const task = {
+        engineTaskId: row.gid,
+        metadataTaskId: entry.gid,
+        sourceUri: entry.source,
+        saveDir: entry.directory,
+        infoHash,
+      }
+      const context = recoveryStore?.getContext(task)
+      let directoryMissing = false
+      if (!context?.retired) {
+        try {
+          directoryMissing = !(await stat(entry.directory)).isDirectory()
+        } catch (error) {
+          if (
+            !['ENOENT', 'ENOTDIR'].includes(
+              (error as NodeJS.ErrnoException).code ?? ''
+            )
+          )
+            throw error
+          directoryMissing = true
+        }
+      }
+      let bytes: Buffer | null = null
+      if (!context?.retired && !directoryMissing) {
+        const metadataPaths = new Set([
+          path.join(entry.directory, `${infoHash}.torrent`),
+          ...(context?.metadataPaths ?? []),
+        ])
+        for (const metadataPath of metadataPaths) {
+          bytes = await readMatchingMetadata(metadataPath, infoHash)
+          if (bytes) break
+        }
+      }
+      if (bytes) {
+        plans.push({ row, entry, bytes })
+      } else if (recoveryStore) {
+        quarantined.push({
+          ...task,
+          reason: directoryMissing ? 'files-missing' : 'metadata-unavailable',
+        })
+      } else {
+        // Standalone callers cannot discard a task without a durable UI owner.
         throw failure(
           row.gid,
           'matching saved torrent metadata is unavailable; session was not changed'
         )
       }
-      plans.push({ row, entry, bytes })
     }
 
     if (!canRepair())
@@ -198,6 +267,12 @@ export async function recoverAria2SessionIdentity(
       const serialized = `${metadataPath}\n gid=${row.gid}\n${row.state === 'paused' || entry.paused ? ' pause=true\n' : ''}${options.join('\n')}\n`
       changes.push({ row, serialized, metadataPath })
     }
+
+    // Commit application errors first. A crash or engine transaction failure
+    // leaves those identities retired in getContext(), so a subsequent boot
+    // cannot revive them even if their metadata has since reappeared.
+    if (quarantined.length && recoveryStore)
+      await recoveryStore.quarantine(quarantined)
 
     db.pragma('foreign_keys = ON')
     db.transaction(() => {
@@ -236,7 +311,10 @@ export async function recoverAria2SessionIdentity(
         Number(schemaVersion) >= 3
           ? db.prepare('DELETE FROM task_progress WHERE gid = ?')
           : null
-      for (const gid of retiredMetadataGids) {
+      for (const gid of new Set([
+        ...retiredMetadataGids,
+        ...quarantined.map((task) => task.engineTaskId),
+      ])) {
         remove.run(gid)
         removeProgress?.run(gid)
       }
@@ -245,6 +323,7 @@ export async function recoverAria2SessionIdentity(
       backupPath,
       repairedGids: plans.map(({ row }) => row.gid),
       retiredMetadataGids: [...retiredMetadataGids],
+      quarantinedGids: quarantined.map((task) => task.engineTaskId),
     }
   } finally {
     db.close()

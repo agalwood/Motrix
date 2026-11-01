@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { createHash } from 'node:crypto'
 import {
+  mkdir,
   mkdtemp,
   readdir,
   readFile,
@@ -13,6 +14,7 @@ import path from 'node:path'
 import { parseEngineTorrent as parseTorrent } from '@shared/lib/engine-torrent'
 import Database from 'better-sqlite3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { EngineSessionRecoveryStore } from '../engine-session-recovery'
 import { recoverAria2SessionIdentity } from './aria2-session-identity-recovery'
 
 const PARENT = '1111111111111111'
@@ -102,6 +104,255 @@ afterEach(async () => {
 })
 
 describe('aria2 persisted task identity recovery', () => {
+  const recoveryStore = (): EngineSessionRecoveryStore => ({
+    getContext: () => ({ metadataPaths: [], retired: false }),
+    quarantine: vi.fn().mockResolvedValue(undefined),
+  })
+
+  it.each([2, 3, 4, 5] as const)(
+    'quarantines missing metadata with a complete backup on schema v%s',
+    async (schemaVersion) => {
+      const h = await setup('waiting', schemaVersion)
+      try {
+        await unlink(h.metadataPath)
+        const before = h.rows()
+        const history = h.db.prepare('SELECT * FROM download_history').all()
+        const store = recoveryStore()
+        store.quarantine = vi.fn(async (tasks) => {
+          expect(tasks).toMatchObject([
+            {
+              engineTaskId: CHILD,
+              metadataTaskId: PARENT,
+              reason: 'metadata-unavailable',
+            },
+          ])
+          expect(h.rows()).toEqual(before)
+          const backups = (await readdir(h.root)).filter((name) =>
+            name.includes('identity-recovery-')
+          )
+          const backup = new Database(
+            path.join(h.root, backups[0], 'aria2.db'),
+            { readonly: true }
+          )
+          try {
+            expect(
+              backup.prepare('SELECT * FROM task ORDER BY queue_position').all()
+            ).toEqual(before)
+            expect(
+              backup.prepare('SELECT * FROM task_progress').all()
+            ).toHaveLength(1)
+            expect(
+              backup.prepare('SELECT * FROM task_cookie_context').all()
+            ).toHaveLength(1)
+          } finally {
+            backup.close()
+          }
+        })
+        const result = await recoverAria2SessionIdentity(
+          h.file,
+          () => true,
+          store
+        )
+        expect(result?.quarantinedGids).toEqual([CHILD])
+        expect(result?.repairedGids).toEqual([])
+        expect(h.rows()).toEqual([before[2]])
+        expect(h.db.prepare('SELECT * FROM task_progress').all()).toEqual([])
+        expect(h.db.prepare('SELECT * FROM task_cookie_context').all()).toEqual(
+          []
+        )
+        expect(h.db.prepare('SELECT * FROM download_history').all()).toEqual(
+          history
+        )
+        expect(
+          await recoverAria2SessionIdentity(h.file, () => true, store)
+        ).toBeNull()
+        expect(store.quarantine).toHaveBeenCalledOnce()
+      } finally {
+        h.db.close()
+      }
+    }
+  )
+
+  it('uses only hash-verified cached metadata when the download copy is missing', async () => {
+    const h = await setup()
+    try {
+      await unlink(h.metadataPath)
+      const cached = path.join(h.root, 'app-cache.torrent')
+      const invalid = path.join(h.root, 'invalid.torrent')
+      await writeFile(cached, h.bytes)
+      await writeFile(
+        invalid,
+        await readFile('scripts/poc/fixtures/multi.torrent')
+      )
+      const store = recoveryStore()
+      store.getContext = () => ({
+        metadataPaths: [invalid, cached],
+        retired: false,
+      })
+      const result = await recoverAria2SessionIdentity(
+        h.file,
+        () => true,
+        store
+      )
+      expect(result?.repairedGids).toEqual([CHILD])
+      expect(result?.quarantinedGids).toEqual([])
+      expect(store.quarantine).not.toHaveBeenCalled()
+      const row = h.db
+        .prepare('SELECT bt_local_path FROM task WHERE gid = ?')
+        .get(CHILD) as { bt_local_path: string }
+      expect(await readFile(row.bt_local_path)).toEqual(h.bytes)
+    } finally {
+      h.db.close()
+    }
+  })
+
+  it('repairs a healthy BT identity in the same transaction that isolates a broken task', async () => {
+    const h = await setup()
+    try {
+      const good = '4444444444444444'
+      const directory = path.join(h.root, 'healthy')
+      await mkdir(directory)
+      await writeFile(
+        path.join(directory, path.basename(h.metadataPath)),
+        h.bytes
+      )
+      const serialized = h
+        .entry('5555555555555555', true)
+        .replace(`dir=${h.root}`, `dir=${directory}`)
+      h.db
+        .prepare(
+          'INSERT INTO task SELECT ?, state, ?, digest, bt_local_path, updated_at, queue_position + 10 FROM task WHERE gid = ?'
+        )
+        .run(good, serialized, CHILD)
+      h.db
+        .prepare('INSERT INTO task_progress (gid, bitfield) VALUES (?, ?)')
+        .run(good, Buffer.from([0xff]))
+      await unlink(h.metadataPath)
+      const result = await recoverAria2SessionIdentity(
+        h.file,
+        () => true,
+        recoveryStore()
+      )
+      expect(result?.repairedGids).toEqual([good])
+      expect(result?.quarantinedGids).toEqual([CHILD])
+      expect(h.db.prepare('SELECT * FROM task_progress').all()).toEqual([
+        { gid: good, bitfield: Buffer.from([0xff]) },
+      ])
+      const repaired = h.db
+        .prepare('SELECT serialized, state FROM task WHERE gid = ?')
+        .get(good) as { serialized: string; state: string }
+      expect(repaired.state).toBe('paused')
+      expect(repaired.serialized).toContain(`gid=${good}`)
+      expect(
+        await recoverAria2SessionIdentity(h.file, () => true, recoveryStore())
+      ).toBeNull()
+    } finally {
+      h.db.close()
+    }
+  })
+
+  it('does not recreate a deleted download directory even with cached metadata', async () => {
+    const h = await setup()
+    try {
+      const missingDir = path.join(h.root, 'deleted-download')
+      h.db
+        .prepare('UPDATE task SET serialized = replace(serialized, ?, ?)')
+        .run(`dir=${h.root}`, `dir=${missingDir}`)
+      const store = recoveryStore()
+      store.getContext = () => ({
+        metadataPaths: [h.metadataPath],
+        retired: false,
+      })
+      const result = await recoverAria2SessionIdentity(
+        h.file,
+        () => true,
+        store
+      )
+      expect(result?.quarantinedGids).toEqual([CHILD])
+      expect(store.quarantine).toHaveBeenCalledWith([
+        expect.objectContaining({ reason: 'files-missing' }),
+      ])
+      await expect(readFile(missingDir)).rejects.toMatchObject({
+        code: 'ENOENT',
+      })
+    } finally {
+      h.db.close()
+    }
+  })
+
+  it('leaves engine rows intact if durable application quarantine fails', async () => {
+    const h = await setup()
+    try {
+      await unlink(h.metadataPath)
+      const before = h.rows()
+      const store = recoveryStore()
+      store.quarantine = vi
+        .fn()
+        .mockRejectedValue(new Error('application database full'))
+      await expect(
+        recoverAria2SessionIdentity(h.file, () => true, store)
+      ).rejects.toThrow('application database full')
+      expect(h.rows()).toEqual(before)
+    } finally {
+      h.db.close()
+    }
+  })
+
+  it('finishes quarantine after a failed engine transaction even if metadata reappears', async () => {
+    const h = await setup()
+    try {
+      await unlink(h.metadataPath)
+      let retired = false
+      const store = recoveryStore()
+      store.getContext = () => ({ metadataPaths: [], retired })
+      store.quarantine = vi.fn(async () => {
+        retired = true
+      })
+      h.db.exec(
+        "CREATE TRIGGER refuse_delete BEFORE DELETE ON task BEGIN SELECT RAISE(ABORT, 'injected failure'); END"
+      )
+      await expect(
+        recoverAria2SessionIdentity(h.file, () => true, store)
+      ).rejects.toThrow('injected failure')
+      expect(h.rows()).toHaveLength(3)
+      h.db.exec('DROP TRIGGER refuse_delete')
+      await writeFile(h.metadataPath, h.bytes)
+      const result = await recoverAria2SessionIdentity(
+        h.file,
+        () => true,
+        store
+      )
+      expect(result?.quarantinedGids).toEqual([CHILD])
+      expect(result?.repairedGids).toEqual([])
+      expect(h.rows()).toHaveLength(1)
+    } finally {
+      h.db.close()
+    }
+  })
+
+  it.each(['invalid', 'mismatched'])(
+    'quarantines %s metadata when no verified cache exists',
+    async (variant) => {
+      const h = await setup()
+      try {
+        await writeFile(
+          h.metadataPath,
+          variant === 'invalid'
+            ? Buffer.from('broken')
+            : await readFile('scripts/poc/fixtures/multi.torrent')
+        )
+        const result = await recoverAria2SessionIdentity(
+          h.file,
+          () => true,
+          recoveryStore()
+        )
+        expect(result?.quarantinedGids).toEqual([CHILD])
+        expect(h.rows()).toHaveLength(1)
+      } finally {
+        h.db.close()
+      }
+    }
+  )
   it.each(['waiting', 'paused'])(
     'preserves task identity, options and progress (%s)',
     async (state) => {
