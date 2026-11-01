@@ -38,6 +38,14 @@ class UploadRecoveryTests(unittest.TestCase):
             with self.subTest(permissions=permissions), self.assertRaises(ValueError):
                 verify_scope(whoami(permissions), "latest/edge", True)
 
+    def test_target_architecture_survives_snap_runtime_host_environment(self):
+        for target in ["amd64", "arm64"]:
+            for host in ["amd64", "arm64"]:
+                with self.subTest(target=target, host=host), patch.dict(upload.os.environ, {"MOTRIX_SNAP_ARCH": target, "SNAP_ARCH": host}):
+                    self.assertEqual(upload.publication_architecture(), target)
+        with patch.dict(upload.os.environ, {"SNAP_ARCH": "amd64"}, clear=True), self.assertRaises(KeyError):
+            upload.publication_architecture()
+
     def test_existing_hash_never_uploads_again(self):
         result, mutation, _ = self.run_reconcile([revision()])
         self.assertEqual(result["revision"], 119)
@@ -129,6 +137,7 @@ class StoreClientAdapterTests(unittest.TestCase):
                    "craft_store": SimpleNamespace(),
                    "craft_store.auth": SimpleNamespace(MemoryKeyring=lambda: "memory-only")}
         with patch.dict(sys.modules, modules), \
+             patch.dict(upload.os.environ, {"MOTRIX_SNAP_ARCH": "arm64", "SNAP_ARCH": "amd64"}), \
              patch.object(sys, "argv", ["upload_snap_revision.py", "check-client"]):
             upload.main()
         keyring.set_keyring.assert_called_once_with("memory-only")
