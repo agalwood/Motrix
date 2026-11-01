@@ -908,7 +908,7 @@
         "retryDialogProgress": "Λήψη {{current}} από {{total}}"
       },
       "column": {
-        "connections": "Ομότιμοι",
+        "connections": "Συνδέσεις",
         "createdAt": "Ημερομηνία δημιουργίας",
         "down": "Ταχύτητα λήψης",
         "eta": "Υπολειπόμενος χρόνος",

@@ -908,7 +908,7 @@
         "retryDialogProgress": "Nedlasting {{current}} av {{total}}"
       },
       "column": {
-        "connections": "Noder",
+        "connections": "Tilkoblinger",
         "createdAt": "Opprettelsesdato",
         "down": "Nedlastingshastighet",
         "eta": "Gjenstående tid",

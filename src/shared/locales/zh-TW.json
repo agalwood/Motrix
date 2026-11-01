@@ -602,7 +602,7 @@
         "down": "下載速度",
         "up": "上傳速度",
         "eta": "剩餘時間",
-        "connections": "對等節點",
+        "connections": "連線數",
         "status": "狀態",
         "createdAt": "建立時間",
         "finishedAt": "完成時間"

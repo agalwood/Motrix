@@ -914,7 +914,7 @@
         "retryDialogProgress": "Завантаження {{current}} з {{total}}"
       },
       "column": {
-        "connections": "Піри",
+        "connections": "З’єднання",
         "createdAt": "Дата створення",
         "down": "Швидкість завантаження",
         "eta": "Залишилося",

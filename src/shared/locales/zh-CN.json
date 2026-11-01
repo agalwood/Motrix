@@ -602,7 +602,7 @@
         "down": "下载速度",
         "up": "上传速度",
         "eta": "剩余时间",
-        "connections": "连接",
+        "connections": "连接数",
         "status": "状态",
         "createdAt": "创建时间",
         "finishedAt": "完成时间"

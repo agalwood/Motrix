@@ -608,7 +608,7 @@
         "down": "Velocità di download",
         "up": "Velocità di caricamento",
         "eta": "Tempo rimanente",
-        "connections": "Peer",
+        "connections": "Connessioni",
         "status": "Stato",
         "createdAt": "Data di creazione",
         "finishedAt": "Data di completamento"

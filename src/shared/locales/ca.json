@@ -911,7 +911,7 @@
         "retryDialogProgress": "Baixada {{current}} de {{total}}"
       },
       "column": {
-        "connections": "Parells",
+        "connections": "Connexions",
         "createdAt": "Data de creació",
         "down": "Velocitat de baixada",
         "eta": "Temps restant",

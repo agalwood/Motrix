@@ -47,10 +47,15 @@ export function getTaskEta(task: DownloadTask): number | null {
   return getTransferMetrics(task).etaSec
 }
 
-export function getTaskConnections(task: DownloadTask): number {
-  return task.type === TaskType.Bt || task.type === TaskType.Magnet
-    ? (task.bt?.peers ?? 0)
-    : task.connections
+export function getTaskConnections(task: DownloadTask): number | null {
+  const isBt = task.type === TaskType.Bt || task.type === TaskType.Magnet
+  const active =
+    task.status === TaskStatus.Downloading ||
+    (isBt &&
+      (task.status === TaskStatus.FetchingMetadata ||
+        task.status === TaskStatus.Seeding))
+  if (!active) return null
+  return isBt ? (task.bt?.peers ?? 0) : task.connections
 }
 
 export function getTaskTimestamp(

@@ -920,7 +920,7 @@
         "retryDialogProgress": "التنزيل {{current}} من {{total}}"
       },
       "column": {
-        "connections": "الأقران",
+        "connections": "الاتصالات",
         "createdAt": "تاريخ الإنشاء",
         "down": "سرعة التنزيل",
         "eta": "الوقت المتبقي",

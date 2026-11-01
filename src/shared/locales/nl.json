@@ -908,7 +908,7 @@
         "retryDialogProgress": "Download {{current}} van {{total}}"
       },
       "column": {
-        "connections": "Peers",
+        "connections": "Verbindingen",
         "createdAt": "Aanmaakdatum",
         "down": "Downloadsnelheid",
         "eta": "Resterende tijd",

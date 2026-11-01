@@ -611,7 +611,7 @@
         "down": "Prędkość pobierania",
         "up": "Prędkość wysyłania",
         "eta": "Pozostały czas",
-        "connections": "Peery",
+        "connections": "Połączenia",
         "status": "Stan",
         "createdAt": "Data utworzenia",
         "finishedAt": "Data ukończenia"
