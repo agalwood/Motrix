@@ -13,7 +13,7 @@ on:
         required: true
         type: string
       source_run_id:
-        description: Successful protected-tag Snap workflow run ID
+        description: Successful Snap tag publication or protected-main artifact recovery run ID
         required: true
         type: string
       source_run_attempt:
@@ -118,6 +118,12 @@ jobs:
             gh api \
               "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}"
           )"
+          # Recovery is a separate trusted path with the original tag build,
+          # archive digests, and exact Store receipts independently reverified.
+          if [[ "$(jq -r '.event' <<< "$run_json")" == 'workflow_dispatch' ]]; then
+            python3 scripts/snap_publication.py promotion
+            exit 0
+          fi
           workflow_json="$(
             gh api \
               "repos/${GITHUB_REPOSITORY}/actions/workflows/snap.yml"

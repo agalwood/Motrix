@@ -633,6 +633,9 @@ jobs:
     uses: ./.github/workflows/flatpak.yml
 
   snap:
+    permissions:
+      contents: read
+      actions: read
     needs: plan
     if: needs.plan.outputs.distributions == 'true'
     uses: ./.github/workflows/snap.yml
