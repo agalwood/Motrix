@@ -1,12 +1,21 @@
 // @vitest-environment node
 import { createHash } from 'node:crypto'
 import { once } from 'node:events'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { createServer as createHttpServer } from 'node:http'
 import { type AddressInfo, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { MotrixDatabase } from '@core/session/motrix-database'
+import { SessionManager } from '@core/session/session-manager'
 import { DEFAULT_ENGINE_SETTINGS } from '@core/settings/validators'
+import { TaskManager } from '@core/task/task-manager'
+import {
+  makeDownloadTask,
+  TaskKind,
+  TaskStatus,
+  TaskType,
+} from '@shared/types/task'
 import {
   type Aria2Handle,
   bundledAria2Exists,
@@ -63,9 +72,16 @@ function snapshot(file: string) {
 describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
   'session recovery with the released aria2 binary',
   () => {
-    it.each(['SIGTERM', 'SIGKILL'] as const)(
-      'resumes the original payload through two restarts after %s',
+    it.each([
+      'SIGTERM',
+      'SIGKILL',
+      'missing-metadata',
+      'deleted-directory',
+    ] as const)(
+      'recovers the persisted session through two restarts after %s',
       async (signal) => {
+        const damaged =
+          signal === 'missing-metadata' || signal === 'deleted-directory'
         const root = await mkdtemp(
           path.join(tmpdir(), 'motrix-magnet-restart-')
         )
@@ -113,7 +129,7 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
         await once(tracker, 'listening')
         const trackerUrl = `http://127.0.0.1:${(tracker.address() as AddressInfo).port}/announce`
         const torrent = encode({ announce: trackerUrl, info })
-        const dbPath = path.join(downloadDir, 'aria2.db')
+        const dbPath = path.join(root, 'aria2.db')
         const common = [
           '--enable-dht6=false',
           '--bt-enable-lpd=false',
@@ -127,11 +143,11 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
           ...common,
           '--enable-sqlite3-persistence=true',
           `--sqlite3-db-path=${dbPath}`,
-          `--save-session=${downloadDir}/aria2.session`,
+          `--save-session=${root}/aria2.session`,
           '--save-session-interval=1',
           '--auto-save-interval=1',
           '--max-download-limit=64K',
-          '--seed-time=0',
+          `--seed-time=${damaged ? 60 : 0}`,
           `--listen-port=${await availablePort()}`,
         ]
         let seed: Aria2Handle | undefined
@@ -189,6 +205,27 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
             },
             { timeout: 20000, interval: 100 }
           )
+          let healthyGid = ''
+          if (damaged) {
+            await downloader.rpc.changeOption(payloadGid, {
+              'max-download-limit': '0',
+            })
+            await vi.waitFor(
+              async () => {
+                const task = await downloader!.rpc.tellStatus(payloadGid)
+                expect(task.completedLength).toBe(String(payload.length))
+                expect(task.seeder).toBe('true')
+              },
+              { timeout: 20000, interval: 100 }
+            )
+            healthyGid = await downloader.rpc.addUri(
+              [`${trackerUrl}/healthy.bin`],
+              {
+                pause: 'true',
+                dir: seedDir,
+              }
+            )
+          }
           if (signal === 'SIGTERM') {
             await downloader.rpc.forcePause(payloadGid)
             await vi.waitFor(async () =>
@@ -210,6 +247,109 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
           expect(
             before.rows.find((row) => row.gid === payloadGid)?.serialized
           ).toContain(`gid=${metadataGid}`)
+          if (damaged) {
+            const appDb = new MotrixDatabase(path.join(root, 'motrix.db'))
+            try {
+              appDb.init()
+              const cache = path.join(root, 'cached.torrent')
+              await writeFile(cache, torrent)
+              const session = new SessionManager(
+                new TaskManager(),
+                downloader.rpc,
+                appDb,
+                downloader.adapter
+              )
+              await session.persistTask(
+                makeDownloadTask({
+                  id: 'seeding-task',
+                  engineTaskId: payloadGid,
+                  name: 'payload.bin',
+                  filename: 'payload.bin',
+                  finalName: 'payload.bin',
+                  type: TaskType.Magnet,
+                  kind: TaskKind.Bt,
+                  status: TaskStatus.Seeding,
+                  saveDir: downloadDir,
+                  diskPath: path.join(downloadDir, 'payload.bin'),
+                  finalPath: path.join(downloadDir, 'payload.bin'),
+                  createdAt: Date.now(),
+                  updatedAt: Date.now(),
+                  source: 'user',
+                  sourceMeta: null,
+                  instances: [],
+                  infoHash,
+                  totalBytes: payload.length,
+                  downloadedBytes: payload.length,
+                  torrentMetaPath:
+                    signal === 'deleted-directory' ? cache : null,
+                })
+              )
+              if (signal === 'deleted-directory')
+                await rm(downloadDir, { recursive: true })
+              else await rm(path.join(downloadDir, `${infoHash}.torrent`))
+              const recovery = await recoverAria2SessionIdentity(
+                dbPath,
+                () => true,
+                session.getEngineSessionRecoveryStore()
+              )
+              expect(recovery?.quarantinedGids).toEqual([payloadGid])
+              expect(snapshot(recovery!.backupPath).rows).toEqual(before.rows)
+              expect(snapshot(dbPath).rows.map((row) => row.gid)).toEqual([
+                healthyGid,
+              ])
+              for (let boot = 0; boot < 2; boot++) {
+                expect(
+                  await recoverAria2SessionIdentity(
+                    dbPath,
+                    () => true,
+                    session.getEngineSessionRecoveryStore()
+                  )
+                ).toBeNull()
+                download = await spawnAria2ForTest({
+                  baseDir: root,
+                  port: await availablePort(),
+                  extraArgs: args,
+                })
+                downloader = await connectAdapter(download)
+                const manager = new TaskManager()
+                const restored = new SessionManager(
+                  manager,
+                  downloader.rpc,
+                  appDb,
+                  downloader.adapter
+                )
+                await restored.restore()
+                expect(manager.getAll()).toHaveLength(2)
+                expect(manager.getById('seeding-task')).toMatchObject({
+                  status: TaskStatus.Error,
+                  errorDetailKey:
+                    signal === 'deleted-directory'
+                      ? 'task.error.detail.filesMissing'
+                      : 'task.recovery.startup.torrentMetaMissing',
+                })
+                expect(
+                  (await downloader.rpc.tellWaiting(0, 100)).map(
+                    (row) => row.gid
+                  )
+                ).toEqual([healthyGid])
+                expect(await downloader.rpc.tellActive()).toEqual([])
+                if (signal === 'deleted-directory')
+                  await expect(stat(downloadDir)).rejects.toMatchObject({
+                    code: 'ENOENT',
+                  })
+                else
+                  expect(
+                    await readFile(path.join(downloadDir, 'payload.bin'))
+                  ).toEqual(payload)
+                await downloader.rpc.saveSession()
+                downloader.disconnect()
+                await download.kill()
+              }
+            } finally {
+              appDb.close()
+            }
+            return
+          }
           const result = await recoverAria2SessionIdentity(dbPath)
           expect(result?.repairedGids).toEqual([payloadGid])
           expect(result?.retiredMetadataGids).toEqual([metadataGid])

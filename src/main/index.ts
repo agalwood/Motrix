@@ -2344,6 +2344,9 @@ async function initializeMainProcess(): Promise<void> {
       activeTaskInspectorActivityRuntime.runTaskMutation(ids, operation),
     log,
   })
+  supervisor.setSessionRecoveryStore(
+    sessionManager.getEngineSessionRecoveryStore()
+  )
   supervisor.setStartupGuard(
     new CompletedTaskStartupGuard({
       completedGids: () => sessionManager.getCompletedDirectEngineTaskIds(),

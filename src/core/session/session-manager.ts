@@ -22,7 +22,9 @@ import { parseDirectReplayRecipe } from '@shared/schemas/direct-replay-recipe'
 import type { DownloadTask } from '@shared/types/task'
 import {
   makeDefaultBtExtension,
+  makeDownloadTask,
   TaskInstancePhase,
+  TaskKind,
   TaskStatus,
   TaskType,
   TransitionPhase,
@@ -48,6 +50,11 @@ import type {
   DirectResourceMetadataProfile,
   EngineAdapter,
 } from '../engine/engine-adapter'
+import type {
+  EngineSessionRecoveryStore,
+  EngineSessionTask,
+  EngineSessionTaskFailure,
+} from '../engine/engine-session-recovery'
 import {
   buildTerminalOccurrence,
   terminalSnapshotFromTask,
@@ -657,6 +664,105 @@ export class SessionManager {
         result.add(task.engineTaskId)
     }
     return result
+  }
+
+  /** Bind the same pre-spawn recovery policy in both application hosts. */
+  getEngineSessionRecoveryStore(): EngineSessionRecoveryStore {
+    return {
+      getContext: (task) => {
+        const pairs = this.db.getAllTasks()
+        const owners = this.sessionRecoveryOwners(task, pairs)
+        return {
+          retired: owners.some((pair) =>
+            [TaskStatus.Error, TaskStatus.Completed].includes(
+              pair.task.aggStatus
+            )
+          ),
+          // Content identity is sufficient for metadata bytes, but never for
+          // choosing which public task to retire. The engine validates hashes.
+          metadataPaths: pairs.flatMap((pair) =>
+            !hasLegacyImport(pair) &&
+            pair.task.torrentMetaPath &&
+            (owners.includes(pair) ||
+              pair.task.infoHash?.toLowerCase() === task.infoHash)
+              ? [pair.task.torrentMetaPath]
+              : []
+          ),
+        }
+      },
+      quarantine: (tasks) => this.quarantineEngineSessionTasks(tasks),
+    }
+  }
+
+  private sessionRecoveryOwners(
+    task: EngineSessionTask,
+    pairs = this.db.getAllTasks()
+  ): TaskWithInstances[] {
+    const owners = pairs.filter((pair) =>
+      pair.instances.some(
+        (instance) =>
+          instance.gid === task.engineTaskId ||
+          instance.gid === task.metadataTaskId
+      )
+    )
+    if (
+      owners.some(
+        (pair) =>
+          hasLegacyImport(pair) || !isTorrentLikeType(pair.task.taskType)
+      )
+    )
+      throw new Error(
+        'Engine session recovery conflicts with a protected task identity'
+      )
+    return owners
+  }
+
+  private async quarantineEngineSessionTasks(
+    tasks: readonly EngineSessionTaskFailure[]
+  ): Promise<void> {
+    for (const failed of tasks) {
+      const owners = this.sessionRecoveryOwners(failed)
+      const candidates = owners.length
+        ? owners.map((pair) =>
+            this.adoptByPair(pair, pair.instances[0]?.gid ?? '')
+          )
+        : [
+            makeDownloadTask({
+              id: newTaskId(),
+              engineTaskId: failed.engineTaskId,
+              name: failed.infoHash,
+              filename: failed.infoHash,
+              type: TaskType.Magnet,
+              kind: TaskKind.Bt,
+              saveDir: failed.saveDir,
+              // The engine session does not prove any output file paths. Keep
+              // deletion from treating a shared download directory as payload.
+              diskPath: '',
+              finalPath: '',
+              finalName: '',
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+              source: 'user',
+              sourceMeta: null,
+              uris: [failed.sourceUri],
+              infoHash: failed.infoHash,
+              bt: makeDefaultBtExtension({ magnetUri: failed.sourceUri }),
+              instances: [],
+            }),
+          ]
+      for (const candidate of candidates) {
+        if ([TaskStatus.Error, TaskStatus.Completed].includes(candidate.status))
+          continue
+        const task = await this.markRecoverErrorTask(
+          candidate,
+          candidate.status,
+          failed.reason === 'files-missing'
+            ? 'task.error.detail.filesMissing'
+            : 'task.recovery.startup.torrentMetaMissing'
+        )
+        this.taskManager.set(task.id, task)
+      }
+    }
   }
 
   async restore(

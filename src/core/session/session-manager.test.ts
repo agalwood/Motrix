@@ -532,6 +532,135 @@ describe('SessionManager', () => {
     vi.restoreAllMocks()
   })
 
+  describe('engine session quarantine', () => {
+    const failed = {
+      engineTaskId: '2222222222222222',
+      metadataTaskId: '1111111111111111',
+      infoHash: 'a'.repeat(40),
+      sourceUri: `magnet:?xt=urn:btih:${'a'.repeat(40)}`,
+      saveDir: '/downloads/shared',
+      reason: 'metadata-unavailable' as const,
+    }
+
+    it('retains the owned task as an error across restore without re-adding it', async () => {
+      seedAsPair(db, {
+        motrixId: 'owned',
+        gid: failed.engineTaskId,
+        infoHash: failed.infoHash,
+        status: TaskStatus.Seeding,
+        totalBytes: 1000,
+        downloadedBytes: 1000,
+        uploadedBytes: 900,
+      })
+      const store = session.getEngineSessionRecoveryStore()
+      await store.quarantine([failed])
+      expect(db.getTask('owned')?.task).toMatchObject({
+        aggStatus: TaskStatus.Error,
+        errorDetailKey: 'task.recovery.startup.torrentMetaMissing',
+        downloadedBytes: 1000,
+      })
+      expect(store.getContext(failed).retired).toBe(true)
+      const durable = structuredClone(db.getTask('owned'))
+      await store.quarantine([failed])
+      expect(db.getTask('owned')).toEqual(durable)
+      await session.restore()
+      await session.restore()
+      expect(taskManager.getById('owned')).toMatchObject({
+        status: TaskStatus.Error,
+        uploadedBytes: 900,
+      })
+      expect(adapter.addTorrent).not.toHaveBeenCalled()
+      expect(adapter.createDownload).not.toHaveBeenCalled()
+    })
+
+    it('borrows metadata by content without retiring a different task with the same hash', async () => {
+      seedAsPair(db, {
+        motrixId: 'other-copy',
+        gid: '3333333333333333',
+        infoHash: failed.infoHash,
+        torrentMetaPath: '/cache/other.torrent',
+        status: TaskStatus.Paused,
+      })
+      const store = session.getEngineSessionRecoveryStore()
+      expect(store.getContext(failed)).toEqual({
+        metadataPaths: ['/cache/other.torrent'],
+        retired: false,
+      })
+      await store.quarantine([failed])
+      expect(db.getTask('other-copy')?.task.aggStatus).toBe(TaskStatus.Paused)
+      const quarantined = db
+        .getAllTasks()
+        .find((pair) => pair.task.motrixId !== 'other-copy')!
+      expect(quarantined.task).toMatchObject({
+        aggStatus: TaskStatus.Error,
+        finalPath: '',
+        finalName: '',
+      })
+      expect(quarantined.instances[0]).toMatchObject({
+        gid: failed.engineTaskId,
+        diskPath: '',
+        phase: TaskInstancePhase.BtDownload,
+      })
+      await store.quarantine([failed])
+      expect(db.getAllTasks()).toHaveLength(2)
+      db.deleteTask(quarantined.task.motrixId)
+      await session.restore()
+      expect(taskManager.getById(quarantined.task.motrixId)).toBeUndefined()
+    })
+
+    it('retires an owned metadata parent without reissuing its magnet on restore', async () => {
+      seedAsPair(db, {
+        motrixId: 'parent',
+        gid: failed.metadataTaskId,
+        infoHash: failed.infoHash,
+        status: TaskStatus.FetchingMetadata,
+      })
+      const pair = db.getTask('parent')!
+      pair.instances[0].phase = TaskInstancePhase.MagnetMetadataResolution
+      pair.instances[0].payload = { metadataDir: '/tmp/metadata' }
+      db.saveTaskWithInstances(pair)
+      await session
+        .getEngineSessionRecoveryStore()
+        .quarantine([{ ...failed, reason: 'files-missing' }])
+      await session.restore()
+      expect(taskManager.getById('parent')).toMatchObject({
+        status: TaskStatus.Error,
+        errorDetailKey: 'task.error.detail.filesMissing',
+      })
+      expect(db.getAllTasks()).toHaveLength(1)
+    })
+
+    it('does not publish an error or retire an engine identity when persistence fails', async () => {
+      seedAsPair(db, {
+        motrixId: 'owned',
+        gid: failed.engineTaskId,
+        infoHash: failed.infoHash,
+        status: TaskStatus.Seeding,
+      })
+      session.bindTerminalOccurrencePersistence(async () => {
+        throw new Error('disk full')
+      })
+      await expect(
+        session.getEngineSessionRecoveryStore().quarantine([failed])
+      ).rejects.toThrow('disk full')
+      expect(db.getTask('owned')?.task.aggStatus).toBe(TaskStatus.Seeding)
+      expect(taskManager.getById('owned')).toBeUndefined()
+    })
+
+    it('preserves completed task history while retiring its engine identity', async () => {
+      seedAsPair(db, {
+        motrixId: 'done',
+        gid: failed.engineTaskId,
+        infoHash: failed.infoHash,
+        status: TaskStatus.Completed,
+      })
+      const store = session.getEngineSessionRecoveryStore()
+      expect(store.getContext(failed).retired).toBe(true)
+      await store.quarantine([failed])
+      expect(db.getTask('done')?.task.aggStatus).toBe(TaskStatus.Completed)
+    })
+  })
+
   describe('save', () => {
     it('saves non-removed tasks to database', async () => {
       const task1 = createTask({
