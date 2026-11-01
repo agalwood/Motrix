@@ -1,29 +1,14 @@
 name: Finalize macOS exFAT
 
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - 'packages/finalize-fs/**'
-      - 'src/core/plugin/finalize/**'
-      - 'src/core/session/*finalize*'
-      - 'src/core/task/task-recovery-service*'
-      - '.github/workflows/finalize-exfat.yml'
-  push:
-    branches: [main]
-    paths:
-      - 'packages/finalize-fs/**'
-      - 'src/core/plugin/finalize/**'
-      - 'src/core/session/*finalize*'
-      - 'src/core/task/task-recovery-service*'
-      - '.github/workflows/finalize-exfat.yml'
+  workflow_call:
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: finalize-exfat-${{ github.ref }}
+  group: finalize-exfat-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

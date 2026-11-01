@@ -1,29 +1,14 @@
 name: Finalize Linux filesystems
 
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - 'packages/finalize-fs/**'
-      - 'src/core/plugin/finalize/**'
-      - 'src/core/session/*finalize*'
-      - '.github/scripts/finalize-filesystems.sh'
-      - '.github/workflows/finalize-filesystems.yml'
-  push:
-    branches: [main]
-    paths:
-      - 'packages/finalize-fs/**'
-      - 'src/core/plugin/finalize/**'
-      - 'src/core/session/*finalize*'
-      - '.github/scripts/finalize-filesystems.sh'
-      - '.github/workflows/finalize-filesystems.yml'
+  workflow_call:
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: finalize-filesystems-${{ github.ref }}
+  group: finalize-filesystems-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

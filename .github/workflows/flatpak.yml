@@ -7,66 +7,20 @@
 name: Flatpak
 
 on:
-  pull_request:
-    paths:
-      - '.npmrc'
-      - '.cargo/**'
-      - '.github/workflows/flatpak.yml'
-      - 'build/**'
-      - 'extra/**'
-      - 'flatpak/**'
-      - 'packages/native-host/**'
-      - 'packages/finalize-fs/**'
-      - 'public/**'
-      - 'scripts/**'
-      - 'src/**'
-      - 'tests/**'
-      - 'THIRD_PARTY_LICENSES/**'
-      - 'THIRD_PARTY_NOTICES.md'
-      - 'THIRD_PARTY_NOTICES.zh-CN.md'
-      - 'electron-builder.json'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
-      - 'tsconfig*.json'
-      - 'vite*.config.ts'
-  push:
-    branches: [main]
-    paths:
-      - '.npmrc'
-      - '.cargo/**'
-      - '.github/workflows/flatpak.yml'
-      - 'build/**'
-      - 'extra/**'
-      - 'flatpak/**'
-      - 'packages/native-host/**'
-      - 'packages/finalize-fs/**'
-      - 'public/**'
-      - 'scripts/**'
-      - 'src/**'
-      - 'tests/**'
-      - 'THIRD_PARTY_LICENSES/**'
-      - 'THIRD_PARTY_NOTICES.md'
-      - 'THIRD_PARTY_NOTICES.zh-CN.md'
-      - 'electron-builder.json'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
-      - 'tsconfig*.json'
-      - 'vite*.config.ts'
   workflow_dispatch:
   workflow_call:
     inputs:
       release-version:
         description: Expected package version from the release preflight
-        required: true
+        required: false
+        default: ''
         type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: flatpak-${{ github.workflow }}-${{ github.ref }}
+  group: flatpak-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ inputs.release-version == '' }}
 
 jobs:
