@@ -42,7 +42,7 @@ minimumReleaseAgeExclude:
   - '@motrix/cli@0.1.0'
   - '@motrix/plugin-api@2.1.0 || 2.2.0'
   - '@motrix/plugin-manifest-schema@2.0.0 || 2.1.1 || 2.2.0'
-  - '@hookform/resolvers@5.5.7 || 5.9.1 || 6.0.1 || 6.0.2'
+  - '@hookform/resolvers@5.5.7 || 5.9.1 || 6.0.1 || 6.0.2 || 7.0.0'
   - jsdom@30.0.0 || 30.1.1
   - magnet-uri@7.0.10
   - '@motrix/torrent@0.1.1'
