@@ -12,31 +12,7 @@
 name: Snap
 
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - '.cargo/**'
-      - '.github/workflows/ci.yml'
-      - '.github/workflows/snap.yml'
-      - 'build/256x256.png'
-      - 'build/snap/**'
-      - 'electron-builder.json'
-      - 'extra/aria2.conf'
-      - 'extra/tray/**'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - 'packages/native-host/**'
-      - 'packages/finalize-fs/**'
-      - 'resources/**'
-      - 'scripts/**'
-      - 'src/**'
-      - 'THIRD_PARTY_LICENSES/**'
-      - 'THIRD_PARTY_NOTICES.md'
-      - 'THIRD_PARTY_NOTICES.zh-CN.md'
-      - 'tests/scripts/snap*.test.ts'
-      - 'tests/scripts/workflow-*.test.ts'
-      - 'tsconfig*.json'
-      - 'vite.*.ts'
+  workflow_call:
   push:
     tags:
       - 'v*'
@@ -57,7 +33,7 @@ concurrency:
   group: >-
     ${{
       (
-        github.event_name == 'push'
+        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
         || (
           github.event_name == 'workflow_dispatch'
           && inputs.publish_edge == true
@@ -68,7 +44,7 @@ concurrency:
     }}
   cancel-in-progress: >-
     ${{
-      github.event_name != 'push'
+      !startsWith(github.ref, 'refs/tags/v')
       && inputs.publish_edge != true
     }}
 
@@ -93,7 +69,7 @@ jobs:
           # pretending to be a protected release-tag event.
           RELEASE_EVENT_NAME: >-
             ${{
-              github.event_name == 'push'
+              github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
               && 'push'
               || 'workflow_dispatch'
             }}
@@ -105,7 +81,7 @@ jobs:
           --github-output "$GITHUB_OUTPUT"
 
       - name: Verify tag commit is on main
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         shell: bash
         run: |
           set -euo pipefail

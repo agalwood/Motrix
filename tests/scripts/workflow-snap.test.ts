@@ -62,20 +62,10 @@ describe('Snap build workflow contract', () => {
     expect(stringField(build, 'runs-on')).toContain('matrix.os')
   })
 
-  it('rebuilds Snap PRs when every packaged release input changes', () => {
+  it('lets the CI planner schedule PR builds without duplicate triggers', () => {
     const triggers = asRecord(snapWorkflow.on, 'Snap triggers')
-    const pullRequest = asRecord(triggers.pull_request, 'pull request trigger')
-    const paths = arrayField(pullRequest, 'paths')
-
-    expect(paths).toEqual(
-      expect.arrayContaining([
-        '.cargo/**',
-        'scripts/**',
-        'THIRD_PARTY_LICENSES/**',
-        'THIRD_PARTY_NOTICES.md',
-        'THIRD_PARTY_NOTICES.zh-CN.md',
-      ])
-    )
+    expect(triggers).toHaveProperty('workflow_call')
+    expect(triggers).not.toHaveProperty('pull_request')
   })
 
   it('builds an unpacked app and never lets electron-builder publish', () => {
@@ -182,7 +172,7 @@ describe('Snap build workflow contract', () => {
     expect(asRecord(triggers.push, 'push trigger')).toEqual({
       tags: ['v*'],
     })
-    expect(triggers).toHaveProperty('pull_request')
+    expect(triggers).toHaveProperty('workflow_call')
     const manual = asRecord(
       triggers.workflow_dispatch,
       'workflow dispatch trigger'

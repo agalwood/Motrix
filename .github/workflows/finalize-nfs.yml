@@ -1,27 +1,14 @@
 name: Finalize NFS
 
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - 'packages/finalize-fs/**'
-      - 'src/core/plugin/finalize/**'
-      - 'src/core/session/*finalize*'
-      - '.github/workflows/finalize-nfs.yml'
-  push:
-    branches: [main]
-    paths:
-      - 'packages/finalize-fs/**'
-      - 'src/core/plugin/finalize/**'
-      - 'src/core/session/*finalize*'
-      - '.github/workflows/finalize-nfs.yml'
+  workflow_call:
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: finalize-nfs-${{ github.ref }}
+  group: finalize-nfs-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
