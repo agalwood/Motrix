@@ -130,6 +130,16 @@ jobs:
           MOTRIX_SKIP_ENGINE_FETCH: '1'
       - name: Ensure Electron runtime payload
         run: node node_modules/electron/install.js
+      - name: Setup Rust for native test fixtures
+        uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
+        with:
+          toolchain: 1.94.1
+      - name: Prepare native filesystem test fixture
+        # These suites inspect binary availability during collection. Preparing
+        # it here removes their former dependency on another test's beforeAll.
+        run: |
+          cargo build --manifest-path packages/finalize-fs/Cargo.toml --locked
+          test -x packages/finalize-fs/target/debug/motrix-finalize-fs
       - name: Run complete test partition
         # pnpm test preserves the Node ABI pretest hook. No changed-file filter
         # or relaxed isolation: every root test belongs to exactly one shard.
@@ -146,6 +156,7 @@ jobs:
           name: root-tests-${{ matrix.shard }}
           path: output/ci/reports/shard-${{ matrix.shard }}.json
           if-no-files-found: error
+          overwrite: true
           retention-days: 7
 
   test-reports:

@@ -2,6 +2,27 @@ import { appendFileSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 
+export const NATIVE_FIXTURE_SUITES = [
+  'src/core/plugin/finalize/native-artifact-operations.integration.test.ts',
+  'src/core/plugin/finalize/finalize-nfs-recovery.integration.test.ts',
+  'src/core/plugin/finalize/finalize-smb-recovery.integration.test.ts',
+  'src/core/plugin/finalize/finalize-adversarial.integration.test.ts',
+  'src/core/task/bt-storage.integration.test.ts',
+]
+
+export function verifyNativeFixtures(reports) {
+  const results = reports.flatMap((report) => report.testResults)
+  for (const file of NATIVE_FIXTURE_SUITES) {
+    const suite = results.find((result) => result.name.endsWith(`/${file}`))
+    if (
+      !suite?.assertionResults?.length ||
+      suite.assertionResults.some((test) => test.status !== 'passed')
+    ) {
+      throw new Error(`Native fixture tests did not all execute: ${file}`)
+    }
+  }
+}
+
 export function verifyTestReports(expected, reports) {
   const wanted = new Set(expected.map((entry) => entry.file))
   if (wanted.size === 0 || wanted.size !== expected.length) {
@@ -44,10 +65,14 @@ function main() {
     throw new Error('Expected exactly four shard reports')
   }
   const readJson = (file) => JSON.parse(readFileSync(file, 'utf8'))
+  const reports = names.map((name) => readJson(path.join(directory, name)))
   const result = verifyTestReports(
     readJson('output/ci/test-files.json'),
-    names.map((name) => readJson(path.join(directory, name)))
+    reports
   )
+  // CI shards run on Linux, where all these native publication tests apply.
+  // Keep local report inspection usable on other operating systems.
+  if (process.env.GITHUB_ACTIONS === 'true') verifyNativeFixtures(reports)
   const summary = `Verified ${result.files} test files exactly once across four shards; ${result.tests} tests (${result.skipped} skipped/todo).\n`
   console.log(summary)
   if (process.env.GITHUB_STEP_SUMMARY) {

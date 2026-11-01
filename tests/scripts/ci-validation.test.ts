@@ -24,7 +24,11 @@ import {
   PACKAGE_TARGETS,
 } from '../../scripts/ci-plan.mjs'
 // @ts-expect-error -- CI script has no declaration file
-import { verifyTestReports } from '../../scripts/verify-ci-test-reports.mjs'
+import {
+  NATIVE_FIXTURE_SUITES,
+  verifyNativeFixtures,
+  verifyTestReports,
+} from '../../scripts/verify-ci-test-reports.mjs'
 
 const require = createRequire(import.meta.url)
 const workflow = load(readFileSync('.github/workflows/ci.yml', 'utf8')) as any
@@ -189,7 +193,7 @@ describe('CI scope selection', () => {
     } finally {
       rmSync(cwd, { recursive: true, force: true, maxRetries: 3 })
     }
-  })
+  }, 15_000)
 })
 
 function successfulNeeds(profile: 'ui' | 'full') {
@@ -286,6 +290,23 @@ const report = (names: string[]) => ({
   testResults: names.map((name) => ({ name })),
 })
 describe('test partition completeness', () => {
+  it('rejects native suites that silently skipped because a fixture was missing', () => {
+    const reports = [
+      {
+        testResults: NATIVE_FIXTURE_SUITES.map((file: string) => ({
+          name: `/repo/${file}`,
+          assertionResults: [{ status: 'passed' }],
+        })),
+      },
+    ]
+    expect(() => verifyNativeFixtures(reports)).not.toThrow()
+    for (const suite of reports[0]!.testResults) {
+      suite.assertionResults[0].status = 'pending'
+      expect(() => verifyNativeFixtures(reports)).toThrow(/did not all execute/)
+      suite.assertionResults[0].status = 'passed'
+    }
+    expect(() => verifyNativeFixtures([])).toThrow(/did not all execute/)
+  })
   const files = ['a', 'b', 'c', 'd'].map((file) => ({ file }))
   it('accepts the union of all discovered files exactly once', () => {
     expect(
@@ -322,6 +343,19 @@ describe('test partition completeness', () => {
     expect(step.run).toContain(`pnpm test --shard=\${{ matrix.shard }}/4`)
     expect(step.run).not.toMatch(/--changed|--no-isolate|--passWithNoTests/)
     expect(step.env.MOTRIX_REQUIRE_ELECTRON_PROXY_TEST).toBe('1')
+    const fixtureIndex = tests.steps.findIndex(
+      (step: any) => step.name === 'Prepare native filesystem test fixture'
+    )
+    expect(fixtureIndex).toBeGreaterThan(0)
+    expect(fixtureIndex).toBeLessThan(tests.steps.indexOf(step))
+    expect(tests.steps[fixtureIndex].run).toContain(
+      'cargo build --manifest-path packages/finalize-fs/Cargo.toml --locked'
+    )
+    expect(
+      tests.steps.find(
+        (step: any) => step.name === 'Upload test partition report'
+      ).with.overwrite
+    ).toBe(true)
     expect(workflow.jobs['test-reports'].needs).toBe('tests')
     expect(workflow.jobs['torrent-browser']).not.toHaveProperty('needs')
     expect(
