@@ -905,7 +905,7 @@
         "retryDialogProgress": "การดาวน์โหลด {{current}} จาก {{total}}"
       },
       "column": {
-        "connections": "เพียร์",
+        "connections": "การเชื่อมต่อ",
         "createdAt": "วันที่สร้าง",
         "down": "ความเร็วดาวน์โหลด",
         "eta": "เวลาที่เหลือ",

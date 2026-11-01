@@ -605,7 +605,7 @@
         "down": "Download speed",
         "up": "Upload speed",
         "eta": "ETA",
-        "connections": "Peers",
+        "connections": "Connections",
         "status": "Status",
         "createdAt": "Date created",
         "finishedAt": "Date completed"

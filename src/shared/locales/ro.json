@@ -911,7 +911,7 @@
         "retryDialogProgress": "Descărcarea {{current}} din {{total}}"
       },
       "column": {
-        "connections": "Parteneri",
+        "connections": "Conexiuni",
         "createdAt": "Data creării",
         "down": "Viteză de descărcare",
         "eta": "Timp rămas",

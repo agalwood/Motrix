@@ -908,7 +908,7 @@
         "retryDialogProgress": "دانلود {{current}} از {{total}}"
       },
       "column": {
-        "connections": "همتاها",
+        "connections": "اتصال‌ها",
         "createdAt": "تاریخ ایجاد",
         "down": "سرعت دانلود",
         "eta": "زمان باقی‌مانده",

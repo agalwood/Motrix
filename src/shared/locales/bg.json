@@ -908,7 +908,7 @@
         "retryDialogProgress": "Изтегляне {{current}} от {{total}}"
       },
       "column": {
-        "connections": "Участници",
+        "connections": "Връзки",
         "createdAt": "Дата на създаване",
         "down": "Скорост на изтегляне",
         "eta": "Оставащо време",

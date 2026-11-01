@@ -275,6 +275,40 @@ describe('download sorting', () => {
     ).toEqual(['http', 'torrent', 'magnet'])
   })
 
+  it.each(['asc', 'desc'] as const)(
+    'keeps inactive connections last in %s order while retaining live zero peers',
+    (direction) => {
+      const tasks = [
+        makeDownloadTask({
+          id: 'paused',
+          status: TaskStatus.Paused,
+          connections: 100,
+        }),
+        makeDownloadTask({
+          id: 'completed',
+          type: TaskType.Bt,
+          status: TaskStatus.Completed,
+          bt: makeDefaultBtExtension({ peers: 100 }),
+        }),
+        makeDownloadTask({ id: 'http', connections: 10 }),
+        makeDownloadTask({
+          id: 'zero',
+          type: TaskType.Bt,
+          bt: makeDefaultBtExtension(),
+        }),
+      ]
+      expect(
+        sortTasks(tasks, { column: 'connections', direction }, 'en-US').map(
+          (task) => task.id
+        )
+      ).toEqual([
+        ...(direction === 'asc' ? ['zero', 'http'] : ['http', 'zero']),
+        'paused',
+        'completed',
+      ])
+    }
+  )
+
   it('groups statuses in lifecycle order', () => {
     const statuses = [
       TaskStatus.Completed,

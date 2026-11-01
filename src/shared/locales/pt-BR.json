@@ -608,7 +608,7 @@
         "down": "Velocidade de download",
         "up": "Velocidade de upload",
         "eta": "Tempo restante",
-        "connections": "Pares",
+        "connections": "Conexões",
         "status": "Estado",
         "createdAt": "Data de criação",
         "finishedAt": "Data de conclusão"

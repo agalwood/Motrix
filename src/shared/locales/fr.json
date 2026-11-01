@@ -911,7 +911,7 @@
         "retryDialogProgress": "Téléchargement {{current}} sur {{total}}"
       },
       "column": {
-        "connections": "Pairs",
+        "connections": "Connexions",
         "createdAt": "Date de création",
         "down": "Débit de réception",
         "eta": "Temps restant",
