@@ -125,6 +125,14 @@ def verify_before_release(get):
                 positive(found["revision"]) == revisions[arch], "Store receipt no longer releaseable")
 
 
+def publication_architecture():
+    # SNAP_ARCH belongs to snapd and describes the tooling snap's host, not
+    # the package being published by a cross-architecture upload runner.
+    arch = os.environ["MOTRIX_SNAP_ARCH"]
+    require(arch in ("amd64", "arm64"), "Invalid architecture")
+    return arch
+
+
 def main():
     if sys.argv[1:] == ["check-client"]:
         # Exercise the real factory without credentials, network, or a host
@@ -133,14 +141,14 @@ def main():
         from craft_store.auth import MemoryKeyring
         keyring.set_keyring(MemoryKeyring())
         store_getter()
+        require(publication_architecture() == "arm64", "Publication architecture was overwritten")
         print("Snapcraft authenticated Store adapter initialization passed")
         return
     get = store_getter()
     if len(sys.argv) == 2 and sys.argv[1] == "verify":
         verify_before_release(get)
         return
-    arch = os.environ["SNAP_ARCH"]
-    require(arch in ("amd64", "arm64"), "Invalid architecture")
+    arch = publication_architecture()
     source = json.loads(os.environ["SNAP_SOURCE"])
     version = os.environ["EXPECTED_VERSION"]
     require(source["version"] == version, "Source version mismatch")

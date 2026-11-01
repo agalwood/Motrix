@@ -221,7 +221,7 @@ def main():
         source = json.loads(os.environ["SNAP_SOURCE"])
         require(source["repository"] == repo, "Repository mismatch")
         if mode == "download":
-            arch = os.environ["SNAP_ARCH"]
+            arch = os.environ["MOTRIX_SNAP_ARCH"]
             require(arch in ARCHES, "Unknown architecture")
             download_snap(source, arch)
         elif mode == "aggregate":

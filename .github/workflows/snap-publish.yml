@@ -62,7 +62,7 @@ jobs:
       matrix:
         arch: [amd64, arm64]
     env:
-      SNAP_ARCH: ${{ matrix.arch }}
+      MOTRIX_SNAP_ARCH: ${{ matrix.arch }}
       EXPECTED_VERSION: ${{ inputs.expected_version }}
       SNAP_SOURCE: ${{ needs.preflight.outputs.source }}
     steps:
@@ -105,7 +105,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes squashfs-tools
-          node scripts/verify-snap-artifact.mjs --snap "release/snap-verified/motrix_verified_${SNAP_ARCH}.snap" --arch "$SNAP_ARCH" --version "$EXPECTED_VERSION"
+          node scripts/verify-snap-artifact.mjs --snap "release/snap-verified/motrix_verified_${MOTRIX_SNAP_ARCH}.snap" --arch "$MOTRIX_SNAP_ARCH" --version "$EXPECTED_VERSION"
 
       - name: Install Snapcraft 9
         timeout-minutes: 10

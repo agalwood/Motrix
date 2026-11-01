@@ -205,6 +205,9 @@ jobs:
           snapcraft-channel: 9.x/stable
 
       - name: Verify publication client compatibility without Store credentials
+        # Exercise an ARM64 publication target even on the amd64 tooling host.
+        env:
+          MOTRIX_SNAP_ARCH: arm64
         run: |
           # shellcheck disable=SC2016
           snap run --shell snapcraft -c 'exec "$SNAP/bin/python" scripts/upload_snap_revision.py check-client'
