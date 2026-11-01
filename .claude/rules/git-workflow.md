@@ -61,6 +61,10 @@ them with local publishing steps.
 - Protected stable and beta tags publish one verified amd64/arm64 Snap build
   set to `latest/edge`. Promote those exact revisions with `snap-promote.yml`
   from protected `main`; never rebuild during promotion. Stable rejects
-  prereleases.
+  prereleases. Protected-main `snap-publish.yml` recovery may reuse only the
+  original tag run's successful builds after validating the tag ancestry,
+  artifact archive digests, package contents, and exact Store hashes. It must
+  preserve per-architecture receipts and complete provenance for promotion;
+  never accept manually selected revisions or rebuild during recovery.
 - If a release gate fails, fix the source or workflow and run the complete
   gated path again. Do not publish a partial platform set.

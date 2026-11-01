@@ -65,7 +65,7 @@ def scope_items(value: str) -> list[str] | None:
     return items
 
 
-def verify_scope(output: str, channel: str) -> str:
+def verify_scope(output: str, channel: str, require_upload: bool = False) -> str:
     match = re.fullmatch(
         r"([A-Za-z0-9][A-Za-z0-9._-]*)/(stable|candidate|beta|edge)", channel
     )
@@ -86,6 +86,14 @@ def verify_scope(output: str, channel: str) -> str:
         raise ScopeError(
             "Snap credential does not permit releasing existing revisions",
             "release_permission_denied",
+        )
+    if require_upload and permissions is not None and (
+        "package_access" not in permissions or
+        not {"package_push", "package_upload"}.intersection(permissions)
+    ):
+        raise ScopeError(
+            "Snap credential does not permit upload and revision inspection",
+            "upload_permission_denied",
         )
     # Store channel restrictions use Python fnmatch against the release request.
     # https://dashboard.snapcraft.io/docs/reference/v1/snap.html
@@ -138,6 +146,7 @@ def main() -> None:
     parser.add_argument("--snapcraft", default="/snap/bin/snapcraft")
     parser.add_argument("--channel", required=True)
     parser.add_argument("--github-output")
+    parser.add_argument("--require-upload", action="store_true")
     options = parser.parse_args()
     try:
         result = subprocess.run(
@@ -163,7 +172,7 @@ def main() -> None:
             "Snapcraft whoami emitted diagnostics; credential scope was not verified"
         )
     try:
-        release_channel = verify_scope(result.stdout, options.channel)
+        release_channel = verify_scope(result.stdout, options.channel, options.require_upload)
     except ScopeError:
         emit_diagnostics("scope_rejected", result, options.channel)
         raise

@@ -1,13 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import {
-  chmodSync,
-  mkdirSync,
-  mkdtempSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -139,342 +131,84 @@ describe('Snap build workflow contract', () => {
     expect(snapSource).not.toContain('pull_request_target')
   })
 
-  it('publishes protected tags and explicit protected-main recovery runs through the edge environment', () => {
-    const preflight = workflowJob(snapWorkflow, 'preflight')
-    const preflightOutputs = asRecord(preflight.outputs, 'preflight outputs')
-    const build = workflowJob(snapWorkflow, 'build')
+  it('delegates only protected tags to the resumable publisher', () => {
     const publish = workflowJob(snapWorkflow, 'publish-edge')
-    const condition = stringField(publish, 'if')
-    const environment = asRecord(publish.environment, 'publish environment')
-
-    expect(stringField(preflightOutputs, 'version')).toBe(
-      `\${{ steps.metadata.outputs.version }}`
-    )
-    expect(build).not.toHaveProperty('if')
-    expect(condition).toContain("github.event_name == 'push'")
-    expect(condition).toContain("startsWith(github.ref, 'refs/tags/v')")
-    expect(condition).toContain("github.event_name == 'workflow_dispatch'")
-    expect(condition).toContain('inputs.publish_edge == true')
-    expect(condition).toContain("github.ref == 'refs/heads/main'")
-    expect(condition).toContain('github.ref_protected == true')
-    expect(snapSource).not.toContain(
-      "needs.preflight.outputs.prerelease == 'false'"
-    )
-    expect(stringField(environment, 'name')).toBe('snap-store-edge')
-    expect(jobNeeds(publish)).toEqual(
-      expect.arrayContaining(['preflight', 'build'])
-    )
-    expect(publish['timeout-minutes']).toBeGreaterThanOrEqual(
-      boundedStepMinutes(publish) + 30
-    )
-
-    const triggers = asRecord(snapWorkflow.on, 'Snap triggers')
-    expect(asRecord(triggers.push, 'push trigger')).toEqual({
-      tags: ['v*'],
-    })
-    expect(triggers).toHaveProperty('workflow_call')
-    const manual = asRecord(
-      triggers.workflow_dispatch,
-      'workflow dispatch trigger'
-    )
-    const manualInputs = asRecord(manual.inputs, 'workflow dispatch inputs')
-    expect(asRecord(manualInputs.publish_edge, 'publish edge input')).toEqual({
-      description: 'Publish the protected main build to latest/edge',
-      required: true,
-      default: false,
-      type: 'boolean',
-    })
-    const concurrency = asRecord(snapWorkflow.concurrency, 'Snap concurrency')
-    expect(stringField(concurrency, 'group')).toContain(
-      'inputs.publish_edge == true'
-    )
-    expect(stringField(concurrency, 'cancel-in-progress')).toContain(
-      'inputs.publish_edge != true'
-    )
+    expect(publish.uses).toBe('./.github/workflows/snap-publish.yml')
+    expect(jobNeeds(publish)).toEqual(['preflight', 'build'])
+    expect(publish.if).toContain("github.event_name == 'push'")
+    expect(publish.if).toContain('github.ref_protected == true')
+    expect(publish.if).not.toContain('workflow_dispatch')
+    expect(publish.secrets).toBe('inherit')
   })
+})
 
-  it('installs pinned verifier dependencies before verification and Store mutation', () => {
-    const steps = jobSteps(workflowJob(snapWorkflow, 'publish-edge'))
-    const checkout = steps.find(
-      (step) => step.name === 'Checkout verification tools'
-    )
-    const setupPnpm = steps.find(
-      (step) => step.name === 'Setup pnpm for verification'
-    )
-    const setupNode = steps.find(
-      (step) => step.name === 'Setup Node.js for verification'
-    )
-    const install = steps.find(
-      (step) => step.name === 'Install verifier dependencies'
-    )
-    const download = steps.find(
-      (step) => step.name === 'Download both architecture artifacts'
-    )
-    const completeness = steps.find(
-      (step) => step.name === 'Verify complete upload set'
-    )
-    const credentialValidation = steps.find(
-      (step) => step.name === 'Validate scoped Store credential'
-    )
+const publicationWorkflow = asRecord(
+  parseYaml(
+    readFileSync(path.join(ROOT, '.github/workflows/snap-publish.yml'), 'utf8')
+  ),
+  'Snap artifact publication'
+)
 
-    expect(stringField(setupPnpm as LooseRecord, 'uses')).toBe(
-      'pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413'
-    )
-    expect(asRecord(setupPnpm?.with, 'pnpm setup inputs')).toEqual({
-      version: '12.16.1',
-      run_install: false,
+describe('Resumable Snap publication boundaries', () => {
+  it('serializes Store operations while allowing failed uploads to resume independently', () => {
+    expect(publicationWorkflow.concurrency).toEqual({
+      group: 'snap-store-publication',
+      'cancel-in-progress': false,
     })
-    expect(stringField(setupNode as LooseRecord, 'uses')).toBe(
-      'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1'
-    )
-    expect(asRecord(setupNode?.with, 'Node setup inputs')).toEqual({
-      'node-version': 24,
-      cache: 'pnpm',
+    const upload = workflowJob(publicationWorkflow, 'upload')
+    expect(upload.environment).toBe('snap-store-edge')
+    expect(upload.strategy).toEqual({
+      'fail-fast': false,
+      'max-parallel': 1,
+      matrix: { arch: ['amd64', 'arm64'] },
     })
-
-    const installCommand = stringField(install as LooseRecord, 'run')
-    expect(installCommand).toBe(
-      'pnpm install --frozen-lockfile --ignore-scripts'
+    expect(jobNeeds(upload)).toEqual(['preflight'])
+    const steps = jobSteps(upload)
+    const lookup = steps.findIndex(
+      (s) => s.name === 'Reconcile Store hash and upload at most once'
     )
-    expect(asRecord(install?.env, 'verifier install environment')).toEqual({
-      MOTRIX_SKIP_ELECTRON_REBUILD: '1',
-      MOTRIX_SKIP_ENGINE_FETCH: '1',
-    })
-
-    expect(steps.indexOf(checkout as LooseRecord)).toBeLessThan(
-      steps.indexOf(setupPnpm as LooseRecord)
-    )
-    expect(steps.indexOf(setupPnpm as LooseRecord)).toBeLessThan(
-      steps.indexOf(setupNode as LooseRecord)
-    )
-    expect(steps.indexOf(setupNode as LooseRecord)).toBeLessThan(
-      steps.indexOf(install as LooseRecord)
-    )
-    expect(steps.indexOf(install as LooseRecord)).toBeLessThan(
-      steps.indexOf(download as LooseRecord)
-    )
-    expect(steps.indexOf(install as LooseRecord)).toBeLessThan(
-      steps.indexOf(completeness as LooseRecord)
-    )
-    expect(steps.indexOf(completeness as LooseRecord)).toBeLessThan(
-      steps.indexOf(credentialValidation as LooseRecord)
-    )
-    for (const mutation of [
-      'Upload complete build set',
-      'Release exact build set to edge',
-    ]) {
-      const mutationStep = steps.find((step) => step.name === mutation)
-      expect(steps.indexOf(completeness as LooseRecord)).toBeLessThan(
-        steps.indexOf(mutationStep as LooseRecord)
-      )
-    }
-  })
-
-  it('uploads before releasing only the captured exact edge revisions', () => {
-    const steps = jobSteps(workflowJob(snapWorkflow, 'publish-edge'))
-    const inspectionTools = steps.find(
-      (step) => step.name === 'Install artifact inspection tools'
-    )
-    const completeness = steps.find(
-      (step) => step.name === 'Verify complete upload set'
-    )
-    const upload = steps.find(
-      (step) => step.name === 'Upload complete build set'
-    )
-    const release = steps.find(
-      (step) => step.name === 'Release exact build set to edge'
-    )
-    const publicVerification = steps.find(
-      (step) => step.name === 'Verify public edge channel'
-    )
-    const revisionRecord = steps.find(
-      (step) => step.name === 'Preserve trusted revision record'
-    )
-
-    expect(stringField(inspectionTools as LooseRecord, 'run')).toContain(
-      'squashfs-tools'
-    )
-    expect(steps.indexOf(inspectionTools as LooseRecord)).toBeLessThan(
-      steps.indexOf(completeness as LooseRecord)
-    )
-    const completenessCommand = stringField(completeness as LooseRecord, 'run')
-    expect(completenessCommand).toContain('for arch in amd64 arm64')
-    expect(completenessCommand).toContain('scripts/verify-snap-artifact.mjs')
-
-    const uploadEnvironment = asRecord(upload?.env, 'upload environment')
     expect(
-      stringField(uploadEnvironment, 'SNAPCRAFT_STORE_CREDENTIALS')
-    ).toContain('secrets.SNAPCRAFT_STORE_CREDENTIALS')
-    const uploadCommand = stringField(upload as LooseRecord, 'run')
-    expect(uploadCommand).toContain(
-      `release/snap-verified/motrix_verified_\${arch}.snap`
+      steps.findIndex((s) => s.name === 'Verify edge credential scope')
+    ).toBeLessThan(lookup)
+    expect(
+      steps.findIndex(
+        (s) => s.name === 'Verify architecture package before Store access'
+      )
+    ).toBeLessThan(lookup)
+    const record = steps.find(
+      (s) => s.name === 'Preserve architecture receipt immediately'
     )
-    expect(uploadCommand).toContain('snapcraft upload "$snap"')
-    expect(uploadCommand).not.toContain('--release')
-    expect(uploadCommand).toContain('matchAll(/\\bRevision')
-    expect(uploadCommand).toContain('SNAP_REVISION_FILE')
-
-    const releaseCommand = stringField(release as LooseRecord, 'run')
-    expect(release?.['timeout-minutes']).toBeGreaterThanOrEqual(45)
-    expect(releaseCommand).toContain('release-snap-build-set.mjs')
-    expect(releaseCommand).toContain('--channel latest/edge')
-    expect(releaseCommand).toContain('--amd64-revision')
-    expect(releaseCommand).toContain('--arm64-revision')
-    expect(releaseCommand).toContain('--snapcraft /snap/bin/snapcraft')
-    expect(releaseCommand).toContain('--snapcraft-timeout-ms 120000')
-    expect(releaseCommand).not.toContain('snapcraft promote')
-    expect(steps.indexOf(upload as LooseRecord)).toBeLessThan(
-      steps.indexOf(release as LooseRecord)
+    expect(record?.if).toContain('always()')
+    expect(asRecord(record?.with, 'receipt').name).toContain(
+      'github.run_attempt'
     )
-
-    const verification = stringField(publicVerification as LooseRecord, 'run')
-    expect(verification).toContain('verify-snap-store-channel.mjs')
-    expect(verification).toContain('--architectures amd64,arm64')
-    expect(verification).toContain('--expected-revisions "$SNAP_REVISION_FILE"')
-    expect(steps.indexOf(publicVerification as LooseRecord)).toBeLessThan(
-      steps.indexOf(revisionRecord as LooseRecord)
-    )
-    const recordInputs = asRecord(
-      revisionRecord?.with,
-      'revision record inputs'
-    )
-    expect(stringField(recordInputs, 'name')).toContain('github.run_attempt')
-    expect(stringField(recordInputs, 'path')).toContain('SNAP_REVISION_FILE')
   })
 
-  it('normalizes the real nested artifact layout into one exact verified set', () => {
-    const fixture = createSnapUploadFixture()
-    try {
-      writeNestedSnap(
-        fixture.root,
-        'amd64',
-        'motrix_2.0.0-beta.2_amd64.snap',
-        'amd64-payload'
-      )
-      writeNestedSnap(
-        fixture.root,
-        'arm64',
-        'motrix_2.0.0-beta.2_arm64.snap',
-        'arm64-payload'
-      )
-      const reportDirectory = path.join(
-        fixture.root,
-        'release',
-        'snap-upload',
-        'size-reports'
-      )
-      mkdirSync(reportDirectory, { recursive: true })
-      writeFileSync(path.join(reportDirectory, 'linux-x64.json'), '{}')
-
-      const result = runSnapSetVerification(fixture)
-
-      expect(result.status, result.stderr).toBe(0)
-      const verifiedDirectory = path.join(
-        fixture.root,
-        'release',
-        'snap-verified'
-      )
-      expect(readdirSync(verifiedDirectory).sort()).toEqual([
-        'motrix_verified_amd64.snap',
-        'motrix_verified_arm64.snap',
-      ])
-      expect(
-        readFileSync(
-          path.join(verifiedDirectory, 'motrix_verified_amd64.snap'),
-          'utf8'
-        )
-      ).toBe('amd64-payload')
-      expect(
-        readFileSync(
-          path.join(verifiedDirectory, 'motrix_verified_arm64.snap'),
-          'utf8'
-        )
-      ).toBe('arm64-payload')
-      expect(
-        readFileSync(fixture.verificationLog, 'utf8').trim().split('\n')
-      ).toEqual([
-        'scripts/verify-snap-artifact.mjs --snap release/snap-upload/snap-amd64/motrix_2.0.0-beta.2_amd64.snap --arch amd64 --version 2.0.0-beta.2',
-        'scripts/verify-snap-artifact.mjs --snap release/snap-upload/snap-arm64/motrix_2.0.0-beta.2_arm64.snap --arch arm64 --version 2.0.0-beta.2',
-      ])
-    } finally {
-      rmSync(fixture.root, { recursive: true, force: true })
+  it('requires both receipts and Store revalidation before transactional edge release', () => {
+    const publish = workflowJob(publicationWorkflow, 'publish-edge')
+    expect(jobNeeds(publish)).toEqual(['preflight', 'upload'])
+    const steps = jobSteps(publish)
+    const release = steps.findIndex(
+      (s) => s.name === 'Release exact build set to edge'
+    )
+    for (const name of [
+      'Aggregate verified architecture receipts',
+      'Validate scoped Store credential',
+      'Reverify both Store hashes before changing edge',
+    ]) {
+      const index = steps.findIndex((s) => s.name === name)
+      expect(index).toBeGreaterThanOrEqual(0)
+      expect(index).toBeLessThan(release)
     }
-  })
-
-  it.each([
-    {
-      label: 'a missing architecture',
-      prepare(root: string) {
-        writeNestedSnap(
-          root,
-          'amd64',
-          'motrix_2.0.0-beta.2_amd64.snap',
-          'amd64'
-        )
-      },
-      error: /Expected exactly two Snap artifacts, found 1/,
-    },
-    {
-      label: 'an extra Snap',
-      prepare(root: string) {
-        writeNestedSnap(
-          root,
-          'amd64',
-          'motrix_2.0.0-beta.2_amd64.snap',
-          'amd64'
-        )
-        writeNestedSnap(
-          root,
-          'arm64',
-          'motrix_2.0.0-beta.2_arm64.snap',
-          'arm64'
-        )
-        writeFileSync(
-          path.join(root, 'release', 'snap-upload', 'unexpected.snap'),
-          'extra'
-        )
-      },
-      error: /Expected exactly two Snap artifacts, found 3/,
-    },
-    {
-      label: 'a duplicate basename',
-      prepare(root: string) {
-        for (const arch of ['amd64', 'arm64'] as const) {
-          writeNestedSnap(root, arch, 'motrix_2.0.0-beta.2_amd64.snap', arch)
-        }
-      },
-      error: /Duplicate Snap artifact basename/,
-    },
-    {
-      label: 'an architecture-mismatched name',
-      prepare(root: string) {
-        writeNestedSnap(
-          root,
-          'amd64',
-          'motrix_2.0.0-beta.2_amd64.snap',
-          'amd64'
-        )
-        writeNestedSnap(
-          root,
-          'arm64',
-          'motrix_2.0.0-beta.2_s390x.snap',
-          'arm64'
-        )
-      },
-      error: /Unexpected arm64 Snap artifact name/,
-    },
-  ])('rejects $label before upload', ({ prepare, error }) => {
-    const fixture = createSnapUploadFixture()
-    try {
-      prepare(fixture.root)
-
-      const result = runSnapSetVerification(fixture)
-
-      expect(result.status).not.toBe(0)
-      expect(result.stderr).toMatch(error)
-    } finally {
-      rmSync(fixture.root, { recursive: true, force: true })
-    }
+    expect(stringField(steps[release], 'run')).toContain(
+      '--snapcraft-channel "$SNAPCRAFT_CHANNEL"'
+    )
+    expect(
+      steps.findIndex((s) => s.name === 'Verify public edge channel')
+    ).toBeLessThan(
+      steps.findIndex((s) => s.name === 'Preserve trusted revision record')
+    )
+    expect(JSON.stringify(publish)).not.toContain('snapcraft upload')
   })
 })
 
@@ -524,7 +258,9 @@ describe('Snap promotion workflow contract', () => {
     )
     expect(stringField(concurrency, 'group')).toBe('snap-store-publication')
     expect(concurrency['cancel-in-progress']).toBe(false)
-    expect(snapSource).toContain("'snap-store-publication'")
+    expect(
+      asRecord(publicationWorkflow.concurrency, 'publication lock').group
+    ).toBe('snap-store-publication')
 
     const preflight = workflowJob(promotionWorkflow, 'preflight')
     expect(preflight['timeout-minutes']).toBeGreaterThanOrEqual(15)
@@ -1131,62 +867,6 @@ function runPromotionSourceValidation(
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
-}
-
-interface SnapUploadFixture {
-  root: string
-  verificationLog: string
-}
-
-function createSnapUploadFixture(): SnapUploadFixture {
-  const root = mkdtempSync(path.join(tmpdir(), 'motrix-snap-workflow-'))
-  const binaryDirectory = path.join(root, 'bin')
-  const verificationLog = path.join(root, 'verification.log')
-  // Dependency provisioning is covered by the static publish-edge contract;
-  // this stub isolates artifact layout and verifier invocation behavior.
-  const nodeStub = path.join(binaryDirectory, 'node')
-  mkdirSync(binaryDirectory, { recursive: true })
-  mkdirSync(path.join(root, 'release', 'snap-upload'), { recursive: true })
-  writeFileSync(
-    nodeStub,
-    [
-      '#!/usr/bin/env bash',
-      'set -euo pipefail',
-      `printf '%s\\n' "$*" >> "$VERIFY_LOG"`,
-      '',
-    ].join('\n')
-  )
-  chmodSync(nodeStub, 0o755)
-  return { root, verificationLog }
-}
-
-function writeNestedSnap(
-  root: string,
-  arch: 'amd64' | 'arm64',
-  name: string,
-  contents: string
-): void {
-  const directory = path.join(root, 'release', 'snap-upload', `snap-${arch}`)
-  mkdirSync(directory, { recursive: true })
-  writeFileSync(path.join(directory, name), contents)
-}
-
-function runSnapSetVerification(fixture: SnapUploadFixture) {
-  const completeness = jobSteps(workflowJob(snapWorkflow, 'publish-edge')).find(
-    (step) => step.name === 'Verify complete upload set'
-  )
-  const command = stringField(completeness as LooseRecord, 'run')
-  const binaryDirectory = path.join(fixture.root, 'bin')
-  return spawnSync('bash', ['-c', command], {
-    cwd: fixture.root,
-    encoding: 'utf8',
-    env: {
-      ...process.env,
-      EXPECTED_VERSION: '2.0.0-beta.2',
-      PATH: `${binaryDirectory}:${process.env.PATH ?? ''}`,
-      VERIFY_LOG: fixture.verificationLog,
-    },
-  })
 }
 
 function asRecord(value: unknown, label: string): LooseRecord {
