@@ -92,7 +92,7 @@ def store_getter():
     # Fail closed if the installed Snapcraft API changes. Never implement or log
     # macaroon handling ourselves, and never send credentials to pagination hosts.
     from snapcraft.store.client import get_client
-    client = get_client()
+    client = get_client(ephemeral=False)
 
     def get(url):
         try:
@@ -127,9 +127,13 @@ def verify_before_release(get):
 
 def main():
     if sys.argv[1:] == ["check-client"]:
-        from snapcraft.store.client import get_client
-        require(callable(get_client), "Snapcraft client adapter is unavailable")
-        print("Snapcraft authenticated Store adapter import passed")
+        # Exercise the real factory without credentials, network, or a host
+        # keyring (headless runners may have no desktop secret service).
+        import keyring
+        from craft_store.auth import MemoryKeyring
+        keyring.set_keyring(MemoryKeyring())
+        store_getter()
+        print("Snapcraft authenticated Store adapter initialization passed")
         return
     get = store_getter()
     if len(sys.argv) == 2 and sys.argv[1] == "verify":

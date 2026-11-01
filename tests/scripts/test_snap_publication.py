@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import sys
 import unittest
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 import zipfile
 
@@ -100,6 +101,47 @@ class UploadRecoveryTests(unittest.TestCase):
         data = {"snap": {"name": "motrix"}, "revisions": [revision()], "_links": {"next": "?size=500"}}
         with self.assertRaises(ValueError):
             upload.list_revisions(Mock(return_value=data))
+
+
+class StoreClientAdapterTests(unittest.TestCase):
+    def factory_module(self, client):
+        # Snapcraft 9 requires this argument; preserve its real signature.
+        def get_client(ephemeral):
+            self.assertIs(ephemeral, False)
+            return client
+        return {"snapcraft": SimpleNamespace(), "snapcraft.store": SimpleNamespace(),
+                "snapcraft.store.client": SimpleNamespace(get_client=get_client)}
+
+    def test_constructs_real_signature_without_network_and_binds_safe_request_options(self):
+        client = Mock()
+        client.request.return_value = SimpleNamespace(status_code=200, json=lambda: {"revisions": []})
+        with patch.dict(sys.modules, self.factory_module(client)):
+            get = upload.store_getter()
+            client.request.assert_not_called()
+            self.assertEqual(get(upload.ENDPOINT), {"revisions": []})
+        client.request.assert_called_once_with("GET", upload.ENDPOINT, headers={"Accept": "application/json"},
+                                               timeout=60, allow_redirects=False)
+
+    def test_compatibility_command_constructs_client_without_authentication_or_request(self):
+        client = Mock()
+        keyring = Mock()
+        modules = {**self.factory_module(client), "keyring": keyring,
+                   "craft_store": SimpleNamespace(),
+                   "craft_store.auth": SimpleNamespace(MemoryKeyring=lambda: "memory-only")}
+        with patch.dict(sys.modules, modules), \
+             patch.object(sys, "argv", ["upload_snap_revision.py", "check-client"]):
+            upload.main()
+        keyring.set_keyring.assert_called_once_with("memory-only")
+        client.request.assert_not_called()
+
+    def test_does_not_expose_request_exception_payloads(self):
+        client = Mock()
+        client.request.side_effect = RuntimeError("sensitive authentication response")
+        with patch.dict(sys.modules, self.factory_module(client)):
+            with self.assertRaises(publication.PublicationError) as error:
+                upload.store_getter()(upload.ENDPOINT)
+        self.assertNotIn("sensitive", str(error.exception))
+        self.assertIn("Store read failed", str(error.exception))
 
 
 class SourceTests(unittest.TestCase):
