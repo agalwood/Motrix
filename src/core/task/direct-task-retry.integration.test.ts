@@ -14,7 +14,7 @@ import {
   spawnAria2ForTest,
 } from '@test-utils/aria2'
 import { directTaskUpdatePublication } from '@test-utils/task-update'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { type ReAddTaskDeps, reAddTask } from './actions/re-add-task'
 import { handleCreateTask } from './create-task-handler'
 import { createGetTaskHttpRetryAvailabilityHandler } from './direct-task-retry'
@@ -22,9 +22,20 @@ import { mergeEngineTask } from './merge-engine-task'
 import { shouldEvictFromEngine } from './should-evict-from-engine'
 import { TaskManager } from './task-manager'
 
-describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
+const requireNativeHttpRetry =
+  process.env.MOTRIX_REQUIRE_HTTP_RETRY_TEST === '1'
+const nativeRetryEnvironmentAvailable =
+  bundledAria2Exists() && canBindLoopbackTcp()
+
+describe.skipIf(!requireNativeHttpRetry && !nativeRetryEnvironmentAvailable)(
   'native authenticated HTTP continuation',
   () => {
+    beforeAll(() => {
+      if (!nativeRetryEnvironmentAvailable)
+        throw new Error(
+          'Native HTTP retry tests require the target engine and loopback TCP access'
+        )
+    })
     it.for([
       { empty: false, restart: false },
       { empty: true, restart: false },
@@ -89,7 +100,7 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
               'aria2.retryHttpDownloadV1'
             )
           ) {
-            if (process.env.MOTRIX_REQUIRE_HTTP_RETRY_TEST === '1')
+            if (requireNativeHttpRetry)
               throw new Error('Native HTTP retry engine required')
             context.skip()
             return

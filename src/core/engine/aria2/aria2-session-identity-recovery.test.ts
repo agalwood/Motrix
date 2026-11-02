@@ -116,6 +116,12 @@ describe('aria2 persisted task identity recovery', () => {
       try {
         await unlink(h.metadataPath)
         const before = h.rows()
+        h.db
+          .prepare('INSERT INTO download_history VALUES (?, ?, ?, ?)')
+          .run(2, CHILD, 'error', null)
+        h.db
+          .prepare('INSERT INTO download_history VALUES (?, ?, ?, ?)')
+          .run(3, OTHER, 'complete', '[]')
         const history = h.db.prepare('SELECT * FROM download_history').all()
         const store = recoveryStore()
         store.quarantine = vi.fn(async (tasks) => {
@@ -144,6 +150,9 @@ describe('aria2 persisted task identity recovery', () => {
             expect(
               backup.prepare('SELECT * FROM task_cookie_context').all()
             ).toHaveLength(1)
+            expect(
+              backup.prepare('SELECT * FROM download_history').all()
+            ).toEqual(history)
           } finally {
             backup.close()
           }
@@ -161,7 +170,7 @@ describe('aria2 persisted task identity recovery', () => {
           []
         )
         expect(h.db.prepare('SELECT * FROM download_history').all()).toEqual(
-          history
+          history.filter((row) => (row as { gid: string }).gid !== PARENT)
         )
         expect(
           await recoverAria2SessionIdentity(h.file, () => true, store)
@@ -491,7 +500,77 @@ describe('aria2 persisted task identity recovery', () => {
       h.db.prepare('DELETE FROM task WHERE gid = ?').run(PARENT)
       const result = await recoverAria2SessionIdentity(h.file)
       expect(result?.repairedGids).toEqual([CHILD])
+      expect(result?.retiredMetadataGids).toEqual([PARENT])
+      expect(h.db.prepare('SELECT * FROM download_history').all()).toEqual([])
+    } finally {
+      h.db.close()
+    }
+  })
+
+  it('preserves history without a verified metadata link when the ancestor task is absent', async () => {
+    const h = await setup()
+    try {
+      h.db.prepare('DELETE FROM task WHERE gid = ?').run(PARENT)
+      h.db
+        .prepare('UPDATE download_history SET followed_by = ?')
+        .run(JSON.stringify([OTHER]))
+      const before = h.db.prepare('SELECT * FROM download_history').all()
+      const result = await recoverAria2SessionIdentity(h.file)
+      expect(result?.repairedGids).toEqual([CHILD])
       expect(result?.retiredMetadataGids).toEqual([])
+      expect(h.db.prepare('SELECT * FROM download_history').all()).toEqual(
+        before
+      )
+    } finally {
+      h.db.close()
+    }
+  })
+
+  it('removes duplicate verified ancestor histories and their dependent records only', async () => {
+    const h = await setup()
+    try {
+      h.db.exec(`
+        CREATE TABLE download_history_files(history_id INTEGER REFERENCES download_history(id) ON DELETE CASCADE, path TEXT);
+        INSERT INTO download_history_files VALUES (1, 'metadata.torrent');
+      `)
+      h.db
+        .prepare('INSERT INTO download_history VALUES (0, ?, ?, ?)')
+        .run(PARENT, 'error', '[]')
+      h.db
+        .prepare('INSERT INTO download_history VALUES (2, ?, ?, ?)')
+        .run(PARENT, 'complete', JSON.stringify([CHILD]))
+      h.db
+        .prepare('INSERT INTO download_history_files VALUES (?, ?)')
+        .run(2, 'metadata-copy.torrent')
+      const result = await recoverAria2SessionIdentity(h.file)
+      expect(result?.retiredMetadataGids).toEqual([PARENT])
+      expect(h.db.prepare('SELECT * FROM download_history').all()).toEqual([
+        { id: 0, gid: PARENT, status: 'error', followed_by: '[]' },
+      ])
+      expect(
+        h.db.prepare('SELECT * FROM download_history_files').all()
+      ).toEqual([])
+    } finally {
+      h.db.close()
+    }
+  })
+
+  it('rolls back task and progress retirement when verified history cleanup fails', async () => {
+    const h = await setup()
+    try {
+      h.db.exec(
+        `CREATE TRIGGER refuse_history_delete BEFORE DELETE ON download_history BEGIN SELECT RAISE(ABORT, 'injected history failure'); END`
+      )
+      const before = h.rows()
+      const history = h.db.prepare('SELECT * FROM download_history').all()
+      await expect(recoverAria2SessionIdentity(h.file)).rejects.toThrow(
+        'injected history failure'
+      )
+      expect(h.rows()).toEqual(before)
+      expect(h.db.prepare('SELECT * FROM task_progress').all()).toHaveLength(1)
+      expect(h.db.prepare('SELECT * FROM download_history').all()).toEqual(
+        history
+      )
     } finally {
       h.db.close()
     }

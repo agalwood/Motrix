@@ -425,10 +425,14 @@ jobs:
 
       - name: Native runtime integration
         env:
+          MOTRIX_ARIA2_TEST_BIN: ${{ github.workspace }}/extra/${{ matrix.platform }}/${{ matrix.arch }}/${{ matrix.platform == 'win32' && 'aria2c.exe' || 'aria2c' }}
+          MOTRIX_REQUIRE_HTTP_RETRY_TEST: '1'
           MOTRIX_LEGACY_CHECKPOINT_ENGINE: ${{ github.workspace }}/extra/${{ matrix.platform }}/${{ matrix.arch }}/${{ matrix.platform == 'win32' && 'aria2c.exe' || 'aria2c' }}
           MOTRIX_FINALIZE_FS_TEST_BIN: packages/finalize-fs/dist/${{ matrix.platform }}-${{ matrix.arch }}/${{ matrix.platform == 'win32' && 'motrix-finalize-fs.exe' || 'motrix-finalize-fs' }}
         run: >-
           pnpm exec vitest run
+          src/core/task/direct-task-retry.integration.test.ts
+          src/core/engine/aria2/aria2-session-identity-recovery.integration.test.ts
           src/core/engine/aria2/aria2-parent-lifecycle.integration.test.ts
           src/core/legacy-import/http-activation.integration.test.ts
           src/core/plugin/finalize/native-artifact-operations.integration.test.ts

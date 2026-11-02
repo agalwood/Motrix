@@ -96,7 +96,7 @@ async function readMatchingMetadata(
 }
 
 /**
- * Repair the fork's metadata-ancestor GID serialization (schema v1–v5) before spawn.
+ * Repair the fork's metadata-ancestor GID serialization (schema v1–v6) before spawn.
  * The actual row key remains the owner of progress, cookies and app identity.
  * A verified local torrent replaces the magnet so aria2 recreates that exact
  * payload task directly. Unrecoverable tasks are backed up and retained in the
@@ -147,37 +147,50 @@ export async function recoverAria2SessionIdentity(
       throw new Error('aria2 session recovery requires a stopped engine')
 
     const retiredMetadataGids = new Set<string>()
+    const retiredHistoryIds = new Set<number>()
     const plans: Array<{ row: Row; entry: Entry; bytes: Buffer }> = []
     const quarantined: EngineSessionTaskFailure[] = []
     for (const { row, entry } of candidates) {
       if (!['waiting', 'paused'].includes(row.state))
         throw failure(row.gid, 'unsupported task state')
       const parent = rows.find((candidate) => candidate.gid === entry.gid)
+      const history = db
+        .prepare(
+          'SELECT id, status, followed_by FROM download_history WHERE gid = ? ORDER BY id DESC'
+        )
+        .all(entry.gid) as Array<{
+        id: number
+        status: string
+        followed_by: string | null
+      }>
+      const confirmsChild = (record: (typeof history)[number]): boolean => {
+        if (record.status !== 'complete') return false
+        try {
+          return z
+            .array(gidSchema)
+            .parse(JSON.parse(record.followed_by ?? 'null'))
+            .includes(row.gid)
+        } catch {
+          return false
+        }
+      }
+      const verifiedAncestor = history[0] && confirmsChild(history[0])
       if (parent) {
         const parentEntry = parseEntry(parent.serialized)
-        const history = db
-          .prepare(
-            'SELECT status, followed_by FROM download_history WHERE gid = ? ORDER BY id DESC LIMIT 1'
-          )
-          .get(parent.gid) as
-          | { status: string; followed_by: string | null }
-          | undefined
-        let children: string[] = []
-        try {
-          children = z
-            .array(gidSchema)
-            .parse(JSON.parse(history?.followed_by ?? 'null'))
-        } catch {
-          // Retire only a proven completed metadata ancestor.
-        }
         if (
           parentEntry?.source !== entry.source ||
           parentEntry.gid !== parent.gid ||
-          history?.status !== 'complete' ||
-          !children.includes(row.gid)
+          !verifiedAncestor
         )
           throw failure(row.gid, 'metadata ancestry could not be verified')
-        retiredMetadataGids.add(parent.gid)
+      }
+      if (verifiedAncestor) {
+        retiredMetadataGids.add(entry.gid)
+        // Stopped history can otherwise be adopted as a separate download even
+        // after its task row is gone. Retire only individually proven ancestors;
+        // a reused GID does not authorize deleting unrelated history.
+        for (const record of history)
+          if (confirmsChild(record)) retiredHistoryIds.add(record.id)
       }
 
       let infoHash: string
@@ -318,6 +331,10 @@ export async function recoverAria2SessionIdentity(
         remove.run(gid)
         removeProgress?.run(gid)
       }
+      const removeHistory = db.prepare(
+        'DELETE FROM download_history WHERE id = ?'
+      )
+      for (const id of retiredHistoryIds) removeHistory.run(id)
     }).immediate()
     return {
       backupPath,
