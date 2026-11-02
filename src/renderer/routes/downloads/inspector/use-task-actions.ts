@@ -5,6 +5,7 @@ import {
   invalidateTaskList,
 } from '@renderer/hooks/use-task-list'
 import { openAddTaskDialog } from '@renderer/lib/open-add-task-dialog'
+import { useOperatorSession } from '@renderer/lib/operator-auth'
 import { transport } from '@renderer/lib/transport'
 import { type CommandChannel, Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
@@ -371,6 +372,7 @@ export function useTaskActions(
   const onRetry = useCallback(
     async (modifier?: { alt: boolean }) => {
       if (!readyToWrite()) return
+      const sessionEpoch = useOperatorSession.getState().epoch
       let targets = resolveLatest(selected)
       const candidates = modifier?.alt
         ? []
@@ -385,6 +387,9 @@ export function useTaskActions(
               Queries.GetTaskHttpRetryAvailability,
               candidates.slice(offset, offset + 1000).map((task) => task.id)
             )
+            // Logout cancels this intent even if a new login has already completed.
+            if (sessionEpoch !== useOperatorSession.getState().epoch) return
+            if (!readyToWrite()) return
             if (Array.isArray(available)) {
               for (const id of available)
                 if (typeof id === 'string') nativeRetryIds.add(id)
@@ -392,6 +397,7 @@ export function useTaskActions(
           }
           targets = resolveLatest(selected)
         } catch (error) {
+          if (sessionEpoch !== useOperatorSession.getState().epoch) return
           reportPartial(
             candidates.map((task) => ({
               ok: false,
