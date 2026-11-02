@@ -1009,6 +1009,12 @@ async function handleCreateTaskUnderAdmission(
     // already canonical fields on the instance; modifier VALUES remain
     // engine-call-only so credentials never enter motrix.db.
     assertPluginPolicyCurrent?.()
+    if (
+      params.uris.length === 1 &&
+      (await deps.adapter.supportsDirectTaskRetry?.())
+    ) {
+      params.retainRequestContext = true
+    }
     directReplay = buildDirectReplayRecipe(
       params,
       ambientMetadataProfile === null

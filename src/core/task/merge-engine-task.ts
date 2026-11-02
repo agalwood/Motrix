@@ -1,6 +1,7 @@
 import { hasLegacyImport } from '@core/legacy-import/legacy-task-policy'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus, TaskType, TransitionPhase } from '@shared/types/task'
+import { hasRetainedHttpRequestContext } from '@shared/types/task-actions'
 import { shareRatio } from '@shared/utils/share-ratio'
 import { applyTerminalTransition } from './apply-terminal-transition'
 import { unsettledBtUpload } from './bt-upload-settlement'
@@ -21,6 +22,16 @@ export function mergeEngineTask(
   now = Date.now()
 ): DownloadTask {
   if (existing.storageOperation) return existing
+  if (
+    existing.engineTaskId === engineTask.engineTaskId &&
+    existing.status === TaskStatus.Error &&
+    engineTask.status === TaskStatus.Paused &&
+    hasRetainedHttpRequestContext(existing)
+  ) {
+    // Engine startup retains failed native requests paused. Only explicit Retry
+    // may validate and reopen them; polling must not offer ordinary Resume.
+    return existing
+  }
   // Engine session replay and delayed notifications cannot reopen durable
   // direct history. Explicit re-add changes ownership/state before merging.
   if (

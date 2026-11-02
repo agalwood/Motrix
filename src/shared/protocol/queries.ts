@@ -14,6 +14,7 @@ export const Queries = {
   GetDisclaimerState: 'query:getDisclaimerState',
   ListTasks: 'query:listTasks',
   GetTaskDetail: 'query:getTaskDetail',
+  GetTaskHttpRetryAvailability: 'query:getTaskHttpRetryAvailability',
   GetStats: 'query:getStats',
   GetTaskSpeedHistory: 'query:getTaskSpeedHistory',
   GetTaskInspectorActivity: 'query:getTaskInspectorActivity',

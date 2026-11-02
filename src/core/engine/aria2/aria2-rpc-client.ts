@@ -429,6 +429,21 @@ export class Aria2RpcClient {
     ])
   }
 
+  getHttpRetryStatusV1(gid: string, uri: string, outputPath: string) {
+    return this.call<{ available: 'true' | 'false'; reason: string }>(
+      'aria2.getHttpRetryStatusV1',
+      [gid, uri, outputPath]
+    )
+  }
+
+  retryHttpDownloadV1(gid: string, uri: string, outputPath: string) {
+    return this.call<string>('aria2.retryHttpDownloadV1', [
+      gid,
+      uri,
+      outputPath,
+    ])
+  }
+
   inspectLegacyCheckpointV1(input: { controlFile: string }): Promise<unknown> {
     return this.call('aria2.inspectLegacyCheckpointV1', [input])
   }

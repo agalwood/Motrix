@@ -1,4 +1,7 @@
-import { isUriOnlyDirectReplay } from '@shared/schemas/direct-replay-recipe'
+import {
+  isUriOnlyDirectReplay,
+  parseDirectReplayRecipe,
+} from '@shared/schemas/direct-replay-recipe'
 import { legacyBtActivationSchema } from '@shared/schemas/legacy-bt-activation'
 import { legacyHttpActivationSchema } from '@shared/schemas/legacy-http-activation'
 import { legacyTaskMetadataSchema } from '@shared/schemas/legacy-import'
@@ -284,6 +287,28 @@ export function canRetryWithParameters(t: DownloadTask): boolean {
     t.type === TaskType.Http &&
     t.status === TaskStatus.Error &&
     t.transitionPhase === TransitionPhase.Idle
+  )
+}
+
+/** Retention is not permission to resume; the engine must still verify binding. */
+export function hasRetainedHttpRequestContext(t: DownloadTask): boolean {
+  if (
+    hasLegacyImport(t) ||
+    t.kind !== TaskKind.Direct ||
+    t.type !== TaskType.Http ||
+    t.transitionPhase !== TransitionPhase.Idle ||
+    !t.engineTaskId
+  )
+    return false
+  const primary = t.instances.find(
+    (instance) => instance.phase === TaskInstancePhase.HttpDownload
+  )
+  return Boolean(
+    primary &&
+      primary.gid === t.engineTaskId &&
+      primary.uris.length === 1 &&
+      primary.diskPath === t.diskPath &&
+      parseDirectReplayRecipe(primary.payload)?.engineContextVersion === 1
   )
 }
 

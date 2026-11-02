@@ -114,6 +114,8 @@ export interface PreparedDownloadCookies {
 }
 
 export interface CreateDownloadParams {
+  /** Require durable native request retention; fail if the engine changed. */
+  retainRequestContext?: boolean
   /** Explicit in-place legacy HTTP activation after content verification. */
   legacyCheckpointActivation?: { token: string; targetPath: string }
   uris: string[]
@@ -229,6 +231,18 @@ export interface EngineAdapter {
   ): PreparedDownloadCookies
   pauseTask(engineTaskId: string): Promise<void>
   resumeTask(engineTaskId: string): Promise<void>
+  /** Engine-owned HTTP continuation; credentials remain inside the engine. */
+  supportsDirectTaskRetry?(): Promise<boolean>
+  canRetryDirectTask?(input: {
+    engineTaskId: string
+    uri: string
+    outputPath: string
+  }): Promise<boolean>
+  retryDirectTask?(input: {
+    engineTaskId: string
+    uri: string
+    outputPath: string
+  }): Promise<void>
   removeTask(engineTaskId: string): Promise<void>
 
   /**

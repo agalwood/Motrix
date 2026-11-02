@@ -426,6 +426,98 @@ function withPrimaryInstance(task: DownloadTask): DownloadTask {
 }
 
 describe('reAddTask (HTTP path)', () => {
+  it.each([true, false])(
+    'recomputes retention when falling back to a safe request rebuild: supported=%s',
+    async (supported) => {
+      const task = makeHttpTask()
+      task.instances[0].payload.directReplay = {
+        version: 1,
+        requestModifiers: [],
+        replayability: 'uri-only',
+        engineContextVersion: 1,
+      }
+      const deps = makeDeps(task)
+      deps.adapter.supportsDirectTaskRetry = vi
+        .fn()
+        .mockResolvedValue(supported)
+      await reAddTask(task.id, deps)
+      const request = vi.mocked(deps.adapter.createDownload).mock.calls[0][0]
+      expect(request.retainRequestContext).toBe(supported ? true : undefined)
+      expect(
+        deps.taskManager.getById(task.id)?.instances[0].payload.directReplay
+      ).toEqual({
+        version: 1,
+        requestModifiers: [],
+        replayability: 'uri-only',
+        ...(supported ? { engineContextVersion: 1 } : {}),
+      })
+    }
+  )
+  it('continues an authenticated download under its original public and engine identities', async () => {
+    const task = makeHttpTask({ downloadedBytes: 524288, totalBytes: 4194304 })
+    task.instances[0].payload.directReplay = {
+      version: 1,
+      requestModifiers: ['cookies'],
+      replayability: 'requires-credentials',
+    }
+    const deps = makeDeps(task)
+    deps.adapter.canRetryDirectTask = vi.fn().mockResolvedValue(true)
+    deps.adapter.retryDirectTask = vi.fn().mockResolvedValue(undefined)
+    await reAddTask(task.id, deps)
+    expect(deps.adapter.retryDirectTask).toHaveBeenCalledExactlyOnceWith({
+      engineTaskId: task.engineTaskId,
+      uri: task.uris[0],
+      outputPath: task.diskPath,
+    })
+    expect(deps.taskManager.getById(task.id)).toMatchObject({
+      id: task.id,
+      engineTaskId: task.engineTaskId,
+      diskPath: task.diskPath,
+      downloadedBytes: task.downloadedBytes,
+      status: TaskStatus.Downloading,
+      errorMessage: null,
+    })
+    expect(deps.adapter.createDownload).not.toHaveBeenCalled()
+    expect(deps.adapter.forceRemoveTask).not.toHaveBeenCalled()
+    expect(deps.taskManager.reserveEngineTaskId).not.toHaveBeenCalled()
+  })
+
+  it('does not remove the original engine task when a native retry response is lost', async () => {
+    const task = makeHttpTask()
+    const deps = makeDeps(task)
+    deps.adapter.canRetryDirectTask = vi.fn().mockResolvedValue(true)
+    deps.adapter.retryDirectTask = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('response lost'))
+      .mockResolvedValue(undefined)
+    await expect(reAddTask(task.id, deps)).rejects.toThrow('response lost')
+    expect(deps.taskManager.getById(task.id)?.engineTaskId).toBe(
+      task.engineTaskId
+    )
+    expect(deps.adapter.forceRemoveTask).not.toHaveBeenCalled()
+    expect(deps.adapter.removeDownloadResult).not.toHaveBeenCalled()
+    await reAddTask(task.id, deps)
+    expect(deps.taskManager.getById(task.id)?.status).toBe(
+      TaskStatus.Downloading
+    )
+  })
+
+  it('does not overwrite an authoritative completion observed during native retry', async () => {
+    const task = makeHttpTask()
+    const deps = makeDeps(task)
+    deps.adapter.canRetryDirectTask = vi.fn().mockResolvedValue(true)
+    deps.adapter.retryDirectTask = vi.fn(async () => {
+      deps.taskManager.set(task.id, {
+        ...task,
+        status: TaskStatus.Finalizing,
+        updatedAt: 100,
+      })
+    })
+    await reAddTask(task.id, deps)
+    expect(deps.taskManager.getById(task.id)?.status).toBe(
+      TaskStatus.Finalizing
+    )
+  })
   it('retries a URI-only HTTP task at its exact .motrix output path', async () => {
     const task = makeHttpTask()
     task.instances[0].payload = {

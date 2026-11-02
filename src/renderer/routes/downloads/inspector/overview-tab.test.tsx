@@ -211,7 +211,7 @@ describe('OverviewTab', () => {
       ).not.toBeInTheDocument()
     })
 
-    it('offers a request form for an HTTP error without replay credentials', () => {
+    it('offers a request form for an HTTP error without replay credentials', async () => {
       useRetryParametersStore.getState().close()
       renderOverviewTab({
         ...task,
@@ -222,7 +222,7 @@ describe('OverviewTab', () => {
         uris: ['https://example.com/x'],
         errorCode: DownloadErrorCode.NetworkError,
       })
-      fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
       expect(useRetryParametersStore.getState().targets[0]?.id).toBe(
         'http-error'
       )

@@ -30,6 +30,7 @@ import {
   TransitionPhase,
 } from '@shared/types/task'
 import {
+  hasRetainedHttpRequestContext,
   isMediaKind,
   isTorrentLike,
   isTorrentLikeType,
@@ -74,6 +75,7 @@ import {
 } from '../task/bt-storage-layout'
 import { unsettledBtUpload } from '../task/bt-upload-settlement'
 import { isCompletedDirectOutput } from '../task/completed-direct-task-policy'
+import { updateDirectReplayRetention } from '../task/direct-replay-recipe'
 import {
   canMirrorAria2MetadataHeaders,
   type DirectResourceProxyOptionsProvider,
@@ -975,13 +977,17 @@ export class SessionManager {
           this.taskManager.set(task.id, task)
           consumedMotrixIds.add(parent.task.motrixId)
           // Metadata Errors keep their GID: MagnetTracker primes a cache
-          // shield for it after restore. Every other Error evicts the
-          // engine's copy so the next launch stays clean.
+          // shield for it after restore. Native HTTP Errors also retain their
+          // request/checkpoint context; mergeEngineTask keeps their paused
+          // replay behind the explicit Retry action. Other Errors are evicted.
           const isMetadataError = parent.instances.some(
             (instance) =>
               instance.phase === TaskInstancePhase.MagnetMetadataResolution
           )
-          if (!isMetadataError) {
+          const retainedHttp =
+            task.engineTaskId === aria2.gid &&
+            hasRetainedHttpRequestContext(task)
+          if (!isMetadataError && !retainedHttp) {
             evictions.push(this.evictResurrectedErrorRow(aria2))
           }
           continue
@@ -1863,10 +1869,31 @@ export class SessionManager {
         }
         ifRange = validation.ifRange
       }
-      return this.dispatchRecoveryCandidate(pair, (gid) => {
+      const retainRequestContext = Boolean(
+        recipe &&
+          admittedUris.length === 1 &&
+          /^https?:/i.test(admittedUris[0]) &&
+          (await this.adapter.supportsDirectTaskRetry?.())
+      )
+      const retryPair: TaskWithInstances = {
+        ...pair,
+        instances: pair.instances.map((instance) =>
+          instance === primary
+            ? {
+                ...instance,
+                payload: updateDirectReplayRetention(
+                  instance.payload,
+                  retainRequestContext
+                ),
+              }
+            : instance
+        ),
+      }
+      return this.dispatchRecoveryCandidate(retryPair, (gid) => {
         assertProxyCurrent?.()
         return this.adapter.createDownload({
           uris: admittedUris,
+          ...(retainRequestContext ? { retainRequestContext: true } : {}),
           gid,
           saveDir: plan.saveDir as string,
           filename: plan.filename as string,

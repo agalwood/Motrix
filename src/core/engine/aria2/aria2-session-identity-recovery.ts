@@ -116,7 +116,7 @@ export async function recoverAria2SessionIdentity(
   const db = new Database(databasePath, { fileMustExist: true, timeout: 0 })
   try {
     const schemaVersion = db.pragma('user_version', { simple: true })
-    if (![1, 2, 3, 4, 5].includes(Number(schemaVersion))) return null
+    if (![1, 2, 3, 4, 5, 6].includes(Number(schemaVersion))) return null
     const dataVersion = db.pragma('data_version', { simple: true })
     const rows = z
       .array(rowSchema)
@@ -131,7 +131,7 @@ export async function recoverAria2SessionIdentity(
         ? (
             db
               .prepare(
-                Number(schemaVersion) === 5
+                Number(schemaVersion) >= 5
                   ? 'SELECT gid FROM legacy_checkpoint_import UNION SELECT gid FROM legacy_torrent_metadata'
                   : 'SELECT gid FROM legacy_checkpoint_import'
               )

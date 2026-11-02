@@ -1012,7 +1012,12 @@ async function handlePolledTasks(
           }
           if (
             !hasLegacyImport(existing) &&
-            shouldEvictFromEngine(existing.status, merged.status, existing.type)
+            shouldEvictFromEngine(
+              existing.status,
+              merged.status,
+              existing.type,
+              existing
+            )
           ) {
             // Either BT/Magnet seeding just satisfied its ratio/time target,
             // or the task just landed in Error (see shouldEvictFromEngine).

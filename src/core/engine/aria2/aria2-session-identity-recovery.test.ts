@@ -22,7 +22,7 @@ const CHILD = '2222222222222222'
 const OTHER = '3333333333333333'
 const folders: string[] = []
 
-async function setup(state = 'paused', schemaVersion: 2 | 3 | 4 | 5 = 2) {
+async function setup(state = 'paused', schemaVersion: 2 | 3 | 4 | 5 | 6 = 2) {
   const root = await mkdtemp(path.join(tmpdir(), 'motrix-identity-'))
   folders.push(root)
   const file = path.join(root, 'aria2.db')
@@ -56,7 +56,7 @@ async function setup(state = 'paused', schemaVersion: 2 | 3 | 4 | 5 = 2) {
     db.exec(
       'CREATE TABLE legacy_checkpoint_import(token TEXT PRIMARY KEY, gid TEXT, consumed INTEGER)'
     )
-  if (schemaVersion === 5)
+  if (schemaVersion >= 5)
     db.exec(
       'CREATE TABLE legacy_torrent_metadata(token TEXT PRIMARY KEY, gid TEXT, metadata_digest TEXT)'
     )
@@ -109,7 +109,7 @@ describe('aria2 persisted task identity recovery', () => {
     quarantine: vi.fn().mockResolvedValue(undefined),
   })
 
-  it.each([2, 3, 4, 5] as const)(
+  it.each([2, 3, 4, 5, 6] as const)(
     'quarantines missing metadata with a complete backup on schema v%s',
     async (schemaVersion) => {
       const h = await setup('waiting', schemaVersion)
@@ -567,7 +567,7 @@ describe('aria2 persisted task identity recovery', () => {
           h.db
             .prepare('INSERT INTO legacy_checkpoint_import VALUES (?, ?, 1)')
             .run('unchanged-token', OTHER)
-        if (schemaVersion === 5)
+        if (schemaVersion >= 5)
           h.db
             .prepare('INSERT INTO legacy_torrent_metadata VALUES (?, ?, ?)')
             .run('unchanged-token', OTHER, 'unchanged-digest')
@@ -578,7 +578,7 @@ describe('aria2 persisted task identity recovery', () => {
           expect(
             h.db.prepare('SELECT * FROM legacy_checkpoint_import').all()
           ).toEqual([{ token: 'unchanged-token', gid: OTHER, consumed: 1 }])
-        if (schemaVersion === 5)
+        if (schemaVersion >= 5)
           expect(
             h.db.prepare('SELECT * FROM legacy_torrent_metadata').all()
           ).toEqual([
@@ -628,7 +628,7 @@ describe('aria2 persisted task identity recovery', () => {
   it('leaves an unfamiliar future schema unchanged', async () => {
     const h = await setup()
     try {
-      h.db.pragma('user_version = 6')
+      h.db.pragma('user_version = 7')
       const before = h.rows()
       expect(await recoverAria2SessionIdentity(h.file)).toBeNull()
       expect(h.rows()).toEqual(before)

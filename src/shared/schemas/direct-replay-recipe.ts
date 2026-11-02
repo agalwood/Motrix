@@ -61,6 +61,8 @@ const directReplayV1Schema = z
     connections: z.number().int().min(1).max(128).optional(),
     requestModifiers: z.array(directReplayRequestModifierSchema).max(5),
     replayability: z.enum(['uri-only', 'requires-credentials']),
+    /** The engine owns a durable request context; availability still needs checking. */
+    engineContextVersion: z.literal(1).optional(),
     resourceValidator: directResourceValidatorSchema.optional(),
   })
   .strict()

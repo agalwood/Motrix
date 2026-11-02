@@ -235,7 +235,10 @@ describe('useTaskActions', () => {
     const { result } = renderHook(() => useTaskActions([task]))
     await result.current.onRetry()
     expect(useRetryParametersStore.getState().targets).toEqual([task])
-    expect(transport.invoke).not.toHaveBeenCalled()
+    expect(transport.invoke).toHaveBeenCalledExactlyOnceWith(
+      Queries.GetTaskHttpRetryAvailability,
+      [task.id]
+    )
     expect(task).toEqual(before)
   })
 
@@ -281,9 +284,34 @@ describe('useTaskActions', () => {
     const { result } = renderHook(() => useTaskActions([first, bt, second]))
     await result.current.onRetry()
     expect(useRetryParametersStore.getState().targets).toEqual([first, second])
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.RetryTasks, ['bt'])
+  })
+
+  it('uses native continuation when the engine retains the original authenticated request', async () => {
+    const task = makeTask({ id: 'retained', status: TaskStatus.Error })
+    vi.mocked(transport.invoke).mockResolvedValueOnce([task.id])
+    const { result } = renderHook(() => useTaskActions([task]))
+    await result.current.onRetry()
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.RetryTasks, [
+      task.id,
+    ])
+    expect(useRetryParametersStore.getState().targets).toEqual([])
+  })
+
+  it('does not turn a failed capability query into a new download or an automatic retry', async () => {
+    const task = makeTask({ status: TaskStatus.Error })
+    vi.mocked(transport.invoke).mockRejectedValueOnce(
+      new Error('engine reconnecting')
+    )
+    const { result } = renderHook(() => useTaskActions([task]))
+    await result.current.onRetry()
     expect(transport.invoke).toHaveBeenCalledExactlyOnceWith(
-      Commands.RetryTasks,
-      ['bt']
+      Queries.GetTaskHttpRetryAvailability,
+      [task.id]
+    )
+    expect(useRetryParametersStore.getState().targets).toEqual([])
+    expect(toastAddMock).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'error' })
     )
   })
 

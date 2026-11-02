@@ -1510,6 +1510,45 @@ describe('SessionManager', () => {
       sessionManager = new SessionManager(taskManager, rpc, db, adapter)
     })
 
+    it.each([true, false])(
+      'recomputes native request retention when rebuilding a missing HTTP engine row: %s',
+      async (supported) => {
+        seedAsPair(db, {
+          motrixId: 'retained-http-rebuild',
+          gid: 'old-http-gid',
+          type: TaskType.Http,
+          kind: TaskKind.Direct,
+          status: TaskStatus.Paused,
+          diskPath: '/tmp/retained-http-rebuild.motrix',
+          finalPath: '/tmp/retained-http-rebuild',
+          uris: ['https://example.test/retained-http-rebuild'],
+          payload: {
+            directReplay: {
+              version: 1,
+              requestModifiers: [],
+              replayability: 'uri-only',
+              engineContextVersion: 1,
+            },
+          },
+        })
+        adapter.supportsDirectTaskRetry = vi.fn().mockResolvedValue(supported)
+        await sessionManager.restore()
+        expect(
+          vi.mocked(adapter.createDownload).mock.calls[0][0]
+            .retainRequestContext
+        ).toBe(supported ? true : undefined)
+        expect(
+          taskManager.getById('retained-http-rebuild')?.instances[0].payload
+            .directReplay
+        ).toEqual({
+          version: 1,
+          requestModifiers: [],
+          replayability: 'uri-only',
+          ...(supported ? { engineContextVersion: 1 } : {}),
+        })
+      }
+    )
+
     it('MERGES BT task by info_hash even when gids differ', async () => {
       const savedGid = 'old-gid-001'
       const newGid = 'new-gid-001'
