@@ -41,6 +41,29 @@ afterEach(async () => {
 })
 
 describe('third-party notice generator', () => {
+  it('retains an omitted license declaration while applying a version-specific reviewed conclusion', async () => {
+    const root = await createFixture()
+    await writeJson(path.join(root, 'package.json'), {
+      name: 'fixture',
+      version: '1.0.0',
+      dependencies: { alpha: '1.0.0' },
+    })
+    await writePackage(root, 'node_modules/alpha', {
+      name: 'alpha',
+      version: '1.0.0',
+    })
+    await expect(collectRuntimePackages({ projectDir: root })).rejects.toThrow(
+      'no declared license'
+    )
+    const graph = await collectRuntimePackages({
+      projectDir: root,
+      packageOverrides: { 'alpha@1.0.0': { licenseConcluded: 'MIT' } },
+    })
+    expect(graph.packages[0]).toMatchObject({
+      licenseDeclared: 'NOASSERTION',
+      licenseConcluded: 'MIT',
+    })
+  })
   it('uses root runtime declarations despite an existing staged manifest', async () => {
     const root = await createFixture()
     await writeJson(path.join(root, 'package.json'), {

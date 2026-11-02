@@ -79,6 +79,9 @@ export function WebMenuButton() {
   const [confirmation, setConfirmation] =
     useState<MenuConfirmationRequest | null>(null)
   const canLogout = useOperatorSession((s) => s.status?.canLogout === true)
+  const username = useOperatorSession((s) =>
+    s.status?.mode === 'fnosGateway' ? s.status.username : undefined
+  )
   const content = useRef<HTMLDivElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
   const input = useRef<HTMLInputElement>(null)
@@ -381,6 +384,11 @@ export function WebMenuButton() {
             </>
           ) : (
             <>
+              {username && (
+                <div className="px-2 py-1 text-xs text-muted-foreground">
+                  {username}
+                </div>
+              )}
               {renderItems('app')}
               <DropdownMenuSeparator />
               {submenu('task')}

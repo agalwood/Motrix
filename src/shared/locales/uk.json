@@ -402,7 +402,8 @@
     "help": "Цей сервер потребує токена оператора. На хості задайте MOTRIX_OPERATOR_TOKEN або прочитайте токен із <dataDir>/operator-token і вставте його нижче.",
     "placeholder": "Токен оператора",
     "submit": "Розблокувати",
-    "title": "Розблокувати Motrix"
+    "title": "Розблокувати Motrix",
+    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
   },
   "panel": {
     "completed": {

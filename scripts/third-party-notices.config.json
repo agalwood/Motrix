@@ -61,6 +61,11 @@
         "lib-vendor/internmap/LICENSE"
       ],
       "attribution": "Vendored D3 modules; individual notices are preserved from the package."
+    },
+    "@trimjs/web-app@0.5.0": {
+      "licenseConcluded": "MIT",
+      "packageLicenseFiles": ["README.md"],
+      "attribution": "The @trimjs/web-app 0.5.0 package README declares MIT. Its package.json omits the license field and its archive contains no separate LICENSE file."
     }
   },
   "externalComponents": [

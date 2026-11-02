@@ -399,7 +399,8 @@
     "help": "เซิร์ฟเวอร์นี้ต้องใช้โทเค็นผู้ดูแล ตั้งค่า MOTRIX_OPERATOR_TOKEN บนโฮสต์ หรืออ่านโทเค็นจาก <dataDir>/operator-token แล้ววางด้านล่าง",
     "placeholder": "โทเค็นผู้ดูแล",
     "submit": "ปลดล็อก",
-    "title": "ปลดล็อก Motrix"
+    "title": "ปลดล็อก Motrix",
+    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
   },
   "panel": {
     "completed": {

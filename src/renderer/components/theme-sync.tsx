@@ -3,6 +3,7 @@ import {
   type SettingsReader,
 } from '@renderer/lib/settings-refresh'
 import { transport } from '@renderer/lib/transport'
+import { fnosSdk, isFnos, watchFnosPlatform } from '@renderer/platform/fnos'
 import { Queries } from '@shared/protocol/queries'
 import type { AppSettings } from '@shared/types/settings'
 import { useTheme } from 'next-themes'
@@ -24,9 +25,16 @@ export function ThemeSync() {
       if (cancelled || current !== generation) return
       const all = data as AppSettings | undefined
       const theme = all?.app?.theme
+      if (theme === 'system' && isFnos()) {
+        const config = await (await fnosSdk()).getPlatformConfig()
+        if (!cancelled && current === generation) setTheme(config.theme)
+        return
+      }
       if (theme) setTheme(theme)
     }
     const refresh = () => void reconcile().catch(() => {})
+    const stopFnosSync = watchFnosPlatform('os/theme', refresh)
+    window.addEventListener('focus', refresh)
     const stopSettingsSync = onSettingsRefresh(reconcile)
     const stopConnectionSync = transport.onConnectionChange?.((event) => {
       if (event.state === 'connected') refresh()
@@ -34,6 +42,8 @@ export function ThemeSync() {
     refresh()
     return () => {
       cancelled = true
+      stopFnosSync()
+      window.removeEventListener('focus', refresh)
       stopSettingsSync()
       stopConnectionSync?.()
     }

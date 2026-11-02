@@ -19,6 +19,7 @@ import { openTaskFile } from '@renderer/lib/open-task-file'
 import { rtlMirror } from '@renderer/lib/task-status-ui'
 import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
+import { hasHostFileActions } from '@renderer/platform/fnos'
 import { Commands } from '@shared/protocol/commands'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
@@ -139,7 +140,7 @@ function FinalizingActionBar({
         <PauseIcon />
         {t('panel.downloads.action.pause')}
       </Button>
-      {__MOTRIX_TARGET__ === 'electron' && canRevealTaskFolder(task) && (
+      {hasHostFileActions() && canRevealTaskFolder(task) && (
         <Button
           size="xs"
           variant="outline"
@@ -311,25 +312,23 @@ export function TaskInspectorActionBar({
         <MagnetFileSelectionButton task={single} />
       )}
 
-      {single &&
-        __MOTRIX_TARGET__ === 'electron' &&
-        canOpenTaskFile(single) && <OpenTaskFileButton task={single} />}
-      {single &&
-        __MOTRIX_TARGET__ === 'electron' &&
-        canRevealTaskFolder(single) && (
-          <Button
-            size="xs"
-            variant="outline"
-            onClick={() =>
-              transport.invoke(Commands.RevealInFolder, {
-                taskId: single.id,
-              })
-            }
-          >
-            <RevealFolderIcon />
-            {t('panel.downloads.action.openFolder')}
-          </Button>
-        )}
+      {single && hasHostFileActions() && canOpenTaskFile(single) && (
+        <OpenTaskFileButton task={single} />
+      )}
+      {single && hasHostFileActions() && canRevealTaskFolder(single) && (
+        <Button
+          size="xs"
+          variant="outline"
+          onClick={() =>
+            transport.invoke(Commands.RevealInFolder, {
+              taskId: single.id,
+            })
+          }
+        >
+          <RevealFolderIcon />
+          {t('panel.downloads.action.openFolder')}
+        </Button>
+      )}
       {single && (
         <CopyButton
           size="xs"

@@ -4,7 +4,8 @@
     "help": "Este servidor exige o token do operador. No host, defina MOTRIX_OPERATOR_TOKEN ou leia o token em <dataDir>/operator-token e cole-o abaixo.",
     "placeholder": "Token do operador",
     "error": "Token do operador inválido. Verifique MOTRIX_OPERATOR_TOKEN ou <dataDir>/operator-token no host e tente novamente.",
-    "submit": "Desbloquear"
+    "submit": "Desbloquear",
+    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
   },
   "operatorAdmin": {
     "help": "Uso:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nO comando se comunica apenas com o servidor Motrix em execução, pela interface de loopback do contêiner.",

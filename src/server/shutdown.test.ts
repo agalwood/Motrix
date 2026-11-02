@@ -438,7 +438,7 @@ describe('server lifecycle production wiring', () => {
     const listen = source.indexOf('await app.listen({ port')
     const serverUrl = source
       .slice(listen)
-      .search(/const serverUrl = `http:\/\/localhost:\$\{port\}`/)
+      .search(/: `http:\/\/localhost:\$\{port\}`/)
     const listeningLog = source
       .slice(listen)
       .search(

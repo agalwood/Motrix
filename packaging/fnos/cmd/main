@@ -1,0 +1,10 @@
+#!/bin/bash
+set -euo pipefail
+umask 077
+: "${TRIM_APPDEST:?Missing application directory}"
+: "${TRIM_PKGVAR:?Missing application data directory}"
+mkdir -p "$TRIM_PKGVAR"
+# Serialize lifecycle operations, including simultaneous starts and upgrades.
+exec 9>"$TRIM_PKGVAR/lifecycle.lock"
+flock -w 90 9 || exit 1
+exec "$TRIM_APPDEST/runtime/bin/node" "$TRIM_APPDEST/lifecycle.mjs" "${1:-}"

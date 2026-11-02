@@ -28,6 +28,7 @@ import {
 import { LegacyFreshDownload } from '@renderer/features/legacy-import/legacy-fresh-download'
 import { createTaskInspectorActivitySnapshotCache } from '@renderer/hooks/use-task-inspector-activity'
 import { transport } from '@renderer/lib/transport'
+import { hasHostFileActions } from '@renderer/platform/fnos'
 import { formatNativePath } from '@shared/lib/path-display'
 import { Commands } from '@shared/protocol/commands'
 import type { DownloadTask } from '@shared/types/task'
@@ -144,35 +145,34 @@ export function TaskInspectorDrawer({
                       </span>
                     </div>
 
-                    {__MOTRIX_TARGET__ === 'electron' &&
-                      canRevealTaskFolder(single) && (
-                        <div className="min-w-0 flex items-center gap-1 text-xs text-muted-foreground">
-                          <Button
-                            className="min-w-0 flex-1 justify-start overflow-hidden text-muted-foreground hover:no-underline cursor-pointer"
-                            variant="secondary"
-                            size="xs"
-                            dir="ltr"
-                            onClick={() =>
-                              transport.invoke(Commands.RevealInFolder, {
-                                taskId: single.id,
-                              })
-                            }
-                          >
-                            <DiskIcon className="me-1 size-3.5 shrink-0 text-muted-foreground" />
-                            <MiddleEllipsis
-                              text={taskPath}
-                              maxChars={64}
-                              className="font-sans!"
-                            />
-                          </Button>
-                          <CopyButton
-                            variant="ghost"
-                            aria-label={t('panel.downloads.action.copyPath')}
-                            className="ms-1 h-4.5 w-4.5 shrink-0 rounded-md p-0 has-[>svg]:px-0 [&_svg:not([class*='size-'])]:size-3"
-                            content={taskPath}
+                    {hasHostFileActions() && canRevealTaskFolder(single) && (
+                      <div className="min-w-0 flex items-center gap-1 text-xs text-muted-foreground">
+                        <Button
+                          className="min-w-0 flex-1 justify-start overflow-hidden text-muted-foreground hover:no-underline cursor-pointer"
+                          variant="secondary"
+                          size="xs"
+                          dir="ltr"
+                          onClick={() =>
+                            transport.invoke(Commands.RevealInFolder, {
+                              taskId: single.id,
+                            })
+                          }
+                        >
+                          <DiskIcon className="me-1 size-3.5 shrink-0 text-muted-foreground" />
+                          <MiddleEllipsis
+                            text={taskPath}
+                            maxChars={64}
+                            className="font-sans!"
                           />
-                        </div>
-                      )}
+                        </Button>
+                        <CopyButton
+                          variant="ghost"
+                          aria-label={t('panel.downloads.action.copyPath')}
+                          className="ms-1 h-4.5 w-4.5 shrink-0 rounded-md p-0 has-[>svg]:px-0 [&_svg:not([class*='size-'])]:size-3"
+                          content={taskPath}
+                        />
+                      </div>
+                    )}
                   </div>
                   <StatusPill status={single.status} task={single} />
                 </div>
@@ -237,12 +237,11 @@ export function TaskInspectorDrawer({
                     </TabsTrigger>
                   </TabsList>
                   <TabsContent value="overview" className="min-h-0">
-                    {__MOTRIX_TARGET__ === 'electron' &&
-                      isLegacyImportInactive(single) && (
-                        <div className="mb-4">
-                          <LegacyFreshDownload task={single} />
-                        </div>
-                      )}
+                    {hasHostFileActions() && isLegacyImportInactive(single) && (
+                      <div className="mb-4">
+                        <LegacyFreshDownload task={single} />
+                      </div>
+                    )}
                     <OverviewTab
                       task={single}
                       snapshotCache={activitySnapshotCache}

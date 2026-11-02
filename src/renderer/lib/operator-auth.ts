@@ -3,8 +3,9 @@ import {
   operatorStatusSchema,
 } from '@shared/schemas/operator-auth'
 import { create } from 'zustand'
+import { webBaseUrl } from './web-base-url'
 
-const base = globalThis.location?.origin ?? ''
+const base = webBaseUrl()
 type SessionState =
   | 'checking'
   | 'authenticated'
@@ -34,7 +35,8 @@ let hints: BroadcastChannel | null = null
 function locked(): void {
   useOperatorSession.setState((s) => ({
     state: 'locked',
-    status: null,
+    status:
+      s.status?.mode === 'fnosGateway' ? { ...s.status, authed: false } : null,
     epoch: s.epoch + 1,
   }))
   for (const reset of resetters) {
@@ -60,8 +62,19 @@ export async function refreshOperatorSession(
     const res = await fetch(`${base}/rpc/auth/status`, {
       credentials: 'same-origin',
       cache: 'no-store',
-      headers: { 'x-motrix-web-origin': base },
+      headers: { 'x-motrix-web-origin': globalThis.location?.origin ?? '' },
     })
+    if (
+      (res.status === 401 || res.status === 403) &&
+      useOperatorSession.getState().status?.mode === 'fnosGateway'
+    ) {
+      if (
+        request === statusRequest &&
+        expectedEpoch === useOperatorSession.getState().epoch
+      )
+        locked()
+      return
+    }
     if (!res.ok) throw new Error(`auth status ${res.status}`)
     const status = operatorStatusSchema.parse(await res.json())
     if (
@@ -95,7 +108,11 @@ export function watchOperatorSession(): () => void {
   }
   window.addEventListener('focus', check)
   document.addEventListener('visibilitychange', check)
+  const timer = window.setInterval(() => {
+    if (useOperatorSession.getState().status?.mode === 'fnosGateway') check()
+  }, 30_000)
   return () => {
+    window.clearInterval(timer)
     hints?.close()
     hints = null
     window.removeEventListener('focus', check)

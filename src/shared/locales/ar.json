@@ -404,7 +404,8 @@
     "help": "يتطلب هذا الخادم رمز المشغّل. اضبط MOTRIX_OPERATOR_TOKEN على المضيف، أو اقرأ الرمز من <dataDir>/operator-token، ثم الصقه أدناه.",
     "placeholder": "رمز المشغّل",
     "submit": "فتح القفل",
-    "title": "فتح قفل Motrix"
+    "title": "فتح قفل Motrix",
+    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
   },
   "panel": {
     "completed": {

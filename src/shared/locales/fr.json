@@ -401,7 +401,8 @@
     "help": "Ce serveur nécessite le jeton d’administration. Sur l’hôte, définissez MOTRIX_OPERATOR_TOKEN ou consultez le jeton dans <dataDir>/operator-token, puis collez-le ci-dessous.",
     "placeholder": "Jeton d’administration",
     "submit": "Déverrouiller",
-    "title": "Déverrouiller Motrix"
+    "title": "Déverrouiller Motrix",
+    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
   },
   "panel": {
     "completed": {

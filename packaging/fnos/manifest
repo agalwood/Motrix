@@ -1,0 +1,16 @@
+appname=motrix
+version=@MOTRIX_VERSION@
+display_name=Motrix
+desc=Native download manager for HTTP, FTP, BitTorrent and magnet links. Administrator access only.
+platform=@FNOS_PLATFORM@
+source=thirdparty
+maintainer=Motrix
+maintainer_url=https://motrix.app
+distributor=Motrix
+distributor_url=https://motrix.app
+desktop_uidir=ui
+desktop_applaunchname=motrix.main
+os_min_version=1.2.0401
+ctl_stop=true
+micro_app=true
+disable_authorization_path=false

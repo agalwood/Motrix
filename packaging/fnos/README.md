@@ -1,0 +1,118 @@
+# Native fnOS package
+
+This package runs Motrix Server under the dedicated `motrix` package account.
+It includes a checksum-pinned Node 24 runtime, the existing verified GNU/Linux
+Server distribution, aria2 and the native filesystem helper. Installation does
+not download dependencies or run npm. Docker is not a runtime dependency.
+
+The first integration is an **administrator-shared instance**. Every fnOS
+administrator can manage every task and application setting. Ordinary users are
+rejected by the backend, including direct API and WebSocket requests. This is
+not a multiuser task-isolation implementation.
+
+## Build
+
+Use a matching Linux x64 or ARM64 build host, Node 24, the repository's pnpm
+version, Rust and the corresponding musl Rust target. The filesystem helper is
+static; the Server's SQLite prebuild and bundled Node use GNU libc.
+
+```sh
+MOTRIX_SKIP_ELECTRON_REBUILD=1 MOTRIX_SKIP_ENGINE_FETCH=1 pnpm install --frozen-lockfile
+pnpm run fetch:engine -- --platform linux --arch arm64
+MOTRIX_FNOS_BUILD=1 pnpm run build:server
+pnpm run stage:server -- --platform linux --arch arm64 --libc gnu --strict
+pnpm run build:fnos -- --arch arm64
+```
+
+Replace `arm64` with `x64` for an x86 fnOS device. The fnOS platform labels are
+`arm` and `x86`, respectively. Each package includes only its own architecture.
+The version must match the current stable `package.json` version.
+The fnOS flag includes the platform SDK only in this Web build; ordinary
+Server and Electron builds keep their existing JavaScript size budgets.
+
+`build:fnos` prepares a new project, validates it, runs both Server and fnOS
+lifecycle smoke checks with the **bundled** Node, invokes pinned fnpack, unpacks
+the resulting FPK and validates its contents again. Results and SHA-256 files
+are written under `release/fnos/`. Choose a fresh `--output-dir` for a repeat
+build; preparation never silently removes an existing output directory.
+
+`prepare:fnos` and `verify:fnos` can inspect cross-architecture payloads without
+executing them. They are not substitutes for the native build's smoke checks.
+The `fnOS native FPK` workflow builds both architectures and uploads test
+artifacts. It does not publish releases or submit packages to the app store.
+
+The locks use official Node SHASUMS256 and observed fnpack binary hashes. At
+implementation time the official fnpack page linked 1.2.3 binaries returning
+404, while the official 1.2.1 downloads were available; the latter are pinned.
+
+## Runtime integration
+
+- Minimum **API contract**: fnOS 1.2.0401 / mobile app 1.34.0. Actual minimum
+  device compatibility still requires fnOS installation testing.
+- Entry: `/app/motrix/`, HTTP/RPC/static assets/uploads/WebSocket on
+  `${TRIM_APPDEST}/app.sock`. The application does not open its normal web or
+  MDXP TCP listeners in this mode.
+- Authentication: gateway-provided administrator identity is accepted only on
+  the configured Unix listener. The socket is mode `0600`, accessible to the
+  package account and root. Verify that the device's gateway can access it;
+  do not work around a failed installation by making it world-writable.
+- Event connections are renewed every minute through the gateway to bound
+  stale authentication. Browser foreground checks also refresh the session.
+- Private state: `${TRIM_PKGVAR}/motrix`. Download files: the declared
+  `motrix/downloads` share, plus directories explicitly granted through fnOS
+  shared authorization. Empty or failed grant queries never become unrestricted
+  access. An unavailable share is not recreated on an unmounted volume.
+- Additional download directories use the official fnOS picker. The backend
+  independently queries grants, resolves paths and checks the current user's
+  ACL before accepting the result. Standalone authorization uses a same-origin
+  callback with exact popup, method, application and state checks.
+- `.torrent` associations open an editable Add Task draft. The source must
+  already be inside an authorized shared directory and readable by the user.
+  A file association never implicitly grants its parent directory. Local
+  browser torrent uploads remain available for other sources.
+- File actions obtain the published task path from the backend, check scope
+  and read permission, then invoke the fnOS file or file-manager action.
+- System theme/language preferences follow the fnOS host. Explicit Motrix
+  preferences remain explicit. Mobile/standalone sessions refresh on focus;
+  only embedded Web hosts subscribe to SDK theme/language events.
+
+The backend reads `TRIM_API_TOKEN` from the running environment on every API
+call. It is not written to package receipts, settings or browser responses.
+`MOTRIX_FNOS_API_SOCKET` is a test/integration override; an installed FPK uses
+the platform's `/var/run/trim_open_gateway_apiscope.socket` by default.
+
+## Lifecycle and validation boundary
+
+Lifecycle callbacks serialize operations with `flock`. Process records include
+the PID, Linux process birth time and boot identity; executable and command
+identity are checked before sending a signal. Stop waits for orderly Server
+shutdown and reports a timeout without discarding the process record. Upgrade
+and uninstall stop the service first. Scripts never remove download shares or
+private task data; fnOS owns its uninstall data-retention choice.
+
+The Linux lifecycle smoke uses a **simulated fnOS API**. It checks start,
+idempotent start, status, stop, restart, persistence, gateway authentication and
+stale PID handling. It does not establish real NAS compatibility. Before a
+release, test installation, gateway socket permissions, system pickers,
+mobile/FN Connect, downloads during stop/upgrade, missing storage, ownership
+and ACL inheritance on real x86 and ARM fnOS devices.
+
+User isolation, NAS-bound external client credentials, per-user quota accounting
+and continuously revocable authorization throughout background download and
+finalization are outside this first administrator integration. Revoking a grant
+blocks subsequent path validation; it does not promise immediate cancellation
+of an already-open engine file. Stop the service before removing a download
+grant until that background authorization lifecycle is implemented.
+
+## References
+
+- [Official native application example](https://developer.fnnas.com/docs/examples/native/)
+- [Gateway and identity contract](https://developer.fnnas.com/docs/core-concepts/gateway-registration/)
+- [Environment variables](https://developer.fnnas.com/docs/core-concepts/environment-variables/)
+- [Shared authorization](https://developer.fnnas.com/api/authorization/shared-access/)
+- [File ACL](https://developer.fnnas.com/api/authorization/file-acl/)
+- [SDK and API calls](https://developer.fnnas.com/api/calling/)
+- [LangBot packaging reference](https://github.com/langbot-app/LangBot/tree/46231488175fb8a27f8413a503437312deb68478/packaging/fnos): compared package-user execution,
+  persistent paths and process-group lifecycle. Motrix's implementation reuses
+  its own staging/integrity checks and does not copy runtime patching or
+  install-time dependency downloads from that example.

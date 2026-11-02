@@ -31,6 +31,7 @@ import { parseTaskInspectorActivitySnapshot } from '@shared/schemas/task-inspect
 import { torrentRpcBodyLimitSchema } from '@shared/schemas/torrent-request-limits'
 import Fastify, { type FastifyInstance, type FastifyReply } from 'fastify'
 import type { RemoteExtensionConfig } from '../bridge/remote-extension-config'
+import type { FnosGatewayOptions } from '../platform/fnos/identity'
 import { bindEventHeartbeat } from './event-heartbeat'
 import { bindEventBroadcaster } from './events'
 import {
@@ -38,6 +39,7 @@ import {
   filterExtensionPairingSnapshot,
   isExtensionPairingCodeEvent,
 } from './extension-pairing-delivery'
+import { registerFnosAuth } from './fnos-auth'
 import { type OperatorAuthOptions, registerOperatorAuth } from './operator-auth'
 import { ServiceUnavailableError } from './service-unavailable-error'
 import {
@@ -45,6 +47,7 @@ import {
   RPC_BODY_LIMIT_BYTES,
   registerTorrentCommandRoutes,
 } from './torrent-command-routes'
+import { createWebBasePath } from './web-base-path'
 
 export { RPC_BODY_LIMIT_BYTES } from './torrent-command-routes'
 
@@ -97,6 +100,8 @@ async function directoryRpc(
 }
 
 export interface AppOptions {
+  basePath?: string
+  fnosGateway?: FnosGatewayOptions
   /** Torrent-only RPC budget; defaults to 8 MiB, configurable from 2 to 64 MiB. */
   torrentBodyLimitBytes?: number
   commandHandlers?: CommandHandlerMap
@@ -126,17 +131,24 @@ export interface AppOptions {
 export async function createApp(
   opts: AppOptions = {}
 ): Promise<FastifyInstance> {
+  if (opts.fnosGateway && opts.operatorAuth)
+    throw new Error('Authentication modes are mutually exclusive')
+  const webPath = createWebBasePath(opts.basePath)
   const app = Fastify({
     logger: false,
     bodyLimit: RPC_BODY_LIMIT_BYTES,
     requestTimeout: 120_000,
+    rewriteUrl: webPath.rewriteUrl,
   })
+  webPath.register(app)
   // Register the deny-by-default operator gate FIRST so its onRequest hook runs
   // before every route (including /api/* added by the caller post-createApp and
   // the /rpc/events WS upgrade).
-  const operatorSessions = opts.operatorAuth
-    ? registerOperatorAuth(app, opts.operatorAuth)
-    : undefined
+  const operatorSessions = opts.fnosGateway
+    ? registerFnosAuth(app, opts.fnosGateway)
+    : opts.operatorAuth
+      ? registerOperatorAuth(app, opts.operatorAuth)
+      : undefined
   if (!operatorSessions) {
     app.get('/rpc/auth/status', async () => ({
       authed: true,
@@ -305,7 +317,14 @@ export async function createApp(
       const isGet = req.method === 'GET'
       const isRpc = req.url.startsWith('/rpc/')
       const isHealth = req.url === '/healthz'
-      if (isGet && !isRpc && !isHealth) {
+      const isApi = req.url.startsWith('/api/')
+      if (
+        isGet &&
+        !isRpc &&
+        !isApi &&
+        !isHealth &&
+        (!webPath.basePath || req.url.split('?')[0] === '/')
+      ) {
         return reply.sendFile('index.html')
       }
       return reply.code(404).send({ error: 'not found' })

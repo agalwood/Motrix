@@ -400,7 +400,8 @@
     "help": "Deze server vereist het operatortoken. Stel op de host MOTRIX_OPERATOR_TOKEN in of lees het token uit <dataDir>/operator-token en plak het hieronder.",
     "placeholder": "Operatortoken",
     "submit": "Ontgrendelen",
-    "title": "Motrix ontgrendelen"
+    "title": "Motrix ontgrendelen",
+    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
   },
   "panel": {
     "completed": {

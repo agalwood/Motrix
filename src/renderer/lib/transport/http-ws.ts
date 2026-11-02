@@ -2,8 +2,10 @@ import {
   refreshOperatorSession,
   useOperatorSession,
 } from '@renderer/lib/operator-auth'
+import { fnosFileAction, isFnos } from '@renderer/platform/fnos'
 import { ErrorCode } from '@shared/errors'
 import { BridgeCommands, BridgeQueries } from '@shared/protocol/bridge'
+import { Commands } from '@shared/protocol/commands'
 import {
   ProtocolEnvelopeError,
   parseProtocolEnvelope,
@@ -11,6 +13,7 @@ import {
 } from '@shared/protocol/errors'
 import type { EventChannel } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
+import { openTaskFilePayloadSchema } from '@shared/schemas/open-task-file'
 import {
   WEB_EVENT_CONNECT_TIMEOUT_MS,
   WEB_EVENT_STALE_MS,
@@ -106,6 +109,16 @@ export class HttpWsTransport implements Transport {
     const session = useOperatorSession.getState()
     if (session.state === 'locked' || session.state === 'logging-out')
       throw new Error('Operator session is locked')
+    if (
+      isFnos() &&
+      (channel === Commands.OpenTaskFile || channel === Commands.RevealInFolder)
+    ) {
+      const { taskId } = openTaskFilePayloadSchema.parse(args[0])
+      return fnosFileAction(
+        taskId,
+        channel === Commands.OpenTaskFile ? 'open' : 'reveal'
+      )
+    }
     const kind = rpcKindFor(channel)
     const isInspectorActivity = channel === Queries.GetTaskInspectorActivity
     const res = await this.fetchFn(

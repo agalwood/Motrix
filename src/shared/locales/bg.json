@@ -400,7 +400,8 @@
     "help": "Този сървър изисква операторски токен. На хоста задайте MOTRIX_OPERATOR_TOKEN или прочетете токена от <dataDir>/operator-token и го поставете по-долу.",
     "placeholder": "Операторски токен",
     "submit": "Отключване",
-    "title": "Отключване на Motrix"
+    "title": "Отключване на Motrix",
+    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
   },
   "panel": {
     "completed": {

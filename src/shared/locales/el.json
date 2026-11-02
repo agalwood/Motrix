@@ -400,7 +400,8 @@
     "help": "Αυτός ο διακομιστής απαιτεί το διακριτικό χειριστή. Στον κεντρικό υπολογιστή, ορίστε το MOTRIX_OPERATOR_TOKEN ή διαβάστε το διακριτικό από το <dataDir>/operator-token και επικολλήστε το παρακάτω.",
     "placeholder": "Διακριτικό χειριστή",
     "submit": "Ξεκλείδωμα",
-    "title": "Ξεκλείδωμα του Motrix"
+    "title": "Ξεκλείδωμα του Motrix",
+    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
   },
   "panel": {
     "completed": {

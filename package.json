@@ -88,7 +88,10 @@
     "dist:mac": "pnpm run check:third-party-notices && pnpm run build:mac-arm64 && pnpm run stage:electron -- --platform darwin --arch arm64 && CSC_IDENTITY_AUTO_DISCOVERY=false pnpm exec electron-builder --mac --arm64 --publish never",
     "release:mac": "pnpm run check:third-party-notices && pnpm run build:mac-arm64 && pnpm run stage:electron -- --platform darwin --arch arm64 && pnpm exec electron-builder --mac --arm64 --publish never",
     "build:safari-bootstrap": "node packages/safari-bootstrap/build.mjs",
-    "test:browser:torrent": "node tests/browser/torrent-file.mjs"
+    "test:browser:torrent": "node tests/browser/torrent-file.mjs",
+    "prepare:fnos": "node scripts/prepare-fnos-project.mjs",
+    "verify:fnos": "node scripts/verify-fnos-package.mjs",
+    "build:fnos": "node scripts/build-fnos-package.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "~2.6.4",
@@ -134,6 +137,7 @@
     "@resvg/resvg-wasm": "^2.6.2",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-virtual": "^3.14.24",
+    "@trimjs/web-app": "^0.5.0",
     "@xyflow/react": "^12.12.0",
     "ajv": "^8.20.0",
     "better-sqlite3": "^13.0.3",

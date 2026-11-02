@@ -5,6 +5,8 @@ import { pauseAllTasks, resumeAllTasks } from '@core/task/actions'
 import type { FastifyInstance } from 'fastify'
 
 export interface TasksBulkDeps extends TaskActionDeps {
+  /** A host adapter may own authorization and execution of resume-all. */
+  resumeAll?: () => Promise<void>
   adapter: EngineAdapter
   log: Logger
 }
@@ -19,7 +21,8 @@ export function registerTasksBulkRoutes(
   })
 
   app.post('/api/tasks/resume-all', async (_req, reply) => {
-    await resumeAllTasks(deps)
+    if (deps.resumeAll) await deps.resumeAll()
+    else await resumeAllTasks(deps)
     reply.send({ ok: true })
   })
 }

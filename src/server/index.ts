@@ -170,6 +170,10 @@ import { buildServerCommandHandlers } from './ipc/commands'
 import { buildServerQueryHandlers } from './ipc/queries'
 import { createServerMediaRuntime } from './media-runtime'
 import { provisionOperatorToken } from './operator-token'
+import { FnosFiles } from './platform/fnos/files'
+import { registerFnosRoutes } from './platform/fnos/routes'
+import { fnosRuntime, listenFnos } from './platform/fnos/runtime'
+import { guardFnosTaskCommands } from './platform/fnos/task-commands'
 import { createNodePlatformServices } from './platform/services'
 import { createServerCapabilityHost } from './plugin/capability-host'
 import {
@@ -201,6 +205,7 @@ import { createServerPersistTask } from './task-persistence'
 let requestActiveServerExit: ((code: number) => Promise<void>) | null = null
 
 async function main() {
+  const fnos = fnosRuntime()
   // ─── Logger ───────────────────────────────────────────────────
   initLogger(pino({ level: process.env.LOG_LEVEL ?? 'info' }))
   const log = getLogger('server')
@@ -403,16 +408,20 @@ async function main() {
   })
   geoipManager = activeGeoipManager
   shutdownActions.stopGeoIP = () => activeGeoipManager.stop()
-  const hasDefaultSaveDirOverride = Boolean(
-    process.env.MOTRIX_DEFAULT_SAVE_DIR?.trim()
-  )
+  const hasDefaultSaveDirOverride =
+    !fnos && Boolean(process.env.MOTRIX_DEFAULT_SAVE_DIR?.trim())
   const effectiveDefaultSaveDir = hasDefaultSaveDirOverride
     ? configuredDefaultSaveDir
     : settingsManager.getApp().defaultSaveDir
-  const downloadPathPolicy = await createServerDownloadPathPolicy({
-    defaultSaveDir: effectiveDefaultSaveDir,
-    allowedSaveDirsValue: process.env.MOTRIX_ALLOWED_SAVE_DIRS,
-  })
+  const fnosFiles = fnos
+    ? new FnosFiles(process.env, process.env.MOTRIX_FNOS_API_SOCKET)
+    : undefined
+  const downloadPathPolicy = fnosFiles
+    ? await fnosFiles.policy(effectiveDefaultSaveDir)
+    : await createServerDownloadPathPolicy({
+        defaultSaveDir: effectiveDefaultSaveDir,
+        allowedSaveDirsValue: process.env.MOTRIX_ALLOWED_SAVE_DIRS,
+      })
   if (
     hasDefaultSaveDirOverride &&
     settingsManager.getApp().defaultSaveDir !== effectiveDefaultSaveDir
@@ -1111,6 +1120,8 @@ async function main() {
     .catch((err) => log.warn({ err }, 'Media metadata recovery failed'))
   const fileCleanupService = new FileCleanupServiceImpl({
     async removePathRecursive(absPath: string): Promise<void> {
+      if (fnosFiles)
+        await fnosFiles.authorizeRemoval(absPath, downloadPathPolicy)
       await fs.rm(absPath, { recursive: true, force: true })
     },
   })
@@ -1283,6 +1294,10 @@ async function main() {
     downloadPathPolicy,
   })
   const createTask = commandHandlers[Commands.CreateTask]
+  if (fnosFiles)
+    guardFnosTaskCommands(commandHandlers, fnosFiles, downloadPathPolicy, () =>
+      taskManager.getAll()
+    )
   if (!createTask) throw new Error('CreateTask handler is not registered')
   const selectionTimeout = new MagnetSelectionTimeout({
     eventBus,
@@ -1353,6 +1368,8 @@ async function main() {
   const app = await createApp({
     getHiddenNotificationKinds: () =>
       getHiddenNotificationKinds(settingsManager.getApp()),
+    basePath: process.env.MOTRIX_WEB_BASE_PATH,
+    fnosGateway: fnos,
     remoteExtensionConfig,
     torrentBodyLimitBytes,
     commandHandlers,
@@ -1362,12 +1379,14 @@ async function main() {
     eventBus,
     pluginLogSource: pluginCapHost,
     rendererDir,
-    operatorAuth: {
-      operatorToken: operator.token,
-      publicUrl: process.env.MOTRIX_PUBLIC_URL,
-      onEventSocketRejected: (detail) =>
-        log.warn(detail, 'operator event connection rejected'),
-    },
+    operatorAuth: fnos
+      ? undefined
+      : {
+          operatorToken: operator.token,
+          publicUrl: process.env.MOTRIX_PUBLIC_URL,
+          onEventSocketRejected: (detail) =>
+            log.warn(detail, 'operator event connection rejected'),
+        },
     healthCheck: () =>
       serverHealthSnapshot({
         accepting: shellAsyncWork.isAccepting(),
@@ -1385,6 +1404,10 @@ async function main() {
   }
 
   registerPluginUploadRoute(app, pluginUploadStore)
+  if (fnosFiles)
+    registerFnosRoutes(app, fnosFiles, downloadPathPolicy, (id) =>
+      taskManager.getById(id)
+    )
   registerServerDiagnosticsRoute(app, async () => ({
     generatedAt: Date.now(),
     health: serverHealthSnapshot({
@@ -1427,6 +1450,11 @@ async function main() {
   }))
 
   registerTasksBulkRoutes(app, {
+    resumeAll: fnosFiles
+      ? async () => {
+          await commandHandlers[Commands.ResumeAllTasks]?.()
+        }
+      : undefined,
     taskManager,
     adapter,
     eventBus,
@@ -1818,7 +1846,8 @@ async function main() {
     // can observe an empty/partial TaskManager or a false TaskNotFound.
     const port = parseServerPort(process.env.PORT, 'PORT', 8080)
     try {
-      await app.listen({ port, host: '0.0.0.0' })
+      if (fnos) await listenFnos(app, fnos.socketPath)
+      else await app.listen({ port, host: '0.0.0.0' })
     } catch (err) {
       if (!shellAsyncWork.isAccepting()) return
       throw err
@@ -1831,8 +1860,14 @@ async function main() {
       }
       return
     }
-    const serverUrl = `http://localhost:${port}`
+    const serverUrl = fnos
+      ? `unix:${fnos.socketPath}`
+      : `http://localhost:${port}`
     log.info({ port, url: serverUrl }, `server listening at ${serverUrl}`)
+
+    // fnOS owns operator identity. External client pairing needs a separate
+    // NAS-user binding contract before exposing the MDXP listener here.
+    if (fnos) return
 
     let bridgeSetupStage:
       | 'process-ownership'

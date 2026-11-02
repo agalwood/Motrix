@@ -401,7 +401,8 @@
     "help": "Acest server necesită tokenul operatorului. Pe gazdă, setează MOTRIX_OPERATOR_TOKEN sau citește tokenul din <dataDir>/operator-token, apoi lipește-l mai jos.",
     "placeholder": "Token operator",
     "submit": "Deblochează",
-    "title": "Deblochează Motrix"
+    "title": "Deblochează Motrix",
+    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
   },
   "panel": {
     "completed": {

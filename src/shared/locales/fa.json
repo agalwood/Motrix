@@ -400,7 +400,8 @@
     "help": "این سرور به توکن اپراتور نیاز دارد. روی میزبان، MOTRIX_OPERATOR_TOKEN را تنظیم کنید یا توکن را از <dataDir>/operator-token بخوانید، سپس آن را در زیر جای‌گذاری کنید.",
     "placeholder": "توکن اپراتور",
     "submit": "باز کردن قفل",
-    "title": "باز کردن قفل Motrix"
+    "title": "باز کردن قفل Motrix",
+    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
   },
   "panel": {
     "completed": {

@@ -400,7 +400,8 @@
     "help": "Denne serveren krever operatørtokenet. På vertsmaskinen setter du MOTRIX_OPERATOR_TOKEN eller leser tokenet fra <dataDir>/operator-token, og limer det inn nedenfor.",
     "placeholder": "Operatørtoken",
     "submit": "Lås opp",
-    "title": "Lås opp Motrix"
+    "title": "Lås opp Motrix",
+    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
   },
   "panel": {
     "completed": {
