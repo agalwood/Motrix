@@ -48,6 +48,12 @@ dialogs and are validated, not rewritten, by the platform open path.
 
 ## Linux, NFS and mounted NTFS
 
+Linux root admission uses `O_PATH` handles for intermediate directories, so
+search-only ancestors (including NAS application paths) do not require directory
+listing permission. Every component still uses `O_DIRECTORY | O_NOFOLLOW`.
+The final root is opened for reading and remains usable for directory syncing;
+missing traversal permission and an unreadable final root still fail closed.
+
 Linux NFS and NTFS-3G mounts can reject `renameat2(RENAME_NOREPLACE)` with
 `EINVAL` even when ordinary rename works. For a regular file only, the native
 rename call reports `rename_unsupported` for `EINVAL`, `EOPNOTSUPP`, or `ENOSYS`. The host

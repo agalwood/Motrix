@@ -89,6 +89,81 @@ fn open_root_rejects_an_intermediate_symbolic_link() {
     let _ = std::fs::remove_dir_all(&base);
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn open_root_traverses_search_only_ancestors() {
+    use std::os::unix::fs::PermissionsExt;
+    use std::os::unix::process::CommandExt;
+
+    // Container builds often test as root, which bypasses DAC. Run this test
+    // in an unprivileged child so an O_RDONLY traversal cannot falsely pass.
+    if unsafe { libc::geteuid() } == 0 {
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .arg("--exact")
+            .arg("platform::unix::tests::open_root_traverses_search_only_ancestors")
+            .uid(65534)
+            .gid(65534)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(String::from_utf8_lossy(&output.stdout).contains("1 passed"));
+        return;
+    }
+
+    struct Fixture(std::path::PathBuf);
+    impl Drop for Fixture {
+        fn drop(&mut self) {
+            for relative in ["private", "private/inner", "private/inner/downloads"] {
+                let _ = std::fs::set_permissions(
+                    self.0.join(relative),
+                    std::fs::Permissions::from_mode(0o700),
+                );
+            }
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+    let base = std::env::temp_dir().join(format!("motrix-search-only-{}", std::process::id()));
+    std::fs::create_dir_all(base.join("private/inner/downloads")).unwrap();
+    let fixture = Fixture(base.canonicalize().unwrap());
+    let private = fixture.0.join("private");
+    let inner = private.join("inner");
+    let downloads = inner.join("downloads");
+    std::fs::write(downloads.join("pending"), b"complete payload").unwrap();
+    for parent in [&private, &inner] {
+        std::fs::set_permissions(parent, std::fs::Permissions::from_mode(0o111)).unwrap();
+        assert!(std::fs::read_dir(parent).is_err());
+    }
+    let root = open_root(downloads.to_str().unwrap()).unwrap();
+    let artifact = super::open_artifact_for_rename(&root, "pending").unwrap();
+    super::rename_opened_no_replace(&artifact, &root, "finished").unwrap();
+    super::sync_root(&root).unwrap();
+    assert_eq!(
+        std::fs::read(downloads.join("finished")).unwrap(),
+        b"complete payload"
+    );
+    assert!(!downloads.join("pending").exists());
+    for parent in [&private, &inner] {
+        assert_eq!(
+            std::fs::metadata(parent).unwrap().permissions().mode() & 0o777,
+            0o111
+        );
+    }
+    std::fs::set_permissions(&downloads, std::fs::Permissions::from_mode(0o111)).unwrap();
+    assert!(
+        matches!(open_root(downloads.to_str().unwrap()), Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied)
+    );
+    std::fs::set_permissions(&downloads, std::fs::Permissions::from_mode(0o700)).unwrap();
+    std::fs::set_permissions(&private, std::fs::Permissions::from_mode(0o000)).unwrap();
+    assert!(
+        matches!(open_root(downloads.to_str().unwrap()), Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied)
+    );
+}
+
 #[test]
 fn held_remove_rejects_a_replaced_name_and_preserves_the_replacement() {
     let base = std::env::temp_dir().join(format!(
