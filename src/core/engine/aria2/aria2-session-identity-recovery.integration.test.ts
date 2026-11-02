@@ -62,6 +62,9 @@ function snapshot(file: string) {
       progress: db
         .prepare('SELECT gid, bitfield FROM task_progress')
         .all() as Array<{ gid: string; bitfield: Buffer }>,
+      history: db
+        .prepare('SELECT id, gid, status FROM download_history ORDER BY id')
+        .all() as Array<{ id: number; gid: string; status: string }>,
       integrity: db.pragma('integrity_check', { simple: true }),
     }
   } finally {
@@ -297,6 +300,12 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
               expect(snapshot(dbPath).rows.map((row) => row.gid)).toEqual([
                 healthyGid,
               ])
+              expect(snapshot(recovery!.backupPath).history).toEqual(
+                before.history
+              )
+              expect(snapshot(dbPath).history).toEqual(
+                before.history.filter((row) => row.gid !== metadataGid)
+              )
               for (let boot = 0; boot < 2; boot++) {
                 expect(
                   await recoverAria2SessionIdentity(
