@@ -6,10 +6,23 @@ import {
   TaskStatus,
   TransitionPhase,
 } from '@shared/types/task'
+import { makeRetainedHttpTask } from '@test-utils/direct-retry'
 import { makeLegacyHttpTask } from '@test-utils/legacy-http-activation'
 import { makeDownloadTask } from '@test-utils/task'
 import { describe, expect, it } from 'vitest'
 import { mergeEngineTask } from './merge-engine-task'
+
+it('keeps retained HTTP errors visible when the engine restores them paused', () => {
+  const task = makeRetainedHttpTask()
+  const engine = makeDownloadTask({
+    engineTaskId: task.engineTaskId,
+    status: TaskStatus.Paused,
+  })
+  expect(mergeEngineTask(task, engine)).toBe(task)
+  expect(
+    mergeEngineTask(task, { ...engine, status: TaskStatus.Downloading }).status
+  ).toBe(TaskStatus.Downloading)
+})
 
 const baseTask = (over: Partial<DownloadTask> = {}): DownloadTask =>
   makeDownloadTask({ id: 't1', engineTaskId: 'gid1', name: 'a', ...over })

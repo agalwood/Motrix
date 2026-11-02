@@ -198,6 +198,8 @@ export class Aria2Adapter implements EngineAdapter {
     hasMoveStorage: false,
   }
   private connectionOptionLimit: number | null = null
+  private httpRetryMethods: Promise<boolean> | null = null
+  private httpRetryGeneration = 0
   private directResourceMetadataProfile: DirectResourceMetadataProfile | null =
     null
 
@@ -308,6 +310,8 @@ export class Aria2Adapter implements EngineAdapter {
   }
 
   async connect(): Promise<void> {
+    this.httpRetryMethods = null
+    this.httpRetryGeneration++
     // RPC connection lifecycle is managed by EngineSupervisor.
     // The adapter uses connect() to probe engine capabilities.
     try {
@@ -329,6 +333,8 @@ export class Aria2Adapter implements EngineAdapter {
   }
 
   async disconnect(): Promise<void> {
+    this.httpRetryMethods = null
+    this.httpRetryGeneration++
     // Disconnection is managed by EngineSupervisor.
   }
 
@@ -351,6 +357,8 @@ export class Aria2Adapter implements EngineAdapter {
    * durable-remove trust gate would silently treat every engine as safe.
    */
   setFeatureReport(report: EngineFeatureReport): void {
+    this.httpRetryMethods = null
+    this.httpRetryGeneration++
     this.featureReport = report
     this.connectionOptionLimit = isMotrixFork(report)
       ? null
@@ -632,6 +640,14 @@ export class Aria2Adapter implements EngineAdapter {
       await this.applyBtTrackerPolicy(options, requestedGid)
     }
 
+    if (params.retainRequestContext) {
+      if (!(await this.supportsDirectTaskRetry()))
+        throw new AppError(
+          ErrorCode.EngineFeatureUnavailable,
+          'Engine request retention is unavailable'
+        )
+      options['http-resume-context'] = 'true'
+    }
     const actualGid = await this.addUriWithConnectionFallback(
       params.uris,
       options,
@@ -1093,6 +1109,66 @@ export class Aria2Adapter implements EngineAdapter {
       !this.featureReport.hasSqlitePersistence ||
       hasDurableRemoveSemantics(this.featureReport.version)
     )
+  }
+
+  supportsDirectTaskRetry(): Promise<boolean> {
+    if (
+      !this.featureReport.hasSqlitePersistence ||
+      typeof this.rpc.listMethods !== 'function'
+    )
+      return Promise.resolve(false)
+    const generation = this.httpRetryGeneration
+    this.httpRetryMethods ??= this.rpc
+      .listMethods()
+      .then((methods) => {
+        if (generation !== this.httpRetryGeneration)
+          throw new Error(
+            'Engine changed during HTTP retry capability discovery'
+          )
+        return (
+          methods.includes('aria2.getHttpRetryStatusV1') &&
+          methods.includes('aria2.retryHttpDownloadV1')
+        )
+      })
+      .catch((error) => {
+        if (generation === this.httpRetryGeneration)
+          this.httpRetryMethods = null
+        throw error
+      })
+    return this.httpRetryMethods
+  }
+
+  async canRetryDirectTask(input: {
+    engineTaskId: string
+    uri: string
+    outputPath: string
+  }): Promise<boolean> {
+    if (!(await this.supportsDirectTaskRetry())) return false
+    const result = await this.rpc.getHttpRetryStatusV1(
+      input.engineTaskId,
+      input.uri,
+      input.outputPath
+    )
+    return result.available === 'true'
+  }
+
+  async retryDirectTask(input: {
+    engineTaskId: string
+    uri: string
+    outputPath: string
+  }): Promise<void> {
+    if (!(await this.supportsDirectTaskRetry()))
+      throw new AppError(
+        ErrorCode.EngineFeatureUnavailable,
+        'HTTP continuation is unavailable'
+      )
+    const gid = await this.rpc.retryHttpDownloadV1(
+      input.engineTaskId,
+      input.uri,
+      input.outputPath
+    )
+    if (gid !== input.engineTaskId)
+      throw new Error('HTTP continuation changed the engine task identity')
   }
 
   async getCheckpointStatus(

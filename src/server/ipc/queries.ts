@@ -32,6 +32,7 @@ import type {
   TaskSpeedHistoryStore,
   TransferStatsRuntime,
 } from '@core/stats'
+import { createGetTaskHttpRetryAvailabilityHandler } from '@core/task/direct-task-retry'
 import { createGetTaskFilesHandler } from '@core/task/get-task-files'
 import { createGetTaskPeersHandler } from '@core/task/get-task-peers'
 import { createGetTaskPiecesHandler } from '@core/task/get-task-pieces'
@@ -220,6 +221,8 @@ export function buildServerQueryHandlers(
     [Queries.GetTaskDetail]: async (taskId: string) =>
       taskManager.getById(taskId) ?? null,
 
+    [Queries.GetTaskHttpRetryAvailability]:
+      createGetTaskHttpRetryAvailabilityHandler(taskManager, engineAdapter),
     [Queries.GetTaskFiles]: createGetTaskFilesHandler({
       mediaMetaStore: ctx.mediaMetaStore,
       db: motrixDatabase,

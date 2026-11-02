@@ -1,8 +1,19 @@
 import { TaskStatus, TaskType } from '@shared/types/task'
+import { makeRetainedHttpTask } from '@test-utils/direct-retry'
 import { describe, expect, it } from 'vitest'
 import { shouldEvictFromEngine } from './should-evict-from-engine'
 
 describe('shouldEvictFromEngine', () => {
+  it('retains the original native HTTP request on failure until explicit removal', () => {
+    const task = makeRetainedHttpTask({ status: TaskStatus.Downloading })
+    expect(
+      shouldEvictFromEngine(task.status, TaskStatus.Error, task.type, task)
+    ).toBe(false)
+    task.instances[0].gid = 'another-owner'
+    expect(
+      shouldEvictFromEngine(task.status, TaskStatus.Error, task.type, task)
+    ).toBe(true)
+  })
   it.each([[TaskType.Bt], [TaskType.Magnet]] as const)(
     'returns true for Seeding -> Completed on %s',
     (type) => {
