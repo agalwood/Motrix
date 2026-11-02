@@ -67,10 +67,15 @@ const lifecycle = (action) =>
       resolve({ code, output })
     })
   })
-const get = (route, headers = {}) =>
+const get = (route, headers = {}, method = 'GET') =>
   new Promise((resolve, reject) => {
     const req = request(
-      { socketPath: path.join(target, 'app.sock'), path: route, headers },
+      {
+        socketPath: path.join(target, 'app.sock'),
+        path: route,
+        headers,
+        method,
+      },
       (res) => {
         let body = ''
         res.on('data', (chunk) => {
@@ -105,6 +110,8 @@ try {
   assert.equal((await get('/app/motrix/rpc/auth/status')).status, 401)
   const admin = {
     host: 'nas.local',
+    origin: 'http://nas.local:5666',
+    'x-motrix-web-origin': 'http://nas.local:5666',
     'x-trim-userid': '1000',
     'x-trim-isadmin': 'true',
     'x-trim-username': 'admin',
@@ -123,6 +130,20 @@ try {
   )
   assert.equal((await get('/rpc/auth/status', admin)).status, 404)
   assert.equal((await get('/app/motrix/', admin)).status, 200)
+  assert.equal((await get('/app/motrix/mo-logo.svg', admin)).status, 200)
+  const ticket = await get('/app/motrix/rpc/auth/event-ticket', admin, 'POST')
+  assert.equal(ticket.status, 200)
+  assert.match(JSON.parse(ticket.body).ticket, /^[A-Za-z0-9_-]{32}$/)
+  assert.equal(
+    (
+      await get(
+        '/app/motrix/rpc/auth/event-ticket',
+        { ...admin, origin: 'http://nas.local:8080' },
+        'POST'
+      )
+    ).status,
+    403
+  )
   await writeFile(path.join(data, 'motrix/persistence-probe'), 'preserved')
   assert.equal((await lifecycle('stop')).code, 0)
   assert.equal((await lifecycle('status')).code, 3)

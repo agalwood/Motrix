@@ -1,5 +1,5 @@
 import { useOperatorSession } from '@renderer/lib/operator-auth'
-import { webBaseUrl } from '@renderer/lib/web-base-url'
+import { webBaseUrl, webOriginHeaders } from '@renderer/lib/web-base-url'
 import type { TrimApp } from '@trimjs/web-app'
 import { z } from 'zod'
 
@@ -49,7 +49,7 @@ export async function fnosRequest(
   const response = await fetch(`${webBaseUrl()}/api/fnos/${route}`, {
     method: 'POST',
     credentials: 'same-origin',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...webOriginHeaders() },
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(15_000),
   })

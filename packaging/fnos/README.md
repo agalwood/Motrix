@@ -58,6 +58,14 @@ implementation time the official fnpack page linked 1.2.3 binaries returning
   do not work around a failed installation by making it world-writable.
 - Event connections are renewed every minute through the gateway to bound
   stale authentication. Browser foreground checks also refresh the session.
+  The gateway can rewrite `Host` without its external port. HTTP mutations
+  therefore require a non-safelisted browser-origin marker, with matching
+  `Origin` when present; this listener never enables cross-origin preflights.
+  Events use a one-use ticket issued through authenticated HTTP and bound to
+  that exact browser origin. Tickets expire after 30 seconds and travel in a
+  WebSocket subprotocol, never a URL. This also supports gateway versions that
+  omit identity headers during WebSocket upgrades. Explicit non-admin or
+  conflicting upgrade identities are still rejected.
 - Private state: `${TRIM_PKGVAR}/motrix`. Download files: the declared
   `motrix/downloads` share, plus directories explicitly granted through fnOS
   shared authorization. Empty or failed grant queries never become unrestricted

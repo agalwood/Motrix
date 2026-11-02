@@ -1,46 +1,125 @@
+import { randomBytes } from 'node:crypto'
+import { getLogger } from '@core/logger'
+import {
+  FNOS_EVENT_PROTOCOL,
+  FNOS_EVENT_TICKET_PREFIX,
+  WEB_ORIGIN_HEADER,
+} from '@shared/schemas/operator-auth'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import { fnosUser } from '../platform/fnos/files'
 import {
   type FnosGatewayOptions,
+  fnosIdentityDiagnostic,
   fnosPrincipal,
+  isFnosListener,
 } from '../platform/fnos/identity'
 import type { OperatorSessionPolicy } from './operator-auth'
 
-function sameOrigin(req: FastifyRequest): boolean {
-  const origin = req.headers.origin
-  if (typeof origin !== 'string') return false
-  const host = req.headers['x-forwarded-host'] ?? req.headers.host
-  const protocol = req.headers['x-forwarded-proto']
-  if (typeof host !== 'string') return false
+type Principal = NonNullable<ReturnType<typeof fnosPrincipal>>
+interface EventTicket {
+  principal: Principal
+  origin: string
+  expiresAt: number
+  sessionExpiresAt: number
+}
+
+function browserOrigin(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
   try {
-    const parsed = new URL(origin)
-    return (
+    const parsed = new URL(value)
+    if (
       ['http:', 'https:'].includes(parsed.protocol) &&
-      parsed.origin === origin &&
-      parsed.host === host &&
-      (protocol === undefined || parsed.protocol === `${protocol}:`)
+      parsed.origin === value
     )
+      return value
   } catch {
-    return false
+    /* Reject malformed or opaque origins. */
   }
+  return undefined
+}
+
+/** A cross-origin browser cannot supply this non-safelisted header without a
+ * CORS preflight. This listener never permits preflights or enables CORS.
+ * fnOS rewrites Host (including its port), so it cannot identify the browser
+ * origin. The marker must also match Origin when the browser supplies it. */
+function requestOrigin(req: FastifyRequest): string | undefined {
+  const marker = browserOrigin(req.headers[WEB_ORIGIN_HEADER])
+  if (
+    !marker ||
+    (req.headers.origin !== undefined && req.headers.origin !== marker)
+  )
+    return undefined
+  const site = req.headers['sec-fetch-site']
+  if (site !== undefined && site !== 'same-origin' && site !== 'none')
+    return undefined
+  return marker
 }
 
 export function registerFnosAuth(
   app: FastifyInstance,
   opts: FnosGatewayOptions
 ): OperatorSessionPolicy {
+  const log = getLogger('fnos:auth')
+  const now = opts.now ?? Date.now
+  let lastRejectionAt = -Infinity
+  const tickets = new Map<string, EventTicket>()
+  const identities = new WeakMap<FastifyRequest, Principal>()
+  const socketExpirations = new WeakMap<FastifyRequest, number>()
+  app.addHook('onClose', async () => {
+    tickets.clear()
+  })
   app.addHook('onRequest', async (req, reply) => {
     reply.header('cache-control', 'no-store')
     const pathname = req.url.split('?')[0]
     if (req.method === 'GET' && pathname === '/healthz') return
-    const principal = fnosPrincipal(req, opts)
     const upgrade = req.headers.upgrade?.toLowerCase() === 'websocket'
-    const forbiddenOrigin =
-      principal &&
-      (upgrade || req.headers.origin !== undefined) &&
-      !sameOrigin(req)
-    if (!principal || forbiddenOrigin) {
-      const code = forbiddenOrigin ? 403 : 401
+    let principal = fnosPrincipal(req, opts)
+    let reason: string | undefined
+    if (!isFnosListener(req, opts)) reason = 'untrusted-listener'
+    else if (upgrade) {
+      const protocols = String(req.headers['sec-websocket-protocol'] ?? '')
+        .split(',')
+        .map((value) => value.trim())
+      const token =
+        protocols.length === 2 &&
+        protocols[0] === FNOS_EVENT_PROTOCOL &&
+        protocols[1].startsWith(FNOS_EVENT_TICKET_PREFIX)
+          ? protocols[1].slice(FNOS_EVENT_TICKET_PREFIX.length)
+          : ''
+      const ticket = tickets.get(token)
+      tickets.delete(token)
+      const hasIdentityHeaders = [
+        'x-trim-userid',
+        'x-trim-isadmin',
+        'x-trim-username',
+      ].some((key) => req.headers[key] !== undefined)
+      if (!ticket || ticket.expiresAt <= now()) reason = 'event-ticket-required'
+      else if (req.headers.origin !== ticket.origin) reason = 'origin-mismatch'
+      else if (
+        hasIdentityHeaders &&
+        (!principal || principal.uid !== ticket.principal.uid)
+      )
+        reason = 'identity-rejected'
+      else {
+        // Some gateway versions omit X-Trim-* on upgrades. Only a one-use
+        // ticket from a freshly authenticated HTTP request can supply identity.
+        principal = ticket.principal
+        socketExpirations.set(req, ticket.sessionExpiresAt)
+      }
+    } else if (!principal) reason = 'identity-rejected'
+    else if (
+      req.method !== 'GET' &&
+      req.method !== 'HEAD' &&
+      !requestOrigin(req)
+    )
+      reason = 'origin-mismatch'
+    if (reason || !principal) {
+      const code = reason === 'origin-mismatch' ? 403 : 401
+      const diagnostic = fnosIdentityDiagnostic(req, opts)
+      if (now() - lastRejectionAt >= 60_000) {
+        lastRejectionAt = now()
+        log.warn({ reason, diagnostic }, 'fnOS gateway request rejected')
+      }
       if (upgrade) {
         reply.hijack()
         req.raw.socket.end(
@@ -48,39 +127,63 @@ export function registerFnosAuth(
         )
         return
       }
-      return reply
-        .code(code)
-        .send({ error: 'fnos administrator session required' })
+      return reply.code(code).send({
+        error: 'fnos administrator session required',
+        reason,
+        diagnostic,
+      })
     }
+    identities.set(req, principal)
   })
   app.get('/rpc/auth/status', async (req) => ({
     authed: true,
     mode: 'fnosGateway',
     canLogout: false,
-    username: fnosPrincipal(req, opts)?.username,
+    username: identities.get(req)?.username,
   }))
+  app.post('/rpc/auth/event-ticket', async (req, reply) => {
+    const principal = identities.get(req)
+    const origin = requestOrigin(req)
+    if (!principal || !origin)
+      return reply.code(403).send({ error: 'unauthorized' })
+    for (const [key, ticket] of tickets)
+      if (ticket.expiresAt <= now()) tickets.delete(key)
+    if (tickets.size >= 256)
+      return reply
+        .code(429)
+        .send({ error: 'too many pending event connections' })
+    const token = randomBytes(24).toString('base64url')
+    tickets.set(token, {
+      principal,
+      origin,
+      expiresAt: now() + 30_000,
+      sessionExpiresAt: now() + 60_000,
+    })
+    return { ticket: token }
+  })
   app.addHook('preHandler', (req, _reply, done) => {
-    const uid = fnosPrincipal(req, opts)?.uid
+    const uid = identities.get(req)?.uid
     if (uid === undefined) done()
     else fnosUser.run(uid, done)
   })
   return {
     principal(req) {
-      const user = fnosPrincipal(req, opts)
+      const user = identities.get(req)
       return user ? { id: `fnos:${user.uid}`, eligible: () => true } : undefined
     },
     bindSocket(req, socket) {
-      const user = fnosPrincipal(req, opts)
-      let eligible = user !== undefined
-      // Reconnect through the gateway regularly so revoked NAS sessions cannot
-      // retain an indefinitely authorized event stream.
-      const timer = setTimeout(() => {
-        eligible = false
-        socket.close(4401, 'Gateway reauthentication required')
-      }, 60_000)
+      const expiration = socketExpirations.get(req) ?? now()
+      let eligible = identities.has(req) && expiration > now()
+      const timer = setTimeout(
+        () => {
+          eligible = false
+          socket.close(4401, 'Gateway reauthentication required')
+        },
+        Math.max(0, expiration - now())
+      )
       timer.unref()
       return {
-        eligible: () => eligible,
+        eligible: () => eligible && expiration > now(),
         dispose: () => {
           clearTimeout(timer)
           eligible = false

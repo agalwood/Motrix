@@ -1,6 +1,6 @@
 import { toast } from '@renderer/components/ui/toast'
 import { i18n } from '@renderer/lib/i18n'
-import { webBaseUrl } from '@renderer/lib/web-base-url'
+import { webBaseUrl, webOriginHeaders } from '@renderer/lib/web-base-url'
 import type { FilePickerOptions } from '@shared/schemas/file-picker'
 import { isFnos, pickFnosDirectory } from './fnos'
 import type { PlatformServices } from './services'
@@ -96,6 +96,7 @@ export function createWebServices(
           method: 'POST',
           credentials: 'same-origin',
           headers: {
+            ...(isFnos() ? webOriginHeaders() : {}),
             'content-type': 'application/vnd.motrix.moext',
             'x-motrix-file-name': encodeURIComponent(file.name),
           },

@@ -15,11 +15,17 @@ import type { EventChannel } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
 import { openTaskFilePayloadSchema } from '@shared/schemas/open-task-file'
 import {
+  FNOS_EVENT_PROTOCOL,
+  FNOS_EVENT_TICKET_PREFIX,
+  fnosEventTicketSchema,
+} from '@shared/schemas/operator-auth'
+import {
   WEB_EVENT_CONNECT_TIMEOUT_MS,
   WEB_EVENT_STALE_MS,
   webEventFrameSchema,
   webEventHeartbeatSchema,
 } from '@shared/schemas/web-event-stream'
+import { webOriginHeaders } from '../web-base-url'
 import type {
   AnyChannel,
   EventListener,
@@ -66,6 +72,7 @@ export class HttpWsTransport implements Transport {
   private lastMessageAt = 0
   private supportsHeartbeat = false
   private watchingForeground = false
+  private fnosTicketRequest: AbortController | null = null
 
   private readonly onForeground = () => {
     if (document.visibilityState === 'hidden') return
@@ -125,7 +132,10 @@ export class HttpWsTransport implements Transport {
       `${this.baseUrl}/rpc/${kind}/${encodeURIComponent(channel)}`,
       {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          ...(isFnos() ? webOriginHeaders() : {}),
+        },
         // Send the operator session cookie (Spec 9). Same-origin is the fetch
         // default, but set it explicitly so the control-plane auth is obvious.
         credentials: 'same-origin',
@@ -190,6 +200,7 @@ export class HttpWsTransport implements Transport {
       useOperatorSession.getState().state === 'locked' ||
       useOperatorSession.getState().state === 'logging-out' ||
       this.socket ||
+      this.fnosTicketRequest ||
       this.reconnectTimer !== null ||
       !this.WSCtor ||
       !this.hasEventListeners()
@@ -197,10 +208,56 @@ export class HttpWsTransport implements Transport {
       return
     }
 
+    if (isFnos()) {
+      const pending = new AbortController()
+      this.fnosTicketRequest = pending
+      const sessionEpoch = useOperatorSession.getState().epoch
+      const epoch = ++this.socketEpoch
+      this.publishConnectionState('connecting')
+      void this.fetchFn(`${this.baseUrl}/rpc/auth/event-ticket`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: webOriginHeaders(),
+        signal: AbortSignal.any([pending.signal, AbortSignal.timeout(15_000)]),
+      })
+        .then(async (response) => {
+          if (response.status === 401 || response.status === 403)
+            void refreshOperatorSession(sessionEpoch)
+          if (!response.ok) throw new Error('fnOS event authorization failed')
+          const { ticket } = fnosEventTicketSchema.parse(await response.json())
+          if (this.fnosTicketRequest !== pending || this.socketEpoch !== epoch)
+            return
+          this.fnosTicketRequest = null
+          if (
+            !this.hasEventListeners() ||
+            useOperatorSession.getState().epoch !== sessionEpoch ||
+            useOperatorSession.getState().state !== 'authenticated'
+          )
+            return
+          this.connectSocket([
+            FNOS_EVENT_PROTOCOL,
+            `${FNOS_EVENT_TICKET_PREFIX}${ticket}`,
+          ])
+        })
+        .catch(() => {
+          if (this.fnosTicketRequest !== pending) return
+          this.fnosTicketRequest = null
+          this.publishConnectionState('disconnected')
+          this.scheduleReconnect()
+        })
+      return
+    }
+    this.connectSocket()
+  }
+
+  private connectSocket(protocols?: string[]): void {
+    if (!this.WSCtor) return
     const wsUrl = `${this.baseUrl.replace(/^http/, 'ws')}/rpc/events`
     let socket: WebSocket
     try {
-      socket = new this.WSCtor(wsUrl)
+      socket = protocols
+        ? new this.WSCtor(wsUrl, protocols)
+        : new this.WSCtor(wsUrl)
     } catch {
       this.publishConnectionState('disconnected')
       this.scheduleReconnect()
@@ -334,6 +391,9 @@ export class HttpWsTransport implements Transport {
   }
 
   private stopSocket(): void {
+    const ticketRequest = this.fnosTicketRequest
+    this.fnosTicketRequest = null
+    ticketRequest?.abort()
     this.clearDeadline()
     this.watchingForeground = false
     window.removeEventListener('online', this.onForeground)

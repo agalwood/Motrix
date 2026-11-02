@@ -1,3 +1,9 @@
+import { WEB_ORIGIN_HEADER } from '@shared/schemas/operator-auth'
+
+export function webOriginHeaders(): Record<string, string> {
+  return { [WEB_ORIGIN_HEADER]: globalThis.location?.origin ?? '' }
+}
+
 /** Hash routing leaves this directory stable for RPC, uploads and events. */
 export function webBaseUrl(
   location:
