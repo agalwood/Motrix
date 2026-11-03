@@ -1875,7 +1875,12 @@
       "hideSecret": "Hide secret"
     },
     "integration": {
-      "fnosPairingUnavailable": "Browser extension and CLI pairing are not available in this fnOS version.",
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "system": {
         "title": "Default app",
         "protocolMagnet": "Open magnet links with Motrix",

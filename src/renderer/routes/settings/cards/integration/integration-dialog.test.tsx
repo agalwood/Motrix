@@ -140,7 +140,7 @@ describe('IntegrationDialog scaffold', () => {
     )
     expect(
       await screen.findByText(
-        'Browser extension and CLI pairing are not available in this fnOS version.'
+        'Client pairing is not available in this installation.'
       )
     ).toBeInTheDocument()
     await waitFor(() => expect(transport.invoke).toHaveBeenCalled())
@@ -158,6 +158,47 @@ describe('IntegrationDialog scaffold', () => {
     expect(
       screen.getByRole('heading', { name: /media tools/i })
     ).toBeInTheDocument()
+  })
+
+  it('shows CLI pairing independently of the platform and browser Extension capability', async () => {
+    transport.platform = 'web'
+    useOperatorSession.setState({
+      status: {
+        mode: 'fnosGateway',
+        authed: true,
+        canLogout: false,
+        clientPairing: { cli: true, extension: false },
+      },
+    })
+    render(
+      <IntegrationDialog
+        open={true}
+        onClose={() => {}}
+        labelKey="settings.cards.integration.title"
+        descKey="settings.cards.integration.desc"
+      />
+    )
+    expect(
+      await screen.findByRole('heading', { name: /command-line tools/i })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('switch', { name: 'Allow external clients to connect' })
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: /browser extensions/i })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Browser extension pairing is not available in this installation.'
+      )
+    ).toBeInTheDocument()
+    await waitFor(() =>
+      expect(transport.invoke).toHaveBeenCalledWith(
+        'bridge:listPendingPairRequests'
+      )
+    )
+    expect(transport.invoke).not.toHaveBeenCalledWith('bridge:listTrusted')
+    expect(transport.invoke).not.toHaveBeenCalledWith('bridge:getStatus')
   })
 
   it('renders the four top-level section headings', async () => {

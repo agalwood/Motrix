@@ -2313,7 +2313,12 @@
       "warnBeforeQuitDesc": "Om bevestiging vragen bij het afsluiten als er nog downloads actief zijn."
     },
     "integration": {
-      "fnosPairingUnavailable": "Browser extension and CLI pairing are not available in this fnOS version.",
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "appimage": {
         "desc": "Registreer deze Motrix-AppImage bij je desktop zodat browsers en magnetlinks downloads kunnen doorgeven.",
         "enable": "Desktopintegratie inschakelen",

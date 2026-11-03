@@ -1861,7 +1861,12 @@
       "hideSecret": "隱藏密鑰"
     },
     "integration": {
-      "fnosPairingUnavailable": "此 fnOS 版本暫不支援瀏覽器擴充功能與 CLI 配對。",
+      "clientPairingUnavailable": "目前安裝版本暫不支援用戶端配對。",
+      "extensionPairingUnavailable": "目前安裝版本暫不支援瀏覽器擴充功能配對。",
+      "clients": {
+        "masterSwitch": "允許外部用戶端連線",
+        "masterSwitchDesc": "用戶端須經核准後才能管理下載。"
+      },
       "system": {
         "title": "預設應用程式",
         "protocolMagnet": "使用 Motrix 開啟 Magnet 連結",

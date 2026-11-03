@@ -1861,7 +1861,12 @@
       "hideSecret": "隐藏密钥"
     },
     "integration": {
-      "fnosPairingUnavailable": "此 fnOS 版本暂不支持浏览器扩展和 CLI 配对。",
+      "clientPairingUnavailable": "当前安装版本暂不支持客户端配对。",
+      "extensionPairingUnavailable": "当前安装版本暂不支持浏览器扩展配对。",
+      "clients": {
+        "masterSwitch": "允许外部客户端连接",
+        "masterSwitchDesc": "客户端须经批准后才能管理下载。"
+      },
       "system": {
         "title": "默认应用",
         "protocolMagnet": "用 Motrix 打开磁力链接",

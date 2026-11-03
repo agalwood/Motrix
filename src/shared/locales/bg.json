@@ -2313,7 +2313,12 @@
       "warnBeforeQuitDesc": "Иска потвърждение преди изход, ако все още има активни изтегляния."
     },
     "integration": {
-      "fnosPairingUnavailable": "Browser extension and CLI pairing are not available in this fnOS version.",
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "appimage": {
         "desc": "Регистрирайте този Motrix AppImage в работната среда, за да могат браузърите и magnet връзките да му предават изтегляния.",
         "enable": "Включване на интеграцията с работната среда",

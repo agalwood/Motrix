@@ -9,11 +9,11 @@ import {
   FNOS_EVENT_TICKET_PREFIX,
   WEB_ORIGIN_HEADER,
 } from '@shared/schemas/operator-auth'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import WebSocket from 'ws'
 import { listenFnos } from '../platform/fnos/runtime'
 import { currentNasUser } from '../platform/nas/identity'
-import { createApp } from './app'
+import { type AppOptions, createApp } from './app'
 
 const cleanup: (() => Promise<unknown>)[] = []
 afterEach(async () => {
@@ -27,12 +27,16 @@ const admin = {
   origin: 'http://nas.local:5666',
   [WEB_ORIGIN_HEADER]: 'http://nas.local:5666',
 }
-async function fixture(now = Date.now) {
+async function fixture(
+  now = Date.now,
+  options: Pick<AppOptions, 'clientPairing' | 'bridgeQueryHandlers'> = {}
+) {
   const root = await mkdtemp('/tmp/mtx-fnos-')
   cleanup.push(() => rm(root, { force: true, recursive: true }))
   await writeFile(path.join(root, 'index.html'), '<p>Motrix</p>')
   const socketPath = path.join(root, 'app.sock')
   const app = await createApp({
+    ...options,
     basePath: '/app/motrix',
     fnosGateway: { socketPath, now },
     rendererDir: root,
@@ -71,6 +75,31 @@ async function fixture(now = Date.now) {
 }
 
 describe('fnOS gateway control plane', () => {
+  it('advertises configured CLI pairing and serves its inbox through the administrator gate', async () => {
+    const entries = [
+      {
+        kind: 'cli',
+        requestId: 'request',
+        userCode: 'ABCD-EFGH',
+        clientName: 'CLI',
+        clientVersion: '1',
+        expiresAt: Date.now() + 10000,
+      },
+    ]
+    const pending = vi.fn(async () => entries)
+    const { call } = await fixture(Date.now, {
+      clientPairing: { cli: true, extension: false },
+      bridgeQueryHandlers: { [BridgeQueries.ListPendingPairRequests]: pending },
+    })
+    const status = JSON.parse((await call('/app/motrix/rpc/auth/status')).body)
+    expect(status.clientPairing).toEqual({ cli: true, extension: false })
+    const url = `/app/motrix/rpc/query/${encodeURIComponent(BridgeQueries.ListPendingPairRequests)}`
+    expect(JSON.parse((await call(url, admin, 'POST')).body)).toEqual(entries)
+    expect(
+      (await call(url, { ...admin, 'x-trim-isadmin': 'false' }, 'POST')).status
+    ).toBe(401)
+    expect(pending).toHaveBeenCalledOnce()
+  })
   it('returns an empty pairing inbox only to authenticated fnOS administrators', async () => {
     const { call } = await fixture()
     const url = `/app/motrix/rpc/query/${encodeURIComponent(BridgeQueries.ListPendingPairRequests)}`

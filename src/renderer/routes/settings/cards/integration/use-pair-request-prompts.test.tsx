@@ -131,6 +131,60 @@ describe('usePairRequestPrompts', () => {
     expect(onConnectionChangeMock).not.toHaveBeenCalled()
   })
 
+  it('starts recovering pending prompts when the host enables its CLI capability', async () => {
+    useOperatorSession.setState({
+      status: {
+        mode: 'fnosGateway',
+        authed: true,
+        canLogout: false,
+        clientPairing: { cli: false, extension: false },
+      },
+    })
+    render(<Host />)
+    expect(invokeMock).not.toHaveBeenCalled()
+    await act(async () => {
+      useOperatorSession.setState({
+        status: {
+          mode: 'fnosGateway',
+          authed: true,
+          canLogout: false,
+          clientPairing: { cli: true, extension: false },
+        },
+      })
+    })
+    expect(invokeMock).toHaveBeenCalledOnce()
+    expect(onConnectionChangeMock).toHaveBeenCalledOnce()
+  })
+
+  it('removes visible prompts without sending a denial when pairing support disappears', async () => {
+    useOperatorSession.setState({
+      status: {
+        mode: 'fnosGateway',
+        authed: true,
+        canLogout: false,
+        clientPairing: { cli: true, extension: false },
+      },
+    })
+    invokeMock.mockResolvedValue([cliPending('A')])
+    render(<Host />)
+    await waitFor(() => expect(toastAddMock).toHaveBeenCalledOnce())
+    toastCloseMock.mockImplementation((key: string) =>
+      findAddCall(key).onClose()
+    )
+    await act(async () => {
+      useOperatorSession.setState({
+        status: {
+          mode: 'fnosGateway',
+          authed: true,
+          canLogout: false,
+          clientPairing: { cli: false, extension: false },
+        },
+      })
+    })
+    expect(toastCloseMock).toHaveBeenCalledWith('cli:A')
+    expect(invokeMock).toHaveBeenCalledOnce()
+  })
+
   it('subscribes to PairRequested/Settled/Expired BEFORE invoking the pending snapshot', () => {
     render(<Host />)
     expect(onMock).toHaveBeenCalledWith(

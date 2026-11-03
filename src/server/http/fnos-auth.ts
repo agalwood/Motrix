@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { getLogger } from '@core/logger'
 import {
+  type ClientPairingCapabilities,
   FNOS_EVENT_PROTOCOL,
   FNOS_EVENT_TICKET_PREFIX,
   WEB_ORIGIN_HEADER,
@@ -57,7 +58,8 @@ function requestOrigin(req: FastifyRequest): string | undefined {
 
 export function registerFnosAuth(
   app: FastifyInstance,
-  opts: FnosGatewayOptions
+  opts: FnosGatewayOptions,
+  clientPairing: ClientPairingCapabilities = { cli: false, extension: false }
 ): OperatorSessionPolicy {
   const log = getLogger('fnos:auth')
   const now = opts.now ?? Date.now
@@ -140,6 +142,7 @@ export function registerFnosAuth(
     mode: 'fnosGateway',
     canLogout: false,
     username: identities.get(req)?.username,
+    clientPairing,
   }))
   app.post('/rpc/auth/event-ticket', async (req, reply) => {
     const principal = identities.get(req)

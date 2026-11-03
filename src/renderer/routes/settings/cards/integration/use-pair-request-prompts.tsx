@@ -17,6 +17,7 @@ import {
 } from '@shared/protocol/bridge'
 import type { EventChannel } from '@shared/protocol/events'
 import type { QueryChannel } from '@shared/protocol/queries'
+import { supportsClientPairing } from '@shared/schemas/operator-auth'
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { resolvePairWithFeedback } from './pair-resolve'
@@ -80,14 +81,16 @@ function toPairRequestPayload(
  */
 export function usePairRequestPrompts(): void {
   const { t } = useTranslation()
-  const fnos = useOperatorSession(
-    (session) => session.status?.mode === 'fnosGateway'
+  const supported = useOperatorSession(
+    (session) =>
+      supportsClientPairing(session.status, 'cli') ||
+      supportsClientPairing(session.status, 'extension')
   )
   const tRef = useRef(t)
   tRef.current = t
 
   useEffect(() => {
-    if (fnos) return
+    if (!supported) return
     // key -> lifecycle state for a prompt currently owned by this hook
     // instance. Guards three races: a duplicate `PairRequested` for a
     // live key (no-op), a double Allow/Deny click (no-op past the first),
@@ -281,6 +284,13 @@ export function usePairRequestPrompts(): void {
       transport.off(pairRequestedChannel, onPairRequested)
       transport.off(settledChannel, onSettled)
       transport.off(expiredChannel, onExpired)
+      // Losing the host capability or session must also remove visible codes.
+      // This is a local teardown, not a decision to deny the server request.
+      for (const [key, state] of prompts) {
+        if (state.settled) continue
+        state.settled = true
+        toast.close(key)
+      }
     }
-  }, [fnos])
+  }, [supported])
 }

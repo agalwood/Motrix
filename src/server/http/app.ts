@@ -21,6 +21,10 @@ import { DirectoryPreferencesResultSchema } from '@shared/schemas/directory-pref
 import { downloadsSettingsResultSchema } from '@shared/schemas/downloads-settings'
 import { GeneralSettingsResultSchema } from '@shared/schemas/general-settings'
 import {
+  type ClientPairingCapabilities,
+  clientPairingCapabilitiesSchema,
+} from '@shared/schemas/operator-auth'
+import {
   CreateServerDirectoryResultSchema,
   ListServerDirectoriesResultSchema,
   ListServerDirectoryLocationsResultSchema,
@@ -106,6 +110,8 @@ async function directoryRpc(
 }
 
 export interface AppOptions {
+  /** Supported pairing surfaces, independent of the user's enable switch. */
+  clientPairing?: ClientPairingCapabilities
   basePath?: string
   fnosGateway?: FnosGatewayOptions
   /** Torrent-only RPC budget; defaults to 8 MiB, configurable from 2 to 64 MiB. */
@@ -139,6 +145,10 @@ export async function createApp(
 ): Promise<FastifyInstance> {
   if (opts.fnosGateway && opts.operatorAuth)
     throw new Error('Authentication modes are mutually exclusive')
+  const clientPairing =
+    opts.clientPairing === undefined
+      ? undefined
+      : clientPairingCapabilitiesSchema.parse(opts.clientPairing)
   const webPath = createWebBasePath(opts.basePath)
   const app = Fastify({
     logger: false,
@@ -151,15 +161,19 @@ export async function createApp(
   // before every route (including /api/* added by the caller post-createApp and
   // the /rpc/events WS upgrade).
   const operatorSessions = opts.fnosGateway
-    ? registerFnosAuth(app, opts.fnosGateway)
+    ? registerFnosAuth(app, opts.fnosGateway, clientPairing)
     : opts.operatorAuth
-      ? registerOperatorAuth(app, opts.operatorAuth)
+      ? registerOperatorAuth(app, {
+          ...opts.operatorAuth,
+          clientPairing: clientPairing ?? opts.operatorAuth.clientPairing,
+        })
       : undefined
   if (!operatorSessions) {
     app.get('/rpc/auth/status', async () => ({
       authed: true,
       mode: 'unrestricted',
       canLogout: false,
+      ...(clientPairing ? { clientPairing } : {}),
     }))
   }
   const commands = opts.commandHandlers ?? {}
@@ -218,10 +232,12 @@ export async function createApp(
     async (req, reply) => {
       const usesSharedEnvelope =
         req.params.channel === Queries.GetTaskInspectorActivity
-      // fnOS has no external pairing listener. Older Web clients still query
-      // the inbox on reconnect; an authenticated empty inbox is authoritative.
+      // An installation without a pairing surface has no pending requests.
+      // Once configured, NAS hosts use the ordinary operator-gated inbox.
       if (
         opts.fnosGateway &&
+        !clientPairing?.cli &&
+        !clientPairing?.extension &&
         req.params.channel === BridgeQueries.ListPendingPairRequests
       )
         return []

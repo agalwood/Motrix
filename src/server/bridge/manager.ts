@@ -72,7 +72,9 @@ export class ServerBridgeManager {
       [BridgeQueries.CancelResolveUrl]: (...args: unknown[]) =>
         this.invokeQuery(BridgeQueries.CancelResolveUrl, args),
       [BridgeQueries.ListPendingPairRequests]: (...args: unknown[]) =>
-        this.invokeQuery(BridgeQueries.ListPendingPairRequests, args),
+        this.desiredEnabled
+          ? this.invokeQuery(BridgeQueries.ListPendingPairRequests, args)
+          : Promise.resolve([]),
       [BridgeQueries.GetStatus]: (...args: unknown[]) =>
         this.invokeQuery(BridgeQueries.GetStatus, args),
     }

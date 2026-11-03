@@ -2332,7 +2332,12 @@
       "warnBeforeQuitDesc": "Demana confirmació abans de sortir si encara hi ha baixades actives."
     },
     "integration": {
-      "fnosPairingUnavailable": "Browser extension and CLI pairing are not available in this fnOS version.",
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "appimage": {
         "desc": "Registreu aquest AppImage del Motrix a l'escriptori perquè els navegadors i els enllaços magnet li puguin enviar baixades.",
         "enable": "Activar la integració amb l'escriptori",

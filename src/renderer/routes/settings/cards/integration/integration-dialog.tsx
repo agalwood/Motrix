@@ -30,6 +30,7 @@ import { useOperatorSession } from '@renderer/lib/operator-auth'
 import { saveSettings } from '@renderer/lib/settings-save'
 import { transport } from '@renderer/lib/transport'
 import { DEFAULT_APP_SETTINGS, DEFAULT_MEDIA_SETTINGS } from '@shared/schemas'
+import { supportsClientPairing } from '@shared/schemas/operator-auth'
 import type { AppSettings } from '@shared/types/settings'
 import { useState } from 'react'
 import { FormProvider } from 'react-hook-form'
@@ -42,6 +43,7 @@ import { AppImageNativeHostSection } from './appimage-native-host-section'
 import { BrowserExtensionsSection } from './browser-extensions-section'
 import { CLIClientsSection } from './cli-clients-section'
 import { CliToolSection } from './cli-tool-section'
+import { ClientPairingSwitch } from './client-pairing-switch'
 import { MediaToolsSection } from './media-tools-section'
 import { PendingApprovalsSection } from './pending-approvals-section'
 import { SystemProtocolsSection } from './system-protocols-section'
@@ -63,8 +65,11 @@ export function IntegrationDialog({
 }: SettingsCardDialogProps) {
   const { t } = useTranslation()
   const isWeb = transport.platform === 'web'
-  const fnos = useOperatorSession(
-    (session) => session.status?.mode === 'fnosGateway'
+  const cliPairing = useOperatorSession((session) =>
+    supportsClientPairing(session.status, 'cli')
+  )
+  const extensionPairing = useOperatorSession((session) =>
+    supportsClientPairing(session.status, 'extension')
   )
   const [protocolRevision, setProtocolRevision] = useState(0)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -159,10 +164,14 @@ export function IntegrationDialog({
                   disabled={!load.ready || form.formState.isSubmitting}
                   className="min-w-0 flex flex-col gap-6"
                 >
-                  {fnos ? (
+                  {!extensionPairing ? (
                     <Alert>
                       <AlertDescription>
-                        {t('settings.integration.fnosPairingUnavailable')}
+                        {t(
+                          cliPairing
+                            ? 'settings.integration.extensionPairingUnavailable'
+                            : 'settings.integration.clientPairingUnavailable'
+                        )}
                       </AlertDescription>
                     </Alert>
                   ) : (
@@ -211,7 +220,7 @@ export function IntegrationDialog({
                     </>
                   )}
 
-                  {!fnos && (
+                  {cliPairing && (
                     <>
                       <section
                         aria-labelledby="integration-cli"
@@ -223,6 +232,7 @@ export function IntegrationDialog({
                         >
                           {t('settings.integration.cli.title')}
                         </h3>
+                        {!extensionPairing && <ClientPairingSwitch />}
                         <CliToolSection />
                         <Separator />
                         <CLIClientsSection />

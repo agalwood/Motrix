@@ -38,6 +38,12 @@ function makeRuntime(): ServerBridgeRuntime {
 }
 
 describe('ServerBridgeManager', () => {
+  it('has an empty pairing inbox while the listener is disabled', async () => {
+    const manager = new ServerBridgeManager(makeRegistry(), vi.fn())
+    await expect(
+      manager.bridgeQueryHandlers[BridgeQueries.ListPendingPairRequests]()
+    ).resolves.toEqual([])
+  })
   let registry: TrustedExtensionRegistry
 
   beforeEach(async () => {

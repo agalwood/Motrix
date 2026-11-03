@@ -2313,7 +2313,12 @@
       "warnBeforeQuitDesc": "Ζητά επιβεβαίωση πριν την έξοδο αν εκτελούνται ακόμη λήψεις."
     },
     "integration": {
-      "fnosPairingUnavailable": "Browser extension and CLI pairing are not available in this fnOS version.",
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "appimage": {
         "desc": "Καταχωρίστε αυτό το Motrix AppImage στο περιβάλλον εργασίας σας, ώστε τα προγράμματα περιήγησης και οι σύνδεσμοι magnet να μπορούν να του μεταβιβάζουν λήψεις.",
         "enable": "Ενεργοποίηση ενσωμάτωσης στο περιβάλλον εργασίας",

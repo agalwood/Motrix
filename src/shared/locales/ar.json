@@ -2389,7 +2389,12 @@
       "warnBeforeQuitDesc": "السؤال قبل الخروج إذا كانت التنزيلات لا تزال جارية."
     },
     "integration": {
-      "fnosPairingUnavailable": "Browser extension and CLI pairing are not available in this fnOS version.",
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "appimage": {
         "desc": "سجّل AppImage Motrix هذا في سطح المكتب لتتمكن المتصفحات وروابط magnet من تمرير التنزيلات إليه.",
         "enable": "تفعيل التكامل مع سطح المكتب",

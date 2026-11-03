@@ -153,6 +153,7 @@ import { diagnoseMdxpPublicUrl } from './bridge/public-url-diagnostic'
 import { parseRemoteExtensionConfig } from './bridge/remote-extension-config'
 import { logRemoteExtensionPairingReady } from './bridge/remote-extension-startup-log'
 import {
+  establishLinuxServerProcessOwnershipAuthority,
   establishServerProcessOwnershipAuthority,
   ServerProcessOwnershipError,
 } from './bridge/server-process-ownership-authority'
@@ -1368,6 +1369,10 @@ async function main() {
   const app = await createApp({
     getHiddenNotificationKinds: () =>
       getHiddenNotificationKinds(settingsManager.getApp()),
+    clientPairing: {
+      cli: !fnos,
+      extension: !fnos && remoteExtensionConfig.status === 'enabled',
+    },
     basePath: process.env.MOTRIX_WEB_BASE_PATH,
     fnosGateway: fnos,
     remoteExtensionConfig,
@@ -1865,29 +1870,35 @@ async function main() {
       : `http://localhost:${port}`
     log.info({ port, url: serverUrl }, `server listening at ${serverUrl}`)
 
-    // fnOS owns operator identity. External client pairing needs a separate
-    // NAS-user binding contract before exposing the MDXP listener here.
-    if (fnos) return
-
     let bridgeSetupStage:
       | 'process-ownership'
       | 'bridge-data-lock'
       | 'trusted-extension-registry' = 'process-ownership'
     bridgeOwnershipSetup = (async () => {
-      bridgeDataDirLockRecoveryAuthority =
-        await establishServerProcessOwnershipAuthority({
+      if (fnos) {
+        const authority = await establishLinuxServerProcessOwnershipAuthority({
           userDataDir: platform.userDataDir,
-          port,
-          assertControlPlaneOwnership: () => {
-            if (!app.server.listening) return false
-            const address = app.server.address()
-            return (
-              typeof address === 'object' &&
-              address !== null &&
-              address.port === port
-            )
-          },
+          assertControlPlaneOwnership: () =>
+            app.server.listening && app.server.address() === fnos.socketPath,
         })
+        bridgeDataDirLockRecoveryAuthority = authority
+        shutdownActions.releaseProcessOwnership = authority.release
+      } else {
+        bridgeDataDirLockRecoveryAuthority =
+          await establishServerProcessOwnershipAuthority({
+            userDataDir: platform.userDataDir,
+            port,
+            assertControlPlaneOwnership: () => {
+              if (!app.server.listening) return false
+              const address = app.server.address()
+              return (
+                typeof address === 'object' &&
+                address !== null &&
+                address.port === port
+              )
+            },
+          })
+      }
       bridgeSetupStage = 'bridge-data-lock'
       const dataDirLock = await acquireBridgeDataDirLock(bridgeDataDir, {
         recoverExisting: bridgeDataDirLockRecoveryAuthority,
@@ -1924,6 +1935,9 @@ async function main() {
     })
     await bridgeOwnershipSetup
     if (!shellAsyncWork.isAccepting()) return
+    // NAS ownership is now ready for restart/recovery. External pairing stays
+    // closed until its account authority and ingress are configured together.
+    if (fnos) return
 
     // ─── MDXP bridge (Spec 6) ─────────────────────────────────────
     // Agent-facing unary POST /mdxp + SSE GET /mdxp/events, on its OWN port

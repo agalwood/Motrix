@@ -3,11 +3,91 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
+  establishLinuxServerProcessOwnershipAuthority,
   establishServerProcessOwnershipAuthority,
   ServerProcessOwnershipFailureReason,
 } from './server-process-ownership-authority'
 
 const roots: string[] = []
+
+describe.skipIf(process.platform !== 'linux')(
+  'Linux native process ownership',
+  () => {
+    const releases: Array<() => Promise<void>> = []
+    afterEach(async () => {
+      for (const release of releases.splice(0).reverse()) await release()
+    })
+    const acquire = async (userDataDir: string, owned = () => true) => {
+      const authority = await establishLinuxServerProcessOwnershipAuthority({
+        userDataDir,
+        assertControlPlaneOwnership: owned,
+      })
+      releases.push(authority.release)
+      return authority
+    }
+
+    it('excludes a second owner and resolves directory aliases to the same kernel guard', async () => {
+      const directory = await temporaryDataDir()
+      const first = await acquire(directory)
+      const alias = `${directory}-alias`
+      roots.push(alias)
+      await fs.symlink(directory, alias)
+      await expect(acquire(alias)).rejects.toMatchObject({
+        reason: ServerProcessOwnershipFailureReason.KernelOwnershipUnavailable,
+      })
+      expect(await first.assertExclusiveProcessOwnership()).toBe(true)
+    })
+
+    it('recovers after release without letting an old handle release its successor', async () => {
+      const directory = await temporaryDataDir()
+      const first = await acquire(directory)
+      await first.release()
+      expect(await first.assertExclusiveProcessOwnership()).toBe(false)
+      const second = await acquire(directory)
+      expect(second.ownershipEpoch).not.toBe(first.ownershipEpoch)
+      await first.release()
+      expect(await second.assertExclusiveProcessOwnership()).toBe(true)
+    })
+
+    it('keeps TCP and native ownership namespaces from sharing one data directory', async () => {
+      const directory = await temporaryDataDir()
+      await establishServerProcessOwnershipAuthority({
+        userDataDir: directory,
+        port: 8080,
+        assertControlPlaneOwnership: () => true,
+      })
+      await expect(acquire(directory)).rejects.toMatchObject({
+        reason: ServerProcessOwnershipFailureReason.BindingTransportMismatch,
+      })
+      await fs.unlink(path.join(directory, '.motrix-server-bridge-owner.json'))
+      const native = await acquire(directory) // failed acquisition released its kernel guard
+      await expect(
+        establishServerProcessOwnershipAuthority({
+          userDataDir: directory,
+          port: 8080,
+          assertControlPlaneOwnership: () => true,
+        })
+      ).rejects.toMatchObject({
+        reason: ServerProcessOwnershipFailureReason.BindingTransportMismatch,
+      })
+      expect(await native.assertExclusiveProcessOwnership()).toBe(true)
+    })
+
+    it('invalidates its proof when the control plane or durable binding changes', async () => {
+      const directory = await temporaryDataDir()
+      let live = true
+      const authority = await acquire(directory, () => live)
+      live = false
+      expect(await authority.assertExclusiveProcessOwnership()).toBe(false)
+      live = true
+      await fs.writeFile(
+        path.join(directory, '.motrix-server-bridge-owner.json'),
+        '{}\n'
+      )
+      expect(await authority.assertExclusiveProcessOwnership()).toBe(false)
+    })
+  }
+)
 
 async function temporaryDataDir(): Promise<string> {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'motrix-server-owner-'))

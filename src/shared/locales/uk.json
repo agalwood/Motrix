@@ -2351,7 +2351,12 @@
       "warnBeforeQuitDesc": "Запитувати перед виходом, якщо завантаження ще тривають."
     },
     "integration": {
-      "fnosPairingUnavailable": "Browser extension and CLI pairing are not available in this fnOS version.",
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "appimage": {
         "desc": "Зареєструйте цей AppImage Motrix у стільничному середовищі, щоб браузери й magnet-посилання могли передавати йому завантаження.",
         "enable": "Увімкнути інтеграцію зі стільницею",
