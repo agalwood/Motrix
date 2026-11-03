@@ -52,7 +52,9 @@ export function AddTaskWindow() {
               navigateMainTo: `/downloads/all?task=${encodeURIComponent(taskId)}`,
             })
           }
-          onCancel={() => void electronServices.closeHost({ showMain: true })}
+          onCancel={() =>
+            void electronServices.closeHost({ showMain: 'if-visible' })
+          }
           subscribeEvents
         />
       </PlatformServicesProvider>
