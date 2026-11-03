@@ -83,7 +83,12 @@ export async function pickFnosDirectory(): Promise<string | null> {
   const sdk = await fnosSdk()
   let selected: string | undefined
   if (sdk.isStandaloneWeb) {
-    const state = crypto.randomUUID()
+    // LAN HTTP is a supported fnOS entry. getRandomValues remains available
+    // there, while randomUUID is restricted to secure contexts.
+    const state = Array.from(
+      crypto.getRandomValues(new Uint8Array(16)),
+      (byte) => byte.toString(16).padStart(2, '0')
+    ).join('')
     const popup = window.open('about:blank', '_blank', 'width=750,height=630')
     if (!popup) return null
     selected = await new Promise<string | undefined>((resolve, reject) => {

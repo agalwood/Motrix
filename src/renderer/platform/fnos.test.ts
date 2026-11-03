@@ -62,6 +62,9 @@ it('uses a server-resolved task path for the file manager', async () => {
   expect(sdk.openFileManager).toHaveBeenCalledWith('/volume/output')
 })
 it('accepts standalone callbacks only from the exact popup, origin and request state', async () => {
+  const random = globalThis.crypto.getRandomValues.bind(globalThis.crypto)
+  // Model an ordinary HTTP NAS origin, which has no randomUUID method.
+  vi.stubGlobal('crypto', { getRandomValues: random })
   sdk.isStandaloneWeb = true
   sdk.buildAppAuthUrl.mockResolvedValue('https://nas.local/auth')
   const popup = { location: { href: '' }, close: vi.fn() }
@@ -72,6 +75,7 @@ it('accepts standalone callbacks only from the exact popup, origin and request s
   const pending = pickFnosDirectory()
   await vi.waitFor(() => expect(sdk.buildAppAuthUrl).toHaveBeenCalledOnce())
   const state = sdk.buildAppAuthUrl.mock.calls[0][1].state
+  expect(state).toMatch(/^[a-f0-9]{32}$/)
   const send = (origin: string, returnedState: string, source: object) => {
     const event = new MessageEvent('message', {
       origin,
