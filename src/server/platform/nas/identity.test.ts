@@ -1,5 +1,11 @@
 import { expect, it } from 'vitest'
-import { currentNasUser, type NasIdentity, runAsNasUser } from './identity'
+import {
+  currentNasApprover,
+  currentNasUser,
+  type NasIdentity,
+  runAsNasGatewayUser,
+  runAsNasUser,
+} from './identity'
 
 const alice: NasIdentity = {
   platform: 'fnos',
@@ -62,3 +68,16 @@ it.each(['', 'name\0other', 'name\nother'])(
     expect(currentNasUser()).toBeUndefined()
   }
 )
+
+it('does not promote an internal or paired-client identity to a gateway approver', async () => {
+  await runAsNasGatewayUser(alice, async () => {
+    expect(currentNasApprover()).toEqual(alice)
+    await runAsNasUser(alice, async () => {
+      await Promise.resolve()
+      expect(currentNasUser()).toEqual(alice)
+      expect(currentNasApprover()).toBeUndefined()
+    })
+    expect(currentNasApprover()).toEqual(alice)
+  })
+  expect(currentNasApprover()).toBeUndefined()
+})

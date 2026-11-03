@@ -9,7 +9,13 @@ import { ErrorCodes } from '@motrix/mdxp'
 import { afterEach, expect, it, vi } from 'vitest'
 import { NasCliPairingStore, nasPairingFile } from './cli-pairing-store'
 import { NasClientAuthorization } from './client-authorization'
-import { currentNasUser, type NasIdentity, runAsNasUser } from './identity'
+import {
+  currentNasApprover,
+  currentNasUser,
+  type NasIdentity,
+  runAsNasGatewayUser,
+  runAsNasUser,
+} from './identity'
 
 const alice: NasIdentity = {
   platform: 'fnos',
@@ -47,7 +53,9 @@ async function fixture() {
   const pairing = new PairingService(store)
   await pairing.load()
   const issue = (owner = alice, id = 'client') =>
-    runAsNasUser(owner, () => pairing.issueToken({ kind: 'cli', id }, 'CLI'))
+    runAsNasGatewayUser(owner, () =>
+      pairing.issueToken({ kind: 'cli', id }, 'CLI')
+    )
   return { store, pairing, storage, issue, document: () => document }
 }
 
@@ -138,7 +146,7 @@ it('stores the owner and bearer credential in an owner-only file', async () => {
   const store = new NasCliPairingStore('fnos', nasPairingFile(file))
   const pairing = new PairingService(store)
   await pairing.load()
-  const paired = await runAsNasUser(alice, () =>
+  const paired = await runAsNasGatewayUser(alice, () =>
     pairing.issueToken({ kind: 'cli', id: 'client' }, 'CLI')
   )
   expect((await stat(file)).mode & 0o777).toBe(0o600)
@@ -153,6 +161,7 @@ it.each([
   bob,
   { ...alice, username: 'replacement' },
   { ...alice, platform: 'qnap' as const },
+  { ...alice, accountRevision: 'replacement' },
 ])('rejects a deleted, demoted or changed account: %j', async (current) => {
   const f = await fixture()
   const paired = await f.issue()
@@ -232,4 +241,24 @@ it('bounds account lookup even when the platform ignores cancellation', async ()
   ).rejects.toMatchObject({ code: ErrorCodes.PermissionDenied })
   expect(signal?.aborted).toBe(true)
   expect(operation).not.toHaveBeenCalled()
+})
+
+it('denies credential minting from internal work and an already paired administrator', async () => {
+  const f = await fixture()
+  const issue = () => f.pairing.issueToken({ kind: 'cli', id: 'other' }, 'CLI')
+  await expect(runAsNasUser(alice, issue)).rejects.toThrow('approval required')
+  const first = await f.issue()
+  const authority = new NasClientAuthorization(f.store, {
+    platform: 'fnos',
+    resolve: async () => alice,
+  })
+  await expect(
+    runAsNasGatewayUser(bob, () =>
+      authority.run(reference(first), async () => {
+        expect(currentNasApprover()).toBeUndefined()
+        return issue()
+      })
+    )
+  ).rejects.toThrow('approval required')
+  expect(await f.store.load()).toEqual([first])
 })

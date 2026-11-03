@@ -10,6 +10,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import {
   currentNasUser,
   type NasIdentity,
+  runAsNasGatewayUser,
   runAsNasUser,
 } from '../platform/nas/identity'
 import { bootstrapBridgeForServer, type ServerBridgeRuntime } from './bootstrap'
@@ -21,6 +22,10 @@ const alice: NasIdentity = {
   administrator: true,
 }
 const bob: NasIdentity = { ...alice, userId: '1001', username: 'bob' }
+const currentAccount = (identity: NasIdentity): NasIdentity => ({
+  ...identity,
+  accountRevision: 'fixture-generation-1',
+})
 const cleanup: (() => Promise<unknown>)[] = []
 afterEach(async () => {
   for (const close of cleanup.splice(0).reverse()) await close()
@@ -34,7 +39,8 @@ async function fixture() {
   const task = makeDownloadTask({ id: 'task', status: TaskStatus.Paused })
   const account = {
     resolve: vi.fn(
-      async (identity: NasIdentity): Promise<NasIdentity | null> => identity
+      async (identity: NasIdentity): Promise<NasIdentity | null> =>
+        currentAccount(identity)
     ),
   }
   const resume = vi.fn(async () => {
@@ -112,7 +118,7 @@ async function fixture() {
       ])
     )
     expect(
-      await runAsNasUser(owner, () =>
+      await runAsNasGatewayUser(owner, () =>
         runtime.bridgeCommandHandlers[BridgeCommands.ResolvePair]({
           kind: 'cli',
           requestId: request.requestId,
@@ -167,7 +173,7 @@ it('cannot approve a device code without a NAS account context and keeps it retr
       await f.post('/mdxp/pair/poll', { requestId: pending.requestId })
     ).json()
   ).toMatchObject({ status: 'pending' })
-  await runAsNasUser(alice, () =>
+  await runAsNasGatewayUser(alice, () =>
     f.runtime().bridgeCommandHandlers[BridgeCommands.ResolvePair](decision)
   )
   expect(
@@ -181,7 +187,7 @@ it('binds real device-code credentials to the approving account across restart a
   const f = await fixture()
   const token = await f.pair()
   expect((await f.rpc(token)).status).toBe(200)
-  expect(f.seen.at(-1)).toEqual(alice)
+  expect(f.seen.at(-1)).toEqual(currentAccount(alice))
   expect((await f.rpc(f.runtime().localToken)).status).toBe(403)
   expect(
     (await stat(path.join(f.root, 'bridge/nas-cli-pairing.json'))).mode & 0o777
@@ -191,7 +197,7 @@ it('binds real device-code credentials to the approving account across restart a
     (await f.rpc(token, Methods.TaskResume, { taskId: 'task' })).status
   ).toBe(200)
   expect(f.resume).toHaveBeenCalledOnce()
-  expect(f.seen.at(-1)).toEqual(alice)
+  expect(f.seen.at(-1)).toEqual(currentAccount(alice))
   f.account.resolve.mockResolvedValue({ ...alice, administrator: false })
   expect(
     (await f.rpc(token, Methods.TaskResume, { taskId: 'task' })).status
@@ -208,14 +214,15 @@ it('does not let an in-flight old credential inherit a new approver after rotati
     release = resolve
   })
   f.account.resolve.mockImplementationOnce(() => waiting)
+  f.account.resolve.mockClear()
   const pending = f.rpc(old)
   await vi.waitFor(() => expect(f.account.resolve).toHaveBeenCalled())
   const next = await f.pair(bob)
-  release(alice)
+  release(currentAccount(alice))
   expect((await pending).status).toBe(403)
   expect(f.seen).toEqual([])
   expect((await f.rpc(next)).status).toBe(200)
-  expect(f.seen).toEqual([bob])
+  expect(f.seen).toEqual([currentAccount(bob)])
   expect((await f.rpc(old)).status).toBe(401)
 })
 
@@ -236,7 +243,7 @@ it('checks the account before every SSE event and closes a demoted account witho
   f.account.resolve.mockResolvedValue(null)
   f.runtime().server.broadcastStreamEvent('fixture', { mustNotLeak: true })
   expect(await reader.read()).toMatchObject({ done: true })
-  expect(f.account.resolve).toHaveBeenCalledTimes(3)
+  expect(f.account.resolve).toHaveBeenCalledTimes(4)
   const denied = await fetch(f.url('/mdxp/events'), {
     headers: { authorization: `Bearer ${token}` },
   })
@@ -260,11 +267,57 @@ it('bounds queued SSE authorization work when the account authority stalls', asy
   f.account.resolve.mockImplementation(() => waiting)
   try {
     f.runtime().server.broadcastStreamEvent('fixture', { first: true })
-    await vi.waitFor(() => expect(f.account.resolve).toHaveBeenCalledTimes(2))
+    await vi.waitFor(() => expect(f.account.resolve).toHaveBeenCalledTimes(3))
     for (let i = 0; i < 33; i++)
       f.runtime().server.broadcastStreamEvent('fixture', { i })
     expect(await reader.read()).toMatchObject({ done: true })
   } finally {
-    release(alice)
+    release(currentAccount(alice))
   }
+})
+
+it.each(['operation', 'demoted', 'replaced', 'unavailable'])(
+  'leaves a request pending when the approving identity is %s',
+  async (failure) => {
+    const f = await fixture()
+    const request = await (
+      await f.post('/mdxp/pair/request', { clientName: 'pending client' })
+    ).json()
+    if (failure === 'demoted')
+      f.account.resolve.mockResolvedValue({ ...alice, administrator: false })
+    if (failure === 'replaced')
+      f.account.resolve.mockResolvedValue({ ...alice, username: 'replacement' })
+    if (failure === 'unavailable')
+      f.account.resolve.mockRejectedValue(new Error('offline'))
+    const context = failure === 'operation' ? runAsNasUser : runAsNasGatewayUser
+    await expect(
+      context(alice, () =>
+        f.runtime().bridgeCommandHandlers[BridgeCommands.ResolvePair]({
+          kind: 'cli',
+          requestId: request.requestId,
+          decision: 'allow',
+        })
+      )
+    ).rejects.toThrow()
+    expect(
+      await (
+        await f.post('/mdxp/pair/poll', { requestId: request.requestId })
+      ).json()
+    ).toMatchObject({ status: 'pending' })
+    if (failure === 'operation')
+      expect(f.account.resolve).not.toHaveBeenCalled()
+  }
+)
+
+it('persists the verified account generation and rejects credentials after it changes', async () => {
+  const f = await fixture()
+  const token = await f.pair()
+  await f.restart()
+  expect((await f.rpc(token)).status).toBe(200)
+  f.account.resolve.mockResolvedValue({
+    ...alice,
+    accountRevision: 'fixture-generation-2',
+  })
+  expect((await f.rpc(token)).status).toBe(403)
+  expect(f.seen).toEqual([currentAccount(alice)])
 })

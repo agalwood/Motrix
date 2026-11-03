@@ -50,7 +50,12 @@ import {
 import {
   type NasAccountAuthority,
   NasClientAuthorization,
+  resolveNasAdministrator,
 } from '../platform/nas/client-authorization'
+import {
+  currentNasApprover,
+  runAsNasGatewayUser,
+} from '../platform/nas/identity'
 import {
   isIssuedRemoteExtensionConfig,
   type RemoteExtensionConfig,
@@ -360,9 +365,20 @@ export async function bootstrapBridgeForServer(
         params: ResolvePairParams
       ): Promise<ResolvePairResult> => {
         if (params.kind === 'cli') {
-          return resolveCliPair(deviceCode, params, (paired) =>
-            bridgeBus.emitPaired({ identity: paired.identity })
+          const resolve = () =>
+            resolveCliPair(deviceCode, params, (paired) =>
+              bridgeBus.emitPaired({ identity: paired.identity })
+            )
+          if (!opts.nasAccounts) return resolve()
+          const actor = currentNasApprover()
+          if (
+            !actor?.administrator ||
+            actor.platform !== opts.nasAccounts.platform
           )
+            throw new Error('NAS administrator approval required')
+          if (params.decision === 'deny') return resolve()
+          const current = await resolveNasAdministrator(opts.nasAccounts, actor)
+          return runAsNasGatewayUser(current, resolve)
         }
         return (
           extensionMbp1?.settleExtensionPrompt(params) ?? {

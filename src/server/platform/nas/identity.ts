@@ -16,6 +16,9 @@ export const nasIdentitySchema = z
     userId: identifier,
     username: identifier,
     administrator: z.boolean(),
+    /** Opaque vendor account generation; for example it changes on password
+     * replacement or account recreation. It is never a NAS session secret. */
+    accountRevision: identifier.optional(),
   })
   .strict()
   .readonly()
@@ -23,13 +26,37 @@ export const nasIdentitySchema = z
 export type NasIdentity = z.infer<typeof nasIdentitySchema>
 export type NasPlatform = NasIdentity['platform']
 
-const user = new AsyncLocalStorage<NasIdentity>()
+const user = new AsyncLocalStorage<{
+  identity: NasIdentity
+  source: 'gateway' | 'operation'
+}>()
 
 export function currentNasUser(): NasIdentity | undefined {
-  return user.getStore()
+  return user.getStore()?.identity
 }
 
-/** Keep concurrent gateway and paired-client operations in separate contexts. */
+/** Only the trusted gateway adapter and its revalidated approval handler may
+ * establish an operator context. A paired client must never inherit it. */
+export function runAsNasGatewayUser<T>(
+  identity: NasIdentity,
+  operation: () => T
+): T {
+  return user.run(
+    { identity: nasIdentitySchema.parse(identity), source: 'gateway' },
+    operation
+  )
+}
+
+export function currentNasApprover(): NasIdentity | undefined {
+  const context = user.getStore()
+  return context?.source === 'gateway' ? context.identity : undefined
+}
+
+/** File checks and paired-client operations carry identity without permission
+ * to approve new credentials, even when nested inside a gateway request. */
 export function runAsNasUser<T>(identity: NasIdentity, operation: () => T): T {
-  return user.run(nasIdentitySchema.parse(identity), operation)
+  return user.run(
+    { identity: nasIdentitySchema.parse(identity), source: 'operation' },
+    operation
+  )
 }

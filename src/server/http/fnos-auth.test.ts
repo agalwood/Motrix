@@ -12,7 +12,7 @@ import {
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import WebSocket from 'ws'
 import { listenFnos } from '../platform/fnos/runtime'
-import { currentNasUser } from '../platform/nas/identity'
+import { currentNasApprover, currentNasUser } from '../platform/nas/identity'
 import { type AppOptions, createApp } from './app'
 
 const cleanup: (() => Promise<unknown>)[] = []
@@ -44,9 +44,11 @@ async function fixture(
   })
   app.get('/api/private', async () => ({
     uid: Number(currentNasUser()?.userId),
+    approver: currentNasApprover()?.userId,
   }))
   app.post('/api/private', async () => ({
     uid: Number(currentNasUser()?.userId),
+    approver: currentNasApprover()?.userId,
   }))
   cleanup.push(() => app.close())
   await listenFnos(app, socketPath)
@@ -119,6 +121,7 @@ describe('fnOS gateway control plane', () => {
     })
     expect(JSON.parse((await call('/app/motrix/api/private')).body)).toEqual({
       uid: 1000,
+      approver: '1000',
     })
     expect(
       (

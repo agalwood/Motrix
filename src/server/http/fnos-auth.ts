@@ -13,7 +13,7 @@ import {
   fnosPrincipal,
   isFnosListener,
 } from '../platform/fnos/identity'
-import { runAsNasUser } from '../platform/nas/identity'
+import { runAsNasGatewayUser } from '../platform/nas/identity'
 import type { OperatorSessionPolicy } from './operator-auth'
 
 type Principal = NonNullable<ReturnType<typeof fnosPrincipal>>
@@ -168,7 +168,7 @@ export function registerFnosAuth(
     const principal = identities.get(req)
     if (!principal) done()
     else
-      runAsNasUser(
+      runAsNasGatewayUser(
         {
           platform: 'fnos',
           userId: String(principal.uid),

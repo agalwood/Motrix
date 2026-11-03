@@ -9,7 +9,7 @@ import writeFileAtomic from 'write-file-atomic'
 import { z } from 'zod'
 import type { NasClientBindings } from './client-authorization'
 import {
-  currentNasUser,
+  currentNasApprover,
   type NasIdentity,
   type NasPlatform,
   nasIdentitySchema,
@@ -122,7 +122,7 @@ export class NasCliPairingStore implements PairingStore, NasClientBindings {
   }
 
   async save(list: PairedClient[]): Promise<void> {
-    const actor = currentNasUser()
+    const actor = currentNasApprover()
     const rows = list.map((value) => {
       const client = clientSchema.parse(value)
       const existing = this.rows.get(cliCredentialFingerprint(client.token))
