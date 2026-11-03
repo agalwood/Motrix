@@ -47,6 +47,10 @@ exec env -i PATH="$PATH" \
   TRIM_DATA_SHARE_PATHS="${TRIM_DATA_SHARE_PATHS:-}" TRIM_API_TOKEN="${TRIM_API_TOKEN:-}" \
   TRIM_SERVICE_PORT="${TRIM_SERVICE_PORT:-16802}" \
   wizard_client_port="${wizard_client_port:-}" \
+  wizard_extension_enabled="${wizard_extension_enabled:-false}" \
+  wizard_extension_url="${wizard_extension_url:-}" \
+  wizard_operator_url="${wizard_operator_url:-}" \
+  wizard_allow_operator_http="${wizard_allow_operator_http:-false}" \
   TRIM_SYS_LANGUAGE="${TRIM_SYS_LANGUAGE:-zh-CN}" TRIM_TEMP_LOGFILE="${TRIM_TEMP_LOGFILE:-}" \
   MOTRIX_FNOS_API_SOCKET="${MOTRIX_FNOS_API_SOCKET:-/var/run/trim_open_gateway_apiscope.socket}" \
   "$node" "$cmd_dir/authority-lifecycle.mjs" "$1"

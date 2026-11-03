@@ -75,7 +75,18 @@ implementation time the official fnpack page linked 1.2.3 binaries returning
   bind to that administrator and an opaque account generation. Requests and
   event streams revalidate local account records; account locks/demotion, generation changes
   or lookup failures deny further access. The machine-local bridge token is
-  not accepted as a NAS identity. Browser Extension pairing is not enabled yet.
+  not accepted as a NAS identity.
+- Browser Extension pairing is opt-in under fnOS **Application settings**.
+  Set the reachable WS/WSS client address and the complete Motrix Web address
+  (including `/app/motrix/`), then restart the application. HTTP code delivery
+  requires explicit consent for a trusted network. The browser origin must
+  match the configured Web address; choosing an HTTPS URL does not enable
+  code delivery on an HTTP page. Invalid Extension settings close its routes
+  while the gateway UI and CLI continue to work.
+  The shared inbox contains no code: an administrator must explicitly claim
+  the request. Only that administrator can retrieve the code, and the client
+  must still prove it through MBP1. Credentials bind to that account and are
+  revalidated on reconnect and during both directions of message delivery.
 - Account authority: only the package group can connect to its root-owned
   socket under `/run/motrix-account-authority`. The persistent generation key
   lives in the root-only `${TRIM_PKGVAR}/.nas-account-authority` directory.
@@ -146,7 +157,7 @@ release, test installation, gateway socket permissions, system pickers,
 mobile/FN Connect, downloads during stop/upgrade, missing storage, ownership
 and ACL inheritance on real x86 and ARM fnOS devices.
 
-User isolation, Extension credential ownership, per-user quota accounting
+User isolation, per-user quota accounting
 and continuously revocable authorization throughout background download and
 finalization are outside this first administrator integration. Revoking a grant
 blocks subsequent path validation; it does not promise immediate cancellation

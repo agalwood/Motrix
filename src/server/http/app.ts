@@ -23,6 +23,7 @@ import { GeneralSettingsResultSchema } from '@shared/schemas/general-settings'
 import {
   type ClientPairingCapabilities,
   clientPairingCapabilitiesSchema,
+  WEB_ORIGIN_HEADER,
 } from '@shared/schemas/operator-auth'
 import {
   CreateServerDirectoryResultSchema,
@@ -40,6 +41,7 @@ import { bindEventHeartbeat } from './event-heartbeat'
 import { bindEventBroadcaster } from './events'
 import {
   canDeliverExtensionPairingCode,
+  canDeliverGatewayExtensionPairingCode,
   filterExtensionPairingSnapshot,
   isExtensionPairingCodeEvent,
 } from './extension-pairing-delivery'
@@ -196,14 +198,20 @@ export async function createApp(
     if (!handler) return reply.code(404).send({ error: 'unknown channel' })
     if (channel === BridgeCommands.ClaimExtensionPair) {
       reply.header('cache-control', 'no-store')
+      const principal = operatorSessions?.principal(req)
       if (
         !(
-          operatorSessions?.principal(req) &&
-          canDeliverExtensionPairingCode(
-            opts.remoteExtensionConfig,
-            req,
-            operatorSessions.principal(req)?.id.startsWith('bearer:') === true
-          )
+          principal &&
+          (opts.fnosGateway
+            ? canDeliverGatewayExtensionPairingCode(
+                opts.remoteExtensionConfig,
+                req.headers[WEB_ORIGIN_HEADER]
+              )
+            : canDeliverExtensionPairingCode(
+                opts.remoteExtensionConfig,
+                req,
+                principal.id.startsWith('bearer:')
+              ))
         )
       )
         return reply

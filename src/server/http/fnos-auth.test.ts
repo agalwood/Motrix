@@ -100,6 +100,55 @@ async function fixture(
 }
 
 describe('fnOS gateway control plane', () => {
+  it('does not let an HTTPS operator URL authorize a code on a different gateway browser origin', async () => {
+    const claim = vi.fn(async () => ({
+      ok: true,
+      code: 'ABCD-EFGH',
+      expiresInMs: 1000,
+    }))
+    const { call } = await fixture(Date.now, {
+      remoteExtensionConfig: parseRemoteExtensionConfig(
+        {
+          MOTRIX_REMOTE_EXTENSION_ENABLED: 'true',
+          MOTRIX_REMOTE_EXTENSION_PUBLIC_URL: 'wss://bridge.example',
+          MOTRIX_PUBLIC_URL: 'https://nas.local/app/motrix/',
+        },
+        { requireWebOperator: true }
+      ),
+      bridgeCommandHandlers: { [BridgeCommands.ClaimExtensionPair]: claim },
+    })
+    const url = `/app/motrix/rpc/command/${encodeURIComponent(BridgeCommands.ClaimExtensionPair)}`
+    for (const origin of [
+      'http://nas.local',
+      'https://other.example',
+      'https://nas.local:5666',
+    ]) {
+      const response = await call(
+        url,
+        { ...admin, origin, [WEB_ORIGIN_HEADER]: origin },
+        'POST',
+        { args: [] }
+      )
+      expect(response.status).toBe(403)
+      expect(response.body).not.toContain('ABCD-EFGH')
+    }
+    expect(claim).not.toHaveBeenCalled()
+    expect(
+      (
+        await call(
+          url,
+          {
+            ...admin,
+            origin: 'https://nas.local',
+            [WEB_ORIGIN_HEADER]: 'https://nas.local',
+          },
+          'POST',
+          { args: [] }
+        )
+      ).status
+    ).toBe(200)
+    expect(claim).toHaveBeenCalledOnce()
+  })
   it.each([false, true])(
     'gates claimed-code delivery on explicit operator transport consent (%s)',
     async (consent) => {

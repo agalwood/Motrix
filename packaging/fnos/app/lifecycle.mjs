@@ -42,6 +42,13 @@ export function runtimeEnvironment(env) {
     MOTRIX_WEB_BASE_PATH: '/app/motrix',
     MOTRIX_MDXP_HOST: '0.0.0.0',
     MOTRIX_MDXP_PORT: String(Number(clientPort)),
+    // The Server's shared URL parser owns validation. Invalid optional client
+    // configuration closes that surface without preventing the gateway UI.
+    MOTRIX_REMOTE_EXTENSION_ENABLED: env.wizard_extension_enabled || 'false',
+    MOTRIX_REMOTE_EXTENSION_PUBLIC_URL: env.wizard_extension_url || '',
+    MOTRIX_PUBLIC_URL: env.wizard_operator_url || '',
+    MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP:
+      env.wizard_allow_operator_http || 'false',
     MOTRIX_DATA_DIR: data,
     MOTRIX_TEMP_DIR: `${data}/tmp`,
     MOTRIX_PLUGIN_DIR: `${data}/plugins`,

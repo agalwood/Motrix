@@ -243,6 +243,7 @@ try {
   assert.equal(auth.status, 200)
   assert.equal(JSON.parse(auth.body).mode, 'fnosGateway')
   assert.equal(JSON.parse(auth.body).clientPairing.cli, true)
+  assert.equal(JSON.parse(auth.body).clientPairing.extension, false)
   const endpointPath = path.join(data, 'motrix/bridge/endpoint.json')
   let endpoint
   for (let retry = 0; retry < 100; retry++) {
@@ -483,8 +484,35 @@ try {
   await chmod(authorityEntry, 0o644)
   await requireLifecycle('start')
   assert.equal((await listTasks(token)).status, 200)
+  // Exercise the actual packaged wizard -> privileged launcher -> unprivileged
+  // Server path. Invalid optional Extension settings must leave Web/CLI usable.
+  const extensionReady = async () =>
+    JSON.parse((await get('/app/motrix/rpc/auth/status', admin)).body)
+      .clientPairing.extension
+  const discovery = () => fetch(`http://127.0.0.1:${endpoint.port}/discovery`)
+  await requireLifecycle('stop')
+  env.wizard_extension_enabled = 'true'
+  env.wizard_extension_url = `ws://127.0.0.1:${endpoint.port}`
+  env.wizard_operator_url = 'http://nas.local:5666/app/motrix/'
+  env.wizard_allow_operator_http = 'true'
+  await requireLifecycle('start')
+  assert.equal(await extensionReady(), true)
+  assert.equal((await discovery()).status, 200)
+  const nonce = await fetch(`http://127.0.0.1:${endpoint.port}/nonce`, {
+    method: 'POST',
+    headers: { 'x-motrix-bridge': '1' },
+  })
+  assert.equal(nonce.status, 200)
+  assert.equal(typeof (await nonce.json()).nonce, 'string')
+  assert.equal((await listTasks(token)).status, 200)
+  await requireLifecycle('stop')
+  env.wizard_allow_operator_http = 'false'
+  await requireLifecycle('start')
+  assert.equal(await extensionReady(), false)
+  assert.equal((await discovery()).status, 404)
+  assert.equal((await listTasks(token)).status, 200)
   console.log(
-    `fnOS lifecycle smoke passed: ${process.arch}, uid=${process.getuid()}, start/status/stop/restart, gateway auth, native CLI pairing/account revocation, authorized download/denied delete, data retention, stale PID, helper crash recovery, runtime tamper rejection`
+    `fnOS lifecycle smoke passed: ${process.arch}, uid=${process.getuid()}, start/status/stop/restart, gateway auth, native CLI pairing/account revocation, authorized download/denied delete, data retention, stale PID, helper crash recovery, runtime tamper rejection, Extension wizard opt-in and invalid configuration isolation`
   )
 } finally {
   await lifecycle('stop')

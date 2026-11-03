@@ -5,6 +5,36 @@ import {
   type RemoteExtensionConfig,
 } from '../bridge/remote-extension-config'
 
+/** Gateway authentication must first validate this browser-origin marker.
+ * A configured HTTPS URL must not authorize code delivery on an HTTP page. */
+export function canDeliverGatewayExtensionPairingCode(
+  config: RemoteExtensionConfig | undefined,
+  origin: unknown
+): boolean {
+  if (
+    !isIssuedRemoteExtensionConfig(config) ||
+    config.status !== 'enabled' ||
+    config.operatorDelivery !== 'web' ||
+    typeof origin !== 'string'
+  )
+    return false
+  try {
+    const url = new URL(origin)
+    if (url.origin !== origin) return false
+    if (
+      url.protocol !== 'https:' &&
+      !(url.protocol === 'http:' && config.allowInsecureOperatorHttp)
+    )
+      return false
+    return (
+      config.publicOperatorBaseUrl === undefined ||
+      new URL(config.publicOperatorBaseUrl).origin === origin
+    )
+  } catch {
+    return false
+  }
+}
+
 /**
  * Operator authentication is required separately. The local exception describes
  * the observed HTTP connection, not proof that no privileged local proxy exists.

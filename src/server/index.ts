@@ -1368,7 +1368,9 @@ async function main() {
     'operator token provisioned'
   )
 
-  const remoteExtensionConfig = parseRemoteExtensionConfig(process.env)
+  const remoteExtensionConfig = parseRemoteExtensionConfig(process.env, {
+    requireWebOperator: fnos !== undefined,
+  })
   const nasAccounts = fnos?.accountSocketPath
     ? new FnosAccountAuthority(fnos.accountSocketPath)
     : undefined
@@ -1377,7 +1379,9 @@ async function main() {
       getHiddenNotificationKinds(settingsManager.getApp()),
     clientPairing: {
       cli: !fnos || nasAccounts !== undefined,
-      extension: !fnos && remoteExtensionConfig.status === 'enabled',
+      extension:
+        (!fnos || nasAccounts !== undefined) &&
+        remoteExtensionConfig.status === 'enabled',
     },
     basePath: process.env.MOTRIX_WEB_BASE_PATH,
     fnosGateway: fnos,
@@ -2176,7 +2180,11 @@ async function main() {
           })),
         // The web approval UI is a separate (Fastify) service; the operator points
         // device-code clients at it via MOTRIX_PUBLIC_URL. Unset → no URL printed.
-        verificationUri: process.env.MOTRIX_PUBLIC_URL,
+        verificationUri: fnos
+          ? remoteExtensionConfig.status === 'enabled'
+            ? remoteExtensionConfig.publicOperatorBaseUrl
+            : undefined
+          : process.env.MOTRIX_PUBLIC_URL,
         readHandlerDeps: {
           taskManager,
           statsAggregator,

@@ -199,3 +199,37 @@ it('uses a separate configurable native client port and rejects invalid wizard v
       runtimeEnvironment({ ...env, wizard_client_port: port })
     ).toThrow('Client port')
 })
+
+it('keeps Extension pairing opt-in and passes wizard values to the shared Server validator', () => {
+  const env = {
+    TRIM_APPDEST: '/app',
+    TRIM_PKGVAR: '/data',
+    TRIM_DATA_SHARE_PATHS: '/downloads',
+  }
+  expect(
+    runtimeEnvironment({ ...env, MOTRIX_REMOTE_EXTENSION_ENABLED: 'true' })
+      .MOTRIX_REMOTE_EXTENSION_ENABLED
+  ).toBe('false')
+  expect(
+    runtimeEnvironment({
+      ...env,
+      wizard_extension_enabled: 'true',
+      wizard_extension_url: 'ws://nas.local:16802',
+      wizard_operator_url: 'http://nas.local:5666/app/motrix/',
+      wizard_allow_operator_http: 'true',
+    })
+  ).toMatchObject({
+    MOTRIX_REMOTE_EXTENSION_ENABLED: 'true',
+    MOTRIX_REMOTE_EXTENSION_PUBLIC_URL: 'ws://nas.local:16802',
+    MOTRIX_PUBLIC_URL: 'http://nas.local:5666/app/motrix/',
+    MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP: 'true',
+  })
+  // Optional invalid connection settings must not stop the gateway application.
+  expect(() =>
+    runtimeEnvironment({
+      ...env,
+      wizard_extension_enabled: 'yes',
+      wizard_extension_url: 'invalid',
+    })
+  ).not.toThrow()
+})
