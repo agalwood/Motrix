@@ -43,10 +43,7 @@ import {
 } from '@shared/protocol/bridge'
 import type { Handler } from '@shared/protocol/handler-types'
 import { CancellationTokenSource } from 'vscode-jsonrpc'
-import {
-  NasCliPairingStore,
-  nasPairingFile,
-} from '../platform/nas/cli-pairing-store'
+import { NasCliPairingStore } from '../platform/nas/cli-pairing-store'
 import {
   type NasAccountAuthority,
   NasClientAuthorization,
@@ -56,6 +53,7 @@ import {
   currentNasApprover,
   runAsNasGatewayUser,
 } from '../platform/nas/identity'
+import { nasPairingFile } from '../platform/nas/pairing-file'
 import {
   isIssuedRemoteExtensionConfig,
   type RemoteExtensionConfig,

@@ -1,11 +1,8 @@
-import { chmod, mkdir, open } from 'node:fs/promises'
-import path from 'node:path'
 import {
   type AuthenticatedBridgeClient,
   cliCredentialFingerprint,
 } from '@core/bridge/client-authorization'
 import type { PairedClient, PairingStore } from '@core/bridge/pairing-service'
-import writeFileAtomic from 'write-file-atomic'
 import { z } from 'zod'
 import type { NasClientBindings } from './client-authorization'
 import {
@@ -14,8 +11,8 @@ import {
   type NasPlatform,
   nasIdentitySchema,
 } from './identity'
+import type { NasPairingStorage } from './pairing-file'
 
-const MAX_BYTES = 4 * 1024 * 1024
 const clientSchema = z
   .object({
     identity: z
@@ -34,51 +31,6 @@ const documentSchema = z
   .object({ version: z.literal(1), clients: z.array(rowSchema).max(4096) })
   .strict()
 type Row = z.infer<typeof rowSchema>
-
-export interface NasPairingStorage {
-  read(): Promise<string | null>
-  write(value: string): Promise<void>
-}
-
-export function nasPairingFile(file: string): NasPairingStorage {
-  return {
-    async read() {
-      const handle = await open(file, 'r').catch(
-        (error: NodeJS.ErrnoException) => {
-          if (error.code === 'ENOENT') return null
-          throw error
-        }
-      )
-      if (!handle) return null
-      try {
-        const buffer = Buffer.alloc(MAX_BYTES + 1)
-        let length = 0
-        while (length < buffer.length) {
-          const { bytesRead } = await handle.read(
-            buffer,
-            length,
-            buffer.length - length,
-            length
-          )
-          if (!bytesRead) break
-          length += bytesRead
-        }
-        if (length > MAX_BYTES)
-          throw new Error('NAS pairing document too large')
-        return buffer.subarray(0, length).toString('utf8')
-      } finally {
-        await handle.close()
-      }
-    },
-    async write(value) {
-      if (Buffer.byteLength(value) > MAX_BYTES)
-        throw new Error('NAS pairing document too large')
-      await mkdir(path.dirname(file), { recursive: true, mode: 0o700 })
-      await writeFileAtomic(file, value, { mode: 0o600 })
-      await chmod(file, 0o600)
-    },
-  }
-}
 
 /** Credentials and their NAS owner commit in one atomic document. PairingService
  * serializes saves and publishes a token only after this store succeeds. */

@@ -7,7 +7,7 @@ import {
 import { type PairedClient, PairingService } from '@core/bridge/pairing-service'
 import { ErrorCodes } from '@motrix/mdxp'
 import { afterEach, expect, it, vi } from 'vitest'
-import { NasCliPairingStore, nasPairingFile } from './cli-pairing-store'
+import { NasCliPairingStore } from './cli-pairing-store'
 import { NasClientAuthorization } from './client-authorization'
 import {
   currentNasApprover,
@@ -16,6 +16,7 @@ import {
   runAsNasGatewayUser,
   runAsNasUser,
 } from './identity'
+import { nasPairingFile } from './pairing-file'
 
 const alice: NasIdentity = {
   platform: 'fnos',

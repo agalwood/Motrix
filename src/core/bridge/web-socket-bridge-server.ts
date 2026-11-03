@@ -31,6 +31,7 @@ import {
   type PairRequestPayload,
 } from '@shared/protocol/bridge'
 import { type RawData, type WebSocket, WebSocketServer } from 'ws'
+import { AuthorizedEnvelopeStream } from './authorized-envelope-stream'
 import { BridgeConnection } from './bridge-connection'
 import {
   type AuthenticatedBridgeClient,
@@ -97,6 +98,8 @@ export interface BridgeServerOptions {
   localToken: string
   /** Shell-owned account gate for paired CLI requests and every SSE frame. */
   cliAuthorization?: BridgeClientAuthorization
+  /** Account checks for both directions and every handler of an MBP1 session. */
+  extensionAuthorization?: BridgeClientAuthorization
   /**
    * Device-code pairing for cli/agent clients (Spec 7b). When present, the
    * `POST /mdxp/pair/request` + `POST /mdxp/pair/poll` HTTP routes are enabled;
@@ -2175,6 +2178,7 @@ export class WebSocketBridgeServer {
       }
       ws.on('error', () => {})
 
+      const extensionAuthorization = this.opts.extensionAuthorization
       const session = new ReconnectSession({
         safariTicketContext: {
           localToken: this.opts.localToken,
@@ -2187,6 +2191,26 @@ export class WebSocketBridgeServer {
         browser: peer.browser,
         instanceId: mbp1.instanceId,
         credentials: mbp1.credentials,
+        authorizeCredential: extensionAuthorization
+          ? async (credential) => {
+              const transport = transportIdentityForPrincipal(
+                credential.principal
+              )
+              if (!transport || !credential.authorizationEpoch)
+                throw new Error('Extension account unavailable')
+              await extensionAuthorization.run(
+                {
+                  identity: { kind: 'extension', ...transport },
+                  credential: {
+                    kind: 'extension',
+                    credentialId: credential.credentialId,
+                    authorizationEpoch: credential.authorizationEpoch,
+                  },
+                },
+                async () => undefined
+              )
+            }
+          : undefined,
         sendText: (json) => sendText(ws, json),
         close: () => ws.close(),
         onAuthenticated: (channel, credential) => {
@@ -2271,6 +2295,8 @@ export class WebSocketBridgeServer {
       credential && transportIdentityForPrincipal(credential.principal)
     if (
       credential?.state !== 'committed' ||
+      (this.opts.extensionAuthorization !== undefined &&
+        !credential.authorizationEpoch) ||
       transport?.browser !== identity.browser ||
       transport.extensionId !== identity.extensionId
     ) {
@@ -2283,7 +2309,7 @@ export class WebSocketBridgeServer {
     // The handed-over endpoints, never fresh ones: their sequence counters
     // continue from the handshake (`/pair` has already sealed
     // `credentialCommitted`).
-    const envelope = wrapWithEnvelope(ws, channel, (fault) => {
+    const rawEnvelope = wrapWithEnvelope(ws, channel, (fault) => {
       // §10: any gap, repeat, tampered frame, post-activation text frame, or
       // usage-bound reached (inbound or outbound) closes immediately. The
       // close code separates "the peer broke the protocol", "this process
@@ -2292,7 +2318,42 @@ export class WebSocketBridgeServer {
       // same code (§11).
       ws.close(closeCodeForEnvelopeFault(fault.kind))
     })
-    const conn = new BridgeConnection(envelope, {
+    let conn: BridgeConnection
+    const client: AuthenticatedBridgeClient = {
+      identity,
+      credential: {
+        kind: 'extension',
+        credentialId,
+        authorizationEpoch: credential.authorizationEpoch ?? '',
+      },
+    }
+    const authorization = this.opts.extensionAuthorization
+      ? new AuthorizedEnvelopeStream(
+          rawEnvelope,
+          client,
+          this.opts.extensionAuthorization,
+          () => {
+            const current = this.mbp1?.credentials.findForAuth(credentialId)
+            return (
+              conn.isAuthorized() &&
+              current?.state === 'committed' &&
+              current.authorizationEpoch === credential.authorizationEpoch &&
+              principalKey(current.principal) === sessionKey &&
+              this.canAdmitExtensionIdentity(identity)
+            )
+          },
+          () => {
+            conn.revokeAuthorization()
+            if (this.sessions.get(sessionKey)?.conn === conn) {
+              this.sessions.delete(sessionKey)
+              this.notifyExtensionSessionsChanged()
+            }
+            conn.dispose()
+          }
+        )
+      : undefined
+    const envelope = authorization ?? rawEnvelope
+    conn = new BridgeConnection(envelope, {
       sessionKey,
       extensionId: identity.extensionId,
       browser: identity.browser,
@@ -2312,7 +2373,7 @@ export class WebSocketBridgeServer {
       })
       return
     }
-    this.applyHandlers(conn, null)
+    this.applyHandlers(conn, null, authorization)
 
     const session: BridgeSession = {
       conn,
@@ -2344,6 +2405,7 @@ export class WebSocketBridgeServer {
     })
 
     conn.listen()
+    authorization?.start()
     // Deliberately synchronous and un-awaited: the session handover and the
     // exact credential evidence are published in this adoption tick. The
     // shell may schedule follow-up work, but cannot block the live transport.
@@ -2395,7 +2457,8 @@ export class WebSocketBridgeServer {
 
   private applyHandlers(
     conn: BridgeConnection,
-    pairArgs: PairRequestArgs | null
+    pairArgs: PairRequestArgs | null,
+    authorization?: AuthorizedEnvelopeStream
   ): void {
     const ctx = contextFromConnection(conn, pairArgs)
     // Every method EXCEPT the handshake pair (motrix/initialize, system/ping)
@@ -2420,7 +2483,7 @@ export class WebSocketBridgeServer {
           new ResponseError(error.code, error.message, error.data)
         )
       }
-      return this.dispatchTracked(method, params, ctx)
+      return this.dispatchTracked(method, params, ctx, authorization)
     }
     // motrix/initialize is always registered on the dispatcher; download/* are
     // present only after the shell calls setHandlers(). Each onRequest routes
@@ -2429,7 +2492,12 @@ export class WebSocketBridgeServer {
     conn.onRequest(
       'motrix/initialize',
       (params) =>
-        this.dispatchTracked('motrix/initialize', params, ctx) as never
+        this.dispatchTracked(
+          'motrix/initialize',
+          params,
+          ctx,
+          authorization
+        ) as never
     )
     if (this.dispatcher.has('download/submit')) {
       conn.onRequest(
@@ -2471,10 +2539,17 @@ export class WebSocketBridgeServer {
   private dispatchTracked(
     method: string,
     params: unknown,
-    ctx: MdxpSessionContext
+    ctx: MdxpSessionContext,
+    authorization?: AuthorizedEnvelopeStream
   ): Promise<unknown> {
     return this.requestWork
-      .run(() => this.dispatcher.dispatch(method, params, ctx))
+      .run(() =>
+        authorization
+          ? authorization.run(() =>
+              this.dispatcher.dispatch(method, params, ctx)
+            )
+          : this.dispatcher.dispatch(method, params, ctx)
+      )
       .catch((error) => {
         // Plain MDXP errors otherwise become InternalError in vscode-jsonrpc,
         // making a pre-dispatch directory rejection look like an unknown submit.

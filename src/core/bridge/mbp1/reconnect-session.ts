@@ -105,6 +105,9 @@ export interface ReconnectSessionDeps {
     'localToken' | 'serverGeneration' | 'replay'
   >
   credentials: ReconnectCredentialAuthenticator
+  /** Host account admission after proof of the key, before durable rotation or
+   * Safari binding changes. Failures use the ordinary uniform authFailed code. */
+  authorizeCredential?(credential: StoredCredential): Promise<void>
   sendText(json: object): void
   close(reason: string): void
   /**
@@ -331,6 +334,28 @@ export class ReconnectSession {
       return
     }
 
+    if (this.deps.authorizeCredential) {
+      try {
+        await this.deps.authorizeCredential(credential)
+      } catch {
+        this.fail('authFailed')
+        return
+      }
+      if (this.state !== 'processing') return
+      const current = this.deps.credentials.findForAuth(credential.credentialId)
+      if (
+        !current ||
+        current.mutualKeyB64 !== credential.mutualKeyB64 ||
+        current.authorizationEpoch !== credential.authorizationEpoch ||
+        JSON.stringify(current.principal) !==
+          JSON.stringify(credential.principal) ||
+        this.deps.now() >= this.deadlineAt
+      ) {
+        this.fail('authFailed')
+        return
+      }
+    }
+
     let authenticated: StoredCredential = credential
     if (credential.state === 'provisional') {
       try {
@@ -346,8 +371,7 @@ export class ReconnectSession {
         this.terminate('reconnectPromoteFailed')
         return
       }
-      // The `await` above is the only yield point in this method. A
-      // `dispose` or another frame's `violation()` during it already moved
+      // A `dispose` or another frame's `violation()` during promotion may move
       // `state` off `'processing'`; do not resurrect a session that ended
       // while we waited.
       if (this.state !== 'processing') {

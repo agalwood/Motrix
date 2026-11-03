@@ -46,7 +46,7 @@ export interface WebSocketLike {
   ): void
   off(event: 'close', listener: () => void): void
   off(event: 'error', listener: (err: Error) => void): void
-  send(data: string | Uint8Array): void
+  send(data: string | Uint8Array): void | Promise<void>
   close(code?: number, reason?: string): void
 }
 
@@ -154,7 +154,7 @@ export class WebSocketMessageWriter implements MessageWriter {
       throw new Error(`WebSocket is closed (readyState=${this.ws.readyState})`)
     }
     try {
-      this.ws.send(JSON.stringify(msg))
+      await this.ws.send(JSON.stringify(msg))
     } catch (e) {
       this.errorEmitter.fire([e as Error, msg, undefined])
       throw e
