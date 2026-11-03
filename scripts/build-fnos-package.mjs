@@ -24,6 +24,7 @@ const { values } = parseArgs({
     'app-dir': { type: 'string', default: 'dist/server-app' },
     'output-dir': { type: 'string' },
     arch: { type: 'string', default: process.arch },
+    revision: { type: 'string', default: '0' },
   },
 })
 if (process.platform !== 'linux' || process.arch !== values.arch)
@@ -34,6 +35,7 @@ const project = await prepareFnosProject({
   appDir: values['app-dir'],
   outputDir: values['output-dir'] ?? `release/fnos/${values.arch}`,
   arch: values.arch,
+  revision: values.revision,
 })
 await verifyFnosPackage(project, values.arch)
 run(
@@ -74,7 +76,7 @@ try {
   const receipt = JSON.parse(
     await readFile(path.join(project, 'app/fnos-build.json'), 'utf8')
   )
-  const filename = `Motrix-${receipt.version}-fnos-${values.arch}.fpk`
+  const filename = `Motrix-${receipt.packageVersion}-fnos-${values.arch}.fpk`
   const destination = path.join(path.dirname(project), filename)
   await rename(path.join(buildDir, 'motrix.fpk'), destination)
   await writeFile(

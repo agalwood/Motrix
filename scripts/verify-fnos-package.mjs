@@ -5,6 +5,7 @@ import { parseArgs } from 'node:util'
 import lock from './fnos-runtime.lock.json' with { type: 'json' }
 import {
   FNOS_ARCHITECTURES,
+  fnosPackageVersion,
   sha256,
   verifyFnosBinary,
 } from './prepare-fnos-project.mjs'
@@ -22,10 +23,16 @@ export async function verifyFnosPackage(projectDir, arch) {
       .map((line) => line.split('=').map((part) => part.trim()))
   )
   const receipt = await readJson('app/fnos-build.json')
+  const server = await readJson('app/server/package.json')
+  const packageVersion = fnosPackageVersion(receipt.version, receipt.revision)
   if (
+    receipt.schemaVersion !== 2 ||
+    !Number.isSafeInteger(receipt.revision) ||
+    server.version !== receipt.version ||
+    receipt.packageVersion !== packageVersion ||
     manifest.appname !== 'motrix' ||
     manifest.platform !== target.platform ||
-    manifest.version !== receipt.version ||
+    manifest.version !== packageVersion ||
     manifest.os_min_version !== '1.2.0401' ||
     manifest.micro_app !== 'true'
   )

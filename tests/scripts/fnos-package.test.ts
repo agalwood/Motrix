@@ -1,4 +1,11 @@
-import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from 'node:fs/promises'
 import path from 'node:path'
 import { afterEach, expect, it, vi } from 'vitest'
 import {
@@ -7,13 +14,29 @@ import {
   runtimeEnvironment,
 } from '../../packaging/fnos/app/lifecycle.mjs'
 import {
+  fnosPackageVersion,
   lockedDownload,
   prepareFnosProject,
   sha256,
   verifyFnosBinary,
 } from '../../scripts/prepare-fnos-project.mjs'
+import { verifyFnosPackage } from '../../scripts/verify-fnos-package.mjs'
 
 const directories: string[] = []
+it('gives packaging fixes an increasing version without changing the application version', () => {
+  expect(fnosPackageVersion('2.2.0')).toBe('2.2.0')
+  expect(fnosPackageVersion('2.2.0', '1')).toBe('2.2.0.1')
+  expect(fnosPackageVersion('2.2.0', 12)).toBe('2.2.0.12')
+  for (const revision of [
+    -1,
+    1.5,
+    '01',
+    '1\nversion=99',
+    Number.MAX_SAFE_INTEGER + 1,
+  ])
+    expect(() => fnosPackageVersion('2.2.0', revision)).toThrow('revision')
+  expect(() => fnosPackageVersion('2.2.0-beta', 1)).toThrow('stable')
+})
 it('recognizes the actual Node entrypoint instead of a later script argument', () => {
   const entry = '/app/server/index.mjs'
   expect(matchesEntrypoint(['node', entry, ''].join('\0'), entry)).toBe(true)
@@ -43,6 +66,46 @@ async function temporary() {
   directories.push(directory)
   return directory
 }
+
+it.each([
+  { manifestVersion: '2.2.0' },
+  { serverVersion: '2.2.1' },
+  { packageVersion: '2.2.0.2' },
+  { revision: undefined, packageVersion: '2.2.0', manifestVersion: '2.2.0' },
+])(
+  'rejects inconsistent package and application versions: %j',
+  async (overrides) => {
+    const directory = await temporary()
+    await mkdir(path.join(directory, 'app/server'), { recursive: true })
+    const values = {
+      revision: 1,
+      packageVersion: '2.2.0.1',
+      manifestVersion: '2.2.0.1',
+      serverVersion: '2.2.0',
+      ...overrides,
+    }
+    await writeFile(
+      path.join(directory, 'manifest'),
+      `appname=motrix\nplatform=arm\nversion=${values.manifestVersion}\nos_min_version=1.2.0401\nmicro_app=true\n`
+    )
+    await writeFile(
+      path.join(directory, 'app/server/package.json'),
+      JSON.stringify({ version: values.serverVersion })
+    )
+    await writeFile(
+      path.join(directory, 'app/fnos-build.json'),
+      JSON.stringify({
+        schemaVersion: 2,
+        version: '2.2.0',
+        packageVersion: values.packageVersion,
+        revision: values.revision,
+      })
+    )
+    await expect(verifyFnosPackage(directory, 'arm64')).rejects.toThrow(
+      'Inconsistent fnOS manifest'
+    )
+  }
+)
 
 it('requires a system download share and keeps private state outside the replaceable application', () => {
   const env = {

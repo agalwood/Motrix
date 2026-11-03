@@ -27,6 +27,14 @@ pnpm run build:fnos -- --arch arm64
 Replace `arm64` with `x64` for an x86 fnOS device. The fnOS platform labels are
 `arm` and `x86`, respectively. Each package includes only its own architecture.
 The version must match the current stable `package.json` version.
+For a packaging-only update, pass `--revision 1` (then `2`, `3`, and so on)
+to `build:fnos` or `prepare:fnos`. Motrix `2.2.0` with revision `1` produces
+FPK version `2.2.0.1`; the bundled Server remains `2.2.0`. The package receipt,
+manifest and artifact filename are verified against this revision. Revision
+`0` (the default) keeps the original three-part version. Use a larger package
+version for an in-place update: fnOS rejects reinstalling the same version.
+Uninstalling instead may clear system directory grants even when task data is
+retained; reselect those directories before resuming downloads.
 The fnOS flag includes the platform SDK only in this Web build; ordinary
 Server and Electron builds keep their existing JavaScript size budgets.
 

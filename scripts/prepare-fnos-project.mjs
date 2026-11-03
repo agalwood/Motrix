@@ -24,6 +24,16 @@ export const FNOS_ARCHITECTURES = {
 }
 export const repositoryRoot = path.resolve(import.meta.dirname, '..')
 export const sha256 = (data) => createHash('sha256').update(data).digest('hex')
+export function fnosPackageVersion(version, revision = 0) {
+  if (!/^\d+\.\d+\.\d+$/.test(version))
+    throw new Error('fnOS requires a stable application version')
+  if (
+    !/^(0|[1-9]\d*)$/.test(String(revision)) ||
+    !Number.isSafeInteger(Number(revision))
+  )
+    throw new Error('fnOS revision must be a non-negative safe integer')
+  return Number(revision) === 0 ? version : `${version}.${revision}`
+}
 export function run(command, args, options = {}) {
   const result = spawnSync(command, args, { stdio: 'inherit', ...options })
   if (result.error) throw result.error
@@ -85,6 +95,7 @@ export async function prepareFnosProject({
   appDir,
   outputDir,
   arch,
+  revision = 0,
   projectDir = repositoryRoot,
   nodeArchive,
 }) {
@@ -115,6 +126,7 @@ export async function prepareFnosProject({
     !/^\d+\.\d+\.\d+$/.test(manifest.version)
   )
     throw new Error('fnOS package requires the current stable project version')
+  const packageVersion = fnosPackageVersion(manifest.version, revision)
   await verifyServerPackage({
     appDir: source,
     platform: 'linux',
@@ -136,7 +148,7 @@ export async function prepareFnosProject({
     await writeFile(
       path.join(temporary, 'manifest'),
       template
-        .replaceAll('@MOTRIX_VERSION@', manifest.version)
+        .replaceAll('@FNOS_PACKAGE_VERSION@', packageVersion)
         .replaceAll('@FNOS_PLATFORM@', target.platform)
     )
     const archive =
@@ -168,7 +180,7 @@ export async function prepareFnosProject({
       )
     await writeFile(
       path.join(temporary, 'app/fnos-build.json'),
-      `${JSON.stringify({ schemaVersion: 1, version: manifest.version, arch, nodeVersion: runtimeLock.nodeVersion, nodeArchiveSha256: runtimeLock.node[arch].sha256, nodeSha256: sha256(await readFile(path.join(runtime, 'bin/node'))) }, null, 2)}\n`
+      `${JSON.stringify({ schemaVersion: 2, version: manifest.version, packageVersion, revision: Number(revision), arch, nodeVersion: runtimeLock.nodeVersion, nodeArchiveSha256: runtimeLock.node[arch].sha256, nodeSha256: sha256(await readFile(path.join(runtime, 'bin/node'))) }, null, 2)}\n`
     )
     await rename(temporary, output)
     return output
@@ -187,6 +199,7 @@ if (
       'app-dir': { type: 'string', default: 'dist/server-app' },
       'output-dir': { type: 'string' },
       arch: { type: 'string', default: process.arch },
+      revision: { type: 'string', default: '0' },
       'node-archive': { type: 'string' },
     },
   })
@@ -194,6 +207,7 @@ if (
     appDir: values['app-dir'],
     outputDir: values['output-dir'] ?? `release/fnos/${values.arch}`,
     arch: values.arch,
+    revision: values.revision,
     nodeArchive: values['node-archive'],
   })
     .then((directory) => console.log(`Prepared fnOS project: ${directory}`))

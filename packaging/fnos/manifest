@@ -1,5 +1,5 @@
 appname=motrix
-version=@MOTRIX_VERSION@
+version=@FNOS_PACKAGE_VERSION@
 display_name=Motrix
 desc=Native download manager for HTTP, FTP, BitTorrent and magnet links. Administrator access only.
 platform=@FNOS_PLATFORM@
