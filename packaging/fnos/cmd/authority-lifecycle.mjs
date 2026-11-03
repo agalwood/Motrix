@@ -1,8 +1,10 @@
 // Invoked only with the verified runtime by the root-owned cmd/main launcher.
 import { execFileSync, spawn } from 'node:child_process'
 import { once } from 'node:events'
+import { constants } from 'node:fs'
 import {
   lstat,
+  mkdir,
   open,
   readdir,
   readFile,
@@ -42,7 +44,15 @@ function packageIds() {
     gid <= 0
   )
     throw error()
-  return { uid, gid }
+  const groups = [
+    ...new Set(
+      execFileSync('/usr/bin/id', ['-Gn', 'motrix'], { encoding: 'utf8' })
+        .trim()
+        .split(/\s+/)
+    ),
+  ].filter((group) => group !== 'motrix')
+  if (groups.some((group) => !/^[A-Za-z0-9_.-]+$/.test(group))) throw error()
+  return { uid, gid, groups }
 }
 async function protectedFile(file, directory = false) {
   const info = await lstat(file)
@@ -224,7 +234,66 @@ async function startAuthority(gid) {
     await rm(temporary, { force: true })
   }
 }
-async function application(action) {
+async function prepareApplicationOwnership(uid, gid) {
+  // fnOS assigns retained state to root when privilege.defaults changes to root.
+  // Repair only application-owned state; the authority key and backups are peers
+  // of this directory and must never be included in a recursive ownership walk.
+  const state = path.join(data, 'motrix')
+  await mkdir(state, { mode: 0o700 }).catch((cause) => {
+    if (cause.code !== 'EEXIST') throw cause
+  })
+  // The payload also belongs to the package account: private directory modes
+  // in a verified Server distribution must stay traversable after root installs.
+  // Privileged code is in the separate, root-owned cmd metadata directory.
+  for (const directory of [state, target]) {
+    const info = await lstat(directory)
+    if (
+      !info.isDirectory() ||
+      info.isSymbolicLink() ||
+      ![0, uid].includes(info.uid)
+    )
+      throw error()
+    execFileSync(
+      '/usr/bin/chown',
+      ['--recursive', '--no-dereference', '-P', `${uid}:${gid}`, directory],
+      { stdio: 'pipe' }
+    )
+    const handle = await open(
+      directory,
+      constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW
+    )
+    try {
+      const current = await handle.stat()
+      if (!current.isDirectory() || current.uid !== uid || current.gid !== gid)
+        throw error()
+    } finally {
+      await handle.close()
+    }
+  }
+  for (const filename of [
+    'server.log',
+    'server.log.1',
+    'server-process.json',
+  ]) {
+    const handle = await open(
+      path.join(data, filename),
+      constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK
+    ).catch((cause) => {
+      if (cause.code === 'ENOENT') return null
+      throw cause
+    })
+    if (!handle) continue
+    try {
+      const current = await handle.stat()
+      if (!current.isFile() || ![0, uid].includes(current.uid)) throw error()
+      await handle.chown(uid, gid)
+    } finally {
+      await handle.close()
+    }
+  }
+}
+
+async function application(action, groups) {
   const child = spawn(
     '/usr/sbin/runuser',
     [
@@ -232,6 +301,7 @@ async function application(action) {
       'motrix',
       '-g',
       'motrix',
+      ...groups.flatMap((group) => ['-G', group]),
       '--',
       path.join(target, 'runtime/bin/node'),
       path.join(target, 'lifecycle.mjs'),
@@ -262,9 +332,9 @@ async function main() {
   await protectedFile(executableDirectory, true)
   await protectedFile(entry)
   await protectedFile(fileURLToPath(import.meta.url))
-  const { gid } = packageIds()
+  const { uid, gid, groups } = packageIds()
   if (action === 'stop') {
-    const code = await application('stop')
+    const code = await application('stop', groups)
     if (code !== 0) return code
     await stopAuthority()
     return 0
@@ -272,12 +342,16 @@ async function main() {
   if (action === 'status')
     return (await record()) &&
       (await healthy()) &&
-      (await application('status')) === 0
+      (await application('status', groups)) === 0
       ? 0
       : 3
+  // A repeated start may only repair the helper while the application is live.
+  // Do not walk/chown a running database or active plugin workspace.
+  if ((await application('status', groups)) !== 0)
+    await prepareApplicationOwnership(uid, gid)
   await startAuthority(gid)
   try {
-    const code = await application('start')
+    const code = await application('start', groups)
     if (code !== 0) await stopAuthority()
     return code
   } catch (cause) {

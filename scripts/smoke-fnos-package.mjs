@@ -4,6 +4,7 @@ import { randomBytes } from 'node:crypto'
 import {
   access,
   chmod,
+  chown,
   cp,
   mkdir,
   mkdtemp,
@@ -11,6 +12,7 @@ import {
   readFile,
   rm,
   stat,
+  symlink,
   writeFile,
 } from 'node:fs/promises'
 import { createServer, request } from 'node:http'
@@ -41,7 +43,16 @@ const authorityRuntime = '/run/motrix-account-authority'
 if (await stat(authorityRuntime).catch(() => null))
   throw new Error('Account authority already exists')
 execFileSync('groupadd', ['--gid', '1600', 'motrix'])
-execFileSync('useradd', ['--uid', '1600', '--gid', '1600', 'motrix'])
+execFileSync('groupadd', ['--gid', '1601', 'TrimApiUsers'])
+execFileSync('useradd', [
+  '--uid',
+  '1600',
+  '--gid',
+  '1600',
+  '--groups',
+  'TrimApiUsers',
+  'motrix',
+])
 execFileSync('groupadd', ['--gid', '1700', 'Administrators'])
 execFileSync('useradd', [
   '--uid',
@@ -72,6 +83,7 @@ const env = {
   TRIM_API_TOKEN: 'smoke-token',
   TRIM_TEMP_LOGFILE: path.join(root, 'error.log'),
   MOTRIX_FNOS_API_SOCKET: apiSocket,
+  wizard_client_port: '16812',
 }
 const aclUsers = []
 let allowWrites = true
@@ -126,6 +138,22 @@ const lifecycle = (action) =>
       resolve({ code, output })
     })
   })
+async function requireLifecycle(action) {
+  const result = await lifecycle(action)
+  if (result.code !== 0) {
+    const helperLog = await readFile(
+      path.join(authorityRuntime, 'authority.log'),
+      'utf8'
+    ).catch(() => '')
+    const serverLog = await readFile(
+      path.join(data, 'server.log'),
+      'utf8'
+    ).catch(() => '')
+    throw new Error(
+      `Lifecycle ${action} failed: ${result.output}\n${helperLog.slice(-2000)}\n${serverLog.slice(-8000)}`
+    )
+  }
+}
 const get = (route, headers = {}, method = 'GET', body) =>
   new Promise((resolve, reject) => {
     const req = request(
@@ -154,12 +182,23 @@ try {
   await cp(path.join(project, 'cmd'), path.join(root, 'cmd'), {
     recursive: true,
   })
-  execFileSync('chown', ['-R', '1600:1600', target, data, downloads])
+  execFileSync('chown', ['1600:1600', downloads])
+  // fnOS grants package access through its ACL while leaving root ownership.
+  // A group-writable parent models that access on the container's POSIX FS.
+  execFileSync('chown', ['0:1600', data])
+  await chmod(data, 0o770)
+  await mkdir(path.join(data, 'motrix'), { mode: 0o700 })
+  const ownershipProbe = path.join(data, 'motrix/ownership-probe')
+  const outsideProbe = path.join(root, 'outside-ownership-probe')
+  await writeFile(ownershipProbe, 'retained state', { mode: 0o600 })
+  await writeFile(outsideProbe, 'must remain root-owned', { mode: 0o600 })
+  await symlink(outsideProbe, path.join(data, 'motrix/ownership-link'))
   await new Promise((resolve, reject) => {
     api.once('error', reject)
     api.listen(apiSocket, resolve)
   })
-  await chmod(apiSocket, 0o666)
+  await chown(apiSocket, 0, 1601)
+  await chmod(apiSocket, 0o660)
   await new Promise((resolve) => fixtureServer.listen(0, '127.0.0.1', resolve))
   const start = await lifecycle('start')
   assert.equal(
@@ -167,6 +206,8 @@ try {
     0,
     `${start.output}\n${await readFile(path.join(data, 'server.log'), 'utf8').catch(() => '')}`
   )
+  assert.equal((await stat(ownershipProbe)).uid, 1600)
+  assert.equal((await stat(outsideProbe)).uid, 0)
   const first = await readFile(path.join(data, 'server-process.json'), 'utf8')
   const serverPid = JSON.parse(first).pid
   assert.match(
@@ -183,7 +224,7 @@ try {
   const key = await readFile(
     path.join(data, '.nas-account-authority/authority.key')
   )
-  assert.equal((await lifecycle('start')).code, 0)
+  await requireLifecycle('start')
   assert.equal(
     await readFile(path.join(data, 'server-process.json'), 'utf8'),
     first
@@ -212,6 +253,7 @@ try {
     await new Promise((resolve) => setTimeout(resolve, 50))
   }
   assert.ok(endpoint, 'NAS CLI listener must publish its endpoint')
+  assert.equal(endpoint.port, 16812)
   const post = (route, payload, token) =>
     fetch(`http://127.0.0.1:${endpoint.port}${route}`, {
       method: 'POST',
@@ -378,7 +420,7 @@ try {
   process.kill(authority.pid, 'SIGKILL')
   await new Promise((resolve) => setTimeout(resolve, 100))
   assert.equal((await lifecycle('status')).code, 3)
-  assert.equal((await lifecycle('start')).code, 0)
+  await requireLifecycle('start')
   assert.equal(
     await readFile(path.join(data, 'server-process.json'), 'utf8'),
     first
@@ -391,7 +433,7 @@ try {
   await writeFile(path.join(data, 'motrix/persistence-probe'), 'preserved')
   assert.equal((await lifecycle('stop')).code, 0)
   assert.equal((await lifecycle('status')).code, 3)
-  assert.equal((await lifecycle('start')).code, 0)
+  await requireLifecycle('start')
   assert.equal(
     await readFile(path.join(data, 'motrix/persistence-probe'), 'utf8'),
     'preserved'
@@ -439,7 +481,7 @@ try {
   await chmod(authorityEntry, 0o666)
   assert.equal((await lifecycle('start')).code, 1)
   await chmod(authorityEntry, 0o644)
-  assert.equal((await lifecycle('start')).code, 0)
+  await requireLifecycle('start')
   assert.equal((await listTasks(token)).status, 200)
   console.log(
     `fnOS lifecycle smoke passed: ${process.arch}, uid=${process.getuid()}, start/status/stop/restart, gateway auth, native CLI pairing/account revocation, authorized download/denied delete, data retention, stale PID, helper crash recovery, runtime tamper rejection`

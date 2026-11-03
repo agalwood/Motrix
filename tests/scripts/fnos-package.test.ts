@@ -179,3 +179,23 @@ it('refuses overlapping output locations before touching the input', async () =>
   ).rejects.toThrow('overlap')
   expect(await readFile(path.join(directory, 'keep'), 'utf8')).toBe('original')
 })
+
+it('uses a separate configurable native client port and rejects invalid wizard values', () => {
+  const env = {
+    TRIM_APPDEST: '/app',
+    TRIM_PKGVAR: '/data',
+    TRIM_DATA_SHARE_PATHS: '/downloads',
+  }
+  expect(runtimeEnvironment(env).MOTRIX_MDXP_PORT).toBe('16802')
+  expect(
+    runtimeEnvironment({
+      ...env,
+      TRIM_SERVICE_PORT: '16802',
+      wizard_client_port: '18081',
+    }).MOTRIX_MDXP_PORT
+  ).toBe('18081')
+  for (const port of ['0', '80', '65536', '1e4', '8080;true', '../port'])
+    expect(() =>
+      runtimeEnvironment({ ...env, wizard_client_port: port })
+    ).toThrow('Client port')
+})

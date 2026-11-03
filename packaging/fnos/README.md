@@ -66,8 +66,10 @@ implementation time the official fnpack page linked 1.2.3 binaries returning
   device compatibility still requires fnOS installation testing.
 - Entry: `/app/motrix/`, HTTP/RPC/static assets/uploads/WebSocket on
   `${TRIM_APPDEST}/app.sock`. The normal Web TCP listener stays closed. The
-  authenticated MDXP CLI listener uses the manifest service port (16801),
-  separately from the gateway; NAS browser cookies are not client credentials.
+  authenticated MDXP CLI listener defaults to port 16802 (configurable in the
+  fnOS application wizard), separately from the gateway and Docker default;
+  NAS browser cookies are not
+  client credentials. A client-port conflict cannot block the gateway Web UI.
   Use the client-pairing setting to disable that listener when it is not needed.
 - CLI pairing: approve a request from the fnOS administrator Web UI. Credentials
   bind to that administrator and an opaque account generation. Requests and
@@ -77,7 +79,7 @@ implementation time the official fnpack page linked 1.2.3 binaries returning
 - Account authority: only the package group can connect to its root-owned
   socket under `/run/motrix-account-authority`. The persistent generation key
   lives in the root-only `${TRIM_PKGVAR}/.nas-account-authority` directory.
-  The launcher copies a bounded Node snapshot into the root-only
+  The launcher copies a bounded Node snapshot into the root-owned
   `cmd/.authority-runtime` metadata directory, checks the checksum pinned in
   root-owned metadata, and clears the privileged process's environment. This
   keeps executables off fnOS's `noexec` `/run` mount. It never executes package-writable JavaScript as root.
@@ -126,6 +128,13 @@ identity are checked before sending a signal. Stop waits for orderly Server
 shutdown and reports a timeout without discarding the process record. Upgrade
 and uninstall stop the service first. Scripts never remove download shares or
 private task data; fnOS owns its uninstall data-retention choice.
+
+Before starting a stopped service, the privileged launcher restores ownership
+of the application payload and its private state after fnOS installs them as
+root. The walk does not follow symlinks or include download shares, account
+authority keys or backup directories. The application retains its existing
+supplementary groups, including the group required to call fnOS's API socket.
+Repeated starts do not walk a running application's state.
 
 The Linux lifecycle smoke uses a **simulated fnOS file API** and real disposable
 Linux account records. It checks service UID separation, CLI pairing and account

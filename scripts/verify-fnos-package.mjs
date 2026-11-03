@@ -34,7 +34,8 @@ export async function verifyFnosPackage(projectDir, arch) {
     manifest.platform !== target.platform ||
     manifest.version !== packageVersion ||
     manifest.os_min_version !== '1.2.0401' ||
-    manifest.micro_app !== 'true'
+    manifest.micro_app !== 'true' ||
+    manifest.checkport !== 'false'
   )
     throw new Error('Inconsistent fnOS manifest')
   const privilege = await readJson('config/privilege')

@@ -25,6 +25,13 @@ export function runtimeEnvironment(env) {
   const shares = (env.TRIM_DATA_SHARE_PATHS ?? '').split(':').filter(Boolean)
   if (shares.length !== 1 || !path.isAbsolute(shares[0]))
     throw new Error('The Motrix download share is unavailable')
+  const clientPort = env.wizard_client_port || env.TRIM_SERVICE_PORT || '16802'
+  if (
+    !/^[0-9]{1,5}$/.test(clientPort) ||
+    Number(clientPort) < 1024 ||
+    Number(clientPort) > 65535
+  )
+    throw new Error('Client port must be between 1024 and 65535')
   const server = path.join(env.TRIM_APPDEST, 'server')
   const data = path.join(env.TRIM_PKGVAR, 'motrix')
   return {
@@ -34,9 +41,7 @@ export function runtimeEnvironment(env) {
     MOTRIX_AUTH_MODE: 'fnosGateway',
     MOTRIX_WEB_BASE_PATH: '/app/motrix',
     MOTRIX_MDXP_HOST: '0.0.0.0',
-    ...(env.TRIM_SERVICE_PORT
-      ? { MOTRIX_MDXP_PORT: env.TRIM_SERVICE_PORT }
-      : {}),
+    MOTRIX_MDXP_PORT: String(Number(clientPort)),
     MOTRIX_DATA_DIR: data,
     MOTRIX_TEMP_DIR: `${data}/tmp`,
     MOTRIX_PLUGIN_DIR: `${data}/plugins`,
