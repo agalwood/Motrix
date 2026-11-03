@@ -1447,7 +1447,11 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
           protocolManager.resetDialogState()
         }
         windowManager.closeAndRecycle(id)
-        if (options.showMain) {
+        if (
+          options.showMain === true ||
+          (options.showMain === 'if-visible' &&
+            windowManager.get('main')?.isVisible())
+        ) {
           windowManager.show('main')
         }
         if (options.navigateMainTo) {

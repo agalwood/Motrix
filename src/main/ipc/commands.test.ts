@@ -867,6 +867,39 @@ describe('buildCommandHandlers', () => {
     expect(closeAndRecycle).toHaveBeenCalledWith('add-task')
   })
 
+  it.each(['visible', 'hidden', 'released'] as const)(
+    'CloseCurrentWindow preserves a %s main window on cancel',
+    async (state) => {
+      const ctx = fakeCtx()
+      const main =
+        state === 'released'
+          ? null
+          : { isVisible: vi.fn(() => state === 'visible') }
+      ctx.windowManager = {
+        ...ctx.windowManager,
+        getWindowIdBySender: vi.fn(() => 'add-task'),
+        get: vi.fn(() => main),
+        closeAndRecycle: vi.fn(),
+        show: vi.fn(),
+      } as any
+      // @ts-expect-error partial ctx
+      const handlers = buildCommandHandlers(ctx)
+
+      await handlers[Commands.CloseCurrentWindow]?.({} as never, {
+        showMain: 'if-visible',
+      })
+
+      expect(ctx.windowManager.closeAndRecycle).toHaveBeenCalledWith('add-task')
+      expect(ctx.protocolManager.resetDialogState).toHaveBeenCalled()
+      if (state === 'visible') {
+        expect(ctx.windowManager.show).toHaveBeenCalledWith('main')
+      } else {
+        expect(ctx.windowManager.show).not.toHaveBeenCalled()
+      }
+      expect(ctx.eventBus.emit).not.toHaveBeenCalled()
+    }
+  )
+
   it('CloseCurrentWindow emits NavigateTo when navigateMainTo is set', async () => {
     const ctx = fakeCtx()
     const getWindowIdBySender = vi.fn(() => 'add-task')
