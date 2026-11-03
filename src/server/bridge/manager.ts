@@ -55,6 +55,8 @@ export class ServerBridgeManager {
           this.registry.remove(params.id, params.browser)
         )
       },
+      [BridgeCommands.ClaimExtensionPair]: (...args: unknown[]) =>
+        this.invokeCommand(BridgeCommands.ClaimExtensionPair, args),
       [BridgeCommands.ResolvePair]: (...args: unknown[]) =>
         this.invokeCommand(BridgeCommands.ResolvePair, args),
       [BridgeCommands.RevokePair]: (...args: unknown[]) =>

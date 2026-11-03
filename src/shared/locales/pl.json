@@ -1997,7 +1997,9 @@
             "attested": "Zweryfikowane rozszerzenie",
             "unverified": "Niezweryfikowane rozszerzenie"
           },
-          "identityUnverifiedWarning": "Nie udało się zweryfikować tożsamości tego rozszerzenia. Kontynuuj tylko, jeśli mu ufasz."
+          "identityUnverifiedWarning": "Nie udało się zweryfikować tożsamości tego rozszerzenia. Kontynuuj tylko, jeśli mu ufasz.",
+          "claim": "Pokaż kod parowania",
+          "claimDesc": "Po sparowaniu klient korzysta z uprawnień bieżącego konta NAS. Kod może zobaczyć tylko administrator, który przejmie to żądanie."
         },
         "pairUnavailable": "To żądanie parowania nie jest już oczekujące — ponów parowanie w rozszerzeniu przeglądarki.",
         "trustedExtensions": "Zaufane rozszerzenia",

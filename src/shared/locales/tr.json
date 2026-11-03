@@ -1969,7 +1969,9 @@
             "attested": "Doğrulanmış uzantı",
             "unverified": "Doğrulanmamış uzantı"
           },
-          "identityUnverifiedWarning": "Bu uzantının kimliği doğrulanamadı. Yalnızca uzantıya güveniyorsanız devam edin."
+          "identityUnverifiedWarning": "Bu uzantının kimliği doğrulanamadı. Yalnızca uzantıya güveniyorsanız devam edin.",
+          "claim": "Eşleştirme kodunu göster",
+          "claimDesc": "Eşleştirildikten sonra istemci mevcut NAS hesabınızın izinlerini kullanır. Kodu yalnızca bu isteği üstlenen yönetici görebilir."
         },
         "pairUnavailable": "Bu eşleştirme isteği artık beklemede değil. Tarayıcı uzantısından eşleştirmeyi yeniden deneyin.",
         "trustedExtensions": "Güvenilen uzantılar",

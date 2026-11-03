@@ -2422,7 +2422,9 @@
           "identityUnverifiedWarning": "Identitatea acestei extensii nu a putut fi verificată. Continuă doar dacă ai încredere în ea.",
           "pairCode": "Cod de asociere",
           "pairCodeHint": "Introdu acest cod în extensie",
-          "title": "O extensie {{browser}} dorește să se conecteze la Motrix"
+          "title": "O extensie {{browser}} dorește să se conecteze la Motrix",
+          "claim": "Arată codul de asociere",
+          "claimDesc": "După asociere, clientul folosește permisiunile contului NAS curent. Doar administratorul care preia cererea poate vedea codul."
         },
         "pairUnavailable": "Această cerere de asociere nu mai este în așteptare — reîncearcă asocierea din extensia de browser.",
         "pairedEmpty": "Încă nu există extensii conectate.",

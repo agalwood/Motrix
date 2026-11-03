@@ -62,7 +62,11 @@ import {
 } from './mbp1/envelope-message-stream'
 import { PairFloodControl } from './mbp1/flood-control'
 import { NonceService } from './mbp1/nonce-service'
-import { type PairDialogRequest, PairSession } from './mbp1/pair-session'
+import {
+  type PairCredentialIssuer,
+  type PairDialogRequest,
+  PairSession,
+} from './mbp1/pair-session'
 import { PreAuthTable } from './mbp1/pre-auth-table'
 import { ReconnectRateLimit } from './mbp1/reconnect-rate-limit'
 import { ReconnectSession } from './mbp1/reconnect-session'
@@ -100,6 +104,13 @@ export interface BridgeServerOptions {
   cliAuthorization?: BridgeClientAuthorization
   /** Account checks for both directions and every handler of an MBP1 session. */
   extensionAuthorization?: BridgeClientAuthorization
+  /** Per-handshake host binding. Constructing it does not grant approval. */
+  createPairCredentialIssuer?: (
+    audience: Pick<
+      PairDialogRequest,
+      'browser' | 'verifiedOrigin' | 'pairingNonce'
+    >
+  ) => { issuer: PairCredentialIssuer; release: () => void }
   /**
    * Device-code pairing for cli/agent clients (Spec 7b). When present, the
    * `POST /mdxp/pair/request` + `POST /mdxp/pair/poll` HTTP routes are enabled;
@@ -2038,6 +2049,25 @@ export class WebSocketBridgeServer {
       // unhandled event and takes the process down.
       ws.on('error', () => {})
 
+      let credentialIssuer: PairCredentialIssuer = mbp1.credentials
+      let releaseCredentialIssuer = () => {}
+      try {
+        const scope = this.opts.createPairCredentialIssuer?.({
+          browser: peer.browser,
+          verifiedOrigin: peer.origin,
+          pairingNonce: pairNonce,
+        })
+        if (scope) {
+          credentialIssuer = scope.issuer
+          releaseCredentialIssuer = scope.release
+          ws.once('close', releaseCredentialIssuer)
+        }
+      } catch {
+        this.preAuthPair.settle(entry)
+        entry.releaseAdmission()
+        ws.close()
+        return
+      }
       const session = new PairSession({
         nonceValid: true,
         pairNonce,
@@ -2049,7 +2079,7 @@ export class WebSocketBridgeServer {
         serverGeneration: mbp1.serverGeneration,
         localToken: this.opts.localToken,
         isOfficialId: mbp1.isOfficialId,
-        credentials: mbp1.credentials,
+        credentials: credentialIssuer,
         replay: this.replay,
         // §7.3 admission is core's and runs before ticket validation, so a
         // session refused `busy` never burns a legitimate ticket's one-shot
@@ -2085,6 +2115,8 @@ export class WebSocketBridgeServer {
           this.preAuthPair.settle(entry)
           entry.releaseAdmission()
           entry.confirmed = true
+          releaseCredentialIssuer()
+          ws.off('close', releaseCredentialIssuer)
           this.recordPairOutcome(entry)
           this.adoptAuthenticatedSession(ws, identity, channel, credentialId)
         },

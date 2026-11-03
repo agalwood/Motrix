@@ -1,12 +1,17 @@
 import { i18n } from '@renderer/lib/i18n'
 import { useOperatorSession } from '@renderer/lib/operator-auth'
-import { BridgeEvents } from '@shared/protocol/bridge'
+import {
+  BridgeCommands,
+  BridgeEvents,
+  pairRequestKey,
+} from '@shared/protocol/bridge'
 import { act, render, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   toastAddMock,
   toastCloseMock,
+  toastUpdateMock,
   onMock,
   offMock,
   invokeMock,
@@ -14,6 +19,7 @@ const {
 } = vi.hoisted(() => ({
   toastAddMock: vi.fn((opts: { id?: string }) => opts.id ?? 'generated-id'),
   toastCloseMock: vi.fn(),
+  toastUpdateMock: vi.fn(),
   onMock: vi.fn(),
   offMock: vi.fn(),
   invokeMock: vi.fn(),
@@ -30,7 +36,11 @@ vi.mock('@renderer/components/ui/toast', async (importOriginal) => {
     await importOriginal<typeof import('@renderer/components/ui/toast')>()
   return {
     ...actual,
-    toast: { add: toastAddMock, close: toastCloseMock },
+    toast: {
+      add: toastAddMock,
+      close: toastCloseMock,
+      update: toastUpdateMock,
+    },
   }
 })
 
@@ -111,14 +121,137 @@ describe('usePairRequestPrompts', () => {
     invokeMock.mockReset().mockResolvedValue([])
     toastAddMock.mockClear()
     toastCloseMock.mockReset()
+    toastUpdateMock.mockReset()
     onMock.mockReset()
     offMock.mockReset()
     onConnectionChangeMock.mockReset().mockImplementation(() => vi.fn())
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     useOperatorSession.setState({ status: null })
     vi.clearAllMocks()
+  })
+
+  const claimRequest = {
+    kind: 'extension-claim' as const,
+    browser: 'chromium' as const,
+    extensionId: EXT_A.extensionId,
+    pairingNonce: 'native-request',
+    identity: 'official' as const,
+    createdAt: 1,
+    expiresAt: 120001,
+  }
+  const claimKey = pairRequestKey(claimRequest)
+  async function showClaim() {
+    useOperatorSession.setState({
+      epoch: 1,
+      status: {
+        mode: 'fnosGateway',
+        authed: true,
+        canLogout: false,
+        username: 'alice',
+        clientPairing: { cli: true, extension: true },
+      },
+    })
+    invokeMock.mockResolvedValueOnce([claimRequest])
+    render(<Host />)
+    await act(async () => {})
+    return findAddCall(claimKey).data.pairRequest.onClaim as () => void
+  }
+
+  it('reveals a NAS code only after claiming, then clears it at the server-provided lifetime', async () => {
+    vi.useFakeTimers()
+    const claim = await showClaim()
+    expect(invokeMock).toHaveBeenCalledTimes(1)
+    expect(findAddCall(claimKey).data.pairRequest).not.toHaveProperty('code')
+    expect(findAddCall(claimKey).data.pairRequest).not.toHaveProperty('onAllow')
+    invokeMock.mockResolvedValueOnce({
+      ok: true,
+      code: 'ABCD-EFGH',
+      expiresInMs: 500,
+    })
+    await act(async () => claim())
+    expect(invokeMock).toHaveBeenLastCalledWith(
+      BridgeCommands.ClaimExtensionPair,
+      {
+        browser: claimRequest.browser,
+        extensionId: claimRequest.extensionId,
+        pairingNonce: claimRequest.pairingNonce,
+      }
+    )
+    expect(toastUpdateMock).toHaveBeenLastCalledWith(claimKey, {
+      data: {
+        pairRequest: expect.objectContaining({
+          kind: 'extension',
+          code: 'ABCD-EFGH',
+        }),
+      },
+    })
+    toastCloseMock.mockImplementation((key: string) =>
+      findAddCall(key).onClose()
+    )
+    await act(async () => vi.advanceTimersByTime(500))
+    expect(toastCloseMock).toHaveBeenCalledWith(claimKey)
+    expect(invokeMock).toHaveBeenCalledTimes(2)
+  })
+
+  it.each(['account-change', 'settled'] as const)(
+    'ignores a late claimed code after %s',
+    async (reason) => {
+      const claim = await showClaim()
+      let reply!: (value: unknown) => void
+      invokeMock.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            reply = resolve
+          })
+      )
+      await act(async () => claim())
+      await act(async () => {
+        if (reason === 'account-change')
+          useOperatorSession.setState((state) => ({
+            status: { ...state.status!, username: 'bob' },
+          }))
+        else
+          findListener(BridgeEvents.PairRequestSettled)({
+            key: claimKey,
+            outcome: 'aborted',
+          })
+      })
+      toastUpdateMock.mockClear()
+      await act(async () =>
+        reply({ ok: true, code: 'ABCD-EFGH', expiresInMs: 500 })
+      )
+      expect(toastUpdateMock).not.toHaveBeenCalled()
+      expect(toastCloseMock).toHaveBeenCalledWith(claimKey)
+    }
+  )
+
+  it('coalesces a double claim click and restores the button when another administrator owns it', async () => {
+    const claim = await showClaim()
+    let reply!: (value: unknown) => void
+    invokeMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          reply = resolve
+        })
+    )
+    await act(async () => {
+      claim()
+      claim()
+    })
+    expect(invokeMock).toHaveBeenCalledTimes(2)
+    await act(async () => reply({ ok: false, reason: 'unavailable' }))
+    expect(toastUpdateMock).toHaveBeenLastCalledWith(claimKey, {
+      data: {
+        pairRequest: expect.objectContaining({
+          kind: 'extension-claim',
+          claiming: false,
+        }),
+      },
+    })
+    expect(JSON.stringify(toastUpdateMock.mock.calls)).not.toContain('"code":')
   })
 
   it('does not query or subscribe to pairing in fnOS mode', () => {

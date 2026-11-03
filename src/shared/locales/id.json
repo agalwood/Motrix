@@ -1955,7 +1955,9 @@
             "attested": "Ekstensi terverifikasi",
             "unverified": "Ekstensi belum terverifikasi"
           },
-          "identityUnverifiedWarning": "Identitas ekstensi ini tidak dapat diverifikasi. Lanjutkan hanya jika Anda memercayainya."
+          "identityUnverifiedWarning": "Identitas ekstensi ini tidak dapat diverifikasi. Lanjutkan hanya jika Anda memercayainya.",
+          "claim": "Tampilkan kode pemasangan",
+          "claimDesc": "Setelah dipasangkan, klien menggunakan izin akun NAS Anda saat ini. Hanya administrator yang mengambil permintaan ini yang dapat melihat kodenya."
         },
         "pairUnavailable": "Permintaan pemasangan ini tidak lagi tertunda — coba pasangkan lagi dari ekstensi browser.",
         "trustedExtensions": "Ekstensi tepercaya",

@@ -47,6 +47,11 @@ export type PairRequestToastData = {
     | (Extract<PairRequestPayload, { kind: 'extension' }> & {
         onDeny: () => void
       })
+    | (Extract<PairRequestPayload, { kind: 'extension-claim' }> & {
+        onClaim: () => void
+        claiming: boolean
+        onDeny: () => void
+      })
 }
 
 /** i18n copy for a pairing prompt. Exported so `usePairRequestPrompts` can
@@ -218,30 +223,47 @@ function ToastList() {
                 )}
               </p>
             )}
-            <div className="mt-1 flex flex-col gap-1 rounded border border-border bg-muted/30 px-2 py-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] tracking-wide text-muted-foreground uppercase">
-                  {t('settings.integration.browser.pairToast.pairCode')}
-                </span>
-                <CopyButton
-                  content={pairRequest.code}
+            {pairRequest.kind === 'extension-claim' ? (
+              <div className="mt-1 flex flex-col items-start gap-2">
+                <p className="text-xs text-muted-foreground">
+                  {t('settings.integration.browser.pairToast.claimDesc')}
+                </p>
+                <Button
+                  type="button"
                   size="xs"
-                  variant="ghost"
-                  aria-label={t(
-                    'settings.integration.browser.pairToast.copyCode'
-                  )}
-                  className="-my-0.5 -me-1 size-6 p-0 text-muted-foreground hover:text-foreground"
-                />
+                  onClick={pairRequest.onClaim}
+                  disabled={pairRequest.claiming}
+                  aria-busy={pairRequest.claiming}
+                >
+                  {t('settings.integration.browser.pairToast.claim')}
+                </Button>
               </div>
-              {/* The §7.1 PAKE password, rendered verbatim — never
-               *  reformatted and never logged (§7.1/§11). */}
-              <span className="text-center font-mono text-base font-semibold tracking-widest">
-                {pairRequest.code}
-              </span>
-              <span className="text-[11px] text-muted-foreground">
-                {t('settings.integration.browser.pairToast.pairCodeHint')}
-              </span>
-            </div>
+            ) : (
+              <div className="mt-1 flex flex-col gap-1 rounded border border-border bg-muted/30 px-2 py-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] tracking-wide text-muted-foreground uppercase">
+                    {t('settings.integration.browser.pairToast.pairCode')}
+                  </span>
+                  <CopyButton
+                    content={pairRequest.code}
+                    size="xs"
+                    variant="ghost"
+                    aria-label={t(
+                      'settings.integration.browser.pairToast.copyCode'
+                    )}
+                    className="-my-0.5 -me-1 size-6 p-0 text-muted-foreground hover:text-foreground"
+                  />
+                </div>
+                {/* The §7.1 PAKE password, rendered verbatim — never
+                 *  reformatted and never logged (§7.1/§11). */}
+                <span className="text-center font-mono text-base font-semibold tracking-widest">
+                  {pairRequest.code}
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  {t('settings.integration.browser.pairToast.pairCodeHint')}
+                </span>
+              </div>
+            )}
             <div className="mt-1.5 flex gap-2">
               <Button
                 type="button"

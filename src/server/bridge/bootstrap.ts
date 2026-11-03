@@ -42,6 +42,7 @@ import {
   type ResolvePairResult,
 } from '@shared/protocol/bridge'
 import type { Handler } from '@shared/protocol/handler-types'
+import { claimExtensionPairParamsSchema } from '@shared/schemas/extension-pairing'
 import { CancellationTokenSource } from 'vscode-jsonrpc'
 import { NasCliPairingStore } from '../platform/nas/cli-pairing-store'
 import {
@@ -183,10 +184,6 @@ export async function bootstrapBridgeForServer(
       opts.remoteExtensionConfig !== undefined &&
       isIssuedRemoteExtensionConfig(opts.remoteExtensionConfig) &&
       opts.remoteExtensionConfig.status === 'enabled'
-    if (nasPairings && remoteExtensionEnabled)
-      throw new Error(
-        'NAS extension ownership must be configured before exposing remote pairing'
-      )
     // Docker must bind the listener to the container interface for host port
     // publication to work. The explicit remote opt-in, canonical public URLs,
     // exact raw Host/path checks, admission limits, and MBP1 authentication are
@@ -200,6 +197,7 @@ export async function bootstrapBridgeForServer(
     }
     const extensionMbp1 = remoteExtensionEnabled
       ? await ServerExtensionMbp1Runtime.load({
+          nasAccounts: opts.nasAccounts,
           dataDir,
           bus: bridgeBus,
           publicAuthority:
@@ -312,6 +310,10 @@ export async function bootstrapBridgeForServer(
         nasPairings && opts.nasAccounts
           ? new NasClientAuthorization(nasPairings, opts.nasAccounts)
           : undefined,
+      extensionAuthorization: extensionMbp1?.authorization,
+      createPairCredentialIssuer: extensionMbp1?.nasBindings
+        ? (audience) => extensionMbp1.prompts.issuerFor(audience)
+        : undefined,
       deviceCode,
       onPairRequested: (payload) => bridgeBus.emitPairRequested(payload),
       onExtensionSessionsChanged: () =>
@@ -359,6 +361,12 @@ export async function bootstrapBridgeForServer(
 
     // bridge:* RPC handlers the web renderer reaches via /rpc/{command,query}.
     const bridgeCommandHandlers: Record<string, Handler> = {
+      [BridgeCommands.ClaimExtensionPair]: async (input: unknown) => {
+        const parsed = claimExtensionPairParamsSchema.safeParse(input)
+        if (!parsed.success || !extensionMbp1?.nasBindings)
+          return { ok: false, reason: 'unavailable' }
+        return extensionMbp1.prompts.claim(parsed.data)
+      },
       [BridgeCommands.ResolvePair]: async (
         params: ResolvePairParams
       ): Promise<ResolvePairResult> => {

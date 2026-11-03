@@ -2,7 +2,7 @@ import type { EventBus } from '@core/events/event-bus'
 import type { CapabilityHost } from '@core/plugin/capabilities/interface'
 import fastifyStatic from '@fastify/static'
 import websocket from '@fastify/websocket'
-import { BridgeQueries } from '@shared/protocol/bridge'
+import { BridgeCommands, BridgeQueries } from '@shared/protocol/bridge'
 import { Commands } from '@shared/protocol/commands'
 import {
   assertTaskInspectorActivityArguments,
@@ -194,6 +194,23 @@ export async function createApp(
     const handler =
       commands[channel as keyof typeof commands] ?? bridgeCommands[channel]
     if (!handler) return reply.code(404).send({ error: 'unknown channel' })
+    if (channel === BridgeCommands.ClaimExtensionPair) {
+      reply.header('cache-control', 'no-store')
+      if (
+        !(
+          operatorSessions?.principal(req) &&
+          canDeliverExtensionPairingCode(
+            opts.remoteExtensionConfig,
+            req,
+            operatorSessions.principal(req)?.id.startsWith('bearer:') === true
+          )
+        )
+      )
+        return reply
+          .code(403)
+          .send({ error: 'Pairing code delivery unavailable' })
+    }
+
     if (
       channel === Commands.CreateServerDirectory ||
       channel === Commands.MutateDirectoryPreferences ||

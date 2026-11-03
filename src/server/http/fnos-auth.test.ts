@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { request } from 'node:http'
 import path from 'node:path'
 import { EventBus } from '@core/events/event-bus'
-import { BridgeQueries } from '@shared/protocol/bridge'
+import { BridgeCommands, BridgeQueries } from '@shared/protocol/bridge'
 import {
   FNOS_EVENT_PROTOCOL,
   FNOS_EVENT_TICKET_PREFIX,
@@ -11,6 +11,7 @@ import {
 } from '@shared/schemas/operator-auth'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import WebSocket from 'ws'
+import { parseRemoteExtensionConfig } from '../bridge/remote-extension-config'
 import { listenFnos } from '../platform/fnos/runtime'
 import { currentNasApprover, currentNasUser } from '../platform/nas/identity'
 import { type AppOptions, createApp } from './app'
@@ -29,7 +30,13 @@ const admin = {
 }
 async function fixture(
   now = Date.now,
-  options: Pick<AppOptions, 'clientPairing' | 'bridgeQueryHandlers'> = {}
+  options: Pick<
+    AppOptions,
+    | 'clientPairing'
+    | 'bridgeQueryHandlers'
+    | 'bridgeCommandHandlers'
+    | 'remoteExtensionConfig'
+  > = {}
 ) {
   const root = await mkdtemp('/tmp/mtx-fnos-')
   cleanup.push(() => rm(root, { force: true, recursive: true }))
@@ -55,28 +62,92 @@ async function fixture(
   const call = (
     url: string,
     headers: Record<string, string | undefined> = admin,
-    method = 'GET'
+    method = 'GET',
+    payload?: unknown
   ) =>
     new Promise<{
       status: number
       body: string
       headers: Record<string, unknown>
     }>((resolve, reject) => {
-      const req = request({ socketPath, path: url, headers, method }, (res) => {
-        let body = ''
-        res.setEncoding('utf8').on('data', (chunk) => {
-          body += chunk
-        })
-        res.on('end', () =>
-          resolve({ status: res.statusCode ?? 0, body, headers: res.headers })
-        )
-      })
-      req.on('error', reject).end()
+      const req = request(
+        {
+          socketPath,
+          path: url,
+          headers: {
+            ...headers,
+            ...(payload === undefined
+              ? {}
+              : { 'content-type': 'application/json' }),
+          },
+          method,
+        },
+        (res) => {
+          let body = ''
+          res.setEncoding('utf8').on('data', (chunk) => {
+            body += chunk
+          })
+          res.on('end', () =>
+            resolve({ status: res.statusCode ?? 0, body, headers: res.headers })
+          )
+        }
+      )
+      req
+        .on('error', reject)
+        .end(payload === undefined ? undefined : JSON.stringify(payload))
     })
   return { app, call, socketPath }
 }
 
 describe('fnOS gateway control plane', () => {
+  it.each([false, true])(
+    'gates claimed-code delivery on explicit operator transport consent (%s)',
+    async (consent) => {
+      const claim = vi.fn(async () => {
+        expect(currentNasApprover()?.userId).toBe('1000')
+        return { ok: true, code: 'ABCD-EFGH', expiresInMs: 1000 }
+      })
+      const { call } = await fixture(Date.now, {
+        remoteExtensionConfig: parseRemoteExtensionConfig({
+          MOTRIX_REMOTE_EXTENSION_ENABLED: 'true',
+          MOTRIX_REMOTE_EXTENSION_PUBLIC_URL: 'ws://nas.local:16802',
+          ...(consent ? { MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP: 'true' } : {}),
+        }),
+        bridgeCommandHandlers: { [BridgeCommands.ClaimExtensionPair]: claim },
+      })
+      const url = `/app/motrix/rpc/command/${encodeURIComponent(BridgeCommands.ClaimExtensionPair)}`
+      const body = {
+        args: [
+          {
+            browser: 'chromium',
+            extensionId: 'a'.repeat(32),
+            pairingNonce: 'nonce',
+          },
+        ],
+      }
+      const response = await call(url, admin, 'POST', body)
+      expect(response.status).toBe(consent ? 200 : 403)
+      expect(response.headers['cache-control']).toBe('no-store')
+      expect(claim).toHaveBeenCalledTimes(consent ? 1 : 0)
+      if (consent) expect(JSON.parse(response.body).code).toBe('ABCD-EFGH')
+      else expect(response.body).not.toContain('ABCD-EFGH')
+      expect(
+        (await call(url, { ...admin, 'x-trim-isadmin': 'false' }, 'POST', body))
+          .status
+      ).toBe(401)
+      expect(
+        (
+          await call(
+            url,
+            { ...admin, origin: 'http://evil.example' },
+            'POST',
+            body
+          )
+        ).status
+      ).toBe(403)
+      expect(claim).toHaveBeenCalledTimes(consent ? 1 : 0)
+    }
+  )
   it('advertises configured CLI pairing and serves its inbox through the administrator gate', async () => {
     const entries = [
       {

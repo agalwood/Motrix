@@ -2403,7 +2403,9 @@
           "identityUnverifiedWarning": "De identiteit van deze extensie kon niet worden geverifieerd. Ga alleen door als je deze vertrouwt.",
           "pairCode": "Koppelingscode",
           "pairCodeHint": "Voer deze code in de extensie in",
-          "title": "Een {{browser}}-extensie wil verbinding maken met Motrix"
+          "title": "Een {{browser}}-extensie wil verbinding maken met Motrix",
+          "claim": "Koppelcode tonen",
+          "claimDesc": "Na het koppelen gebruikt de client de rechten van je huidige NAS-account. Alleen de beheerder die dit verzoek op zich neemt, kan de code zien."
         },
         "pairUnavailable": "Dit koppelingsverzoek is niet meer in behandeling — probeer opnieuw te koppelen vanuit de browserextensie.",
         "pairedEmpty": "Nog geen extensies verbonden.",

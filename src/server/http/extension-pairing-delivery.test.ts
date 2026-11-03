@@ -127,13 +127,18 @@ describe('Extension pairing code delivery', () => {
       expiresAt: Date.now() + 120_000,
     }
     const cli = { kind: 'cli', requestId: 'cli-request', userCode: 'ABCD-EFGH' }
+    const claim = { kind: 'extension-claim', pairingNonce: 'nas-request' }
     const bus = new EventBus()
     const app = await createApp({
       eventBus: bus,
       remoteExtensionConfig: config,
       operatorAuth: { operatorToken: token },
       bridgeQueryHandlers: {
-        [BridgeQueries.ListPendingPairRequests]: async () => [extension, cli],
+        [BridgeQueries.ListPendingPairRequests]: async () => [
+          extension,
+          claim,
+          cli,
+        ],
       },
     })
     let ws: WebSocket | undefined
@@ -154,8 +159,11 @@ describe('Extension pairing code delivery', () => {
         })
       expect(
         await (await read({ authorization: `Bearer ${token}` })).json()
-      ).toEqual([extension, cli])
-      expect(await (await read({ cookie, origin: base })).json()).toEqual([cli])
+      ).toEqual([extension, claim, cli])
+      expect(await (await read({ cookie, origin: base })).json()).toEqual([
+        claim,
+        cli,
+      ])
       expect(
         await (
           await read({
@@ -163,7 +171,7 @@ describe('Extension pairing code delivery', () => {
             'x-forwarded-proto': 'https',
           })
         ).json()
-      ).toEqual([cli])
+      ).toEqual([claim, cli])
       const unauthorized = await read({ authorization: 'Bearer agent-token' })
       expect(unauthorized.status).toBe(401)
       expect(await unauthorized.text()).not.toContain(extension.code)
@@ -182,10 +190,12 @@ describe('Extension pairing code delivery', () => {
         })
       })
       bus.emit(BridgeEvents.PairRequested as never, extension)
+      bus.emit(BridgeEvents.PairRequested as never, claim)
       bus.emit(BridgeEvents.PairRequested as never, cli)
       bus.emit(Events.TaskUpdated, { id: 'still-connected' })
       await end
-      expect(messages).toHaveLength(2)
+      expect(messages).toHaveLength(3)
+      expect(messages.join('')).toContain('extension-claim')
       expect(messages.join('')).not.toContain(extension.code)
       expect(messages.join('')).toContain(cli.userCode)
     } finally {

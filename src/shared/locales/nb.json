@@ -2403,7 +2403,9 @@
           "identityUnverifiedWarning": "Identiteten til denne utvidelsen kunne ikke bekreftes. Fortsett bare hvis du stoler på den.",
           "pairCode": "Sammenkoblingskode",
           "pairCodeHint": "Skriv inn denne koden i utvidelsen",
-          "title": "En {{browser}}-utvidelse vil koble til Motrix"
+          "title": "En {{browser}}-utvidelse vil koble til Motrix",
+          "claim": "Vis paringskode",
+          "claimDesc": "Etter paring bruker klienten rettighetene til din nåværende NAS-konto. Bare administratoren som tar over forespørselen, kan se koden."
         },
         "pairUnavailable": "Denne sammenkoblingsforespørselen venter ikke lenger — prøv sammenkoblingen på nytt fra nettleserutvidelsen.",
         "pairedEmpty": "Ingen utvidelser er tilkoblet ennå.",

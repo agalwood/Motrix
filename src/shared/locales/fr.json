@@ -2422,7 +2422,9 @@
           "identityUnverifiedWarning": "L’identité de cette extension n’a pas pu être vérifiée. Continuez uniquement si vous lui faites confiance.",
           "pairCode": "Code d’association",
           "pairCodeHint": "Saisissez ce code dans l’extension",
-          "title": "Une extension {{browser}} souhaite se connecter à Motrix"
+          "title": "Une extension {{browser}} souhaite se connecter à Motrix",
+          "claim": "Afficher le code d’association",
+          "claimDesc": "Une fois associé, ce client utilise les autorisations de votre compte NAS actuel. Seul l’administrateur qui prend en charge cette demande peut voir le code."
         },
         "pairUnavailable": "Cette demande d’association n’est plus en attente. Relancez l’association depuis l’extension du navigateur.",
         "pairedEmpty": "Aucune extension connectée pour le moment.",

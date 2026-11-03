@@ -1983,7 +1983,9 @@
             "attested": "Extensión verificada",
             "unverified": "Extensión sin verificar"
           },
-          "identityUnverifiedWarning": "No se pudo verificar la identidad de esta extensión. Continúa solo si confías en ella."
+          "identityUnverifiedWarning": "No se pudo verificar la identidad de esta extensión. Continúa solo si confías en ella.",
+          "claim": "Mostrar código de emparejamiento",
+          "claimDesc": "Tras el emparejamiento, el cliente usa los permisos de tu cuenta NAS actual. Solo el administrador que reclame la solicitud puede ver el código."
         },
         "pairUnavailable": "Esta solicitud de vinculación ya no está pendiente. Vuelve a iniciar la vinculación desde la extensión del navegador.",
         "trustedExtensions": "Extensiones de confianza",
