@@ -1,6 +1,8 @@
 import type { EventBus } from '@core/events/event-bus'
 import { subscribeForwardableEvents } from '@core/events/forward-events'
 import { getLogger } from '@core/logger'
+import { Events } from '@shared/protocol/events'
+import type { AppNotification } from '@shared/types/notification'
 
 const log = getLogger('web-events')
 
@@ -9,7 +11,10 @@ interface SocketLike {
   terminate?(): void
 }
 
-export function bindEventBroadcaster(bus: EventBus) {
+export function bindEventBroadcaster(
+  bus: EventBus,
+  getHiddenKinds: () => readonly string[] = () => []
+) {
   const sockets = new Map<
     SocketLike,
     {
@@ -24,6 +29,13 @@ export function bindEventBroadcaster(bus: EventBus) {
 
   function broadcast(channel: string, args: unknown[]): void {
     if (sockets.size === 0) return
+    if (
+      channel === Events.NotificationAdded &&
+      getHiddenKinds().includes(
+        (args[0] as AppNotification | undefined)?.kind ?? ''
+      )
+    )
+      return
     const frame = JSON.stringify({ channel, args })
     for (const [s, { eligible, accepts }] of sockets) {
       if (!eligible()) {

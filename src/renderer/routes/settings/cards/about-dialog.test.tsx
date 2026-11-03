@@ -7,12 +7,11 @@ import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
 import type { AppUpdateState } from '@shared/types/app-update'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import packageJson from '../../../../../package.json'
 import { AboutDialog } from './about-dialog'
-import * as appUpdateSection from './app-update-section'
 
 // These lifecycle tests cover the ordinary desktop host. Portable capability
 // presentation is exercised with the real hook in e2e/portable-mode.spec.ts.
@@ -35,6 +34,10 @@ const idleState: AppUpdateState = {
 }
 
 beforeEach(() => {
+  Object.defineProperty(transport, 'platform', {
+    configurable: true,
+    value: 'darwin',
+  })
   vi.mocked(transport.invoke).mockReset()
   vi.mocked(transport.on).mockReset()
   vi.mocked(transport.off).mockReset()
@@ -671,31 +674,66 @@ describe('<AboutDialog>', () => {
     )
   })
 
-  it('renders the web note without querying or subscribing to app updates', () => {
-    const showUpdates = vi
-      .spyOn(appUpdateSection, 'shouldShowAppUpdate')
-      .mockReturnValue(false)
-    try {
-      renderDialog()
-      expect(
-        screen.getByText(
-          'This web edition is updated by its deployment administrator.'
-        )
-      ).toBeInTheDocument()
-      expectNoUpdateControls()
-      expect(transport.invoke).not.toHaveBeenCalledWith(Queries.GetUpdateState)
-      expect(transport.on).not.toHaveBeenCalledWith(
-        Events.UpdateStateChanged,
-        expect.any(Function)
+  it('lets the web host check versions without offering an installer', async () => {
+    Object.defineProperty(transport, 'platform', {
+      configurable: true,
+      value: 'web',
+    })
+    renderDialog()
+    const check = await screen.findByRole('button', {
+      name: 'Check for updates',
+    })
+    expect(
+      screen.getByText(
+        'This web edition is updated by its deployment administrator.'
       )
-    } finally {
-      showUpdates.mockRestore()
-    }
+    ).toBeInTheDocument()
+    await userEvent.click(check)
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.CheckForUpdates)
+    await emitState({
+      phase: 'available',
+      currentVersion: '2.1.0',
+      availableVersion: '2.2.0',
+      updateAuthority: 'administrator',
+    })
+    expect(screen.getByText('Version 2.1.0')).toBeInTheDocument()
+    expect(
+      within(screen.getByRole('group', { name: 'App updates' })).getByRole(
+        'link',
+        { name: 'Changelog' }
+      )
+    ).toHaveAttribute('href', `${EXTERNAL_URLS.github.releases}/tag/v2.2.0`)
+    expect(
+      screen.queryByRole('button', { name: 'Download update' })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Restart and install' })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('switch', { name: 'Check automatically' })
+    ).toBeInTheDocument()
+    expect(transport.invoke).not.toHaveBeenCalledWith(Commands.DownloadUpdate)
+    expect(transport.invoke).not.toHaveBeenCalledWith(Commands.InstallUpdate)
   })
 
-  it('does not expose app updates to the web target', () => {
-    expect(appUpdateSection.shouldShowAppUpdate('web')).toBe(false)
-    expect(appUpdateSection.shouldShowAppUpdate('electron')).toBe(true)
+  it('keeps web error retries limited to checking, even with an available version', async () => {
+    Object.defineProperty(transport, 'platform', {
+      configurable: true,
+      value: 'web',
+    })
+    renderDialog()
+    await emitState({
+      phase: 'error',
+      currentVersion: '2.1.0',
+      availableVersion: '2.2.0',
+      error: { message: 'private backend detail' },
+    })
+    expect(screen.queryByText(/private backend detail/)).not.toBeInTheDocument()
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Check for updates' })
+    )
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.CheckForUpdates)
+    expect(transport.invoke).not.toHaveBeenCalledWith(Commands.DownloadUpdate)
   })
 })
 

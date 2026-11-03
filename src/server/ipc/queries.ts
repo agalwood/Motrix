@@ -4,6 +4,7 @@ import type { EngineAdapter } from '@core/engine/engine-adapter'
 import type { EngineSupervisor } from '@core/engine/engine-supervisor'
 import { createGetEngineTaskOptionsHandler } from '@core/engine/get-engine-task-options'
 import { getTuningRecommendation } from '@core/engine/get-tuning-recommendation'
+import { getFfmpegInstallStatus } from '@core/ffmpeg/verified-install'
 import { pathExists } from '@core/fs/path-exists'
 import type { GeoIPManager } from '@core/geoip/geo-ip-manager'
 import { createGetGeoIPStatusHandler } from '@core/geoip/get-geo-ip-status'
@@ -47,7 +48,6 @@ import { checkTaskFileExistsPayloadSchema } from '@shared/schemas/check-task-fil
 import { PluginLogRequestSchema } from '@shared/schemas/plugin-logs'
 import { ListServerDirectoryLocationsRequestSchema } from '@shared/schemas/server-directory'
 import { taskTrackerRequestSchema } from '@shared/schemas/task-tracker'
-import type { AppUpdateState } from '@shared/types/app-update'
 import type { AppImageIntegrationView } from '@shared/types/appimage-integration'
 import {
   CliInstallCapability,
@@ -58,6 +58,8 @@ import {
 } from '@shared/types/cli-tool'
 import type { GetTransferStatsParams } from '@shared/types/stats'
 import type { GetTaskActivityParams } from '@shared/types/task-activity'
+import { z } from 'zod'
+import type { ServerUpdateService } from '../app-update-service'
 import type { ServerDownloadPathPolicy } from '../download-path-policy'
 import { makeServerFfmpegDetect } from '../plugin/ffmpeg-detect-server'
 import type { ServerDirectoryService } from '../server-directory-service'
@@ -107,6 +109,7 @@ const UNSUPPORTED_APPIMAGE_INTEGRATION: AppImageIntegrationView = {
 }
 
 export interface ServerQueryContext {
+  updateService: Pick<ServerUpdateService, 'getState'>
   getResolvedLanguage: () => SupportedLocale
   taskManager: TaskManager
   statsAggregator: StatsAggregator
@@ -178,15 +181,10 @@ export function buildServerQueryHandlers(
 
   return {
     ...unsupportedLegacyImportQueries(),
-    [Queries.GetFfmpegInstallStatus]: async () => ({
-      phase: 'idle',
-      bytesReceived: 0,
-      bytesTotal: 0,
-      percent: null,
-      releaseVersion: null,
-      directory: null,
-      error: 'unsupported',
-    }),
+    [Queries.GetFfmpegInstallStatus]: async (payload: unknown) => {
+      z.undefined().parse(payload)
+      return getFfmpegInstallStatus(userDataDir)
+    },
     [Queries.ListServerDirectoryLocations]: async (request: unknown) => {
       if (
         !ListServerDirectoryLocationsRequestSchema.safeParse(request).success
@@ -298,10 +296,10 @@ export function buildServerQueryHandlers(
 
     [Queries.GetSystemProxy]: async () => parseProxyEnvironment(environment),
 
-    [Queries.GetUpdateState]: async (): Promise<AppUpdateState> => ({
-      phase: 'unsupported',
-      currentVersion: hostVersion,
-    }),
+    [Queries.GetUpdateState]: async (payload: unknown) => {
+      z.undefined().parse(payload)
+      return ctx.updateService.getState()
+    },
 
     [Queries.GetAppImageIntegrationStatus]: async () =>
       UNSUPPORTED_APPIMAGE_INTEGRATION,

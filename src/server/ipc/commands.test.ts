@@ -39,11 +39,24 @@ import { makeMediaMetaStoreStub } from '@test-utils/media-meta-store'
 import { makeDownloadTask } from '@test-utils/task'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createServerDownloadPathPolicy } from '../download-path-policy'
+import { makeServerFfmpegDetect } from '../plugin/ffmpeg-detect-server'
 import type { ServerPluginInstallService } from '../plugin/install-service'
+import { installServerFfmpeg } from '../plugin/verified-ffmpeg-server'
 import { ServerDirectoryService } from '../server-directory-service'
 import type { ServerCommandContext } from './commands'
 import { buildServerCommandHandlers } from './commands'
 import { buildServerQueryHandlers } from './queries'
+
+vi.mock('../plugin/verified-ffmpeg-server', () => ({
+  installServerFfmpeg: vi.fn(),
+  probeServerFfmpeg: vi.fn(),
+}))
+vi.mock('../plugin/ffmpeg-detect-server', () => ({
+  makeServerFfmpegDetect: vi.fn(() => async () => ({
+    active: null,
+    candidates: [],
+  })),
+}))
 
 const PROXY_OFF = {
   enabled: false,
@@ -66,6 +79,10 @@ function makeFakeCtx() {
   const setEnabled = vi.fn()
   const refreshState = vi.fn()
   return {
+    updateService: {
+      check: vi.fn().mockResolvedValue(undefined),
+      setChannel: vi.fn(),
+    },
     supervisor: {
       stop: vi.fn().mockResolvedValue(undefined),
       start: vi.fn().mockResolvedValue(undefined),
@@ -214,7 +231,61 @@ function makeFakeCtx() {
   }
 }
 
-describe('desktop-only FFmpeg installation boundary', () => {
+describe('server application update checks', () => {
+  it('applies the persisted channel to subsequent version checks', async () => {
+    const ctx = makeFakeCtx()
+    const base = makeSettings(PROXY_OFF)
+    let settings = { ...base, app: { ...base.app, updateChannel: 'stable' } }
+    vi.mocked(ctx.settingsManager.get).mockImplementation(
+      () => settings as never
+    )
+    vi.mocked(ctx.settingsManager.getApp).mockImplementation(
+      () => settings.app as never
+    )
+    vi.mocked(ctx.settingsManager.update).mockImplementation(async () => {
+      settings = {
+        ...settings,
+        app: { ...settings.app, updateChannel: 'beta' },
+      }
+      return {
+        saved: true,
+        requiresRestart: false,
+        changedRestartKeys: [],
+        requiresAppRestart: false,
+        changedAppRestartKeys: [],
+      }
+    })
+    const handlers = buildServerCommandHandlers(
+      ctx as unknown as ServerCommandContext
+    )
+    await handlers[Commands.UpdateSettings]?.({
+      app: { updateChannel: 'beta' },
+    })
+    expect(ctx.updateService.setChannel).toHaveBeenCalledWith('beta')
+  })
+
+  it('checks through the server service and never exposes download or installation', async () => {
+    const ctx = makeFakeCtx()
+    const handlers = buildServerCommandHandlers(
+      ctx as unknown as ServerCommandContext
+    )
+    await expect(handlers[Commands.CheckForUpdates]?.()).resolves.toEqual({
+      ok: true,
+    })
+    expect(ctx.updateService.check).toHaveBeenCalledOnce()
+    for (const command of [Commands.DownloadUpdate, Commands.InstallUpdate]) {
+      await expect(handlers[command]?.()).rejects.toMatchObject({
+        code: 'APP_UPDATE_MANAGED',
+      })
+    }
+    await expect(
+      handlers[Commands.CheckForUpdates]?.({ url: 'https://invalid.test' })
+    ).rejects.toThrow()
+    expect(ctx.updateService.check).toHaveBeenCalledOnce()
+  })
+})
+
+describe('server FFmpeg installation', () => {
   it('does not open a server settings directory through web commands', async () => {
     const handlers = buildServerCommandHandlers(
       makeFakeCtx() as ServerCommandContext
@@ -227,18 +298,81 @@ describe('desktop-only FFmpeg installation boundary', () => {
     ).rejects.toThrow()
   })
 
-  it('does not install server executables through web commands', async () => {
+  it('rejects caller-supplied URLs or paths before starting an install', async () => {
+    vi.mocked(installServerFfmpeg).mockClear()
     const handlers = buildServerCommandHandlers(
       makeFakeCtx() as ServerCommandContext
     )
-    await expect(handlers[Commands.InstallFfmpeg]?.()).resolves.toEqual({
-      ok: false,
-      error: 'unsupported',
-    })
     await expect(
       handlers[Commands.InstallFfmpeg]?.({ url: 'https://evil.test' })
     ).rejects.toThrow()
+    expect(installServerFfmpeg).not.toHaveBeenCalled()
   })
+
+  it('installs on the server, broadcasts progress, and refreshes media capabilities', async () => {
+    const ctx = makeFakeCtx()
+    const refreshDetection = vi
+      .fn()
+      .mockResolvedValue({ active: null, candidates: [] })
+    const trackAsyncWork = vi.fn(async (operation: () => Promise<unknown>) =>
+      operation()
+    )
+    const result = { ok: true as const, releaseVersion: '9.0.2-motrix.2' }
+    const status = {
+      phase: 'downloading' as const,
+      bytesReceived: 50,
+      bytesTotal: 100,
+      percent: 0.5,
+      releaseVersion: null,
+      directory: null,
+      error: null,
+    }
+    vi.mocked(installServerFfmpeg).mockImplementationOnce(
+      async (_directory, onStatus) => {
+        onStatus?.(status)
+        return result
+      }
+    )
+    const handlers = buildServerCommandHandlers({
+      ...ctx,
+      trackAsyncWork,
+      capabilityHost: { ffmpeg: { refreshDetection } },
+    } as unknown as ServerCommandContext)
+    await expect(handlers[Commands.InstallFfmpeg]?.()).resolves.toEqual(result)
+    expect(trackAsyncWork).toHaveBeenCalledOnce()
+    expect(installServerFfmpeg).toHaveBeenLastCalledWith(
+      ctx.userDataDir,
+      expect.any(Function)
+    )
+    expect(ctx.eventBus.emit).toHaveBeenCalledWith(
+      Events.FfmpegInstallStatusChanged,
+      status
+    )
+    expect(refreshDetection).toHaveBeenCalledWith(
+      vi.mocked(makeServerFfmpegDetect).mock.results.at(-1)?.value
+    )
+  })
+
+  it.each([false, true])(
+    'preserves install results when detection fails (installed: %s)',
+    async (installed) => {
+      const refreshDetection = vi
+        .fn()
+        .mockRejectedValue(new Error('probe unavailable'))
+      const result = installed
+        ? { ok: true as const, releaseVersion: '9.0.2-motrix.2' }
+        : { ok: false as const, error: 'verification' as const }
+      vi.mocked(installServerFfmpeg).mockResolvedValueOnce(result)
+      const handlers = buildServerCommandHandlers({
+        ...makeFakeCtx(),
+        capabilityHost: { ffmpeg: { refreshDetection } },
+      } as unknown as ServerCommandContext)
+      await expect(handlers[Commands.InstallFfmpeg]?.()).resolves.toEqual(
+        result
+      )
+      expect(refreshDetection).toHaveBeenCalledTimes(installed ? 1 : 0)
+    }
+  )
 })
 
 function makeSettings(

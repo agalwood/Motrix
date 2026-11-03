@@ -18,7 +18,8 @@ import type { AppUpdateController } from './use-app-update'
 
 export function AppUpdateSection({ update }: { update: AppUpdateController }) {
   const { t } = useTranslation()
-  const { state, loading, showControls, check, download, install } = update
+  const { state, loading, showControls, checkOnly, check, download, install } =
+    update
   const betaWarningId = useId()
   const [channel, setChannel] = useState<AppUpdateChannel>('stable')
 
@@ -42,7 +43,9 @@ export function AppUpdateSection({ update }: { update: AppUpdateController }) {
           </h3>
           {!loading && (
             <p className="mt-1 text-xs leading-normal text-muted-foreground">
-              {statusDescription(state, t)}
+              {checkOnly && state.phase === 'available'
+                ? t('settings.about.webVersionNote')
+                : statusDescription(state, t)}
             </p>
           )}
         </div>
@@ -62,6 +65,7 @@ export function AppUpdateSection({ update }: { update: AppUpdateController }) {
           >
             <UpdateActionButton
               state={state}
+              checkOnly={checkOnly}
               check={check}
               download={download}
               install={install}
@@ -69,6 +73,12 @@ export function AppUpdateSection({ update }: { update: AppUpdateController }) {
           </UpdateChannelSetting>
         )}
       </div>
+
+      {checkOnly && state.phase !== 'available' && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          {t('settings.about.webVersionNote')}
+        </p>
+      )}
 
       {showControls && channel === 'beta' && (
         <Alert
@@ -85,9 +95,11 @@ export function AppUpdateSection({ update }: { update: AppUpdateController }) {
           variant={state.phase === 'error' ? 'destructive' : 'default'}
         >
           {state.phase === 'error'
-            ? t('settings.about.update.error', {
-                message: state.error?.message,
-              })
+            ? checkOnly
+              ? t('settings.about.update.errorDescription')
+              : t('settings.about.update.error', {
+                  message: state.error?.message,
+                })
             : t('settings.about.update.cancelled')}
         </Alert>
       )}
@@ -97,6 +109,7 @@ export function AppUpdateSection({ update }: { update: AppUpdateController }) {
 
 interface UpdateActionButtonProps {
   state: AppUpdateState
+  checkOnly: boolean
   check: () => Promise<unknown>
   download: () => Promise<unknown>
   install: () => Promise<unknown>
@@ -113,11 +126,53 @@ interface UpdateAction {
 
 function UpdateActionButton({
   state,
+  checkOnly,
   check,
   download,
   install,
 }: UpdateActionButtonProps) {
   const { t } = useTranslation()
+
+  if (checkOnly) {
+    const checking = state.phase === 'checking'
+    return (
+      <>
+        {state.phase === 'available' && state.availableVersion && (
+          <a
+            href={`${EXTERNAL_URLS.github.releases}/tag/v${encodeURIComponent(state.availableVersion)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+              buttonVariants({ size: 'sm' }),
+              'h-7! rounded-md! px-2 text-xs shadow-none'
+            )}
+          >
+            {t('settings.about.resources.changelog')}
+          </a>
+        )}
+        <Button
+          type="button"
+          size="sm"
+          className="h-7! gap-1.5 rounded-md! px-2 text-xs shadow-none"
+          disabled={checking}
+          aria-busy={checking || undefined}
+          aria-label={t('settings.about.update.check')}
+          onClick={() => void check()}
+        >
+          {checking ? (
+            <Spinner className="size-3.5" aria-hidden />
+          ) : (
+            <RefreshIcon className="size-3.5" aria-hidden />
+          )}
+          {t(
+            checking
+              ? 'settings.about.update.checking'
+              : 'settings.about.update.checkAction'
+          )}
+        </Button>
+      </>
+    )
+  }
 
   if (state.manualInstallReason && state.availableVersion) {
     return (
@@ -322,8 +377,4 @@ function statusDescription(
         version: state.currentVersion,
       })
   }
-}
-
-export function shouldShowAppUpdate(target: 'electron' | 'web'): boolean {
-  return target === 'electron'
 }

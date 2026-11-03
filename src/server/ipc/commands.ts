@@ -110,13 +110,19 @@ import { canRetryMagnetMetadata } from '@shared/types/task-actions'
 import type { TaskActivityRecorder } from '@shared/types/task-activity'
 import type { TaskOccurrence } from '@shared/types/task-occurrence'
 import { z } from 'zod'
+import type { ServerUpdateService } from '../app-update-service'
 import type { ServerDownloadPathPolicy } from '../download-path-policy'
+import { makeServerFfmpegDetect } from '../plugin/ffmpeg-detect-server'
 import type { ServerPluginInstallService } from '../plugin/install-service'
+import { installServerFfmpeg } from '../plugin/verified-ffmpeg-server'
 import type { createServerProxyApplier } from '../proxy/wiring'
 import type { ServerDirectoryService } from '../server-directory-service'
 import { unsupportedLegacyImportCommands } from './legacy-import'
 
 export interface ServerCommandContext {
+  updateService: Pick<ServerUpdateService, 'check' | 'setChannel'>
+  userDataDir: string
+  trackAsyncWork?: <T>(operation: () => Promise<T>) => Promise<T>
   btStorageRuntime?: Pick<
     DurableFinalizeRuntime,
     'commit' | 'withArtifactLease' | 'hasPendingFinalization'
@@ -460,9 +466,39 @@ export function buildServerCommandHandlers(
       z.undefined().parse(payload)
       return false
     },
+    [Commands.CheckForUpdates]: async (payload: unknown) => {
+      z.undefined().parse(payload)
+      const operation = () => ctx.updateService.check()
+      await (ctx.trackAsyncWork ? ctx.trackAsyncWork(operation) : operation())
+      return { ok: true }
+    },
+    [Commands.DownloadUpdate]: async () => {
+      throw new AppError(
+        ErrorCode.AppUpdateManaged,
+        'settings.about.webVersionNote'
+      )
+    },
+    [Commands.InstallUpdate]: async () => {
+      throw new AppError(
+        ErrorCode.AppUpdateManaged,
+        'settings.about.webVersionNote'
+      )
+    },
     [Commands.InstallFfmpeg]: async (payload: unknown) => {
       z.undefined().parse(payload)
-      return { ok: false, error: 'unsupported' }
+      const operation = async () => {
+        const result = await installServerFfmpeg(ctx.userDataDir, (status) =>
+          eventBus.emit(Events.FfmpegInstallStatusChanged, status)
+        )
+        if (result.ok) {
+          // Detection failure must not overwrite an already committed install.
+          await capabilityHost.ffmpeg
+            .refreshDetection(makeServerFfmpegDetect(ctx))
+            .catch(() => {})
+        }
+        return result
+      }
+      return ctx.trackAsyncWork ? ctx.trackAsyncWork(operation) : operation()
     },
     [Commands.CreateServerDirectory]: async (request: unknown) =>
       ctx.serverDirectoryService.create(request),
@@ -909,6 +945,10 @@ export function buildServerCommandHandlers(
 
           if (oldFull.app.defaultSaveDir !== newFull.app.defaultSaveDir) {
             await supervisor.applyDefaultSaveDir(newFull.app.defaultSaveDir)
+          }
+
+          if (oldFull.app.updateChannel !== newFull.app.updateChannel) {
+            ctx.updateService.setChannel(settingsManager.getApp().updateChannel)
           }
 
           if (

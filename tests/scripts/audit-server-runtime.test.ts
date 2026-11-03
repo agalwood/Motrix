@@ -318,6 +318,7 @@ describe('Server package contracts', () => {
       'chokidar',
       'fastify',
       'i18next',
+      'js-yaml',
       'libsodium-wrappers',
       'mmdb-lib',
       'pino',

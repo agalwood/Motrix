@@ -117,6 +117,7 @@ export interface AppOptions {
   bridgeQueryHandlers?: Record<string, Handler>
   remoteExtensionConfig?: RemoteExtensionConfig
   eventBus?: EventBus
+  getHiddenNotificationKinds?: () => readonly string[]
   pluginLogSource?: Pick<CapabilityHost, 'subscribeLog'>
   rendererDir?: string
   healthCheck?: () => { ok: boolean } | Promise<{ ok: boolean }>
@@ -253,7 +254,10 @@ export async function createApp(
   )
 
   if (opts.eventBus) {
-    const broadcaster = bindEventBroadcaster(opts.eventBus)
+    const broadcaster = bindEventBroadcaster(
+      opts.eventBus,
+      opts.getHiddenNotificationKinds
+    )
     const unsubscribePluginLogs = opts.pluginLogSource?.subscribeLog(
       (pluginId, entry) => {
         broadcaster.broadcast(`${Events.PluginLog}:${pluginId}`, [entry])

@@ -1,4 +1,5 @@
 import { PanelShell } from '@renderer/components/desktop-kit/panel/panel-shell'
+import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate, useParams } from 'react-router'
@@ -31,7 +32,11 @@ export function SettingsPage() {
             key={card.id}
             icon={card.icon}
             labelKey={card.labelKey}
-            descKey={card.descKey}
+            descKey={
+              card.id === 'general' && transport.platform === 'web'
+                ? 'settings.general.inAppNotificationsDesc'
+                : card.descKey
+            }
             onClick={() => navigate(`/settings/${card.id}`)}
             className={cn(
               'border-border',

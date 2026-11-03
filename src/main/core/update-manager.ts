@@ -1,5 +1,6 @@
 import type { EventBus } from '@core/events/event-bus'
 import { getLogger } from '@core/logger'
+import { isVersionAllowedForChannel } from '@shared/app-update-channel'
 import { type EventChannel, Events } from '@shared/protocol/events'
 import type {
   AppUpdateProgress,
@@ -7,6 +8,8 @@ import type {
 } from '@shared/types/app-update'
 import type { AppUpdateChannel } from '@shared/types/settings'
 import type { VerifyUpdateSupport } from 'electron-updater'
+
+export { isVersionAllowedForChannel } from '@shared/app-update-channel'
 
 export interface Updater {
   autoDownload: boolean
@@ -353,20 +356,6 @@ export class UpdateManager {
       )
     }
   }
-}
-
-const STRICT_SEMVER_PATTERN =
-  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/
-
-export function isVersionAllowedForChannel(
-  version: string,
-  channel: AppUpdateChannel
-): boolean {
-  const match = STRICT_SEMVER_PATTERN.exec(version)
-  if (!match) return false
-  const prerelease = match[4]
-  if (prerelease === undefined) return true
-  return channel === 'beta' && prerelease.split('.')[0] === 'beta'
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {

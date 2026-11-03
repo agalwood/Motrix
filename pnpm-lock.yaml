@@ -251,6 +251,9 @@ importers:
       i18next:
         specifier: ^26.5.12
         version: 26.5.12(typescript@7.0.2)
+      js-yaml:
+        specifier: ^5.5.0
+        version: 5.5.0
       libsodium-wrappers:
         specifier: ^0.8.4
         version: 0.8.4
@@ -396,9 +399,6 @@ importers:
       esbuild:
         specifier: ^0.28.2
         version: 0.28.2
-      js-yaml:
-        specifier: ^5.5.0
-        version: 5.5.0
       jsdom:
         specifier: ^30.1.3
         version: 30.1.3(@noble/hashes@2.4.0)
