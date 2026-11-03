@@ -44,6 +44,14 @@ import {
 import type { Handler } from '@shared/protocol/handler-types'
 import { CancellationTokenSource } from 'vscode-jsonrpc'
 import {
+  NasCliPairingStore,
+  nasPairingFile,
+} from '../platform/nas/cli-pairing-store'
+import {
+  type NasAccountAuthority,
+  NasClientAuthorization,
+} from '../platform/nas/client-authorization'
+import {
   isIssuedRemoteExtensionConfig,
   type RemoteExtensionConfig,
 } from './remote-extension-config'
@@ -79,6 +87,9 @@ export interface ServerExtensionReceiver {
 }
 
 export interface ServerBridgeOptions {
+  /** Couples NAS credential ownership and per-request account checks. The
+   * composition root must provide a real vendor authority before enabling it. */
+  nasAccounts?: NasAccountAuthority
   /** Server data dir (env MOTRIX_DATA_DIR / platform.userDataDir); the bridge
    *  state lives under `<userDataDir>/bridge/`. */
   userDataDir: string
@@ -154,8 +165,14 @@ export async function bootstrapBridgeForServer(
     ownership.own('bridge-data-dir-lock', () => dataDirLock.release())
   }
   try {
+    const nasPairings = opts.nasAccounts
+      ? new NasCliPairingStore(
+          opts.nasAccounts.platform,
+          nasPairingFile(join(dataDir, 'nas-cli-pairing.json'))
+        )
+      : undefined
     const pairing = new PairingService(
-      new FilePairingStore(join(dataDir, 'pairing.json'))
+      nasPairings ?? new FilePairingStore(join(dataDir, 'pairing.json'))
     )
     await pairing.load()
     const bridgeBus = new BridgeEventBus()
@@ -163,6 +180,10 @@ export async function bootstrapBridgeForServer(
       opts.remoteExtensionConfig !== undefined &&
       isIssuedRemoteExtensionConfig(opts.remoteExtensionConfig) &&
       opts.remoteExtensionConfig.status === 'enabled'
+    if (nasPairings && remoteExtensionEnabled)
+      throw new Error(
+        'NAS extension ownership must be configured before exposing remote pairing'
+      )
     // Docker must bind the listener to the container interface for host port
     // publication to work. The explicit remote opt-in, canonical public URLs,
     // exact raw Host/path checks, admission limits, and MBP1 authentication are
@@ -284,6 +305,10 @@ export async function bootstrapBridgeForServer(
       ffmpegAvailable:
         extensionReceiver != null ? (opts.ffmpegAvailable ?? false) : false,
       localToken,
+      cliAuthorization:
+        nasPairings && opts.nasAccounts
+          ? new NasClientAuthorization(nasPairings, opts.nasAccounts)
+          : undefined,
       deviceCode,
       onPairRequested: (payload) => bridgeBus.emitPairRequested(payload),
       onExtensionSessionsChanged: () =>

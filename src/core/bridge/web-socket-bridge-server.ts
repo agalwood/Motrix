@@ -33,6 +33,11 @@ import {
 import { type RawData, type WebSocket, WebSocketServer } from 'ws'
 import { BridgeConnection } from './bridge-connection'
 import {
+  type AuthenticatedBridgeClient,
+  type BridgeClientAuthorization,
+  cliCredentialFingerprint,
+} from './client-authorization'
+import {
   type Mbp1CredentialStore,
   principalKey,
   transportIdentityForPrincipal,
@@ -90,6 +95,8 @@ export interface BridgeServerOptions {
    * here so the unary handler can authenticate same-host CLI/agent requests.
    */
   localToken: string
+  /** Shell-owned account gate for paired CLI requests and every SSE frame. */
+  cliAuthorization?: BridgeClientAuthorization
   /**
    * Device-code pairing for cli/agent clients (Spec 7b). When present, the
    * `POST /mdxp/pair/request` + `POST /mdxp/pair/poll` HTTP routes are enabled;
@@ -571,7 +578,13 @@ export class WebSocketBridgeServer {
   // life of the connection.
   private sseClients = new Map<
     ServerResponse,
-    { heartbeat: NodeJS.Timeout; identity: ClientIdentity }
+    {
+      heartbeat: NodeJS.Timeout
+      identity: ClientIdentity
+      client: AuthenticatedBridgeClient
+      pending: Promise<void>
+      queued: number
+    }
   >()
   private readonly dispatcher = new MdxpDispatcher()
   private readonly requestWork = new AsyncWorkTracker()
@@ -796,7 +809,12 @@ export class WebSocketBridgeServer {
       }
       // GET /mdxp/events — Server-Sent Events firehose for CLI/agents (watch).
       if (req.method === 'GET' && pathname === '/mdxp/events') {
-        this.handleSseConnect(req, res)
+        void this.requestWork
+          .run(() => this.handleSseConnect(req, res))
+          .catch(() => {
+            if (!res.headersSent) res.writeHead(503)
+            res.end()
+          })
         return
       }
       // POST /mdxp — stateless unary JSON-RPC for same-machine CLI/agents.
@@ -1161,13 +1179,53 @@ export class WebSocketBridgeServer {
   broadcastStreamEvent(event: string, data: unknown): void {
     if (this.sseClients.size === 0) return
     const frame = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
-    for (const res of this.sseClients.keys()) {
+    for (const res of this.sseClients.keys()) this.writeStreamFrame(res, frame)
+  }
+
+  private closeStream(res: ServerResponse): void {
+    const state = this.sseClients.get(res)
+    if (state) clearInterval(state.heartbeat)
+    this.sseClients.delete(res)
+    if (!res.destroyed && !res.writableEnded) res.end()
+  }
+
+  private writeStreamFrame(res: ServerResponse, frame: string): void {
+    const state = this.sseClients.get(res)
+    if (!state || res.destroyed || res.writableEnded) return
+    const authorization = this.opts.cliAuthorization
+    if (!authorization) {
       try {
         res.write(frame)
       } catch {
-        // Drop a broken stream; req 'close' will clean it up.
+        this.closeStream(res)
       }
+      return
     }
+    // Account checks can involve platform IO. Preserve frame order and bound
+    // memory if that authority stalls; an overloaded stream reconnects.
+    if (state.queued >= 32) {
+      this.closeStream(res)
+      return
+    }
+    state.queued += 1
+    state.pending = state.pending
+      .then(() =>
+        this.requestWork.run(async () => {
+          if (this.sseClients.get(res) !== state) return
+          await authorization.run(state.client, async () => {
+            if (
+              this.sseClients.get(res) === state &&
+              !res.destroyed &&
+              !res.writableEnded
+            )
+              res.write(frame)
+          })
+        })
+      )
+      .catch(() => this.closeStream(res))
+      .finally(() => {
+        state.queued -= 1
+      })
   }
 
   /**
@@ -1178,56 +1236,87 @@ export class WebSocketBridgeServer {
    * and any unknown/non-cli token is rejected (fail closed). Returns the calling
    * identity, or null when unauthenticated.
    */
-  private resolveBearer(authHeader: string | undefined): ClientIdentity | null {
+  private resolveBearer(
+    authHeader: string | undefined
+  ): AuthenticatedBridgeClient | null {
     const raw = authHeader ?? ''
     const token = raw.startsWith('Bearer ') ? raw.slice(7) : ''
     if (!token) return null
     if (token === this.opts.localToken) {
-      return { kind: 'cli', id: 'local' }
+      return {
+        identity: { kind: 'cli', id: 'local' },
+        credential: { kind: 'local' },
+      }
     }
     const paired = this.opts.pairing.findByToken(token)
     if (paired && paired.identity.kind === 'cli') {
-      this.opts.pairing.markActive(paired.identity)
-      return paired.identity
+      return {
+        identity: paired.identity,
+        credential: {
+          kind: 'paired-cli',
+          fingerprint: cliCredentialFingerprint(token),
+        },
+      }
     }
     return null
   }
 
-  private handleSseConnect(req: IncomingMessage, res: ServerResponse): void {
-    const identity = this.resolveBearer(req.headers.authorization)
-    if (!identity) {
-      res.writeHead(401, { 'content-type': 'application/json' })
-      res.end(
-        JSON.stringify({
-          error: { code: ErrorCodes.PermissionDenied, message: 'unauthorized' },
-        })
+  private async handleSseConnect(
+    req: IncomingMessage,
+    res: ServerResponse
+  ): Promise<void> {
+    const client = this.resolveBearer(req.headers.authorization)
+    try {
+      if (!client) throw new Error('unauthorized')
+      await this.opts.cliAuthorization?.run(client, async () => undefined)
+      // Rotation/revoke during account lookup must not admit a stale token.
+      if (
+        !this.resolveBearer(req.headers.authorization) ||
+        !this.requestWork.isAccepting() ||
+        res.destroyed
       )
+        throw new Error('unauthorized')
+    } catch {
+      if (!res.destroyed) {
+        res.writeHead(401, { 'content-type': 'application/json' })
+        res.end(
+          JSON.stringify({
+            error: {
+              code: ErrorCodes.PermissionDenied,
+              message: 'unauthorized',
+            },
+          })
+        )
+      }
       return
     }
+    if (!client) return
+    if (client.credential.kind === 'paired-cli')
+      this.opts.pairing.markActive(client.identity)
     res.writeHead(200, {
       'content-type': 'text/event-stream',
       'cache-control': 'no-cache',
       connection: 'keep-alive',
     })
     res.write(': connected\n\n')
-    // Heartbeat keeps intermediaries from closing an idle stream. unref() so a
-    // lingering stream never keeps the process alive.
-    const heartbeat = setInterval(() => {
-      try {
-        res.write(': ping\n\n')
-      } catch {
-        // ignore; close handler removes it
-      }
-    }, SSE_HEARTBEAT_MS)
+    // Heartbeats also recheck the account when there are no task events.
+    const heartbeat = setInterval(
+      () => this.writeStreamFrame(res, ': ping\n\n'),
+      SSE_HEARTBEAT_MS
+    )
     heartbeat.unref()
-    this.sseClients.set(res, { heartbeat, identity })
+    this.sseClients.set(res, {
+      heartbeat,
+      identity: client.identity,
+      client,
+      pending: Promise.resolve(),
+      queued: 0,
+    })
     const cleanup = () => {
       clearInterval(heartbeat)
       this.sseClients.delete(res)
     }
     req.on('close', cleanup)
-    // Defensive: a socket error on a long-lived stream must not crash the
-    // process as an unhandled 'error' event.
     res.on('error', cleanup)
   }
 
@@ -1585,8 +1674,8 @@ export class WebSocketBridgeServer {
     // Auth: a Bearer token that is EITHER the machine-owner localToken OR a
     // paired cli token (device-code). The caller identity is synthesized from
     // whichever matched.
-    const identity = this.resolveBearer(req.headers.authorization)
-    if (!identity) {
+    const client = this.resolveBearer(req.headers.authorization)
+    if (!client) {
       writeJsonRpc(res, 401, {
         jsonrpc: '2.0',
         id: null,
@@ -1658,7 +1747,7 @@ export class WebSocketBridgeServer {
 
     try {
       const ctx: MdxpSessionContext = {
-        identity,
+        identity: client.identity,
         startedAt: Date.now(),
         isReady: () => true,
         markReady: () => {},
@@ -1670,7 +1759,16 @@ export class WebSocketBridgeServer {
       // The HTTP request wrapper already admitted/tracks this whole handler.
       // Dispatch directly so a shutdown that starts while the body is being
       // read does not re-gate an already-accepted request.
-      const result = await this.dispatcher.dispatch(method, msg.params, ctx)
+      const dispatch = async () => {
+        if (!this.resolveBearer(req.headers.authorization))
+          throw makeMdxpError(ErrorCodes.PermissionDenied, 'unauthorized')
+        if (client.credential.kind === 'paired-cli')
+          this.opts.pairing.markActive(client.identity)
+        return this.dispatcher.dispatch(method, msg.params, ctx)
+      }
+      const result = this.opts.cliAuthorization
+        ? await this.opts.cliAuthorization.run(client, dispatch)
+        : await dispatch()
       writeJsonRpc(res, 200, { jsonrpc: '2.0', id, result })
     } catch (err) {
       const error = normalizeUnaryError(err)
