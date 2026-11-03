@@ -14,6 +14,8 @@ export function useAppUpdate(enabled = true) {
   const [state, setState] = useState<AppUpdateState>(initialState)
   const [hasState, setHasState] = useState(false)
   const [loading, setLoading] = useState(true)
+  const checkOnly =
+    transport.platform === 'web' || state.updateAuthority === 'administrator'
   const systemManaged = useRef(false)
   const installRequested = useRef(false)
 
@@ -96,7 +98,12 @@ export function useAppUpdate(enabled = true) {
   const showControls = enabled && hasState && !isSystemManaged(state)
   const invoke = useCallback(
     async (command: (typeof Commands)[keyof typeof Commands]) => {
-      if (!showControls || systemManaged.current) return
+      if (
+        !showControls ||
+        systemManaged.current ||
+        (checkOnly && command !== Commands.CheckForUpdates)
+      )
+        return
       try {
         await transport.invoke(command)
       } catch (error) {
@@ -115,17 +122,19 @@ export function useAppUpdate(enabled = true) {
         )
       }
     },
-    [showControls]
+    [showControls, checkOnly]
   )
 
   return {
     state,
     loading,
     showControls,
+    checkOnly,
     check: () => invoke(Commands.CheckForUpdates),
     download: () => invoke(Commands.DownloadUpdate),
     install: () => {
-      if (installRequested.current || !showControls) return Promise.resolve()
+      if (checkOnly || installRequested.current || !showControls)
+        return Promise.resolve()
       installRequested.current = true
       setState((current) => ({
         ...current,

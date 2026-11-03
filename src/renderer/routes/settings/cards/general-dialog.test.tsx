@@ -204,37 +204,75 @@ describe('General settings', () => {
       expect(saves()[0]?.[1]).toMatchObject({ app: { runMode: 2 } })
     }
   )
-  it('keeps unsupported desktop controls out of the Web dialog', async () => {
+  it('saves Web notification preferences without changing desktop-only settings', async () => {
     transport.platform = 'web'
-    render(
-      <GeneralDialog
-        open
-        onClose={vi.fn()}
-        labelKey="settings.cards.general.title"
-        descKey="settings.cards.general.desc"
-      />
-    )
-    expect(screen.queryByRole('switch')).toBeNull()
-    expect(screen.queryByRole('combobox')).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull()
-  })
-  it('disables writes after a failed load and supports retry', async () => {
-    vi.mocked(transport.invoke).mockRejectedValueOnce(new Error('offline'))
-    render(<GeneralDialog open onClose={vi.fn()} labelKey="" descKey="" />)
-    await screen.findByRole('button', { name: 'Retry' })
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
+    snapshot.app.notifyInAppOnComplete = true
+    snapshot.app.notifyInAppOnError = true
+    const close = await openGeneral()
+    const user = userEvent.setup()
     expect(
-      screen.getByRole('switch', { name: 'Open at login' })
-    ).toHaveAttribute('aria-disabled', 'true')
-    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled()
+      screen.queryByRole('switch', { name: 'Open at login' })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('combobox', { name: 'Download completed' })
+    ).not.toBeInTheDocument()
+    await user.click(
+      screen.getByRole('switch', { name: 'Show completed downloads' })
     )
-    expect(transport.invoke).toHaveBeenCalledWith(
-      Queries.GetGeneralSettingsDraft,
-      {}
+    await user.click(
+      screen.getByRole('switch', { name: 'Show failed downloads' })
     )
+    await user.click(screen.getByRole('combobox', { name: 'Unread badge' }))
+    await user.click(await screen.findByRole('option', { name: 'Dot' }))
+    expect(saves()).toHaveLength(0)
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(saves()[0]?.[1]).toEqual({
+      expectedRevision: TEST_GENERAL_REVISION,
+      app: {
+        notifyInAppOnComplete: false,
+        notifyInAppOnError: false,
+        notificationBadgeStyle: 'dot',
+      },
+      directories: { addFavorites: [], removeFavorites: [], removeRecent: [] },
+    })
+    expect(close).toHaveBeenCalledOnce()
   })
+
+  it('discards Web notification edits on Cancel', async () => {
+    transport.platform = 'web'
+    const close = await openGeneral()
+    const user = userEvent.setup()
+    await user.click(
+      screen.getByRole('switch', { name: 'Show completed downloads' })
+    )
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(saves()).toHaveLength(0)
+    expect(close).toHaveBeenCalledOnce()
+  })
+  it.each(['darwin', 'web'] as const)(
+    'disables writes after a failed load and supports retry on %s',
+    async (platform) => {
+      transport.platform = platform
+      vi.mocked(transport.invoke).mockRejectedValueOnce(new Error('offline'))
+      render(<GeneralDialog open onClose={vi.fn()} labelKey="" descKey="" />)
+      await screen.findByRole('button', { name: 'Retry' })
+      expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
+      expect(
+        screen.getByRole('switch', {
+          name:
+            platform === 'web' ? 'Show completed downloads' : 'Open at login',
+        })
+      ).toHaveAttribute('aria-disabled', 'true')
+      fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled()
+      )
+      expect(transport.invoke).toHaveBeenCalledWith(
+        Queries.GetGeneralSettingsDraft,
+        {}
+      )
+    }
+  )
   it('preserves intent after an uncertain committed save and reversal', async () => {
     let lost = true
     vi.mocked(transport.invoke).mockImplementation(async (channel, raw) => {

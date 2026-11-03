@@ -134,11 +134,13 @@ import { Events } from '@shared/protocol/events'
 import type { TaskCreateCommandResult } from '@shared/schemas/add-task'
 import { REGISTRY_CACHE_FILENAME } from '@shared/schemas/registry'
 import { EngineState } from '@shared/types/engine'
+import { getHiddenNotificationKinds } from '@shared/types/notification'
 import type { AppSettings } from '@shared/types/settings'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskType } from '@shared/types/task'
 import pino from 'pino'
 import packageJson from '../../package.json' with { type: 'json' }
+import { ServerUpdateService } from './app-update-service'
 import {
   bootstrapBridgeForServer,
   type ServerBridgeRuntime,
@@ -329,6 +331,13 @@ async function main() {
       defaultSaveDir: configuredDefaultSaveDir,
       onChange: (old, updated) => {
         eventBus.emit(Events.SettingsChanged, { old, updated })
+        if (
+          old.app.notifyInAppOnComplete !== updated.app.notifyInAppOnComplete ||
+          old.app.notifyInAppOnError !== updated.app.notifyInAppOnError ||
+          old.app.notificationBadgeStyle !== updated.app.notificationBadgeStyle
+        ) {
+          eventBus.emit(Events.NotificationsChanged)
+        }
         if (old.app.sidebarColor !== updated.app.sidebarColor) {
           eventBus.emit(Events.SidebarColorChanged, {
             sidebarColor: updated.app.sidebarColor,
@@ -1143,6 +1152,7 @@ async function main() {
     store: db,
     emit: eventBus.emit.bind(eventBus),
     log,
+    getHiddenKinds: () => getHiddenNotificationKinds(settingsManager.getApp()),
   })
 
   // Auto DNS fallback: constructed here so the command context can reset
@@ -1192,7 +1202,15 @@ async function main() {
 
   // ─── HTTP App ─────────────────────────────────────────────────
   const serverDirectoryService = new ServerDirectoryService(downloadPathPolicy)
+  const updateService = new ServerUpdateService({
+    eventBus,
+    currentVersion: appVersion,
+    channel: settingsManager.getApp().updateChannel,
+  })
   const commandHandlers = buildServerCommandHandlers({
+    updateService,
+    userDataDir: platform.userDataDir,
+    trackAsyncWork: (operation) => shellAsyncWork.run(operation),
     btStorageRuntime: durableFinalizeRuntime,
     persistBtStorage: (task, source, target) =>
       sessionManager.persistBtStorage(task, source, target),
@@ -1284,6 +1302,7 @@ async function main() {
     ])
   }
   const queryHandlers = buildServerQueryHandlers({
+    updateService,
     getResolvedLanguage: () => hostLanguage,
     mediaMetaStore,
     serverDirectoryService,
@@ -1332,6 +1351,8 @@ async function main() {
 
   const remoteExtensionConfig = parseRemoteExtensionConfig(process.env)
   const app = await createApp({
+    getHiddenNotificationKinds: () =>
+      getHiddenNotificationKinds(settingsManager.getApp()),
     remoteExtensionConfig,
     torrentBodyLimitBytes,
     commandHandlers,
@@ -1479,6 +1500,9 @@ async function main() {
       log.warn({ err }, 'initial proxy apply failed')
     }
     if (!shellAsyncWork.isAccepting()) return
+    if (settingsManager.getApp().checkForUpdatesOnLaunch) {
+      runShellAsyncWork('automatic update check', () => updateService.check())
+    }
     runShellAsyncWork('tracker manager init', async () => {
       try {
         await trackerManager.init()

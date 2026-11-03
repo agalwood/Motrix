@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { TaskActivityService, type TaskActivityStore } from '@core/activity'
+import { getFfmpegInstallStatus } from '@core/ffmpeg/verified-install'
 import { createTaskInspectorActivityQuery } from '@core/inspector-activity'
 import { NotificationCenter } from '@core/notifications/notification-center'
 import { FfmpegCapabilityHost } from '@core/plugin/capabilities/ffmpeg'
@@ -19,6 +20,10 @@ vi.mock('../plugin/ffmpeg-detect-server', () => ({
     active: null,
     candidates: [],
   })),
+}))
+
+vi.mock('@core/ffmpeg/verified-install', () => ({
+  getFfmpegInstallStatus: vi.fn(),
 }))
 
 const NOW = 1_800_000_000_000
@@ -165,6 +170,19 @@ function makeCtx(over: Record<string, unknown> = {}) {
 }
 
 describe('buildServerQueryHandlers — allowed save directories', () => {
+  it('returns the Server update snapshot', async () => {
+    const state = {
+      phase: 'available',
+      currentVersion: '2.2.0',
+      availableVersion: '2.3.0',
+      updateAuthority: 'administrator',
+    }
+    const updateService = { getState: vi.fn(() => state) }
+    const handlers = buildServerQueryHandlers(
+      makeCtx({ updateService }) as unknown as ServerQueryContext
+    )
+    await expect(handlers[Queries.GetUpdateState]?.()).resolves.toEqual(state)
+  })
   it('returns the server settings path for custom profiles', async () => {
     const handlers = buildServerQueryHandlers(
       makeCtx({
@@ -793,6 +811,30 @@ describe('plugin diagnostic state query', () => {
 })
 
 describe('server FFmpeg detection refresh', () => {
+  it('returns the live installation snapshot and rejects unexpected payloads', async () => {
+    const status = {
+      phase: 'downloading',
+      bytesReceived: 50,
+      bytesTotal: 100,
+      percent: 0.5,
+      releaseVersion: null,
+      directory: null,
+      error: null,
+    }
+    vi.mocked(getFfmpegInstallStatus).mockReturnValue(
+      status as ReturnType<typeof getFfmpegInstallStatus>
+    )
+    const handlers = buildServerQueryHandlers(
+      makeCtx({ userDataDir: '/data' }) as unknown as ServerQueryContext
+    )
+    await expect(handlers[Queries.GetFfmpegInstallStatus]?.()).resolves.toEqual(
+      status
+    )
+    expect(getFfmpegInstallStatus).toHaveBeenCalledWith('/data')
+    await expect(
+      handlers[Queries.GetFfmpegInstallStatus]?.({ path: '/other' })
+    ).rejects.toThrow()
+  })
   it('updates the operation capability after explicit detection and when FFmpeg disappears', async () => {
     const ffmpeg = new FfmpegCapabilityHost({ detect: { available: false } })
     const detected = {

@@ -15,7 +15,7 @@ import { useCallback, useState } from 'react'
 export interface UseNotificationsOptions {
   /**
    * Skip `Queries.ListNotifications` entirely and leave `items` at `[]`.
-   * The always-mounted sidebar reads the count and, on desktop, its badge
+   * The always-mounted sidebar reads the count and its badge
    * preference. It never needs the list's up to 100 rows and their params.
    *
    * Mount-constant: the mirror captures wiring at mount; flipping this
@@ -52,7 +52,7 @@ export interface UseNotificationsResult {
  * `{ countOnly: true }` (e.g. `NotificationsNavItem`, the always-mounted
  * sidebar badge) skips the `ListNotifications` invoke and leaves `items`
  * at `[]` — the return shape is unchanged so callers that only destructure
- * `unreadCount` need no other change. The desktop badge preference is loaded
+ * `unreadCount` need no other change. The badge preference is loaded
  * before publishing the count so a hidden badge never flashes at startup.
  *
  * Mutations (`markRead`/`markAllRead`/`remove`/`clear`) only invoke the
@@ -77,7 +77,7 @@ export function useNotifications(
   const load = useCallback(
     async (stale: () => boolean, read: SettingsReader) => {
       let style: NotificationBadgeStyle = 'count'
-      if (countOnly && transport.platform !== 'web') {
+      if (countOnly) {
         const settings = (await read(Queries.GetSettings)) as
           | AppSettings
           | undefined
@@ -101,7 +101,7 @@ export function useNotifications(
 
   const { refresh } = useTransportMirror({
     events: [Events.NotificationsChanged],
-    refreshOnSettingsSave: transport.platform !== 'web',
+    refreshOnSettingsSave: true,
     load,
   })
 

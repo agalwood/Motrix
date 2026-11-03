@@ -17,7 +17,7 @@ import { usePortableMode } from '@renderer/hooks/use-portable-mode'
 import { EXTERNAL_URLS } from '@shared/external-urls'
 import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AppUpdateSection, shouldShowAppUpdate } from './app-update-section'
+import { AppUpdateSection } from './app-update-section'
 import { AutomaticUpdateSetting } from './automatic-update-setting'
 import type { SettingsCardDialogProps } from './card-types'
 import { useAppUpdate } from './use-app-update'
@@ -52,8 +52,7 @@ export function AboutDialog({
   const portable = usePortableMode()
   const heading = useRef<HTMLHeadingElement>(null)
   const metadata = __MOTRIX_APP_METADATA__
-  const showUpdates = shouldShowAppUpdate(__MOTRIX_TARGET__)
-  const update = useAppUpdate(showUpdates && open)
+  const update = useAppUpdate(open)
 
   return (
     <Dialog open={open} onOpenChange={(value) => !value && onClose()}>
@@ -90,7 +89,7 @@ export function AboutDialog({
                 </h2>
                 <p className="text-sm font-medium tabular-nums text-muted-foreground">
                   {t('settings.about.version', {
-                    version: metadata.version,
+                    version: update.state.currentVersion,
                   })}
                 </p>
                 {portable && (
@@ -165,13 +164,7 @@ export function AboutDialog({
             className="min-h-0 flex-1 overscroll-contain"
           >
             <ScrollAreaContent style={{ minWidth: '100%' }}>
-              {showUpdates ? (
-                <AppUpdateSection update={update} />
-              ) : (
-                <p className="px-6 py-5 text-xs text-muted-foreground">
-                  {t('settings.about.webVersionNote')}
-                </p>
-              )}
+              <AppUpdateSection update={update} />
             </ScrollAreaContent>
           </ScrollAreaViewport>
           <ScrollBar />

@@ -22,12 +22,12 @@ export interface AppUpdateError {
   message: string
 }
 
-/** Stable renderer-facing snapshot. Raw electron-updater payloads stay in main. */
+/** Stable renderer-facing snapshot shared by the desktop and Server hosts. */
 export interface AppUpdateState {
   phase: AppUpdatePhase
   currentVersion: string
   /** Absent on older hosts that predate externally managed updates. */
-  updateAuthority?: 'application' | 'system'
+  updateAuthority?: 'application' | 'system' | 'administrator'
   availableVersion?: string
   releaseName?: string
   progress?: AppUpdateProgress

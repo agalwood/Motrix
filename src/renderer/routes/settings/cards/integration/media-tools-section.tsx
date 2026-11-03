@@ -94,7 +94,9 @@ export function MediaToolsSection() {
   const [installError, setInstallError] = useState<string | null>(null)
   const [detectionRefreshFailed, setDetectionRefreshFailed] = useState(false)
   const detectionGeneration = useRef(0)
-  const canInstall = ['darwin', 'linux', 'win32'].includes(transport.platform)
+  const canInstall = ['darwin', 'linux', 'win32', 'web'].includes(
+    transport.platform
+  )
   const visibleResult =
     installResult ?? (installStatus?.phase === 'failed' ? 'failed' : null)
   const visibleError = installError ?? installStatus?.error
@@ -405,12 +407,15 @@ export function MediaToolsSection() {
                     )}
                   </span>
                 )}
-                {visibleResult === 'installed' && (
-                  <span>
-                    {' '}
-                    {t('settings.integration.media.download.restartPluginHint')}
-                  </span>
-                )}
+                {visibleResult === 'installed' &&
+                  transport.platform !== 'web' && (
+                    <span>
+                      {' '}
+                      {t(
+                        'settings.integration.media.download.restartPluginHint'
+                      )}
+                    </span>
+                  )}
               </p>
             )}
             {installStatus?.directory && (

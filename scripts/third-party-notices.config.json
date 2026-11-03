@@ -16,7 +16,8 @@
     "MPL-2.0",
     "NOASSERTION",
     "OFL-1.1",
-    "Python-2.0"
+    "Python-2.0",
+    "PSF-2.0"
   ],
   "reviewedRepositoryLicenseFiles": {
     "THIRD_PARTY_LICENSES/MPL-2.0": "5eba353fe5076ac3432177f8ab1cf75e3afcd0584251e37c3bfead5f447d040e",
