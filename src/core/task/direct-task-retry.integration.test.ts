@@ -258,10 +258,13 @@ describe.skipIf(!requireNativeHttpRetry && !nativeRetryEnvironmentAvailable)(
             downloadedBytes: Number(failed.completedLength),
           })
           expect(persisted).toHaveBeenCalled()
-          expect(await readFile(original.diskPath)).toEqual(payload)
-          expect(
-            (await readFile(original.diskPath)).subarray(0, before.length)
-          ).toEqual(before)
+          const downloaded = await readFile(original.diskPath)
+          // Compare every byte natively. Deep object equality walks millions of
+          // Buffer properties and can exhaust the test deadline on Intel CI.
+          expect(downloaded.equals(payload)).toBe(true)
+          expect(downloaded.subarray(0, before.length).equals(before)).toBe(
+            true
+          )
           expect(
             requests
               .slice(mark)
