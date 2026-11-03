@@ -2127,7 +2127,8 @@
           "missing": "찾을 수 없음",
           "untrusted": "macOS에서 차단됨",
           "unconfigured": "설정되지 않음",
-          "version_mismatch": "지원되지 않음"
+          "version_mismatch": "지원되지 않음",
+          "verificationUnavailable": "검증할 수 없음"
         },
         "stagingMB": "임시 파일 제한(MB)",
         "stagingMBDesc": "플러그인과 작업별 중간 파일에 사용할 공간입니다.",

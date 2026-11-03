@@ -2590,7 +2590,8 @@
           "missing": "پیدا نشد",
           "unconfigured": "تنظیم نشده",
           "untrusted": "مسدودشده توسط macOS",
-          "version_mismatch": "پشتیبانی نمی‌شود"
+          "version_mismatch": "پشتیبانی نمی‌شود",
+          "verificationUnavailable": "تأیید در دسترس نیست"
         },
         "title": "ابزارهای رسانه",
         "validation": {

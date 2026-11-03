@@ -2127,7 +2127,8 @@
           "missing": "Tidak ditemukan",
           "untrusted": "Diblokir oleh macOS",
           "unconfigured": "Belum diatur",
-          "version_mismatch": "Tidak didukung"
+          "version_mismatch": "Tidak didukung",
+          "verificationUnavailable": "Verifikasi tidak tersedia"
         },
         "stagingMB": "Batas berkas sementara (MB)",
         "stagingMBDesc": "Ruang untuk berkas perantara, per plugin dan tugas.",

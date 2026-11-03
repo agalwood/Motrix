@@ -2127,7 +2127,8 @@
           "missing": "見つかりません",
           "untrusted": "macOS によりブロック",
           "unconfigured": "未設定",
-          "version_mismatch": "非対応"
+          "version_mismatch": "非対応",
+          "verificationUnavailable": "検証できません"
         },
         "stagingMB": "一時ファイルの上限（MB）",
         "stagingMBDesc": "プラグインおよびタスクごとの中間ファイル用の容量です。",

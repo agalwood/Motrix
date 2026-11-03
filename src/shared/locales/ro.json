@@ -2610,7 +2610,8 @@
           "missing": "Negăsit",
           "unconfigured": "Nesetat",
           "untrusted": "Blocat de macOS",
-          "version_mismatch": "Neacceptat"
+          "version_mismatch": "Neacceptat",
+          "verificationUnavailable": "Verificare indisponibilă"
         },
         "title": "Instrumente media",
         "validation": {

@@ -2590,7 +2590,8 @@
           "missing": "Ikke funnet",
           "unconfigured": "Ikke angitt",
           "untrusted": "Blokkert av macOS",
-          "version_mismatch": "Støttes ikke"
+          "version_mismatch": "Støttes ikke",
+          "verificationUnavailable": "Verifisering utilgjengelig"
         },
         "title": "Medieverktøy",
         "validation": {

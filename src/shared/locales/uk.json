@@ -2630,7 +2630,8 @@
           "missing": "Не знайдено",
           "unconfigured": "Не задано",
           "untrusted": "Заблоковано macOS",
-          "version_mismatch": "Не підтримується"
+          "version_mismatch": "Не підтримується",
+          "verificationUnavailable": "Перевірка недоступна"
         },
         "title": "Медіаінструменти",
         "validation": {

@@ -2157,7 +2157,8 @@
           "missing": "Non trovato",
           "untrusted": "Bloccato da macOS",
           "unconfigured": "Non impostato",
-          "version_mismatch": "Non supportato"
+          "version_mismatch": "Non supportato",
+          "verificationUnavailable": "Verifica non disponibile"
         },
         "stagingMB": "Limite dei file temporanei (MB)",
         "stagingMBDesc": "Spazio per i file intermedi, per plugin e attività.",

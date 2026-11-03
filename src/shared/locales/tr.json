@@ -2142,7 +2142,8 @@
           "missing": "Bulunamadı",
           "untrusted": "macOS tarafından engellendi",
           "unconfigured": "Ayarlanmadı",
-          "version_mismatch": "Desteklenmiyor"
+          "version_mismatch": "Desteklenmiyor",
+          "verificationUnavailable": "Doğrulama kullanılamıyor"
         },
         "stagingMB": "Geçici dosya sınırı (MB)",
         "stagingMBDesc": "Eklenti ve görev başına ara dosyalar için ayrılan alan.",

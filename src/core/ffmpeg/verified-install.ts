@@ -28,6 +28,7 @@ import type {
   FfmpegTarget,
 } from '@shared/schemas/ffmpeg-release'
 import {
+  FFMPEG_MINIMUM_RELEASE,
   FFMPEG_REPOSITORY,
   ffmpegLicenseInventorySchema,
   ffmpegReleaseVersionSchema,
@@ -195,9 +196,8 @@ function regularBytes(file: string, limit: number): Buffer {
   }
 }
 
-function hashBinary(
+function binaryDigest(
   file: string,
-  expected: string,
   arch: 'x64' | 'arm64',
   platform: FfmpegPlatform
 ) {
@@ -229,12 +229,21 @@ function hashBinary(
       if (offset > MAX_BINARY) throw new Error('FFmpeg binary exceeds limits')
       digest.update(chunk.subarray(0, count))
     }
-    if (offset !== info.size || digest.digest('hex') !== expected) {
-      throw new Error('Managed FFmpeg binary digest mismatch')
-    }
+    if (offset !== info.size) throw new Error('FFmpeg binary changed')
+    return digest.digest('hex')
   } finally {
     closeSync(fd)
   }
+}
+
+function hashBinary(
+  file: string,
+  expected: string,
+  arch: 'x64' | 'arm64',
+  platform: FfmpegPlatform
+) {
+  if (binaryDigest(file, arch, platform) !== expected)
+    throw new Error('Managed FFmpeg binary digest mismatch')
 }
 
 function readInstalled(userDataDir: string) {
@@ -367,6 +376,13 @@ export function resolveManagedFfmpegCandidate(
   return candidate
 }
 
+/** Transport failure is retryable; it is not evidence of an invalid signature. */
+export class FfmpegDownloadUnavailableError extends Error {
+  constructor(cause?: unknown) {
+    super('FFmpeg download unavailable', { cause })
+  }
+}
+
 async function download(
   url: string,
   limit: number,
@@ -385,17 +401,22 @@ async function download(
     ) {
       throw new Error('Untrusted FFmpeg download location')
     }
-    const response = await fetcher(url, {
-      signal,
-      redirect: 'manual',
-      credentials: 'omit',
-    })
+    let response: Response
+    try {
+      response = await fetcher(url, {
+        signal,
+        redirect: 'manual',
+        credentials: 'omit',
+      })
+    } catch (error) {
+      throw new FfmpegDownloadUnavailableError(error)
+    }
     if (
       response.status === 404 &&
       location.hostname === 'api.github.com' &&
       location.pathname === `/repos/${FFMPEG_REPOSITORY}/releases/latest`
     ) {
-      await response.body?.cancel()
+      await response.body?.cancel().catch(() => {})
       throw new AppError(
         ErrorCode.FfmpegReleaseUnavailable,
         'No formal FFmpeg release'
@@ -403,17 +424,20 @@ async function download(
     }
     if ([301, 302, 303, 307, 308].includes(response.status)) {
       const next = response.headers.get('location')
-      await response.body?.cancel()
+      await response.body?.cancel().catch(() => {})
       if (!next) throw new Error('Missing download redirect')
       url = new URL(next, url).href
       continue
     }
+    if (!response.ok) {
+      await response.body?.cancel().catch(() => {})
+      throw new FfmpegDownloadUnavailableError()
+    }
     if (
-      !response.ok ||
       !response.body ||
       Number(response.headers.get('content-length')) > limit
     ) {
-      await response.body?.cancel()
+      await response.body?.cancel().catch(() => {})
       throw new Error('FFmpeg download failed or exceeds limits')
     }
     const chunks: Uint8Array[] = []
@@ -424,7 +448,9 @@ async function download(
     const reader = response.body.getReader()
     try {
       for (;;) {
-        const { value, done } = await reader.read()
+        const { value, done } = await reader.read().catch((error) => {
+          throw new FfmpegDownloadUnavailableError(error)
+        })
         if (done) break
         size += value.length
         if (size > limit) throw new Error('FFmpeg download exceeds limits')
@@ -710,6 +736,245 @@ async function extractVerifiedTar(
   }
 }
 
+/** Both new installs and legacy discovery require an immutable, signed release. */
+async function fetchVerifiedFfmpegRelease(
+  arch: 'x64' | 'arm64',
+  platform: FfmpegPlatform,
+  fetcher: typeof fetch,
+  signal: AbortSignal,
+  onMetadata?: (version: string) => void,
+  release?: z.infer<typeof releaseApiSchema>
+) {
+  const latestRaw =
+    release ??
+    JSON.parse(
+      (
+        await download(
+          `https://api.github.com/repos/${FFMPEG_REPOSITORY}/releases/latest`,
+          1024 * 1024,
+          fetcher,
+          signal
+        )
+      ).toString('utf8')
+    )
+  const parsed = releaseApiSchema.safeParse(latestRaw)
+  if (
+    !parsed.success ||
+    latestRaw.html_url !==
+      `https://github.com/${FFMPEG_REPOSITORY}/releases/tag/${latestRaw.tag_name}`
+  ) {
+    throw new AppError(
+      ErrorCode.FfmpegReleaseUnavailable,
+      'No immutable formal FFmpeg release'
+    )
+  }
+  const latest = parsed.data
+  const version = ffmpegReleaseVersionSchema.parse(
+    String(latest.tag_name).replace(/^v/, '')
+  )
+  const tag = `v${version}`
+  const base = `https://github.com/${FFMPEG_REPOSITORY}/releases/download/${tag}/`
+  const raw = await download(
+    `${base}ffmpeg-manifest.json`,
+    1024 * 1024,
+    fetcher,
+    signal
+  )
+  const sig = await download(
+    `${base}ffmpeg-manifest.json.sig`,
+    4096,
+    fetcher,
+    signal
+  )
+  onMetadata?.(version)
+  const verified = verifyFfmpegRelease(raw, sig, arch, tag, platform)
+  const assetNames = new Set(latest.assets.map((asset) => asset.name))
+  if (
+    assetNames.size !== latest.assets.length ||
+    new Set(latest.assets.map((asset) => asset.id)).size !==
+      latest.assets.length
+  )
+    throw new Error('Duplicate FFmpeg release assets')
+  const requiredAssets = [
+    { name: 'ffmpeg-manifest.json', size: raw.length },
+    { name: 'ffmpeg-manifest.json.sig', size: sig.length },
+    ...verified.allTargets.map((item) => ({
+      name: item.archive,
+      size: item.archiveSize,
+    })),
+  ]
+  for (const required of requiredAssets) {
+    const asset = latest.assets.find((item) => item.name === required.name)
+    if (
+      !asset ||
+      asset.size !== required.size ||
+      asset.browser_download_url !== `${base}${required.name}`
+    )
+      throw new Error('Formal FFmpeg release asset identity mismatch')
+  }
+  return { ...verified, raw, sig, version, base }
+}
+
+const legacyEvidenceSchema = z
+  .object({
+    manifest: z.string().min(1).max(1_398_104),
+    signature: z.string().min(1).max(5464),
+  })
+  .strict()
+
+function readLegacyEvidence(
+  directory: string,
+  file: string,
+  arch: 'x64' | 'arm64'
+) {
+  assertManagedDirectory(directory, true)
+  let bytes: Buffer
+  try {
+    bytes = regularBytes(file, 2 * 1024 * 1024)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return
+    throw error
+  }
+  const evidence = legacyEvidenceSchema.parse(
+    JSON.parse(bytes.toString('utf8'))
+  )
+  const raw = Buffer.from(evidence.manifest, 'base64')
+  const sig = Buffer.from(evidence.signature, 'base64')
+  // Persist signed bytes, never a cached trust verdict. Key, minimum version,
+  // certificate pin, architecture and binary hash are checked on every read.
+  return {
+    ...verifyFfmpegRelease(raw, sig, arch, undefined, 'darwin'),
+    raw,
+    sig,
+  }
+}
+
+async function findLegacyRelease(
+  digest: string,
+  arch: 'x64' | 'arm64',
+  fetcher: typeof fetch
+) {
+  const signal = AbortSignal.timeout(30_000)
+  const seen = new Set<string>()
+  // Bound discovery; an incomplete search is retryable, never an OS rejection.
+  for (let page = 1; page <= 10; page++) {
+    const entries = z
+      .array(z.unknown())
+      .max(20)
+      .parse(
+        JSON.parse(
+          (
+            await download(
+              `https://api.github.com/repos/${FFMPEG_REPOSITORY}/releases?per_page=20&page=${page}`,
+              4 * 1024 * 1024,
+              fetcher,
+              signal
+            )
+          ).toString('utf8')
+        )
+      )
+    for (const entry of entries) {
+      const parsed = releaseApiSchema.safeParse(entry)
+      if (!parsed.success) continue
+      const version = ffmpegReleaseVersionSchema.safeParse(
+        parsed.data.tag_name.replace(/^v/, '')
+      )
+      if (
+        !version.success ||
+        seen.has(parsed.data.tag_name) ||
+        compareFfmpegReleases(version.data, FFMPEG_MINIMUM_RELEASE) < 0
+      )
+        continue
+      seen.add(parsed.data.tag_name)
+      let verified: Awaited<ReturnType<typeof fetchVerifiedFfmpegRelease>>
+      try {
+        verified = await fetchVerifiedFfmpegRelease(
+          arch,
+          'darwin',
+          fetcher,
+          signal,
+          undefined,
+          parsed.data
+        )
+      } catch (error) {
+        if (error instanceof FfmpegDownloadUnavailableError) throw error
+        // This entry supplies no usable proof. A different historical release
+        // must still pass every signature, identity and hash check on its own.
+        continue
+      }
+      if (verified.target.binarySha256 === digest) return verified
+    }
+    if (entries.length < 20)
+      throw new Error('No signed FFmpeg release matches the legacy binary')
+  }
+  throw new FfmpegDownloadUnavailableError()
+}
+
+async function saveLegacyEvidence(
+  directory: string,
+  file: string,
+  raw: Buffer,
+  sig: Buffer
+) {
+  await ensureManagedDirectory(directory)
+  const temporary = path.join(directory, `.evidence-${randomUUID()}.json`)
+  try {
+    await writeFile(
+      temporary,
+      JSON.stringify({
+        manifest: raw.toString('base64'),
+        signature: sig.toString('base64'),
+      }),
+      { flag: 'wx', mode: 0o600 }
+    )
+    await rename(temporary, file)
+  } finally {
+    await rm(temporary, { force: true })
+  }
+}
+
+/** Authenticate only the conventional legacy macOS binary, without moving or executing it. */
+export async function verifyLegacyMacFfmpeg(options: {
+  userDataDir: string
+  binaryPath: string
+  arch: 'x64' | 'arm64'
+  fetcher: typeof fetch
+  systemTrust: (binary: string, target: FfmpegTarget) => Promise<void>
+}) {
+  const { userDataDir, binaryPath, arch, fetcher, systemTrust } = options
+  const directory = path.resolve(userDataDir, 'binaries')
+  if (path.resolve(binaryPath) !== path.join(directory, 'ffmpeg'))
+    throw new Error('Unexpected legacy FFmpeg path')
+  assertManagedDirectory(directory)
+  // A managed receipt must never fall back to the legacy trust path.
+  if (existsSync(path.join(rootFor(userDataDir), 'current.json')))
+    throw new Error('Managed FFmpeg installation already exists')
+  const digest = binaryDigest(binaryPath, arch, 'darwin')
+  const evidenceDirectory = path.join(directory, 'ffmpeg-legacy-evidence')
+  const evidenceFile = path.join(
+    evidenceDirectory,
+    `${digest}-darwin-${arch}.json`
+  )
+  const cached = readLegacyEvidence(evidenceDirectory, evidenceFile, arch)
+  const { target, raw, sig } =
+    cached ?? (await findLegacyRelease(digest, arch, fetcher))
+  const authenticate = () => {
+    assertManagedDirectory(directory)
+    hashBinary(binaryPath, target.binarySha256, arch, 'darwin')
+  }
+  authenticate()
+  await systemTrust(binaryPath, target)
+  if (!cached) {
+    // Cache persistence is optional; inability to write cannot negate valid
+    // evidence from this check. Future checks can discover the release again.
+    await saveLegacyEvidence(evidenceDirectory, evidenceFile, raw, sig).catch(
+      () => {}
+    )
+  }
+  // Recheck after the online OS assessment before the caller executes a probe.
+  authenticate()
+}
+
 export async function installVerifiedFfmpeg(options: {
   userDataDir: string
   arch: 'x64' | 'arm64'
@@ -758,71 +1023,14 @@ export async function installVerifiedFfmpeg(options: {
     assertManagedDirectory(path.dirname(root), true)
     assertManagedDirectory(root, true)
     assertManagedDirectory(path.join(root, 'releases'), true)
-    const latestRaw = JSON.parse(
-      (
-        await download(
-          `https://api.github.com/repos/${FFMPEG_REPOSITORY}/releases/latest`,
-          1024 * 1024,
-          fetcher,
-          signal
-        )
-      ).toString('utf8')
-    )
-    const parsed = releaseApiSchema.safeParse(latestRaw)
-    if (
-      !parsed.success ||
-      latestRaw.html_url !==
-        `https://github.com/${FFMPEG_REPOSITORY}/releases/tag/${latestRaw.tag_name}`
-    ) {
-      throw new AppError(
-        ErrorCode.FfmpegReleaseUnavailable,
-        'No immutable formal FFmpeg release'
-      )
-    }
-    const latest = parsed.data
-    const version = ffmpegReleaseVersionSchema.parse(
-      String(latest.tag_name).replace(/^v/, '')
-    )
-    const tag = `v${version}`
-    const base = `https://github.com/${FFMPEG_REPOSITORY}/releases/download/${tag}/`
-    const raw = await download(
-      `${base}ffmpeg-manifest.json`,
-      1024 * 1024,
+    const verified = await fetchVerifiedFfmpegRelease(
+      arch,
+      platform,
       fetcher,
-      signal
+      signal,
+      (version) => publish({ phase: 'verifying', releaseVersion: version })
     )
-    const sig = await download(
-      `${base}ffmpeg-manifest.json.sig`,
-      4096,
-      fetcher,
-      signal
-    )
-    publish({ phase: 'verifying', releaseVersion: version })
-    const verified = verifyFfmpegRelease(raw, sig, arch, tag, platform)
-    const assetNames = new Set(latest.assets.map((asset) => asset.name))
-    if (
-      assetNames.size !== latest.assets.length ||
-      new Set(latest.assets.map((asset) => asset.id)).size !==
-        latest.assets.length
-    )
-      throw new Error('Duplicate FFmpeg release assets')
-    const requiredAssets = [
-      { name: 'ffmpeg-manifest.json', size: raw.length },
-      { name: 'ffmpeg-manifest.json.sig', size: sig.length },
-      ...verified.allTargets.map((item) => ({
-        name: item.archive,
-        size: item.archiveSize,
-      })),
-    ]
-    for (const required of requiredAssets) {
-      const asset = latest.assets.find((item) => item.name === required.name)
-      if (
-        !asset ||
-        asset.size !== required.size ||
-        asset.browser_download_url !== `${base}${required.name}`
-      )
-        throw new Error('Formal FFmpeg release asset identity mismatch')
-    }
+    const { raw, sig, version, base } = verified
     if (existsSync(path.join(root, 'current.json'))) {
       const current = readInstalled(userDataDir)
       const comparison = compareFfmpegReleases(

@@ -2172,7 +2172,8 @@
           "missing": "Не найден",
           "untrusted": "Заблокирован macOS",
           "unconfigured": "Не задано",
-          "version_mismatch": "Не поддерживается"
+          "version_mismatch": "Не поддерживается",
+          "verificationUnavailable": "Проверка недоступна"
         },
         "stagingMB": "Лимит временных файлов (МБ)",
         "stagingMBDesc": "Место для промежуточных файлов, отдельно для каждого плагина и задачи.",

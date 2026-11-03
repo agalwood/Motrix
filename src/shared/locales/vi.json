@@ -2127,7 +2127,8 @@
           "missing": "Không tìm thấy",
           "untrusted": "Bị macOS chặn",
           "unconfigured": "Chưa đặt",
-          "version_mismatch": "Không được hỗ trợ"
+          "version_mismatch": "Không được hỗ trợ",
+          "verificationUnavailable": "Không thể xác minh"
         },
         "stagingMB": "Giới hạn tệp tạm (MB)",
         "stagingMBDesc": "Dung lượng cho tệp trung gian, tính riêng theo từng tiện ích và tác vụ.",

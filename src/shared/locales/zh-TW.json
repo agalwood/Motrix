@@ -2127,7 +2127,8 @@
           "missing": "找不到",
           "untrusted": "macOS 已阻擋",
           "unconfigured": "未設定",
-          "version_mismatch": "不支援"
+          "version_mismatch": "不支援",
+          "verificationUnavailable": "暫時無法驗證"
         },
         "stagingMB": "暫存檔案空間上限（MB）",
         "stagingMBDesc": "每個外掛、每個任務處理媒體時可用的暫存空間。",
