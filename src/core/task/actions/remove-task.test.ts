@@ -107,6 +107,21 @@ function mediaTaskWithMetadata() {
 }
 
 describe('removeTask', () => {
+  it('denies file removal before changing engine or durable task state', async () => {
+    const task = makeDownloadTask({ status: TaskStatus.Paused })
+    const deps = makeDeps({
+      authorizeTaskRemoval: async () => {
+        throw new Error('delete denied')
+      },
+    })
+    vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+    await expect(
+      removeTask(task.id, { deleteWithFiles: true }, deps)
+    ).rejects.toThrow('delete denied')
+    expect(deps.adapter.forceRemoveTask).not.toHaveBeenCalled()
+    expect(deps.fileCleanupService.cleanup).not.toHaveBeenCalled()
+    expect(deps.db.deleteTask).not.toHaveBeenCalled()
+  })
   it.each([false, true])(
     'preserves HTTP migration bytes and control files when deleteWithFiles=%s',
     async (deleteWithFiles) => {

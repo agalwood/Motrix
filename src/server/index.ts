@@ -174,7 +174,7 @@ import { provisionOperatorToken } from './operator-token'
 import { FnosFiles } from './platform/fnos/files'
 import { registerFnosRoutes } from './platform/fnos/routes'
 import { fnosRuntime, listenFnos } from './platform/fnos/runtime'
-import { guardNasTaskCommands } from './platform/nas/task-commands'
+import { NasTaskAccess } from './platform/nas/task-access'
 import { createNodePlatformServices } from './platform/services'
 import { createServerCapabilityHost } from './plugin/capability-host'
 import {
@@ -423,6 +423,9 @@ async function main() {
         defaultSaveDir: effectiveDefaultSaveDir,
         allowedSaveDirsValue: process.env.MOTRIX_ALLOWED_SAVE_DIRS,
       })
+  const nasTaskAccess = fnosFiles
+    ? new NasTaskAccess(fnosFiles, downloadPathPolicy)
+    : undefined
   if (
     hasDefaultSaveDirOverride &&
     settingsManager.getApp().defaultSaveDir !== effectiveDefaultSaveDir
@@ -1223,6 +1226,9 @@ async function main() {
     updateService,
     userDataDir: platform.userDataDir,
     trackAsyncWork: (operation) => shellAsyncWork.run(operation),
+    authorizeOutputWrite: nasTaskAccess?.authorizeOutputWrite,
+    authorizeTaskWrite: nasTaskAccess?.authorizeWrite,
+    authorizeTaskRemoval: nasTaskAccess?.authorizeRemoval,
     btStorageRuntime: durableFinalizeRuntime,
     persistBtStorage: (task, source, target) =>
       sessionManager.persistBtStorage(task, source, target),
@@ -1295,10 +1301,6 @@ async function main() {
     downloadPathPolicy,
   })
   const createTask = commandHandlers[Commands.CreateTask]
-  if (fnosFiles)
-    guardNasTaskCommands(commandHandlers, fnosFiles, downloadPathPolicy, () =>
-      taskManager.getAll()
-    )
   if (!createTask) throw new Error('CreateTask handler is not registered')
   const selectionTimeout = new MagnetSelectionTimeout({
     eventBus,
@@ -1948,6 +1950,7 @@ async function main() {
     bridgeRuntimeFactory = async (): Promise<ServerBridgeRuntime> => {
       let receiver: BridgeReceiver | null = null
       const removeTaskDeps = {
+        authorizeTaskRemoval: nasTaskAccess?.authorizeRemoval,
         cancelMedia: async (taskId: string) => receiver?.cancelMedia(taskId),
         taskManager,
         adapter,
@@ -2015,6 +2018,8 @@ async function main() {
           }),
       }
       const taskActionDeps = {
+        authorizeTaskWrite: nasTaskAccess?.authorizeWrite,
+        authorizeTaskRemoval: nasTaskAccess?.authorizeRemoval,
         getMediaSegmentGids: (taskId: string) =>
           receiver?.getMediaSegmentGids(taskId) ?? [],
         onPauseRequested: (taskId: string) =>
@@ -2126,11 +2131,15 @@ async function main() {
                 removeTaskDeps
               )
             },
-            submitMagnetForFileSelection: (uri, saveDir, sourceMeta) =>
-              magnetTracker.submit(uri, saveDir, {
-                source: 'bridge',
-                sourceMeta,
-              }),
+            submitMagnetForFileSelection: async (uri, saveDir, sourceMeta) =>
+              magnetTracker.submit(
+                uri,
+                await downloadPathPolicy.prepareSaveDir(saveDir),
+                {
+                  source: 'bridge',
+                  sourceMeta,
+                }
+              ),
             isMagnetFileSelectionEnabled: () =>
               settingsManager.getApp().magnetFileSelection,
             eventBus,

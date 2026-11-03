@@ -128,6 +128,37 @@ function makeDeps(task: DownloadTask | undefined) {
 }
 
 describe('reAddTask (BT path)', () => {
+  it('checks host authorization before retry or reseeding touches the engine', async () => {
+    const task = makeBtTask()
+    const deps = makeDeps(task)
+    await expect(
+      reAddTask(task.id, {
+        ...deps,
+        authorizeTaskWrite: async () => {
+          throw new Error('revoked')
+        },
+      })
+    ).rejects.toThrow('revoked')
+    expect(deps.adapter.addTorrent).not.toHaveBeenCalled()
+    expect(deps.adapter.forceRemoveTask).not.toHaveBeenCalled()
+    expect(deps.persistTask).not.toHaveBeenCalled()
+  })
+
+  it('checks host authorization before recovering interrupted finalization', async () => {
+    const task = makeBtTask({ transitionPhase: TransitionPhase.Renaming })
+    const deps = makeDeps(task)
+    const recoverFinalization = vi.fn(async () => {})
+    await expect(
+      reAddTask(task.id, {
+        ...deps,
+        recoverFinalization,
+        authorizeTaskWrite: async () => {
+          throw new Error('revoked')
+        },
+      })
+    ).rejects.toThrow('revoked')
+    expect(recoverFinalization).not.toHaveBeenCalled()
+  })
   it.each([TaskStatus.Error, TaskStatus.Completed])(
     're-adds a direct single-file BT task at the same final path from %s',
     async (status) => {

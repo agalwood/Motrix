@@ -123,6 +123,9 @@ export interface ServerCommandContext {
   updateService: Pick<ServerUpdateService, 'check' | 'setChannel'>
   userDataDir: string
   trackAsyncWork?: <T>(operation: () => Promise<T>) => Promise<T>
+  authorizeTaskWrite?: (task: DownloadTask) => Promise<void>
+  authorizeTaskRemoval?: (task: DownloadTask) => Promise<void>
+  authorizeOutputWrite?: (output: string) => Promise<void>
   btStorageRuntime?: Pick<
     DurableFinalizeRuntime,
     'commit' | 'withArtifactLease' | 'hasPendingFinalization'
@@ -317,6 +320,7 @@ export function buildServerCommandHandlers(
   // Shared by the singular AND plural task command handlers below — one
   // deps bundle per action family so the two arities cannot drift.
   const pauseResumeDeps = {
+    authorizeTaskWrite: ctx.authorizeTaskWrite,
     getMediaSegmentGids: ctx.getMediaSegmentGids,
     onPauseRequested: (taskId: string) =>
       trackerManager.noteTaskControl?.(taskId, true),
@@ -348,6 +352,8 @@ export function buildServerCommandHandlers(
     publishTaskUpdateNow,
   }
   const reAddDeps = {
+    authorizeTaskWrite: ctx.authorizeTaskWrite,
+    authorizeTaskRemoval: ctx.authorizeTaskRemoval,
     recoverFinalization: ctx.recoverFinalization,
     taskManager,
     adapter,
@@ -373,12 +379,12 @@ export function buildServerCommandHandlers(
   const btStorage =
     ctx.btStorageRuntime && ctx.persistBtStorage
       ? new BtStorageService({
+          authorizeOutputWrite: ctx.authorizeOutputWrite,
           ...reAddDeps,
           runtime: ctx.btStorageRuntime,
           persistStorage: ctx.persistBtStorage,
           authorizeDirectory: async (directory: string) =>
-            (await downloadPathPolicy.authorizeDirectory(directory))
-              .canonicalPath,
+            downloadPathPolicy.prepareSaveDir(directory),
         })
       : null
   createDeps.reuseExistingBt = (taskId) => reAddTask(taskId, reAddDeps)
@@ -408,6 +414,7 @@ export function buildServerCommandHandlers(
   // Commands.ReAddTasks so the automatic and user-initiated paths match.
   bindTaskRetry?.((id) => reAddTask(id, reAddDeps))
   const removeDeps = {
+    authorizeTaskRemoval: ctx.authorizeTaskRemoval,
     cancelMedia: ctx.cancelMedia,
     taskManager,
     adapter,
@@ -779,6 +786,7 @@ export function buildServerCommandHandlers(
         await runBulkTaskAction(taskIds, reAddDeps, async (id) => {
           const task = taskManager.getById(id)
           if (task && canRetryMagnetMetadata(task)) {
+            await ctx.authorizeTaskWrite?.(task)
             await magnetTracker.retryMetadata(id)
             return
           }
@@ -815,6 +823,7 @@ export function buildServerCommandHandlers(
     },
 
     [Commands.SetSelectedFiles]: createSetSelectedFilesHandler({
+      authorizeTaskWrite: ctx.authorizeTaskWrite,
       taskManager,
       engine: adapter,
       db: motrixDatabase,

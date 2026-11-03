@@ -20,6 +20,10 @@ import type { TaskManager } from '../task-manager'
  * siblings don't import from an unrelated peer just to reach the common type.
  */
 export interface TaskActionDeps {
+  /** Shell-specific user/filesystem policy, evaluated against the current task
+   * before engine or output mutation. Background calls retain the host policy. */
+  authorizeTaskWrite?: (task: DownloadTask) => Promise<void>
+  authorizeTaskRemoval?: (task: DownloadTask) => Promise<void>
   /** Explicit controls supersede a temporary Tracker pause/recovery lease. */
   onPauseRequested?: (taskId: string) => void
   onResumeRequested?: (taskId: string) => void
