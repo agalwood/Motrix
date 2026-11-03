@@ -1,3 +1,4 @@
+import { shouldUseManualWindowDrag } from '@shared/lib/window-drag'
 import {
   BridgeCommands,
   BridgeEvents,
@@ -183,6 +184,14 @@ const api: MotrixAPI = {
     return current.remove
   },
   platform: process.platform,
+  usesWindowDragFallback: shouldUseManualWindowDrag(
+    process.platform,
+    (
+      process as NodeJS.Process & {
+        getSystemVersion?: () => string
+      }
+    ).getSystemVersion?.()
+  ),
   getPathForFile: (file) => webUtils.getPathForFile(file),
 }
 

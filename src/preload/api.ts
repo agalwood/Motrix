@@ -25,6 +25,7 @@ export interface MotrixAPI {
     callback: (...args: unknown[]) => void
   ): () => void
   platform: NodeJS.Platform
+  usesWindowDragFallback: boolean
   // Electron 32+ removed File.path; webUtils.getPathForFile resolves the
   // absolute path of a File obtained from <input type="file"> or drag-drop.
   getPathForFile(file: File): string

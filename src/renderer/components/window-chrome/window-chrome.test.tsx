@@ -2,7 +2,7 @@ import '@renderer/lib/i18n'
 import '@testing-library/jest-dom/vitest'
 import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { shouldShowDesktopWindowControls, WindowChrome } from './window-chrome'
 
@@ -20,6 +20,7 @@ beforeAll(() => {
     Object.assign(window, {
       motrix: {
         platform: 'darwin',
+        usesWindowDragFallback: false,
         invoke: vi.fn(),
         on: vi.fn((channel: string, listener: IpcListener) => {
           let listeners = ipcListeners.get(channel)
@@ -50,8 +51,21 @@ function setPlatform(platform: NodeJS.Platform) {
   )
 }
 
+function setWindowDragFallback(value: boolean) {
+  Object.defineProperty(
+    window.motrix as NonNullable<Window['motrix']>,
+    'usesWindowDragFallback',
+    {
+      value,
+      writable: true,
+      configurable: true,
+    }
+  )
+}
+
 beforeEach(() => {
   setPlatform('darwin')
+  setWindowDragFallback(false)
   ipcListeners.clear()
   vi.mocked(window.motrix?.invoke).mockClear()
 })
@@ -179,6 +193,95 @@ describe('WindowChrome', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Trigger' }))
     expect(onClick).toHaveBeenCalledTimes(1)
+  })
+
+  it('uses controlled dragging on macOS when the native gesture is broken', async () => {
+    setWindowDragFallback(true)
+    const { container } = render(<WindowChrome variant="overlay" />)
+    const chrome = container.firstChild as HTMLElement
+
+    expect(chrome).toHaveClass('app-no-drag')
+    expect(chrome).toHaveAttribute('data-window-drag-mode', 'manual')
+
+    fireEvent.mouseDown(chrome, {
+      button: 0,
+      screenX: 100,
+      screenY: 200,
+    })
+    fireEvent.mouseMove(chrome, {
+      button: 0,
+      buttons: 1,
+      screenX: 140,
+      screenY: 230,
+    })
+    fireEvent.mouseUp(chrome, { button: 0 })
+
+    await waitFor(() => {
+      expect(window.motrix?.invoke).toHaveBeenNthCalledWith(
+        1,
+        Commands.BeginCurrentWindowDrag,
+        { x: 100, y: 200 }
+      )
+      expect(window.motrix?.invoke).toHaveBeenNthCalledWith(
+        2,
+        Commands.MoveCurrentWindowDrag,
+        { x: 140, y: 230 }
+      )
+      expect(window.motrix?.invoke).toHaveBeenNthCalledWith(
+        3,
+        Commands.EndCurrentWindowDrag
+      )
+    })
+  })
+
+  it('ends controlled dragging when pointer moves after release', async () => {
+    setWindowDragFallback(true)
+    const { container } = render(<WindowChrome variant="overlay" />)
+    const chrome = container.firstChild as HTMLElement
+
+    fireEvent.mouseDown(chrome, {
+      button: 0,
+      screenX: 100,
+      screenY: 200,
+    })
+    fireEvent.mouseMove(chrome, {
+      buttons: 0,
+      screenX: 140,
+      screenY: 230,
+    })
+
+    await waitFor(() => {
+      expect(window.motrix?.invoke).toHaveBeenNthCalledWith(
+        1,
+        Commands.BeginCurrentWindowDrag,
+        { x: 100, y: 200 }
+      )
+      expect(window.motrix?.invoke).toHaveBeenNthCalledWith(
+        2,
+        Commands.EndCurrentWindowDrag
+      )
+    })
+    expect(window.motrix?.invoke).not.toHaveBeenCalledWith(
+      Commands.MoveCurrentWindowDrag,
+      expect.anything()
+    )
+  })
+
+  it('does not start controlled dragging from window actions', () => {
+    setWindowDragFallback(true)
+    render(
+      <WindowChrome variant="overlay">
+        <button type="button">Trigger</button>
+      </WindowChrome>
+    )
+
+    fireEvent.mouseDown(screen.getByRole('button', { name: 'Trigger' }), {
+      button: 0,
+    })
+
+    expect(window.motrix?.invoke).not.toHaveBeenCalledWith(
+      Commands.BeginCurrentWindowDrag
+    )
   })
 
   it('keeps child actions at the start by default', () => {

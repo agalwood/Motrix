@@ -103,6 +103,7 @@ import type { NatManager } from '@motrix/nat'
 import nativeMessagingExtensions from '@shared/config/native-messaging-extensions.json'
 import { AppError, ErrorCode } from '@shared/errors'
 import { EXTERNAL_URLS } from '@shared/external-urls'
+import { shouldUseManualWindowDrag } from '@shared/lib/window-drag'
 import { Commands } from '@shared/protocol/commands'
 import {
   makeProtocolFailure,
@@ -175,6 +176,10 @@ import { resolveWindowsDefaultAppsSettingsUrl } from '../platform/windows-defaul
 import { desktopOperationHandlers } from '../plugin/operation-commands'
 import { installManagedFfmpeg } from '../plugin/verified-ffmpeg-electron'
 import type { createMainProxyApplier } from '../proxy/wiring'
+import {
+  beginManualWindowDrag,
+  type ManualWindowDrag,
+} from '../window/manual-window-drag'
 import type { createRendererRecoveryRuntime } from '../window/renderer-recovery-runtime'
 import type { WindowManager } from '../window/window-manager'
 import { createOpenTaskFileHandler } from './commands/open-task-file'
@@ -308,6 +313,26 @@ function sendToAddTaskWindow(
 
 // biome-ignore lint/suspicious/noExplicitAny: sender is typed at registration
 type WebContents = any
+
+const manualWindowDrags = new Map<object, ManualWindowDrag>()
+
+function parseWindowDragPoint(value: unknown): { x: number; y: number } | null {
+  if (!value || typeof value !== 'object') return null
+  const { x, y } = value as { x?: unknown; y?: unknown }
+  return Number.isFinite(x) && Number.isFinite(y)
+    ? { x: x as number, y: y as number }
+    : null
+}
+
+function stopManualWindowDrag(sender: object): void {
+  manualWindowDrags.get(sender)?.stop()
+  manualWindowDrags.delete(sender)
+}
+
+function stopAllManualWindowDrags(): void {
+  for (const drag of manualWindowDrags.values()) drag.stop()
+  manualWindowDrags.clear()
+}
 
 export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
   const {
@@ -1492,6 +1517,48 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       return { ok: true }
     },
 
+    [Commands.BeginCurrentWindowDrag]: async (
+      sender: WebContents,
+      rawPoint: unknown
+    ) => {
+      const win = BrowserWindow.fromWebContents(sender)
+      const point = parseWindowDragPoint(rawPoint)
+      const systemVersion = (
+        process as NodeJS.Process & {
+          getSystemVersion?: () => string
+        }
+      ).getSystemVersion?.()
+      if (
+        !win ||
+        !point ||
+        win.isDestroyed() ||
+        !win.isMovable() ||
+        !shouldUseManualWindowDrag(process.platform, systemVersion)
+      ) {
+        return { ok: false }
+      }
+
+      stopManualWindowDrag(sender)
+      const drag = beginManualWindowDrag(win, point)
+      manualWindowDrags.set(sender, drag)
+      win.once('closed', () => stopManualWindowDrag(sender))
+      return { ok: true }
+    },
+
+    [Commands.MoveCurrentWindowDrag]: async (
+      sender: WebContents,
+      rawPoint: unknown
+    ) => {
+      const point = parseWindowDragPoint(rawPoint)
+      if (point) manualWindowDrags.get(sender)?.move(point)
+      return { ok: true }
+    },
+
+    [Commands.EndCurrentWindowDrag]: async (sender: WebContents) => {
+      stopManualWindowDrag(sender)
+      return { ok: true }
+    },
+
     [Commands.PickSaveDir]: async (
       sender: WebContents,
       params: { defaultPath?: string }
@@ -2073,6 +2140,9 @@ export function registerCommandHandlers(ctx: CommandContext): () => void {
       channel === Commands.CloseCurrentWindow ||
       channel === Commands.MinimizeCurrentWindow ||
       channel === Commands.ToggleMaximizeCurrentWindow ||
+      channel === Commands.BeginCurrentWindowDrag ||
+      channel === Commands.MoveCurrentWindowDrag ||
+      channel === Commands.EndCurrentWindowDrag ||
       channel === Commands.PickSaveDir ||
       OPERATION_CHANNELS.has(channel) ||
       channel === Commands.PickFile ||
@@ -2107,6 +2177,7 @@ export function registerCommandHandlers(ctx: CommandContext): () => void {
     }
   }
   return () => {
+    stopAllManualWindowDrags()
     void selectionTimeout.stopAndDrain()
     for (const channel of channels) {
       ipcMain.removeHandler(channel)

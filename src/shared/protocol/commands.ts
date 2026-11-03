@@ -98,6 +98,9 @@ export const Commands = {
   CloseCurrentWindow: 'command:closeCurrentWindow',
   MinimizeCurrentWindow: 'command:minimizeCurrentWindow',
   ToggleMaximizeCurrentWindow: 'command:toggleMaximizeCurrentWindow',
+  BeginCurrentWindowDrag: 'command:beginCurrentWindowDrag',
+  MoveCurrentWindowDrag: 'command:moveCurrentWindowDrag',
+  EndCurrentWindowDrag: 'command:endCurrentWindowDrag',
   ShowMainWindow: 'command:showMainWindow',
   ShowAddTaskWindow: 'command:showAddTaskWindow',
   // Torrent

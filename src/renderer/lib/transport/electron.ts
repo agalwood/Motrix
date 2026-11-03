@@ -23,6 +23,9 @@ export class ElectronTransport implements Transport {
   get platform(): NodeJS.Platform | 'web' {
     return window.motrix?.platform ?? 'web'
   }
+  get usesWindowDragFallback(): boolean {
+    return window.motrix?.usesWindowDragFallback === true
+  }
   async invoke(channel: AnyChannel, ...args: unknown[]): Promise<unknown> {
     if (rendererSubmissionChannelSchema.safeParse(channel).success) {
       const session = rendererSessionSchema.parse(

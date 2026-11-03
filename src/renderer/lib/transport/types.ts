@@ -29,4 +29,5 @@ export interface Transport {
   getConnectionState?(): TransportConnectionState
   onConnectionChange?(cb: TransportConnectionListener): () => void
   platform: NodeJS.Platform | 'web'
+  usesWindowDragFallback?: boolean
 }

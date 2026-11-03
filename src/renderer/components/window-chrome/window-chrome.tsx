@@ -11,7 +11,7 @@ import {
   type WindowMaximizedChangedPayload,
 } from '@shared/protocol/events'
 import type React from 'react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 type CaptionIconName = 'close' | 'maximize' | 'minimize' | 'restore'
@@ -154,6 +154,15 @@ export function shouldShowDesktopWindowControls(
   return platform === 'win32' || (platform === 'darwin' && previewMacMenu)
 }
 
+function isWindowDragTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof Element &&
+    target.closest(
+      '[data-slot="window-chrome-actions"], [data-slot="window-chrome-leading"]'
+    ) === null
+  )
+}
+
 export function WindowChrome({
   actionsPosition = 'start',
   compact: _compact,
@@ -184,6 +193,8 @@ export function WindowChrome({
   )
   const isOverlay = variant === 'overlay'
   const isMac = platform === 'darwin'
+  const usesWindowDragFallback = transport.usesWindowDragFallback === true
+  const manualDragActive = useRef(false)
   const usesWindowControlsOverlay =
     __MOTRIX_TARGET__ === 'electron' && platform === 'linux'
   const reserveWindowControlsOverlay =
@@ -195,6 +206,21 @@ export function WindowChrome({
     !windowState.fullscreen
   const offsetStartActionsForDesktopMenu =
     leading != null && actionsPosition === 'start'
+
+  const finishManualWindowDrag = () => {
+    if (!manualDragActive.current) return
+    manualDragActive.current = false
+    void transport.invoke(Commands.EndCurrentWindowDrag)
+  }
+
+  useEffect(
+    () => () => {
+      if (manualDragActive.current) {
+        void transport.invoke(Commands.EndCurrentWindowDrag)
+      }
+    },
+    []
+  )
 
   const containerStyle: React.CSSProperties = {
     height: usesWindowControlsOverlay
@@ -242,11 +268,59 @@ export function WindowChrome({
   )
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: The window drag surface is pointer-only.
     <div
-      className={cn('window-chrome', !windowState.fullscreen && 'app-drag')}
+      className={cn(
+        'window-chrome',
+        !windowState.fullscreen &&
+          (usesWindowDragFallback
+            ? 'app-no-drag cursor-grab active:cursor-grabbing'
+            : 'app-drag')
+      )}
       data-fullscreen={windowState.fullscreen}
+      data-window-drag-mode={usesWindowDragFallback ? 'manual' : 'native'}
       data-window-controls-overlay={usesWindowControlsOverlay}
       style={containerStyle}
+      onMouseDown={(event) => {
+        if (
+          !usesWindowDragFallback ||
+          windowState.fullscreen ||
+          event.button !== 0 ||
+          !isWindowDragTarget(event.target)
+        ) {
+          return
+        }
+
+        if (manualDragActive.current) {
+          void transport.invoke(Commands.EndCurrentWindowDrag)
+        }
+        manualDragActive.current = true
+        void transport.invoke(Commands.BeginCurrentWindowDrag, {
+          x: event.screenX,
+          y: event.screenY,
+        })
+      }}
+      onMouseMove={(event) => {
+        if (!manualDragActive.current) return
+        if ((event.buttons & 1) === 0) {
+          finishManualWindowDrag()
+          return
+        }
+        void transport.invoke(Commands.MoveCurrentWindowDrag, {
+          x: event.screenX,
+          y: event.screenY,
+        })
+      }}
+      onMouseUp={finishManualWindowDrag}
+      onDoubleClick={(event) => {
+        if (
+          usesWindowDragFallback &&
+          !windowState.fullscreen &&
+          isWindowDragTarget(event.target)
+        ) {
+          void transport.invoke(Commands.ToggleMaximizeCurrentWindow)
+        }
+      }}
     >
       {!isOverlay && title && (
         <div
