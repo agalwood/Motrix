@@ -66,6 +66,12 @@ const directoryResultSchemas = {
   [Queries.ValidateServerDirectory]: ValidateServerDirectoryResultSchema,
 }
 
+function sendRpcValue(reply: FastifyReply, value: unknown) {
+  // Fastify sends strings as plain text and undefined without a JSON body.
+  // Every renderer RPC response must be consumable with Response.json().
+  return reply.type('application/json').send(JSON.stringify(value ?? null))
+}
+
 async function directoryRpc(
   channel: string,
   body: unknown,
@@ -186,9 +192,9 @@ export async function createApp(
       if (OPERATION_CHANNELS.has(channel)) {
         const owner = operatorSessions?.principal(req)
         if (!owner) return reply.code(401).send({ error: 'unauthorized' })
-        return await handler(owner, req.body?.args?.[0])
+        return sendRpcValue(reply, await handler(owner, req.body?.args?.[0]))
       }
-      return await handler(...(req.body?.args ?? []))
+      return sendRpcValue(reply, await handler(...(req.body?.args ?? [])))
     } catch (err) {
       req.log.error({ err }, 'command handler failed')
       return reply
@@ -212,6 +218,13 @@ export async function createApp(
     async (req, reply) => {
       const usesSharedEnvelope =
         req.params.channel === Queries.GetTaskInspectorActivity
+      // fnOS has no external pairing listener. Older Web clients still query
+      // the inbox on reconnect; an authenticated empty inbox is authoritative.
+      if (
+        opts.fnosGateway &&
+        req.params.channel === BridgeQueries.ListPendingPairRequests
+      )
+        return []
       const handler =
         queries[req.params.channel as keyof typeof queries] ??
         bridgeQueries[req.params.channel]
@@ -247,7 +260,7 @@ export async function createApp(
         ) {
           return filterExtensionPairingSnapshot(value)
         }
-        if (!usesSharedEnvelope) return value
+        if (!usesSharedEnvelope) return sendRpcValue(reply, value)
         const snapshot = parseTaskInspectorActivitySnapshot(value)
         if (!snapshot) {
           throw new Error('Invalid Task Inspector Activity snapshot')

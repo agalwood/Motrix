@@ -1,4 +1,5 @@
 import { i18n } from '@renderer/lib/i18n'
+import { useOperatorSession } from '@renderer/lib/operator-auth'
 import { BridgeEvents } from '@shared/protocol/bridge'
 import { act, render, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -106,6 +107,7 @@ function cliPending(requestId: string) {
 
 describe('usePairRequestPrompts', () => {
   beforeEach(() => {
+    useOperatorSession.setState({ status: null })
     invokeMock.mockReset().mockResolvedValue([])
     toastAddMock.mockClear()
     toastCloseMock.mockReset()
@@ -115,7 +117,18 @@ describe('usePairRequestPrompts', () => {
   })
 
   afterEach(() => {
+    useOperatorSession.setState({ status: null })
     vi.clearAllMocks()
+  })
+
+  it('does not query or subscribe to pairing in fnOS mode', () => {
+    useOperatorSession.setState({
+      status: { mode: 'fnosGateway', authed: true, canLogout: false },
+    })
+    render(<Host />)
+    expect(invokeMock).not.toHaveBeenCalled()
+    expect(onMock).not.toHaveBeenCalled()
+    expect(onConnectionChangeMock).not.toHaveBeenCalled()
   })
 
   it('subscribes to PairRequested/Settled/Expired BEFORE invoking the pending snapshot', () => {

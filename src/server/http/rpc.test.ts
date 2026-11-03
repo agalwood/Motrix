@@ -7,6 +7,32 @@ import { describe, expect, it, vi } from 'vitest'
 import { createApp } from './app'
 
 describe('rpc routes', () => {
+  it.each(['idle', '', 'quoted "text"\nnext', false, 0, null, undefined])(
+    'serializes primitive RPC values as JSON: %j',
+    async (value) => {
+      const app = await createApp({
+        queryHandlers: { [Queries.GetTrackerSyncStatus]: async () => value },
+        commandHandlers: { [Commands.SyncTrackers]: async () => value },
+      })
+      try {
+        for (const [kind, channel] of [
+          ['query', Queries.GetTrackerSyncStatus],
+          ['command', Commands.SyncTrackers],
+        ]) {
+          const response = await app.inject({
+            method: 'POST',
+            url: `/rpc/${kind}/${encodeURIComponent(channel)}`,
+            payload: { args: [] },
+          })
+          expect(response.statusCode).toBe(200)
+          expect(response.headers['content-type']).toContain('application/json')
+          expect(response.json()).toEqual(value ?? null)
+        }
+      } finally {
+        await app.close()
+      }
+    }
+  )
   it('dispatches a command through the handler map', async () => {
     const handler = vi.fn(async () => ({ ok: true, gid: 'xyz' }))
     const app = await createApp({

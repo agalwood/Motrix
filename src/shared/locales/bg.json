@@ -2313,6 +2313,7 @@
       "warnBeforeQuitDesc": "Иска потвърждение преди изход, ако все още има активни изтегляния."
     },
     "integration": {
+      "fnosPairingUnavailable": "Browser extension and CLI pairing are not available in this fnOS version.",
       "appimage": {
         "desc": "Регистрирайте този Motrix AppImage в работната среда, за да могат браузърите и magnet връзките да му предават изтегляния.",
         "enable": "Включване на интеграцията с работната среда",

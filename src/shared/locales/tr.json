@@ -1875,6 +1875,7 @@
       "hideSecret": "Gizli bilgiyi gizle"
     },
     "integration": {
+      "fnosPairingUnavailable": "Browser extension and CLI pairing are not available in this fnOS version.",
       "system": {
         "title": "Varsayılan uygulama",
         "protocolMagnet": "Magnet bağlantılarını Motrix ile aç",

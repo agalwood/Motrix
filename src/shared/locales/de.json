@@ -1875,6 +1875,7 @@
       "hideSecret": "Geheimen Schlüssel ausblenden"
     },
     "integration": {
+      "fnosPairingUnavailable": "Browser extension and CLI pairing are not available in this fnOS version.",
       "system": {
         "title": "Standard-App",
         "protocolMagnet": "Magnet-Links mit Motrix öffnen",

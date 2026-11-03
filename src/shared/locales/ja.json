@@ -1861,6 +1861,7 @@
       "hideSecret": "シークレットを非表示"
     },
     "integration": {
+      "fnosPairingUnavailable": "Browser extension and CLI pairing are not available in this fnOS version.",
       "system": {
         "title": "既定のアプリ",
         "protocolMagnet": "マグネットリンクを Motrix で開く",

@@ -2313,6 +2313,7 @@
       "warnBeforeQuitDesc": "Spør før avslutning hvis nedlastinger fortsatt pågår."
     },
     "integration": {
+      "fnosPairingUnavailable": "Browser extension and CLI pairing are not available in this fnOS version.",
       "appimage": {
         "desc": "Registrer dette Motrix-AppImage i skrivebordsmiljøet, slik at nettlesere og magnetlenker kan overføre nedlastinger til det.",
         "enable": "Aktiver skrivebordsintegrasjon",

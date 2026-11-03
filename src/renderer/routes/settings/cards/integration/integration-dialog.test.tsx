@@ -3,6 +3,7 @@ import '@test-utils/dom-animations'
 import '@renderer/lib/i18n'
 import '@testing-library/jest-dom/vitest'
 import { toast } from '@renderer/components/ui/toast'
+import { useOperatorSession } from '@renderer/lib/operator-auth'
 import {
   CliInstallCapability,
   CliPackageManager,
@@ -112,6 +113,8 @@ import { IntegrationDialog } from './integration-dialog'
 
 describe('IntegrationDialog scaffold', () => {
   beforeEach(() => {
+    useOperatorSession.setState({ status: null })
+    vi.mocked(transport.invoke).mockClear()
     transport.platform = 'darwin'
     bridgeStatus.current = {
       port: 16802,
@@ -120,6 +123,41 @@ describe('IntegrationDialog scaffold', () => {
       fixedPort: 'auto',
       instanceId: 'test-instance',
     }
+  })
+
+  it('explains fnOS pairing limitations without querying unsupported bridge services', async () => {
+    transport.platform = 'web'
+    useOperatorSession.setState({
+      status: { mode: 'fnosGateway', authed: true, canLogout: false },
+    })
+    render(
+      <IntegrationDialog
+        open={true}
+        onClose={() => {}}
+        labelKey="settings.cards.integration.title"
+        descKey="settings.cards.integration.desc"
+      />
+    )
+    expect(
+      await screen.findByText(
+        'Browser extension and CLI pairing are not available in this fnOS version.'
+      )
+    ).toBeInTheDocument()
+    await waitFor(() => expect(transport.invoke).toHaveBeenCalled())
+    expect(
+      vi
+        .mocked(transport.invoke)
+        .mock.calls.some(([channel]) => String(channel).startsWith('bridge:'))
+    ).toBe(false)
+    expect(
+      screen.queryByRole('heading', { name: /browser extensions/i })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: /command-line tools/i })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: /media tools/i })
+    ).toBeInTheDocument()
   })
 
   it('renders the four top-level section headings', async () => {

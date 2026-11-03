@@ -26,6 +26,7 @@ import {
 import { Separator } from '@renderer/components/ui/separator'
 import { toast } from '@renderer/components/ui/toast'
 import { pickDirty } from '@renderer/lib/form-utils'
+import { useOperatorSession } from '@renderer/lib/operator-auth'
 import { saveSettings } from '@renderer/lib/settings-save'
 import { transport } from '@renderer/lib/transport'
 import { DEFAULT_APP_SETTINGS, DEFAULT_MEDIA_SETTINGS } from '@shared/schemas'
@@ -62,6 +63,9 @@ export function IntegrationDialog({
 }: SettingsCardDialogProps) {
   const { t } = useTranslation()
   const isWeb = transport.platform === 'web'
+  const fnos = useOperatorSession(
+    (session) => session.status?.mode === 'fnosGateway'
+  )
   const [protocolRevision, setProtocolRevision] = useState(0)
   const [saveError, setSaveError] = useState<string | null>(null)
   const form = useSettingsForm<IntegrationFormValues>(
@@ -155,21 +159,31 @@ export function IntegrationDialog({
                   disabled={!load.ready || form.formState.isSubmitting}
                   className="min-w-0 flex flex-col gap-6"
                 >
-                  <section
-                    aria-labelledby="integration-browser"
-                    className="flex flex-col gap-3"
-                  >
-                    <h3
-                      id="integration-browser"
-                      className="text-sm font-semibold text-foreground"
-                    >
-                      {t('settings.integration.browser.title')}
-                    </h3>
-                    <BrowserExtensionsSection />
-                    {!isWeb && <AppImageNativeHostSection />}
-                  </section>
+                  {fnos ? (
+                    <Alert>
+                      <AlertDescription>
+                        {t('settings.integration.fnosPairingUnavailable')}
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <>
+                      <section
+                        aria-labelledby="integration-browser"
+                        className="flex flex-col gap-3"
+                      >
+                        <h3
+                          id="integration-browser"
+                          className="text-sm font-semibold text-foreground"
+                        >
+                          {t('settings.integration.browser.title')}
+                        </h3>
+                        <BrowserExtensionsSection />
+                        {!isWeb && <AppImageNativeHostSection />}
+                      </section>
 
-                  <Separator />
+                      <Separator />
+                    </>
+                  )}
 
                   {!isWeb && (
                     <>
@@ -197,23 +211,27 @@ export function IntegrationDialog({
                     </>
                   )}
 
-                  <section
-                    aria-labelledby="integration-cli"
-                    className="flex flex-col gap-4"
-                  >
-                    <h3
-                      id="integration-cli"
-                      className="text-sm font-semibold text-foreground"
-                    >
-                      {t('settings.integration.cli.title')}
-                    </h3>
-                    <CliToolSection />
-                    <Separator />
-                    <CLIClientsSection />
-                    <PendingApprovalsSection />
-                  </section>
+                  {!fnos && (
+                    <>
+                      <section
+                        aria-labelledby="integration-cli"
+                        className="flex flex-col gap-4"
+                      >
+                        <h3
+                          id="integration-cli"
+                          className="text-sm font-semibold text-foreground"
+                        >
+                          {t('settings.integration.cli.title')}
+                        </h3>
+                        <CliToolSection />
+                        <Separator />
+                        <CLIClientsSection />
+                        <PendingApprovalsSection />
+                      </section>
 
-                  <Separator />
+                      <Separator />
+                    </>
+                  )}
 
                   <section
                     aria-labelledby="integration-media"

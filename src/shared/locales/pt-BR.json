@@ -1889,6 +1889,7 @@
       "hideSecret": "Ocultar segredo"
     },
     "integration": {
+      "fnosPairingUnavailable": "Browser extension and CLI pairing are not available in this fnOS version.",
       "system": {
         "title": "Aplicativo padrão",
         "protocolMagnet": "Abrir links magnet com o Motrix",

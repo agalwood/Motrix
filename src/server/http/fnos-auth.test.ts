@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { request } from 'node:http'
 import path from 'node:path'
 import { EventBus } from '@core/events/event-bus'
+import { BridgeQueries } from '@shared/protocol/bridge'
 import {
   FNOS_EVENT_PROTOCOL,
   FNOS_EVENT_TICKET_PREFIX,
@@ -66,6 +67,14 @@ async function fixture(now = Date.now) {
 }
 
 describe('fnOS gateway control plane', () => {
+  it('returns an empty pairing inbox only to authenticated fnOS administrators', async () => {
+    const { call } = await fixture()
+    const url = `/app/motrix/rpc/query/${encodeURIComponent(BridgeQueries.ListPendingPairRequests)}`
+    const result = await call(url, admin, 'POST')
+    expect(result.status).toBe(200)
+    expect(JSON.parse(result.body)).toEqual([])
+    expect((await call(url, {}, 'POST')).status).toBe(401)
+  })
   it('authenticates administrators on the Unix socket and binds their UID', async () => {
     const { call } = await fixture()
     const status = await call('/app/motrix/rpc/auth/status')

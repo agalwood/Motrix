@@ -2332,6 +2332,7 @@
       "warnBeforeQuitDesc": "Demana confirmació abans de sortir si encara hi ha baixades actives."
     },
     "integration": {
+      "fnosPairingUnavailable": "Browser extension and CLI pairing are not available in this fnOS version.",
       "appimage": {
         "desc": "Registreu aquest AppImage del Motrix a l'escriptori perquè els navegadors i els enllaços magnet li puguin enviar baixades.",
         "enable": "Activar la integració amb l'escriptori",

@@ -2351,6 +2351,7 @@
       "warnBeforeQuitDesc": "Запитувати перед виходом, якщо завантаження ще тривають."
     },
     "integration": {
+      "fnosPairingUnavailable": "Browser extension and CLI pairing are not available in this fnOS version.",
       "appimage": {
         "desc": "Зареєструйте цей AppImage Motrix у стільничному середовищі, щоб браузери й magnet-посилання могли передавати йому завантаження.",
         "enable": "Увімкнути інтеграцію зі стільницею",

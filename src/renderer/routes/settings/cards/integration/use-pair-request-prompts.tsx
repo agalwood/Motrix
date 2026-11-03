@@ -3,6 +3,7 @@ import {
   pairRequestCopy,
   toast,
 } from '@renderer/components/ui/toast'
+import { useOperatorSession } from '@renderer/lib/operator-auth'
 import { transport } from '@renderer/lib/transport'
 import {
   BridgeEvents,
@@ -65,7 +66,7 @@ function toPairRequestPayload(
  * `connected` transition (including the very first one) to close it; see the
  * `snapshot()` re-use below.
  *
- * The effect subscribes exactly once (empty deps) and never on a `t`
+ * The effect subscribes when pairing is supported and never on a `t`
  * identity change: `LanguageSync` calls `i18n.changeLanguage()`
  * unconditionally on every app start (even to the same language), which
  * bumps `t`'s identity via react-i18next with no same-language
@@ -79,10 +80,14 @@ function toPairRequestPayload(
  */
 export function usePairRequestPrompts(): void {
   const { t } = useTranslation()
+  const fnos = useOperatorSession(
+    (session) => session.status?.mode === 'fnosGateway'
+  )
   const tRef = useRef(t)
   tRef.current = t
 
   useEffect(() => {
+    if (fnos) return
     // key -> lifecycle state for a prompt currently owned by this hook
     // instance. Guards three races: a duplicate `PairRequested` for a
     // live key (no-op), a double Allow/Deny click (no-op past the first),
@@ -277,5 +282,5 @@ export function usePairRequestPrompts(): void {
       transport.off(settledChannel, onSettled)
       transport.off(expiredChannel, onExpired)
     }
-  }, [])
+  }, [fnos])
 }

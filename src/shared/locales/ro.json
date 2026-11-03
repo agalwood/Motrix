@@ -2332,6 +2332,7 @@
       "warnBeforeQuitDesc": "Cere confirmare la ieșire dacă există descărcări active."
     },
     "integration": {
+      "fnosPairingUnavailable": "Browser extension and CLI pairing are not available in this fnOS version.",
       "appimage": {
         "desc": "Înregistrează acest AppImage Motrix în mediul desktop, astfel încât browserele și linkurile magnet să îi poată trimite descărcări.",
         "enable": "Activează integrarea desktop",
