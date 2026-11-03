@@ -173,6 +173,15 @@ export async function prepareFnosProject({
     ])
     await chmod(path.join(runtime, 'bin/node'), 0o755)
     await verifyFnosBinary(path.join(runtime, 'bin/node'), arch)
+    const nodeBinary = await readFile(path.join(runtime, 'bin/node'))
+    const main = path.join(temporary, 'cmd/main')
+    await writeFile(
+      main,
+      (await readFile(main, 'utf8'))
+        .replaceAll('@FNOS_NODE_SHA256@', sha256(nodeBinary))
+        .replaceAll('@FNOS_NODE_SIZE@', String(nodeBinary.length))
+    )
+
     for (const binary of ['aria2c', 'motrix-finalize-fs'])
       await verifyFnosBinary(
         path.join(temporary, 'app/server/bin', binary),

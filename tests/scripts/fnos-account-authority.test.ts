@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import { expect, it } from 'vitest'
-import { accountFromSnapshot } from '../../packaging/fnos/app/account-authority.mjs'
+import { accountFromSnapshot } from '../../packaging/fnos/cmd/account-authority.mjs'
 
 const key = randomBytes(32)
 const today = 20000

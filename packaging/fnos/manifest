@@ -11,6 +11,7 @@ distributor_url=https://motrix.app
 desktop_uidir=ui
 desktop_applaunchname=motrix.main
 os_min_version=1.2.0401
+service_port=16801
 ctl_stop=true
 micro_app=true
 disable_authorization_path=false

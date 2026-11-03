@@ -15,7 +15,7 @@ import {
 import { connect } from 'node:net'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { startAccountAuthority } from '../../packaging/fnos/app/account-authority.mjs'
+import { startAccountAuthority } from '../../packaging/fnos/cmd/account-authority.mjs'
 
 if (
   process.platform !== 'linux' ||

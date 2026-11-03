@@ -1,4 +1,5 @@
 import {
+  access,
   chmod,
   mkdtemp,
   readFile,
@@ -49,11 +50,50 @@ run(
   ],
   { cwd: repositoryRoot }
 )
-run(
-  path.join(project, 'app/runtime/bin/node'),
-  ['scripts/smoke-fnos-package.mjs', '--project-dir', project],
-  { cwd: repositoryRoot }
+const inContainer = await access('/.dockerenv').then(
+  () => true,
+  () => false
 )
+if (inContainer) {
+  if (process.geteuid() !== 0)
+    throw new Error(
+      'Native lifecycle acceptance requires root inside the disposable build container'
+    )
+  run(
+    path.join(project, 'app/runtime/bin/node'),
+    ['scripts/smoke-fnos-package.mjs', '--project-dir', project],
+    { cwd: repositoryRoot }
+  )
+} else {
+  // Never create test accounts or privileged runtime files on the build host.
+  const image = 'motrix-fnos-lifecycle:bookworm'
+  run('docker', [
+    'build',
+    '--tag',
+    image,
+    '--file',
+    path.join(repositoryRoot, 'packaging/fnos-lifecycle.Dockerfile'),
+    path.join(repositoryRoot, 'packaging'),
+  ])
+  run('docker', [
+    'run',
+    '--rm',
+    '--network=none',
+    '--tmpfs',
+    '/run:rw,nosuid,nodev,noexec',
+    '--user',
+    '0',
+    '--mount',
+    `type=bind,source=${project},target=/project,readonly`,
+    '--mount',
+    `type=bind,source=${path.join(repositoryRoot, 'scripts')},target=/scripts,readonly`,
+    image,
+    '/project/app/runtime/bin/node',
+    '/scripts/smoke-fnos-package.mjs',
+    '--project-dir',
+    '/project',
+  ])
+}
 const tool = await lockedDownload(
   lock.fnpack[`${process.platform}-${process.arch}`],
   path.join(repositoryRoot, 'node_modules/.cache/fnos')

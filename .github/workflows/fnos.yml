@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - 'packaging/fnos/**'
+      - 'packaging/fnos-lifecycle.Dockerfile'
       - 'scripts/*fnos*'
       - 'src/server/platform/fnos/**'
       - 'src/server/http/fnos-auth*'

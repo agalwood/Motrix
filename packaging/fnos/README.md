@@ -4,6 +4,9 @@ This package runs Motrix Server under the dedicated `motrix` package account.
 It includes a checksum-pinned Node 24 runtime, the existing verified GNU/Linux
 Server distribution, aria2 and the native filesystem helper. Installation does
 not download dependencies or run npm. Docker is not a runtime dependency.
+Root-owned lifecycle scripts prepare a pinned runtime for a local account-state
+helper; the Web server and download engine still run as `motrix`. The helper
+has no TCP listener and does not return password material.
 
 The first integration is an **administrator-shared instance**. Every fnOS
 administrator can manage every task and application setting. Ordinary users are
@@ -15,6 +18,10 @@ not a multiuser task-isolation implementation.
 Use a matching Linux x64 or ARM64 build host, Node 24, the repository's pnpm
 version, Rust and the corresponding musl Rust target. The filesystem helper is
 static; the Server's SQLite prebuild and bundled Node use GNU libc.
+Lifecycle acceptance creates disposable accounts, so build either as root in
+a disposable Linux container or on a Linux host with Docker available. The
+build command automatically isolates these checks in a container on ordinary
+hosts. Never run the lifecycle smoke directly on a live NAS.
 
 ```sh
 MOTRIX_SKIP_ELECTRON_REBUILD=1 MOTRIX_SKIP_ENGINE_FETCH=1 pnpm install --frozen-lockfile
@@ -58,8 +65,22 @@ implementation time the official fnpack page linked 1.2.3 binaries returning
 - Minimum **API contract**: fnOS 1.2.0401 / mobile app 1.34.0. Actual minimum
   device compatibility still requires fnOS installation testing.
 - Entry: `/app/motrix/`, HTTP/RPC/static assets/uploads/WebSocket on
-  `${TRIM_APPDEST}/app.sock`. The application does not open its normal web or
-  MDXP TCP listeners in this mode.
+  `${TRIM_APPDEST}/app.sock`. The normal Web TCP listener stays closed. The
+  authenticated MDXP CLI listener uses the manifest service port (16801),
+  separately from the gateway; NAS browser cookies are not client credentials.
+  Use the client-pairing setting to disable that listener when it is not needed.
+- CLI pairing: approve a request from the fnOS administrator Web UI. Credentials
+  bind to that administrator and an opaque account generation. Requests and
+  event streams revalidate local account records; account locks/demotion, generation changes
+  or lookup failures deny further access. The machine-local bridge token is
+  not accepted as a NAS identity. Browser Extension pairing is not enabled yet.
+- Account authority: only the package group can connect to its root-owned
+  socket under `/run/motrix-account-authority`. The persistent generation key
+  lives in the root-only `${TRIM_PKGVAR}/.nas-account-authority` directory.
+  The launcher copies a bounded Node snapshot into the root-only
+  `cmd/.authority-runtime` metadata directory, checks the checksum pinned in
+  root-owned metadata, and clears the privileged process's environment. This
+  keeps executables off fnOS's `noexec` `/run` mount. It never executes package-writable JavaScript as root.
 - Authentication: gateway-provided administrator identity is accepted only on
   the configured Unix listener. The socket is mode `0600`, accessible to the
   package account and root. Verify that the device's gateway can access it;
@@ -106,14 +127,17 @@ shutdown and reports a timeout without discarding the process record. Upgrade
 and uninstall stop the service first. Scripts never remove download shares or
 private task data; fnOS owns its uninstall data-retention choice.
 
-The Linux lifecycle smoke uses a **simulated fnOS API**. It checks start,
-idempotent start, status, stop, restart, persistence, gateway authentication and
-stale PID handling. It does not establish real NAS compatibility. Before a
+The Linux lifecycle smoke uses a **simulated fnOS file API** and real disposable
+Linux account records. It checks service UID separation, CLI pairing and account
+revocation, downloads and denied filesystem operations, start/status/stop/restart,
+persistence, gateway authentication, stale PID handling, helper crash recovery
+and rejection of tampered privileged code/runtime. It does not establish real
+NAS account-disable semantics or device compatibility. Before a
 release, test installation, gateway socket permissions, system pickers,
 mobile/FN Connect, downloads during stop/upgrade, missing storage, ownership
 and ACL inheritance on real x86 and ARM fnOS devices.
 
-User isolation, NAS-bound external client credentials, per-user quota accounting
+User isolation, Extension credential ownership, per-user quota accounting
 and continuously revocable authorization throughout background download and
 finalization are outside this first administrator integration. Revoking a grant
 blocks subsequent path validation; it does not promise immediate cancellation

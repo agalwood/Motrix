@@ -33,6 +33,10 @@ export function runtimeEnvironment(env) {
     PATH: `${env.TRIM_APPDEST}/runtime/bin:${env.PATH ?? '/usr/bin:/bin'}`,
     MOTRIX_AUTH_MODE: 'fnosGateway',
     MOTRIX_WEB_BASE_PATH: '/app/motrix',
+    MOTRIX_MDXP_HOST: '0.0.0.0',
+    ...(env.TRIM_SERVICE_PORT
+      ? { MOTRIX_MDXP_PORT: env.TRIM_SERVICE_PORT }
+      : {}),
     MOTRIX_DATA_DIR: data,
     MOTRIX_TEMP_DIR: `${data}/tmp`,
     MOTRIX_PLUGIN_DIR: `${data}/plugins`,
@@ -88,7 +92,8 @@ async function identity(pid, executable, entry) {
       return undefined
     return { pid, started, boot: boot.trim() }
   } catch (error) {
-    if (['ENOENT', 'ESRCH'].includes(error.code)) return undefined
+    if (['ENOENT', 'ESRCH', 'EACCES', 'EPERM'].includes(error.code))
+      return undefined
     throw error
   }
 }

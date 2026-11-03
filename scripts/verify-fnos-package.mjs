@@ -1,4 +1,4 @@
-import { readdir, readFile, stat } from 'node:fs/promises'
+import { lstat, readdir, readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
@@ -39,12 +39,16 @@ export async function verifyFnosPackage(projectDir, arch) {
     throw new Error('Inconsistent fnOS manifest')
   const privilege = await readJson('config/privilege')
   if (
-    privilege.defaults?.['run-as'] !== 'package' ||
+    privilege.defaults?.['run-as'] !== 'root' ||
+    privilege.username !== 'motrix' ||
+    privilege.groupname !== 'motrix' ||
     Object.keys(privilege).some(
       (key) => !['defaults', 'username', 'groupname'].includes(key)
     )
   )
-    throw new Error('fnOS must run as its package user')
+    throw new Error(
+      'fnOS requires privileged preparation with a dedicated package user'
+    )
   const entries = (await readJson('app/ui/config'))['.url']
   for (const entry of Object.values(entries)) {
     if (
@@ -83,6 +87,20 @@ export async function verifyFnosPackage(projectDir, arch) {
       throw new Error(`Invalid fnOS icon dimensions: ${file}`)
   }
   const node = path.join(projectDir, 'app/runtime/bin/node')
+  const nodeBinary = await readFile(node)
+  const launcher = await readFile(path.join(projectDir, 'cmd/main'), 'utf8')
+  if (
+    !launcher.includes(`node_sha256='${sha256(nodeBinary)}'`) ||
+    !launcher.includes(`node_size='${nodeBinary.length}'`) ||
+    launcher.includes('@FNOS_NODE_')
+  )
+    throw new Error(
+      'fnOS privileged runtime is not pinned to the packaged binary'
+    )
+  for (const script of ['account-authority.mjs', 'authority-lifecycle.mjs'])
+    if (!(await lstat(path.join(projectDir, 'cmd', script))).isFile())
+      throw new Error('Missing protected fnOS authority component')
+
   await verifyFnosBinary(node, arch)
   if (
     receipt.arch !== arch ||

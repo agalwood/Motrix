@@ -171,6 +171,7 @@ import { buildServerCommandHandlers } from './ipc/commands'
 import { buildServerQueryHandlers } from './ipc/queries'
 import { createServerMediaRuntime } from './media-runtime'
 import { provisionOperatorToken } from './operator-token'
+import { FnosAccountAuthority } from './platform/fnos/accounts'
 import { FnosFiles } from './platform/fnos/files'
 import { registerFnosRoutes } from './platform/fnos/routes'
 import { fnosRuntime, listenFnos } from './platform/fnos/runtime'
@@ -1368,11 +1369,14 @@ async function main() {
   )
 
   const remoteExtensionConfig = parseRemoteExtensionConfig(process.env)
+  const nasAccounts = fnos?.accountSocketPath
+    ? new FnosAccountAuthority(fnos.accountSocketPath)
+    : undefined
   const app = await createApp({
     getHiddenNotificationKinds: () =>
       getHiddenNotificationKinds(settingsManager.getApp()),
     clientPairing: {
-      cli: !fnos,
+      cli: !fnos || nasAccounts !== undefined,
       extension: !fnos && remoteExtensionConfig.status === 'enabled',
     },
     basePath: process.env.MOTRIX_WEB_BASE_PATH,
@@ -1937,9 +1941,9 @@ async function main() {
     })
     await bridgeOwnershipSetup
     if (!shellAsyncWork.isAccepting()) return
-    // NAS ownership is now ready for restart/recovery. External pairing stays
-    // closed until its account authority and ingress are configured together.
-    if (fnos) return
+    // Older native packages have no protected account authority. Keep client
+    // ingress closed until the lifecycle launcher supplies that endpoint.
+    if (fnos && !nasAccounts) return
 
     // ─── MDXP bridge (Spec 6) ─────────────────────────────────────
     // Agent-facing unary POST /mdxp + SSE GET /mdxp/events, on its OWN port
@@ -2061,7 +2065,8 @@ async function main() {
         : fixedPort === 'auto'
           ? 16801
           : fixedPort
-      const mdxpHost = process.env.MOTRIX_MDXP_HOST ?? '127.0.0.1'
+      const mdxpHost =
+        process.env.MOTRIX_MDXP_HOST ?? (fnos ? '0.0.0.0' : '127.0.0.1')
       if (remoteExtensionConfig.status === 'invalid') {
         log.warn(
           {
@@ -2075,7 +2080,7 @@ async function main() {
         mdxpHost,
         publicUrl: process.env.MOTRIX_PUBLIC_URL,
       })
-      if (publicUrlWarning) {
+      if (publicUrlWarning && !fnos) {
         log.warn(
           {
             reason: publicUrlWarning.reason,
@@ -2098,6 +2103,7 @@ async function main() {
           (await downloadPathPolicy.authorizeDirectory(path)).canonicalPath,
       })
       const candidateBridgeRuntime = await bootstrapBridgeForServer({
+        nasAccounts,
         userDataDir: platform.userDataDir,
         host: mdxpHost,
         port: mdxpPort,

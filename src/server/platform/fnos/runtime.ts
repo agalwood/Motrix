@@ -13,7 +13,13 @@ export function fnosRuntime(env: NodeJS.ProcessEnv = process.env) {
     throw new Error('fnOS requires TRIM_APPDEST')
   if (env.MOTRIX_WEB_BASE_PATH !== '/app/motrix')
     throw new Error('fnOS requires /app/motrix as its base path')
-  return { socketPath: path.join(target, 'app.sock') }
+  const accountSocketPath = env.MOTRIX_NAS_ACCOUNT_SOCKET
+  if (
+    accountSocketPath !== undefined &&
+    accountSocketPath !== '/run/motrix-account-authority/account.sock'
+  )
+    throw new Error('Invalid fnOS account authority socket')
+  return { socketPath: path.join(target, 'app.sock'), accountSocketPath }
 }
 
 export async function listenFnos(
