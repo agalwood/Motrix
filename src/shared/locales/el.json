@@ -2590,7 +2590,8 @@
           "missing": "Δεν βρέθηκε",
           "unconfigured": "Δεν έχει οριστεί",
           "untrusted": "Αποκλείστηκε από το macOS",
-          "version_mismatch": "Δεν υποστηρίζεται"
+          "version_mismatch": "Δεν υποστηρίζεται",
+          "verificationUnavailable": "Η επαλήθευση δεν είναι διαθέσιμη"
         },
         "title": "Εργαλεία πολυμέσων",
         "validation": {

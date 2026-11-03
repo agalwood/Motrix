@@ -2172,7 +2172,8 @@
           "missing": "Nie znaleziono",
           "untrusted": "Zablokowany przez macOS",
           "unconfigured": "Nie ustawiono",
-          "version_mismatch": "Nieobsługiwany"
+          "version_mismatch": "Nieobsługiwany",
+          "verificationUnavailable": "Weryfikacja niedostępna"
         },
         "stagingMB": "Limit plików tymczasowych (MB)",
         "stagingMBDesc": "Miejsce na pliki pośrednie dla każdej wtyczki i każdego zadania.",

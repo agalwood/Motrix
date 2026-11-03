@@ -2610,7 +2610,8 @@
           "missing": "Introuvable",
           "unconfigured": "Non défini",
           "untrusted": "Bloqué par macOS",
-          "version_mismatch": "Non pris en charge"
+          "version_mismatch": "Non pris en charge",
+          "verificationUnavailable": "Vérification indisponible"
         },
         "title": "Outils multimédias",
         "validation": {

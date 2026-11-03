@@ -2570,7 +2570,8 @@
           "missing": "ไม่พบ",
           "unconfigured": "ยังไม่ได้ตั้งค่า",
           "untrusted": "ถูก macOS บล็อก",
-          "version_mismatch": "ไม่รองรับ"
+          "version_mismatch": "ไม่รองรับ",
+          "verificationUnavailable": "ไม่สามารถตรวจสอบได้"
         },
         "title": "เครื่องมือสื่อ",
         "validation": {

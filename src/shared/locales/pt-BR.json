@@ -2157,7 +2157,8 @@
           "missing": "Não encontrado",
           "untrusted": "Bloqueado pelo macOS",
           "unconfigured": "Não definido",
-          "version_mismatch": "Não compatível"
+          "version_mismatch": "Não compatível",
+          "verificationUnavailable": "Verificação indisponível"
         },
         "stagingMB": "Limite de arquivos temporários (MB)",
         "stagingMBDesc": "Espaço para arquivos intermediários, por plugin e tarefa.",

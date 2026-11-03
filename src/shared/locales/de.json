@@ -2142,7 +2142,8 @@
           "missing": "Nicht gefunden",
           "untrusted": "Von macOS blockiert",
           "unconfigured": "Nicht festgelegt",
-          "version_mismatch": "Nicht unterstützt"
+          "version_mismatch": "Nicht unterstützt",
+          "verificationUnavailable": "Prüfung nicht verfügbar"
         },
         "stagingMB": "Limit für temporäre Dateien (MB)",
         "stagingMBDesc": "Speicherplatz für Zwischendateien pro Plugin und Aufgabe.",

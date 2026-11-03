@@ -2127,7 +2127,8 @@
           "missing": "未找到",
           "untrusted": "macOS 已阻止",
           "unconfigured": "未设置",
-          "version_mismatch": "不受支持"
+          "version_mismatch": "不受支持",
+          "verificationUnavailable": "暂时无法验证"
         },
         "stagingMB": "临时文件空间上限（MB）",
         "stagingMBDesc": "每个插件、每个任务处理媒体时可用的临时空间。",

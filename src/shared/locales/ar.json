@@ -2670,7 +2670,8 @@
           "missing": "غير موجود",
           "unconfigured": "غير معيّن",
           "untrusted": "محظور بواسطة macOS",
-          "version_mismatch": "غير مدعوم"
+          "version_mismatch": "غير مدعوم",
+          "verificationUnavailable": "التحقق غير متاح"
         },
         "title": "أدوات الوسائط",
         "validation": {

@@ -35,7 +35,7 @@ import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
 import { EXTERNAL_URLS, getFfmpegManualUrl } from '@shared/external-urls'
 import { Queries } from '@shared/protocol/queries'
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useFormContext } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import type { IntegrationFormValues } from './integration-dialog'
@@ -50,6 +50,7 @@ type CandidateStateUI =
   | 'available'
   | 'missing'
   | 'untrusted'
+  | 'verification_unavailable'
   | 'unconfigured'
   | 'version_mismatch'
 
@@ -92,6 +93,7 @@ export function MediaToolsSection() {
   >(null)
   const [installError, setInstallError] = useState<string | null>(null)
   const [detectionRefreshFailed, setDetectionRefreshFailed] = useState(false)
+  const detectionGeneration = useRef(0)
   const canInstall = ['darwin', 'linux', 'win32'].includes(transport.platform)
   const visibleResult =
     installResult ?? (installStatus?.phase === 'failed' ? 'failed' : null)
@@ -118,28 +120,36 @@ export function MediaToolsSection() {
 
   useEffect(() => {
     let cancelled = false
+    const generation = ++detectionGeneration.current
     transport
       .invoke(Queries.GetFfmpegDetection)
       .then((d) => {
-        if (cancelled) return
+        if (cancelled || generation !== detectionGeneration.current) return
         setDetection(d as FfmpegDetectionResultUI)
+        setDetectionRefreshFailed(false)
       })
-      .catch(() => {})
+      .catch(() => {
+        if (!cancelled && generation === detectionGeneration.current)
+          setDetectionRefreshFailed(true)
+      })
     return () => {
       cancelled = true
     }
   }, [])
 
   const refresh = async () => {
+    const generation = ++detectionGeneration.current
     try {
       const r = (await transport.invoke(
         Queries.GetFfmpegDetection
       )) as FfmpegDetectionResultUI
+      if (generation !== detectionGeneration.current) return
       setDetection(r)
       setDetectionRefreshFailed(false)
     } catch {
       // Detection is independent of the already committed installation result.
-      setDetectionRefreshFailed(true)
+      if (generation === detectionGeneration.current)
+        setDetectionRefreshFailed(true)
     }
   }
 
@@ -167,6 +177,9 @@ export function MediaToolsSection() {
   const hasUntrustedCandidate =
     !detection?.active &&
     detection?.candidates.some((candidate) => candidate.state === 'untrusted')
+  const verificationUnavailable = detection?.candidates.some(
+    (candidate) => candidate.state === 'verification_unavailable'
+  )
   const activeLabel = detection?.active
     ? t('settings.integration.media.detection.readyTitle', {
         version: detection.active.version,
@@ -425,14 +438,13 @@ export function MediaToolsSection() {
                 />
               </div>
             )}
-            {detectionRefreshFailed && (
-              <p role="alert">
-                {t(
-                  'settings.integration.media.download.detectionRefreshFailed'
-                )}
-              </p>
-            )}
           </div>
+        )}
+
+        {(detectionRefreshFailed || verificationUnavailable) && (
+          <p role="alert" className="text-xs text-muted-foreground">
+            {t('settings.integration.media.download.detectionRefreshFailed')}
+          </p>
         )}
 
         {transport.platform !== 'web' &&
@@ -616,7 +628,11 @@ export function MediaToolsSection() {
                     variant={candidateStateVariant(c.state)}
                     className="justify-self-end rounded-md"
                   >
-                    {t(`settings.integration.media.state.${c.state}`)}
+                    {t(
+                      c.state === 'verification_unavailable'
+                        ? 'settings.integration.media.state.verificationUnavailable'
+                        : `settings.integration.media.state.${c.state}`
+                    )}
                   </Badge>
                 </div>
               ))}

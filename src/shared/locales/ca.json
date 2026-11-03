@@ -2610,7 +2610,8 @@
           "missing": "No trobat",
           "unconfigured": "No establert",
           "untrusted": "Bloquejat pel macOS",
-          "version_mismatch": "No compatible"
+          "version_mismatch": "No compatible",
+          "verificationUnavailable": "Verificació no disponible"
         },
         "title": "Eines multimèdia",
         "validation": {

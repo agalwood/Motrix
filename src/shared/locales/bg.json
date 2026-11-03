@@ -2590,7 +2590,8 @@
           "missing": "Не е намерен",
           "unconfigured": "Не е зададен",
           "untrusted": "Блокиран от macOS",
-          "version_mismatch": "Неподдържан"
+          "version_mismatch": "Неподдържан",
+          "verificationUnavailable": "Проверката е недостъпна"
         },
         "title": "Мултимедийни инструменти",
         "validation": {

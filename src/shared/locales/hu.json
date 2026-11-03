@@ -2142,7 +2142,8 @@
           "missing": "Nem található",
           "untrusted": "A macOS blokkolta",
           "unconfigured": "Nincs beállítva",
-          "version_mismatch": "Nem támogatott"
+          "version_mismatch": "Nem támogatott",
+          "verificationUnavailable": "Az ellenőrzés nem érhető el"
         },
         "stagingMB": "Ideiglenes fájlok méretkorlátja (MB)",
         "stagingMBDesc": "A köztes fájlok számára rendelkezésre álló tárhely bővítményenként és feladatonként.",

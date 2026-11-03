@@ -7,6 +7,7 @@
 // when MOTRIX_TEST_FFMPEG is set.
 
 import { describe, expect, it } from 'vitest'
+import { FfmpegCapabilityHost } from './ffmpeg'
 import {
   detectFromCandidates,
   detectInOrder,
@@ -269,6 +270,44 @@ describe('detectInOrder', () => {
       state: 'untrusted',
     })
   })
+
+  it.each(['manual', 'path', 'none'])(
+    'keeps checking other candidates after unavailable verification, with %s fallback',
+    async (source) => {
+      const results: Record<string, FfmpegDetection> = {
+        '/data/binaries/ffmpeg': {
+          available: false,
+          binaryPath: '/data/binaries/ffmpeg',
+          failureReason: 'verification_unavailable',
+        },
+      }
+      if (source !== 'none')
+        results[source === 'manual' ? '/custom/ffmpeg' : 'ffmpeg'] = {
+          available: true,
+          binaryPath: '/custom/ffmpeg',
+          version: '9.0.2',
+        }
+      const host = new FfmpegCapabilityHost({ detect: { available: false } })
+      const report = await host.refreshDetection(() =>
+        detectInOrder(
+          {
+            manualPath: source === 'manual' ? '/custom/ffmpeg' : '',
+            userDataBinariesDir: '/data/binaries',
+            platform: 'darwin',
+            envPath: null,
+          },
+          makeProbe(results)
+        )
+      )
+      expect(report.candidates[1]).toMatchObject({
+        state: 'verification_unavailable',
+      })
+      expect(host.available).toBe(source !== 'none')
+      expect(report.active).toEqual(
+        source === 'none' ? null : { path: '/custom/ffmpeg', version: '9.0.2' }
+      )
+    }
+  )
 
   it('derives the Windows userData candidate from the supplied platform', async () => {
     const probe = makeProbe({})

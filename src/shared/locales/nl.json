@@ -2590,7 +2590,8 @@
           "missing": "Niet gevonden",
           "unconfigured": "Niet ingesteld",
           "untrusted": "Geblokkeerd door macOS",
-          "version_mismatch": "Niet ondersteund"
+          "version_mismatch": "Niet ondersteund",
+          "verificationUnavailable": "Verificatie niet beschikbaar"
         },
         "title": "Mediahulpmiddelen",
         "validation": {

@@ -4,7 +4,10 @@ import { writeFile } from 'node:fs/promises'
 import type { FfmpegTarget } from '@shared/schemas/ffmpeg-release'
 import { describe, expect, it, vi } from 'vitest'
 import type { RunCommand } from '../cli/command-runner'
-import { verifyMacFfmpegTrust } from './ffmpeg-macos-trust'
+import {
+  verifyMacFfmpegBinaryTrust,
+  verifyMacFfmpegTrust,
+} from './ffmpeg-macos-trust'
 
 const identity = vi.hoisted(() => {
   const bytes = Buffer.from('ephemeral certificate fixture')
@@ -35,7 +38,7 @@ function target(): FfmpegTarget {
     },
   } as FfmpegTarget
 }
-function runner(violation?: string) {
+function runner(violation?: string, timestamp = 'Sep 30, 2026 at 12:00:00 PM') {
   return vi.fn<RunCommand>(async (command, args) => {
     if (violation === 'os-failed')
       return { code: 1, stdout: '', stderr: 'rejected' }
@@ -63,7 +66,7 @@ function runner(violation?: string) {
     }
     if (args.includes('--verbose=4') && command.endsWith('codesign')) {
       const name = args.at(-1)!.endsWith('ffprobe') ? 'ffprobe' : 'ffmpeg'
-      let stderr = `Identifier=net.agalwood.motrix.${name}\nTeamIdentifier=TESTTEAM01\nCDHash=${'a'.repeat(40)}\nTimestamp=Sep 30, 2026 at 12:00:00 PM\nAuthority=Developer ID Application: Test (TESTTEAM01)\nCodeDirectory v=20500 size=42 flags=0x10000(runtime)\n`
+      let stderr = `Identifier=net.agalwood.motrix.${name}\nTeamIdentifier=TESTTEAM01\nCDHash=${'a'.repeat(40)}\nTimestamp=${timestamp}\nAuthority=Developer ID Application: Test (TESTTEAM01)\nCodeDirectory v=20500 size=42 flags=0x10000(runtime)\n`
       if (violation === 'team')
         stderr = stderr.replace(
           'TeamIdentifier=TESTTEAM01',
@@ -90,6 +93,76 @@ function runner(violation?: string) {
 const url =
   'https://github.com/motrixapp/ffmpeg-static/releases/download/v9.0.2-motrix.8/ffmpeg-9.0.2-motrix.8-darwin-arm64.zip'
 describe('managed macOS FFmpeg system trust', () => {
+  it.each([
+    ['Oct 1, 2026 at 16:18:51', '2026-10-01T16:18:51Z'],
+    ['1 Oct 2026 at 16:18:51', '2026-10-01T16:18:51Z'],
+    ['Oct 1, 2026 at 4:18:51 PM', '2026-10-01T16:18:51Z'],
+    ['1 Oct 2026 at 4:18:51 PM', '2026-10-01T16:18:51Z'],
+    ['1 Oct 2026 at 4:18:51 AM', '2026-10-01T04:18:51Z'],
+    ['Oct 1, 2026 at 12:18:51 AM', '2026-10-01T00:18:51Z'],
+    ['1 Oct 2026 at 12:18:51 AM', '2026-10-01T00:18:51Z'],
+    ['1 Oct 2026 at 12:18:51 PM', '2026-10-01T12:18:51Z'],
+    ['1 Oct 2026 at 00:18:51', '2026-10-01T00:18:51Z'],
+    ['1\u00a0Oct\u202f2026 at 4:18:51\u202fPM', '2026-10-01T16:18:51Z'],
+    ['29 Feb 2024 at 23:59:59', '2024-02-29T23:59:59Z'],
+  ])(
+    'matches the secure date %s to the authenticated UTC timestamp',
+    async (display, timestamp) => {
+      const release = target()
+      for (const name of ['ffmpeg', 'ffprobe'] as const)
+        release.signing!.binaries[name].timestamp = timestamp
+      await expect(
+        verifyMacFfmpegTrust(
+          '/fixture',
+          release,
+          url,
+          runner(undefined, display)
+        )
+      ).resolves.toBeUndefined()
+    }
+  )
+  it.each([
+    '30 Sep 2026 at 12:00:01 PM',
+    '30 Sep 2026 at 12:00:00 AM',
+    '30 Sep 2026 at 00:00:00 PM',
+    '30 Sep 2026 at 13:00:00 PM',
+    '30 Sep 2026 at 24:00:00',
+    '30 Sep 2026 at 12:60:00',
+    '30 Sep 2026 at 12:00:60',
+    '31 Sep 2026 at 12:00:00',
+    '29 Feb 2026 at 12:00:00',
+    '0 Sep 2026 at 12:00:00',
+    '30 Xxx 2026 at 12:00:00',
+    '30/09/2026 12:00:00',
+    '30 Sep 2026 at 12:00:00 UTC',
+    '30 Sep 2026\nat 12:00:00',
+    'Sep 30, 2026 at 12:00:00 PM\nTimestamp=30 Sep 2026 at 12:00:00',
+  ])(
+    'rejects invalid, ambiguous or mismatched timestamps: %s',
+    async (display) => {
+      await expect(
+        verifyMacFfmpegTrust(
+          '/fixture',
+          target(),
+          url,
+          runner(undefined, display)
+        )
+      ).rejects.toThrow()
+    }
+  )
+  it('checks a legacy CLI binary without changing quarantine or requiring a sibling ffprobe', async () => {
+    const run = runner(undefined, '30 Sep 2026 at 12:00:00')
+    await verifyMacFfmpegBinaryTrust('/legacy/ffmpeg', 'ffmpeg', target(), run)
+    expect(
+      run.mock.calls.every(
+        ([command, args]) =>
+          command === '/usr/bin/codesign' && args.at(-1) === '/legacy/ffmpeg'
+      )
+    ).toBe(true)
+    expect(
+      run.mock.calls.some(([, args]) => args.includes('--check-notarization'))
+    ).toBe(true)
+  })
   it('checks both CLI binaries with Apple anchoring, online notarization, a pinned leaf certificate and secure UTC timestamps', async () => {
     const run = runner()
     await verifyMacFfmpegTrust('/fixture', target(), url, run)
