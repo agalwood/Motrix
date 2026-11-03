@@ -10,7 +10,15 @@ import {
 import { createServer } from 'node:http'
 import path from 'node:path'
 import { afterEach, expect, it } from 'vitest'
-import { FnosFiles, fnosUser } from './files'
+import { runAsNasUser } from '../nas/identity'
+import { FnosFiles } from './files'
+
+const user = (uid: number) => ({
+  platform: 'fnos' as const,
+  userId: String(uid),
+  username: `user${uid}`,
+  administrator: true,
+})
 
 const cleanup: (() => Promise<unknown>)[] = []
 afterEach(async () => {
@@ -78,7 +86,7 @@ async function fixture() {
 it('checks the existing parent before creating a new download directory', async () => {
   const { policy, downloads, calls } = await fixture()
   const candidate = path.join(downloads, 'new/child')
-  await fnosUser.run(1000, () => policy.prepareSaveDir(candidate))
+  await runAsNasUser(user(1000), () => policy.prepareSaveDir(candidate))
   expect((await stat(candidate)).isDirectory()).toBe(true)
   expect(
     calls
@@ -93,10 +101,10 @@ it('denies a non-writable user before creating anything and treats delete separa
   const { policy, downloads, files } = await fixture()
   const candidate = path.join(downloads, 'denied')
   await expect(
-    fnosUser.run(2000, () => policy.prepareSaveDir(candidate))
+    runAsNasUser(user(2000), () => policy.prepareSaveDir(candidate))
   ).rejects.toThrow('permission denied')
   await expect(stat(candidate)).rejects.toMatchObject({ code: 'ENOENT' })
-  await expect(files.check(downloads, 'deletable', 1000)).rejects.toThrow(
+  await expect(files.check(downloads, 'deletable', user(1000))).rejects.toThrow(
     'permission denied'
   )
 })
@@ -104,7 +112,7 @@ it('fails closed on no grants or platform failure', async () => {
   const first = await fixture()
   first.revoke()
   await expect(first.policy.prepareSaveDir(first.downloads)).rejects.toThrow(
-    'No fnOS directories'
+    'No NAS directories'
   )
   const second = await fixture()
   second.offline()
@@ -125,7 +133,7 @@ it('rejects sibling paths and symlinks leaving an authorized root', async () => 
     files.authorizeFile(
       path.join(downloads, 'link/secret.torrent'),
       policy,
-      1000
+      user(1000)
     )
   ).rejects.toThrow()
 })

@@ -11,8 +11,8 @@ import {
 } from '@shared/schemas/operator-auth'
 import { afterEach, describe, expect, it } from 'vitest'
 import WebSocket from 'ws'
-import { fnosUser } from '../platform/fnos/files'
 import { listenFnos } from '../platform/fnos/runtime'
+import { currentNasUser } from '../platform/nas/identity'
 import { createApp } from './app'
 
 const cleanup: (() => Promise<unknown>)[] = []
@@ -38,8 +38,12 @@ async function fixture(now = Date.now) {
     rendererDir: root,
     eventBus: new EventBus(),
   })
-  app.get('/api/private', async () => ({ uid: fnosUser.getStore() }))
-  app.post('/api/private', async () => ({ uid: fnosUser.getStore() }))
+  app.get('/api/private', async () => ({
+    uid: Number(currentNasUser()?.userId),
+  }))
+  app.post('/api/private', async () => ({
+    uid: Number(currentNasUser()?.userId),
+  }))
   cleanup.push(() => app.close())
   await listenFnos(app, socketPath)
   const call = (

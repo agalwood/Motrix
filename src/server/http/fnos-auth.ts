@@ -6,13 +6,13 @@ import {
   WEB_ORIGIN_HEADER,
 } from '@shared/schemas/operator-auth'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
-import { fnosUser } from '../platform/fnos/files'
 import {
   type FnosGatewayOptions,
   fnosIdentityDiagnostic,
   fnosPrincipal,
   isFnosListener,
 } from '../platform/fnos/identity'
+import { runAsNasUser } from '../platform/nas/identity'
 import type { OperatorSessionPolicy } from './operator-auth'
 
 type Principal = NonNullable<ReturnType<typeof fnosPrincipal>>
@@ -162,9 +162,18 @@ export function registerFnosAuth(
     return { ticket: token }
   })
   app.addHook('preHandler', (req, _reply, done) => {
-    const uid = identities.get(req)?.uid
-    if (uid === undefined) done()
-    else fnosUser.run(uid, done)
+    const principal = identities.get(req)
+    if (!principal) done()
+    else
+      runAsNasUser(
+        {
+          platform: 'fnos',
+          userId: String(principal.uid),
+          username: principal.username,
+          administrator: true,
+        },
+        done
+      )
   })
   return {
     principal(req) {

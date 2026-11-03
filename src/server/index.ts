@@ -173,7 +173,7 @@ import { provisionOperatorToken } from './operator-token'
 import { FnosFiles } from './platform/fnos/files'
 import { registerFnosRoutes } from './platform/fnos/routes'
 import { fnosRuntime, listenFnos } from './platform/fnos/runtime'
-import { guardFnosTaskCommands } from './platform/fnos/task-commands'
+import { guardNasTaskCommands } from './platform/nas/task-commands'
 import { createNodePlatformServices } from './platform/services'
 import { createServerCapabilityHost } from './plugin/capability-host'
 import {
@@ -1295,7 +1295,7 @@ async function main() {
   })
   const createTask = commandHandlers[Commands.CreateTask]
   if (fnosFiles)
-    guardFnosTaskCommands(commandHandlers, fnosFiles, downloadPathPolicy, () =>
+    guardNasTaskCommands(commandHandlers, fnosFiles, downloadPathPolicy, () =>
       taskManager.getAll()
     )
   if (!createTask) throw new Error('CreateTask handler is not registered')

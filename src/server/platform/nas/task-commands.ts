@@ -7,12 +7,12 @@ import type { DownloadTask } from '@shared/types/task'
 import { canResume } from '@shared/types/task-actions'
 import { z } from 'zod'
 import type { ServerDownloadPathPolicy } from '../../download-path-policy'
-import type { FnosFiles } from './files'
+import type { NasFiles } from './files'
 
 /** Administrators share tasks; filesystem permissions still apply per request. */
-export function guardFnosTaskCommands(
+export function guardNasTaskCommands(
   handlers: CommandHandlerMap,
-  files: FnosFiles,
+  files: NasFiles,
   policy: ServerDownloadPathPolicy,
   getTasks: () => DownloadTask[]
 ) {

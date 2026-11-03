@@ -7,7 +7,8 @@ import { canOpenTaskFile } from '@shared/types/task-actions'
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import type { ServerDownloadPathPolicy } from '../../download-path-policy'
-import { type FnosFiles, fnosUser } from './files'
+import type { NasFiles } from '../nas/files'
+import { currentNasUser } from '../nas/identity'
 
 const pathSchema = z.object({ path: z.string().min(1).max(4096) }).strict()
 const taskSchema = z
@@ -19,7 +20,7 @@ const taskSchema = z
 
 export function registerFnosRoutes(
   app: FastifyInstance,
-  files: FnosFiles,
+  files: NasFiles,
   policy: ServerDownloadPathPolicy,
   getTask: (id: string) => DownloadTask | undefined
 ) {
@@ -34,8 +35,8 @@ export function registerFnosRoutes(
   })
   app.post('/api/fnos/task-path', async (req, reply) => {
     const body = taskSchema.safeParse(req.body)
-    const uid = fnosUser.getStore()
-    if (!body.success || uid === undefined)
+    const user = currentNasUser()
+    if (!body.success || user === undefined)
       return reply.code(400).send({ error: 'invalid request' })
     const task = getTask(body.data.taskId)
     if (!task || (body.data.action === 'open' && !canOpenTaskFile(task)))
@@ -48,8 +49,8 @@ export function registerFnosRoutes(
       const canonical =
         body.data.action === 'reveal'
           ? (await policy.authorizeDirectory(candidate)).canonicalPath
-          : await files.authorizeFile(candidate, policy, uid)
-      await files.check(canonical, 'readable', uid)
+          : await files.authorizeFile(candidate, policy, user)
+      await files.check(canonical, 'readable', user)
       const current = getTask(task.id)
       if (!current || (current.finalPath || current.diskPath) !== stored)
         throw new Error('Task changed')
@@ -60,15 +61,15 @@ export function registerFnosRoutes(
   })
   app.post('/api/fnos/torrent', async (req, reply) => {
     const body = pathSchema.safeParse(req.body)
-    const uid = fnosUser.getStore()
+    const user = currentNasUser()
     if (
       !body.success ||
-      uid === undefined ||
+      user === undefined ||
       !body.data.path.toLowerCase().endsWith('.torrent')
     )
       return reply.code(400).send({ error: 'invalid torrent path' })
     try {
-      const candidate = await files.authorizeFile(body.data.path, policy, uid)
+      const candidate = await files.authorizeFile(body.data.path, policy, user)
       const handle = await open(
         candidate,
         constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK

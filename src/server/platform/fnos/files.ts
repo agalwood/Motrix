@@ -1,16 +1,13 @@
-import { AsyncLocalStorage } from 'node:async_hooks'
 import { randomUUID } from 'node:crypto'
-import { lstat, realpath } from 'node:fs/promises'
 import { request } from 'node:http'
-import path from 'node:path'
 import { z } from 'zod'
 import {
-  createServerDownloadPathPolicy,
-  DirectoryAuthorizationError,
-  type ServerDownloadPathPolicy,
-} from '../../download-path-policy'
+  type NasFileAccess,
+  type NasFilePermission,
+  NasFiles,
+} from '../nas/files'
+import type { NasIdentity } from '../nas/identity'
 
-export const fnosUser = new AsyncLocalStorage<number>()
 const responseSchema = z.object({ code: z.literal(0), data: z.unknown() })
 const rootsSchema = z.object({
   paths: z.array(z.string().startsWith('/').max(4096)).max(1024),
@@ -24,7 +21,8 @@ const aclSchema = z.array(
   })
 )
 
-export class FnosFiles {
+class FnosFileAccess implements NasFileAccess {
+  readonly platform = 'fnos' as const
   constructor(
     private readonly env: NodeJS.ProcessEnv = process.env,
     private readonly socketPath = '/var/run/trim_open_gateway_apiscope.socket'
@@ -83,119 +81,42 @@ export class FnosFiles {
     return responseSchema.parse(value).data
   }
 
-  async roots(): Promise<string[]> {
+  async authorizedRoots(): Promise<string[]> {
     const shared = rootsSchema.parse(
       await this.call('trim.file.getSharedAccessibleFolders', {})
     )
-    const roots = [
-      ...new Set([
-        ...(this.env.TRIM_DATA_SHARE_PATHS ?? '').split(':').filter(Boolean),
-        ...shared.paths,
-      ]),
+    return [
+      ...(this.env.TRIM_DATA_SHARE_PATHS ?? '').split(':').filter(Boolean),
+      ...shared.paths,
     ]
-    if (roots.length === 0)
-      throw new DirectoryAuthorizationError(
-        'outsideRoots',
-        'No fnOS directories are authorized'
-      )
-    return roots
   }
 
-  async check(
+  async checkAccess(
+    user: NasIdentity,
     candidate: string,
-    permission: 'readable' | 'writable' | 'deletable',
-    uid = fnosUser.getStore()
-  ): Promise<void> {
-    if (uid === undefined) return // Instance-owned background work uses the package ACL.
+    permission: NasFilePermission
+  ): Promise<boolean> {
+    if (user.platform !== this.platform) return false
+    const uid = z
+      .string()
+      .regex(/^(0|[1-9]\d*)$/)
+      .transform(Number)
+      .pipe(z.number().int().nonnegative().safe())
+      .parse(user.userId)
     const entries = aclSchema.parse(
       await this.call('trim.file.checkUserACL', { uid, path: [candidate] })
     )
-    if (
-      !entries.some((entry) => entry.path === candidate && entry[permission])
-    ) {
-      throw new DirectoryAuthorizationError(
-        'permissionDenied',
-        'fnOS file permission denied'
-      )
-    }
-  }
-
-  async policy(defaultSaveDir: string): Promise<ServerDownloadPathPolicy> {
-    let roots = await this.roots()
-    const snapshot = async () => {
-      roots = await this.roots()
-      return createServerDownloadPathPolicy({
-        defaultSaveDir,
-        allowedSaveDirs: roots,
-        initialize: false,
-      })
-    }
-    return {
-      get allowedSaveDirs() {
-        return roots
-      },
-      authorizeDirectory: async (candidate) => {
-        const directory = await (await snapshot()).authorizeDirectory(candidate)
-        await this.check(directory.canonicalPath, 'readable')
-        return directory
-      },
-      prepareSaveDir: async (requested) => {
-        const candidate = requested || defaultSaveDir
-        const policy = await snapshot()
-        // Check the existing ancestor before creating anything. A nonexistent
-        // path returns all-false from the platform ACL API.
-        let ancestor = path.resolve(candidate)
-        for (;;) {
-          try {
-            await lstat(ancestor)
-            break
-          } catch (error) {
-            if (
-              (error as NodeJS.ErrnoException).code !== 'ENOENT' ||
-              path.dirname(ancestor) === ancestor
-            )
-              throw error
-            ancestor = path.dirname(ancestor)
-          }
-        }
-        const directory = await policy.authorizeDirectory(ancestor)
-        await this.check(directory.canonicalPath, 'writable')
-        const result = await policy.prepareSaveDir(candidate)
-        await this.check(result, 'writable')
-        return result
-      },
-    }
-  }
-
-  async authorizeFile(
-    candidate: string,
-    policy: ServerDownloadPathPolicy,
-    uid = fnosUser.getStore()
-  ): Promise<string> {
-    if (!path.isAbsolute(candidate) || candidate.includes('\0'))
-      throw new Error('Invalid file path')
-    const canonical = await realpath(candidate)
-    await policy.authorizeDirectory(path.dirname(candidate))
-    await policy.authorizeDirectory(path.dirname(canonical))
-    await this.check(canonical, 'readable', uid)
-    return canonical
-  }
-
-  async authorizeRemoval(
-    candidate: string,
-    policy: ServerDownloadPathPolicy
-  ): Promise<void> {
-    const info = await lstat(candidate).catch(
-      (error: NodeJS.ErrnoException) => {
-        if (error.code === 'ENOENT') return undefined
-        throw error
-      }
+    return entries.some(
+      (entry) => entry.path === candidate && entry[permission]
     )
-    if (!info) return
-    if (info.isSymbolicLink()) throw new Error('Refusing to remove a symlink')
-    const canonical = await realpath(candidate)
-    await policy.authorizeDirectory(path.dirname(candidate))
-    await policy.authorizeDirectory(path.dirname(canonical))
-    await this.check(canonical, 'deletable')
+  }
+}
+
+export class FnosFiles extends NasFiles {
+  constructor(
+    env: NodeJS.ProcessEnv = process.env,
+    socketPath = '/var/run/trim_open_gateway_apiscope.socket'
+  ) {
+    super(new FnosFileAccess(env, socketPath))
   }
 }
