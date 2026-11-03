@@ -110,9 +110,11 @@ export function mergeEngineTask(
     bt: bt
       ? {
           ...bt,
+          // Privacy comes from torrent metadata; engine polling may not report
+          // it. Retain it across download, finalize and restored seeding polls.
+          isPrivate: existing.bt?.isPrivate ?? bt.isPrivate,
           ...(hasLegacyImport(existing)
             ? {
-                isPrivate: existing.bt?.isPrivate ?? false,
                 selectedFiles: existing.bt?.selectedFiles ?? [],
                 announceList: existing.bt?.announceList ?? [],
                 trackers: existing.bt?.trackers ?? [],
