@@ -44,8 +44,9 @@ invalidates recovery; putting an old file back does not revive an invalidated
 grant. If an activation response is lost, Motrix reconciles its saved token and
 GID instead of blindly creating a duplicate task.
 
-Retain the engine's `*.pre-schema5-*.db` backup when upgrading an old database.
-It contains the state before the schema upgrade. An older engine cannot open the
-newer schema; stop all engines and restore a verified backup to a separate path
-if a downgrade is necessary. Existing released engines and application packages
+Retain the engine’s pre-upgrade database backups, including backups from earlier
+upgrades. The engine bundled with Motrix 2.2.1 upgrades an existing database to
+schema 6; older engines cannot open it. Stop all engines and restore a verified
+pre-upgrade backup to a separate path if a downgrade is necessary. Do not delete
+or reset the upgraded database. Existing released engines and application packages
 are immutable; support depends on the engine bundled with the installed build.

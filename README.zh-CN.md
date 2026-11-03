@@ -19,18 +19,20 @@ Motrix 是一款界面简洁、功能丰富的桌面下载管理器，可处理 
 - **桌面应用**：可在 macOS、Windows 和 Linux 上运行；
 - **Headless server**：无需桌面环境，可直接使用 Node.js 运行或通过 Docker 部署，并提供 Web 界面，适合安装在 NAS 和家庭服务器上。
 
-## Motrix 2.2.0
+## Motrix 2.2.1
 
-Motrix 2.2.0 恢复可选的 Dock 与任务栏进度显示，接通 Server 扩展媒体下载，
-并加强种子元数据校验，同时改进浏览器配置文件隔离、Cookie 传递和下载兼容性。
-从 GitHub Releases 下载 [v2.2.0](https://github.com/agalwood/Motrix/releases/tag/v2.2.0)，
-并阅读[完整发布说明](./docs/release-notes/2.2.0.zh-CN.md)。
+Motrix 2.2.1 修复损坏磁力任务会话导致的启动问题，并在引擎保留了所需上下文时，
+使用原任务和已有下载进度安全重试 HTTP 下载。本版捆绑 aria2 1.37.0-motrix.22，
+同时修复 Web UI 会话变化后仍执行旧重试操作的问题。
+从 GitHub Releases 下载 [v2.2.1](https://github.com/agalwood/Motrix/releases/tag/v2.2.1)，
+并阅读[完整发布说明](./docs/release-notes/2.2.1.zh-CN.md)。
 
-升级前请备份现有 Motrix 配置和下载文件。桌面端迁移助手会将选中的 v1 任务
-导入为暂停记录，并保留原文件；恢复下载需要单独明确操作。
-Windows 原位激活 BitTorrent 任务要求使用受支持的本地 NTFS 卷，并明确授权。
-支持的磁盘类型、文件权限和恢复方式见[迁移指南](./docs/legacy-migration.zh-CN.md)。
-请保留 v1 配置和引擎升级前数据库快照的备份。
+升级前请备份现有 Motrix 配置和下载文件。捆绑引擎会将 SQLite 数据库升级至
+schema 6，并保留升级前备份；旧引擎无法打开 schema 6，如需降级必须保留该备份。
+桌面端迁移助手会将选中的 v1 任务导入为暂停记录，并保留原文件；恢复下载需要
+单独明确操作。Windows 原位激活 BitTorrent 任务要求使用受支持的本地 NTFS 卷，
+并明确授权。支持的磁盘类型、文件权限和恢复方式见
+[迁移指南](./docs/legacy-migration.zh-CN.md)。请保留原始 v1 配置。
 
 ## 应用截图
 
@@ -174,7 +176,7 @@ npm install -g @motrix/cli
 ```bash
 mkdir -p motrix-data downloads
 sudo chown 1000:1000 motrix-data downloads
-export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.2.0'
+export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.2.1'
 export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
 docker compose pull server
 docker compose up -d --wait

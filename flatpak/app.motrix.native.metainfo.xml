@@ -68,6 +68,16 @@
   </screenshots>
 
   <releases>
+    <release version="2.2.1" date="2026-11-03">
+      <description>
+        <p>
+          Fixes startup recovery for broken magnet sessions and safe continuation
+          of retained HTTP tasks. Prevents stale retries after Web UI session
+          changes and bundles aria2 1.37.0-motrix.22. Keep the engine's pre-upgrade
+          database backup: older engines cannot open schema 6.
+        </p>
+      </description>
+    </release>
     <release version="2.2.0" date="2026-11-01">
       <description>
         <p>

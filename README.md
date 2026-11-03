@@ -19,21 +19,23 @@ The same core powers two ways to run Motrix:
 - **Desktop app:** Runs on macOS, Windows, and Linux
 - **Headless server:** Runs without a desktop environment, either directly on Node.js or in Docker, and includes a web UI for NAS devices and home servers
 
-## Motrix 2.2.0
+## Motrix 2.2.1
 
-Motrix 2.2.0 restores optional Dock and taskbar progress, enables extension
-media downloads on Server, and strengthens torrent metadata validation. It also
-improves browser-profile isolation, cookie handoff, and download compatibility.
-Download [v2.2.0 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.2.0)
-and read the [full release notes](./docs/release-notes/2.2.0.md).
+Motrix 2.2.1 fixes startup recovery for broken magnet sessions and restores safe
+HTTP retries with the original task and download progress when the engine has
+retained the required context. It bundles aria2 1.37.0-motrix.22 and fixes stale
+retry actions after Web UI session changes.
+Download [v2.2.1 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.2.1)
+and read the [full release notes](./docs/release-notes/2.2.1.md).
 
-Back up your existing Motrix profile and downloads before upgrading. The desktop
-Migration Assistant imports selected v1 tasks as paused records and preserves
-the original files. Resuming downloads requires a separate explicit action.
-Windows in-place BitTorrent activation requires a supported local NTFS volume
-and explicit authorization. See the [migration guide](./docs/legacy-migration.md)
-for supported volumes, file permissions, and recovery. Keep the v1 profile and
-the engine's pre-upgrade database backup.
+Back up your existing Motrix profile and downloads before upgrading. The bundled
+engine upgrades its SQLite database to schema 6 and keeps a pre-upgrade backup;
+older engines cannot open schema 6. Keep that backup if you may need to downgrade.
+The desktop Migration Assistant imports selected v1 tasks as paused records and
+preserves the original files. Resuming downloads requires a separate explicit
+action. Windows in-place BitTorrent activation requires a supported local NTFS
+volume and explicit authorization. See the [migration guide](./docs/legacy-migration.md)
+for supported volumes, file permissions, and recovery. Keep the original v1 profile.
 
 ## Screenshots
 
@@ -185,7 +187,7 @@ included `compose.yaml` keeps Server state separate from downloaded resources:
 ```bash
 mkdir -p motrix-data downloads
 sudo chown 1000:1000 motrix-data downloads
-export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.2.0'
+export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.2.1'
 export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
 docker compose pull server
 docker compose up -d --wait
