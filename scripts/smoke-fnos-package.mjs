@@ -76,7 +76,8 @@ const data = path.join(root, 'var')
 const downloads = path.join(root, 'downloads')
 const apiSocket = path.join(root, 'api.sock')
 const env = {
-  ...process.env,
+  PATH: '/usr/sbin:/usr/bin:/sbin:/bin',
+  LANG: 'C.UTF-8',
   TRIM_APPDEST: target,
   TRIM_PKGVAR: data,
   TRIM_DATA_SHARE_PATHS: downloads,
@@ -120,7 +121,9 @@ const api = createServer(async (req, res) => {
 })
 const lifecycle = (action) =>
   new Promise((resolve, reject) => {
-    const child = spawn('bash', [path.join(root, 'cmd/main'), action], {
+    // Only this disposable fixture uses shell tracing. Its environment contains
+    // synthetic credentials; output is retained solely for failure diagnostics.
+    const child = spawn('bash', ['-x', path.join(root, 'cmd/main'), action], {
       env,
       stdio: ['ignore', 'pipe', 'pipe'],
     })
