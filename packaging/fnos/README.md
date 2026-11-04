@@ -42,8 +42,9 @@ manifest and artifact filename are verified against this revision. Revision
 version for an in-place update: fnOS rejects reinstalling the same version.
 Uninstalling instead may clear system directory grants even when task data is
 retained; reselect those directories before resuming downloads.
-The fnOS flag includes the platform SDK only in this Web build; ordinary
-Server and Electron builds keep their existing JavaScript size budgets.
+The fnOS flag includes the platform SDK only in this Web build. Shared NAS
+controls and translations have a bounded Web bundle allowance; startup size
+ceilings remain unchanged for Server and Electron builds.
 
 `build:fnos` prepares a new project, validates it, runs both Server and fnOS
 lifecycle smoke checks with the **bundled** Node, invokes pinned fnpack, unpacks

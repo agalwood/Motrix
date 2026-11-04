@@ -1,5 +1,3 @@
-import { constants } from 'node:fs'
-import { open } from 'node:fs/promises'
 import path from 'node:path'
 import { MAX_TORRENT_FILE_SIZE } from '@shared/lib/torrent-meta'
 import type { DownloadTask } from '@shared/types/task'
@@ -9,6 +7,7 @@ import { z } from 'zod'
 import type { ServerDownloadPathPolicy } from '../../download-path-policy'
 import type { NasFiles } from '../nas/files'
 import { currentNasUser } from '../nas/identity'
+import { openFnosFile } from './open-file'
 
 const pathSchema = z.object({ path: z.string().min(1).max(4096) }).strict()
 const taskSchema = z
@@ -70,9 +69,8 @@ export function registerFnosRoutes(
       return reply.code(400).send({ error: 'invalid torrent path' })
     try {
       const candidate = await files.authorizeFile(body.data.path, policy, user)
-      const handle = await open(
-        candidate,
-        constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK
+      const handle = await openFnosFile(candidate, (opened) =>
+        files.authorizeFile(opened, policy, user)
       )
       try {
         const info = await handle.stat()

@@ -10,9 +10,9 @@ const TARGETS = [
   { name: 'preload', initial: 80 * 1024, total: 80 * 1024 },
   { name: 'worker', initial: 48 * 1024, total: 48 * 1024 },
   { name: 'renderer', initial: 2.75 * MIB, total: 8 * MIB },
-  // NAS code claims add 5.8 KiB of locale text plus the account-scoped UI.
-  // Keep the startup ceiling unchanged and budget 8 KiB for that feature.
-  { name: 'renderer.web', initial: 2.75 * MIB, total: 8 * MIB + 8 * 1024 },
+  // NAS integration and code claims bring total Web JS to ~8.009 MiB.
+  // Keep the startup ceiling unchanged and bound the added UI/locales to 12 KiB.
+  { name: 'renderer.web', initial: 2.75 * MIB, total: 8 * MIB + 12 * 1024 },
   // The shared operation runtime brings total server JS to ~5.01 MiB.
   { name: 'server', initial: 2 * MIB, total: 5.25 * MIB },
 ]
