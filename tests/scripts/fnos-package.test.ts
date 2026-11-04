@@ -4,6 +4,8 @@ import {
   mkdtemp,
   readFile,
   rm,
+  stat,
+  symlink,
   writeFile,
 } from 'node:fs/promises'
 import path from 'node:path'
@@ -14,6 +16,10 @@ import {
   runtimeEnvironment,
 } from '../../packaging/fnos/app/lifecycle.mjs'
 import {
+  normalizeFnosMetadataPermissions,
+  verifyFnosMetadataPermissions,
+} from '../../scripts/fnos-metadata-permissions.mjs'
+import {
   fnosPackageVersion,
   lockedDownload,
   prepareFnosProject,
@@ -23,6 +29,41 @@ import {
 import { verifyFnosPackage } from '../../scripts/verify-fnos-package.mjs'
 
 const directories: string[] = []
+it('normalizes group-writable checkout metadata before privileged lifecycle checks', async () => {
+  const project = await temporary()
+  const cmd = path.join(project, 'cmd')
+  await mkdir(cmd)
+  await writeFile(path.join(cmd, 'main'), '#!/bin/bash\n')
+  await writeFile(path.join(cmd, 'account-authority.mjs'), '// fixture\n')
+  await chmod(cmd, 0o775)
+  await chmod(path.join(cmd, 'account-authority.mjs'), 0o664)
+  await expect(verifyFnosMetadataPermissions(project)).rejects.toThrow(
+    'Writable'
+  )
+  await normalizeFnosMetadataPermissions(project)
+  await verifyFnosMetadataPermissions(project)
+  expect((await stat(cmd)).mode & 0o777).toBe(0o755)
+  expect((await stat(path.join(cmd, 'main'))).mode & 0o777).toBe(0o755)
+  expect(
+    (await stat(path.join(cmd, 'account-authority.mjs'))).mode & 0o777
+  ).toBe(0o644)
+  await chmod(path.join(cmd, 'main'), 0o777)
+  await expect(verifyFnosMetadataPermissions(project)).rejects.toThrow(
+    'callback: main'
+  )
+})
+it('rejects symbolic links in privileged metadata instead of chmodding their targets', async () => {
+  const project = await temporary()
+  await mkdir(path.join(project, 'cmd'))
+  const target = path.join(project, 'outside')
+  await writeFile(target, 'unchanged')
+  await chmod(target, 0o600)
+  await symlink(target, path.join(project, 'cmd/main'))
+  await expect(normalizeFnosMetadataPermissions(project)).rejects.toThrow(
+    'Invalid fnOS callback'
+  )
+  expect((await stat(target)).mode & 0o777).toBe(0o600)
+})
 it('gives packaging fixes an increasing version without changing the application version', () => {
   expect(fnosPackageVersion('2.2.0')).toBe('2.2.0')
   expect(fnosPackageVersion('2.2.0', '1')).toBe('2.2.0.1')

@@ -153,6 +153,26 @@ async function requireLifecycle(action) {
       `Lifecycle ${action} failed: ${result.output}\n${helperLog.slice(-2000)}\n${serverLog.slice(-8000)}`
     )
   }
+  if (action === 'start') {
+    // Gateway readiness precedes the optional client listener. Wait for it
+    // before testing CLI/Extension behavior, including on emulated runners.
+    const deadline = Date.now() + 15_000
+    for (;;) {
+      try {
+        const response = await fetch(
+          `http://127.0.0.1:${env.wizard_client_port}/discovery`,
+          {
+            signal: AbortSignal.timeout(1000),
+          }
+        )
+        await response.arrayBuffer()
+        break
+      } catch (error) {
+        if (Date.now() >= deadline) throw error
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      }
+    }
+  }
 }
 const get = (route, headers = {}, method = 'GET', body) =>
   new Promise((resolve, reject) => {
@@ -200,12 +220,7 @@ try {
   await chown(apiSocket, 0, 1601)
   await chmod(apiSocket, 0o660)
   await new Promise((resolve) => fixtureServer.listen(0, '127.0.0.1', resolve))
-  const start = await lifecycle('start')
-  assert.equal(
-    start.code,
-    0,
-    `${start.output}\n${await readFile(path.join(data, 'server.log'), 'utf8').catch(() => '')}`
-  )
+  await requireLifecycle('start')
   assert.equal((await stat(ownershipProbe)).uid, 1600)
   assert.equal((await stat(outsideProbe)).uid, 0)
   const first = await readFile(path.join(data, 'server-process.json'), 'utf8')

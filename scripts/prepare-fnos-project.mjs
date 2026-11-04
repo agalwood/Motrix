@@ -15,6 +15,7 @@ import {
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
+import { normalizeFnosMetadataPermissions } from './fnos-metadata-permissions.mjs'
 import runtimeLock from './fnos-runtime.lock.json' with { type: 'json' }
 import { verifyServerPackage } from './verify-server-package.mjs'
 
@@ -139,6 +140,7 @@ export async function prepareFnosProject({
     await cp(path.join(projectDir, 'packaging/fnos'), temporary, {
       recursive: true,
     })
+    await normalizeFnosMetadataPermissions(temporary)
     await rm(path.join(temporary, 'README.md'), { force: true })
     await cp(source, path.join(temporary, 'app/server'), {
       recursive: true,

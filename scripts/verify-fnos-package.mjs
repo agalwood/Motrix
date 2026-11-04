@@ -2,6 +2,7 @@ import { lstat, readdir, readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
+import { verifyFnosMetadataPermissions } from './fnos-metadata-permissions.mjs'
 import lock from './fnos-runtime.lock.json' with { type: 'json' }
 import {
   FNOS_ARCHITECTURES,
@@ -51,6 +52,7 @@ export async function verifyFnosPackage(projectDir, arch) {
       'fnOS requires privileged preparation with a dedicated package user'
     )
   const entries = (await readJson('app/ui/config'))['.url']
+  await verifyFnosMetadataPermissions(projectDir)
   for (const entry of Object.values(entries)) {
     if (
       entry.gatewayPrefix !== '/app/motrix' ||
