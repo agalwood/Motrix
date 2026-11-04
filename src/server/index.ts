@@ -175,6 +175,7 @@ import { FnosAccountAuthority } from './platform/fnos/accounts'
 import { FnosFiles } from './platform/fnos/files'
 import { registerFnosRoutes } from './platform/fnos/routes'
 import { fnosRuntime, listenFnos } from './platform/fnos/runtime'
+import { NasFileRemover } from './platform/nas/file-remover'
 import { NasTaskAccess } from './platform/nas/task-access'
 import { createNodePlatformServices } from './platform/services'
 import { createServerCapabilityHost } from './plugin/capability-host'
@@ -1123,11 +1124,18 @@ async function main() {
   await mediaMetaStore
     .pruneOrphans(db.getAllTasks().map(({ task }) => task.motrixId))
     .catch((err) => log.warn({ err }, 'Media metadata recovery failed'))
+  const nasFileRemover = fnosFiles
+    ? new NasFileRemover(
+        fnosFiles,
+        downloadPathPolicy,
+        finalizeFilesystemAdapter,
+        path.join(platform.userDataDir, 'nas-removals')
+      )
+    : undefined
   const fileCleanupService = new FileCleanupServiceImpl({
     async removePathRecursive(absPath: string): Promise<void> {
-      if (fnosFiles)
-        await fnosFiles.authorizeRemoval(absPath, downloadPathPolicy)
-      await fs.rm(absPath, { recursive: true, force: true })
+      if (nasFileRemover) await nasFileRemover.remove(absPath)
+      else await fs.rm(absPath, { recursive: true, force: true })
     },
   })
   const torrentParser = new TorrentParser()

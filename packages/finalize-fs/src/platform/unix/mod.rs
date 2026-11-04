@@ -45,6 +45,7 @@ pub(crate) struct ArtifactHandle {
     opened_link_count: libc::nlink_t,
     opened_tree: Option<Vec<TreeEntrySnapshot>>,
     opened_file_sha256: Option<[u8; 32]>,
+    metadata_removal: bool,
     #[cfg(target_os = "macos")]
     reservation_digest: Option<[u8; 32]>,
 }
@@ -167,7 +168,7 @@ fn open_parent(root: RawFd, parts: &[&str]) -> io::Result<OwnedFd> {
 }
 
 pub(crate) fn open_artifact(root: &RootHandle, relative: &str) -> io::Result<ArtifactHandle> {
-    open_artifact_internal(root, relative, true)
+    open_artifact_internal(root, relative, true, false)
 }
 
 /// Rename holds the inode and parent; content is verified by the host journal.
@@ -176,13 +177,31 @@ pub(crate) fn open_artifact_for_rename(
     root: &RootHandle,
     relative: &str,
 ) -> io::Result<ArtifactHandle> {
-    open_artifact_internal(root, relative, false)
+    open_artifact_internal(root, relative, false, false)
+}
+
+/// NAS deletion binds a selected inode; copying still requires content proof.
+#[cfg(target_os = "linux")]
+pub(crate) fn open_removal(
+    root: &RootHandle,
+    relative: &str,
+    expected_identity: &str,
+) -> io::Result<ArtifactHandle> {
+    let artifact = open_artifact_internal(root, relative, true, true)?;
+    if format!("{}:{}", artifact.device, artifact.inode) != expected_identity {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "removal artifact identity changed",
+        ));
+    }
+    Ok(artifact)
 }
 
 fn open_artifact_internal(
     root: &RootHandle,
     relative: &str,
     snapshot: bool,
+    metadata_removal: bool,
 ) -> io::Result<ArtifactHandle> {
     let parts = validate_relative(relative)?;
     let parent = open_parent(root.0.as_raw_fd(), &parts)?;
@@ -221,7 +240,7 @@ fn open_artifact_internal(
             "refusing to open a symbolic link or special artifact",
         ));
     };
-    let opened_file_sha256 = if snapshot && opened_type == libc::S_IFREG {
+    let opened_file_sha256 = if snapshot && !metadata_removal && opened_type == libc::S_IFREG {
         Some(hash_opened_file(artifact.as_raw_fd())?)
     } else {
         None
@@ -236,6 +255,7 @@ fn open_artifact_internal(
         opened_link_count: opened_stat.st_nlink,
         opened_tree,
         opened_file_sha256,
+        metadata_removal,
         #[cfg(target_os = "macos")]
         reservation_digest: None,
     })

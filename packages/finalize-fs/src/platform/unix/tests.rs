@@ -512,3 +512,65 @@ fn competing_target_creation_never_overwrites_either_payload() {
     }
     std::fs::remove_dir_all(base).unwrap();
 }
+
+#[cfg(target_os = "linux")]
+#[test]
+fn nas_removal_binds_the_selected_inode_without_hashing_large_payloads() {
+    use std::os::unix::fs::MetadataExt;
+    let base = std::env::temp_dir().join(format!("motrix-nas-remove-large-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
+    std::fs::create_dir_all(&base).unwrap();
+    let base = base.canonicalize().unwrap();
+    let file = std::fs::File::create(base.join("payload")).unwrap();
+    file.set_len(8 * 1024 * 1024 * 1024).unwrap();
+    let metadata = file.metadata().unwrap();
+    let identity = format!("{}:{}", metadata.dev(), metadata.ino());
+    let root = open_root(base.to_str().unwrap()).unwrap();
+    assert!(super::open_removal(&root, "payload", "0:0").is_err());
+    let artifact = super::open_removal(&root, "payload", &identity).unwrap();
+    assert!(artifact.opened_file_sha256.is_none());
+    assert!(super::copy_opened(&artifact, &root, "copy").is_err());
+    remove_opened(&artifact, ".removed", false).unwrap();
+    assert!(!base.join("payload").exists());
+    assert!(!base.join("copy").exists());
+    std::fs::remove_dir_all(base).unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn nas_removal_retains_tree_and_file_mutation_guards() {
+    use std::os::unix::fs::MetadataExt;
+    let base =
+        std::env::temp_dir().join(format!("motrix-nas-remove-change-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
+    std::fs::create_dir_all(base.join("tree/nested")).unwrap();
+    let base = base.canonicalize().unwrap();
+    std::fs::write(base.join("tree/nested/file"), b"original").unwrap();
+    let metadata = std::fs::metadata(base.join("tree")).unwrap();
+    let root = open_root(base.to_str().unwrap()).unwrap();
+    let tree = super::open_removal(
+        &root,
+        "tree",
+        &format!("{}:{}", metadata.dev(), metadata.ino()),
+    )
+    .unwrap();
+    assert!(super::copy_opened(&tree, &root, "copy").is_err());
+    std::fs::write(base.join("tree/nested/added"), b"added").unwrap();
+    assert!(remove_opened(&tree, ".removed-tree", false).is_err());
+    assert!(base.join(".removed-tree/nested/added").exists());
+    std::fs::write(base.join("file"), b"original").unwrap();
+    let metadata = std::fs::metadata(base.join("file")).unwrap();
+    let file = super::open_removal(
+        &root,
+        "file",
+        &format!("{}:{}", metadata.dev(), metadata.ino()),
+    )
+    .unwrap();
+    std::fs::write(base.join("file"), b"changed contents").unwrap();
+    assert!(remove_opened(&file, ".removed-file", false).is_err());
+    assert_eq!(
+        std::fs::read(base.join("file")).unwrap(),
+        b"changed contents"
+    );
+    std::fs::remove_dir_all(base).unwrap();
+}

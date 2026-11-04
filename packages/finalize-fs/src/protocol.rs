@@ -50,6 +50,12 @@ pub(crate) enum Request {
         #[serde(default)]
         rename_only: bool,
     },
+    OpenRemoval {
+        request_id: u64,
+        root: u64,
+        relative: String,
+        expected_identity: String,
+    },
     RenameOpenedNoReplace {
         request_id: u64,
         artifact: u64,
@@ -137,6 +143,7 @@ impl Request {
             Self::SanitizeName { .. } => "sanitize_name",
             Self::OpenRoot { .. } => "open_root",
             Self::OpenArtifact { .. } => "open_artifact",
+            Self::OpenRemoval { .. } => "open_removal",
             Self::RenameOpenedNoReplace { .. } => "rename_opened_no_replace",
             Self::LinkOpenedNoReplace { .. } => "link_opened_no_replace",
             Self::ExfatVolumeIdentity { .. } => "exfat_volume_identity",
