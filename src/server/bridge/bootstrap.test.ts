@@ -874,6 +874,7 @@ describe('bootstrapBridgeForServer', () => {
       browser: pending[0].browser,
       extensionId,
       pairingNonce: pending[0].pairingNonce,
+      expectedUsername: alice.username,
     }
     const claim = () =>
       runtime!.bridgeCommandHandlers[BridgeCommands.ClaimExtensionPair](params)

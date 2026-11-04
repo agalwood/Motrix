@@ -1984,8 +1984,9 @@
             "unverified": "Extensão não verificada"
           },
           "identityUnverifiedWarning": "Não foi possível verificar a identidade desta extensão. Continue apenas se confiar nela.",
-          "claim": "Mostrar código de pareamento",
-          "claimDesc": "Após o pareamento, o cliente usa as permissões da sua conta NAS atual. Somente o administrador que assumir esta solicitação poderá ver o código."
+          "claim": "Parear com a conta atual",
+          "claimDesc": "A extensão usará as permissões desta conta. Em seguida, insira o código na extensão para concluir o pareamento.",
+          "account": "Conta atual: {{name}}"
         },
         "pairUnavailable": "Esta solicitação não está mais pendente — tente parear novamente pela extensão do navegador.",
         "trustedExtensions": "Extensões confiáveis",

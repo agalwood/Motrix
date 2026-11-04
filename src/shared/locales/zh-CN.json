@@ -1956,8 +1956,9 @@
             "unverified": "未验证的扩展"
           },
           "identityUnverifiedWarning": "无法验证此扩展的身份，请确认信任后再继续。",
-          "claim": "领取配对码",
-          "claimDesc": "完成配对后，客户端将使用当前 NAS 账号的权限。配对码仅对领取请求的管理员可见。"
+          "claim": "使用当前账号配对",
+          "claimDesc": "扩展将使用此账号的权限。下一步请在扩展中输入配对码，完成配对。",
+          "account": "当前账号：{{name}}"
         },
         "pairUnavailable": "该配对请求已失效——请在浏览器扩展中重新发起配对。",
         "trustedExtensions": "受信任的扩展",

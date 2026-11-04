@@ -2404,8 +2404,9 @@
           "pairCode": "Sammenkoblingskode",
           "pairCodeHint": "Skriv inn denne koden i utvidelsen",
           "title": "En {{browser}}-utvidelse vil koble til Motrix",
-          "claim": "Vis paringskode",
-          "claimDesc": "Etter paring bruker klienten rettighetene til din nåværende NAS-konto. Bare administratoren som tar over forespørselen, kan se koden."
+          "claim": "Koble til med gjeldende konto",
+          "claimDesc": "Utvidelsen vil bruke tillatelsene til denne kontoen. Skriv deretter inn paringskoden i utvidelsen for å fullføre.",
+          "account": "Gjeldende konto: {{name}}"
         },
         "pairUnavailable": "Denne sammenkoblingsforespørselen venter ikke lenger — prøv sammenkoblingen på nytt fra nettleserutvidelsen.",
         "pairedEmpty": "Ingen utvidelser er tilkoblet ennå.",

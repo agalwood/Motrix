@@ -2423,8 +2423,9 @@
           "pairCode": "Codi d'aparellament",
           "pairCodeHint": "Introduïu aquest codi a l'extensió",
           "title": "Una extensió de {{browser}} vol connectar-se amb el Motrix",
-          "claim": "Mostra el codi de vinculació",
-          "claimDesc": "Un cop vinculat, el client utilitza els permisos del vostre compte NAS actual. Només l’administrador que reclami la sol·licitud pot veure el codi."
+          "claim": "Vincula amb el compte actual",
+          "claimDesc": "L’extensió farà servir els permisos d’aquest compte. A continuació, introduïu el codi a l’extensió per completar la vinculació.",
+          "account": "Compte actual: {{name}}"
         },
         "pairUnavailable": "Aquesta petició d'aparellament ja no està pendent; torneu a aparellar des de l'extensió del navegador.",
         "pairedEmpty": "Encara no hi ha extensions connectades.",

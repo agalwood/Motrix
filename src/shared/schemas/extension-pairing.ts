@@ -6,6 +6,7 @@ export const claimExtensionPairParamsSchema = z
     browser: BrowserSchema,
     pairingNonce: z.string().min(1).max(256),
     extensionId: z.string().min(1).max(256),
+    expectedUsername: z.string().min(1).max(256),
   })
   .strict()
 export type ClaimExtensionPairParams = z.infer<

@@ -181,6 +181,7 @@ describe('NAS Extension code claims', () => {
     browser: REQUEST.browser,
     pairingNonce: REQUEST.pairingNonce,
     extensionId: REQUEST.claimedExtensionId,
+    expectedUsername: 'alice',
   }
   async function fixture() {
     const root = await mkdtemp('/tmp/motrix-nas-claim-')
@@ -213,7 +214,9 @@ describe('NAS Extension code claims', () => {
     const queued = adapter.queueMbp1Prompt(REQUEST)
     if (!queued.ok) throw new Error('Prompt not queued')
     const claim = (owner = alice) =>
-      runAsNasGatewayUser(owner, () => adapter.claim(params))
+      runAsNasGatewayUser(owner, () =>
+        adapter.claim({ ...params, expectedUsername: owner.username! })
+      )
     return {
       adapter,
       bindings,
@@ -255,6 +258,14 @@ describe('NAS Extension code claims', () => {
     f.accounts.resolve.mockResolvedValue(null)
     await expect(f.claim()).resolves.toMatchObject({ ok: false })
     expect(JSON.stringify(f.adapter.listPending())).not.toContain(REQUEST.code)
+  })
+
+  it('rejects a cached displayed account that differs from the gateway account', async () => {
+    const f = await fixture()
+    await expect(
+      runAsNasGatewayUser(bob, () => f.adapter.claim(params))
+    ).resolves.toMatchObject({ ok: false })
+    await expect(f.claim()).resolves.toMatchObject({ ok: true })
   })
 
   it('admits one concurrent claimant and releases an approval that completes after expiry', async () => {

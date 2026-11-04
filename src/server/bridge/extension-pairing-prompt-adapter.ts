@@ -27,6 +27,7 @@ import type {
   NasExtensionAudience,
   NasExtensionBindings,
 } from '../platform/nas/extension-bindings'
+import { currentNasApprover } from '../platform/nas/identity'
 
 type ExtensionPairRequestPayload = Omit<
   Extract<PendingPairRequestInfo, { kind: 'extension' }>,
@@ -110,7 +111,8 @@ export class ServerExtensionPairingPromptAdapter {
   ): Promise<ClaimExtensionPairResult> {
     const bindings = this.options.nasBindings
     const unavailable = { ok: false, reason: 'unavailable' } as const
-    if (!bindings) return unavailable
+    if (!bindings || currentNasApprover()?.username !== params.expectedUsername)
+      return unavailable
     const promptId = this.promptIdsByKey.get(
       pairRequestKey({ ...params, kind: 'extension' })
     )

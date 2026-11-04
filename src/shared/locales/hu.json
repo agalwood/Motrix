@@ -1970,8 +1970,9 @@
             "unverified": "Nem ellenőrzött bővítmény"
           },
           "identityUnverifiedWarning": "A bővítmény azonosságát nem sikerült ellenőrizni. Csak akkor folytasd, ha megbízol benne.",
-          "claim": "Párosítási kód megjelenítése",
-          "claimDesc": "A párosítás után a kliens az aktuális NAS-fiók jogosultságait használja. A kódot csak a kérést átvevő rendszergazda láthatja."
+          "claim": "Párosítás a jelenlegi fiókkal",
+          "claimDesc": "A bővítmény ennek a fióknak a jogosultságait fogja használni. Ezután adja meg a párosítási kódot a bővítményben a befejezéshez.",
+          "account": "Jelenlegi fiók: {{name}}"
         },
         "pairUnavailable": "Ez a párosítási kérelem már nincs függőben — indítsd újra a párosítást a böngészőbővítményből.",
         "trustedExtensions": "Megbízható bővítmények",

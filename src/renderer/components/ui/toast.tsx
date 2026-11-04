@@ -46,11 +46,13 @@ export type PairRequestToastData = {
       })
     | (Extract<PairRequestPayload, { kind: 'extension' }> & {
         onDeny: () => void
+        accountName?: string
       })
     | (Extract<PairRequestPayload, { kind: 'extension-claim' }> & {
         onClaim: () => void
         claiming: boolean
         onDeny: () => void
+        accountName?: string
       })
 }
 
@@ -216,6 +218,13 @@ function ToastList() {
             <Toast.Description className="truncate font-mono text-[11px] text-muted-foreground">
               {copy.description}
             </Toast.Description>
+            {pairRequest.accountName && (
+              <p className="text-xs font-medium wrap-anywhere">
+                {t('settings.integration.browser.pairToast.account', {
+                  name: pairRequest.accountName,
+                })}
+              </p>
+            )}
             {isUnverified && (
               <p className="text-xs text-amber-700 dark:text-amber-400">
                 {t(
@@ -232,7 +241,7 @@ function ToastList() {
                   type="button"
                   size="xs"
                   onClick={pairRequest.onClaim}
-                  disabled={pairRequest.claiming}
+                  disabled={pairRequest.claiming || !pairRequest.accountName}
                   aria-busy={pairRequest.claiming}
                 >
                   {t('settings.integration.browser.pairToast.claim')}

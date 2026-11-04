@@ -3,7 +3,10 @@ import {
   pairRequestCopy,
   toast,
 } from '@renderer/components/ui/toast'
-import { useOperatorSession } from '@renderer/lib/operator-auth'
+import {
+  refreshOperatorSession,
+  useOperatorSession,
+} from '@renderer/lib/operator-auth'
 import { transport } from '@renderer/lib/transport'
 import {
   BridgeCommands,
@@ -104,6 +107,7 @@ export function usePairRequestPrompts(): void {
 
   useEffect(() => {
     if (!supported) return
+    const accountName = useOperatorSession.getState().status?.username
     const sameOperator = () =>
       operatorKey(useOperatorSession.getState()) === operatorIdentity
     // key -> lifecycle state for a prompt currently owned by this hook
@@ -192,6 +196,9 @@ export function usePairRequestPrompts(): void {
       const claim = async () => {
         if (
           payload.kind !== 'extension-claim' ||
+          cancelled ||
+          !sameOperator() ||
+          !accountName ||
           state.settled ||
           state.claiming
         )
@@ -207,6 +214,7 @@ export function usePairRequestPrompts(): void {
                 browser: payload.browser,
                 extensionId: payload.extensionId,
                 pairingNonce: payload.pairingNonce,
+                expectedUsername: accountName,
               }
             )
           )
@@ -218,6 +226,7 @@ export function usePairRequestPrompts(): void {
           )
             return
           if (!result.ok) {
+            void refreshOperatorSession()
             toast.add({
               title: tRef.current(
                 'settings.integration.browser.pairUnavailable'
@@ -228,6 +237,7 @@ export function usePairRequestPrompts(): void {
           const request: PairRequestToastData['pairRequest'] = {
             ...payload,
             kind: 'extension',
+            accountName,
             code: result.code,
             onDeny: () => void settle('deny'),
           }
@@ -260,6 +270,7 @@ export function usePairRequestPrompts(): void {
           data: {
             pairRequest: {
               ...payload,
+              accountName,
               claiming: state.claiming,
               onClaim: () => void claim(),
               onDeny: () => void settle('deny'),
@@ -277,6 +288,7 @@ export function usePairRequestPrompts(): void {
           : payload.kind === 'extension-claim'
             ? {
                 ...payload,
+                accountName,
                 claiming: false,
                 onClaim: () => void claim(),
                 onDeny: () => void settle('deny'),

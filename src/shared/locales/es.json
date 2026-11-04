@@ -1984,8 +1984,9 @@
             "unverified": "Extensión sin verificar"
           },
           "identityUnverifiedWarning": "No se pudo verificar la identidad de esta extensión. Continúa solo si confías en ella.",
-          "claim": "Mostrar código de emparejamiento",
-          "claimDesc": "Tras el emparejamiento, el cliente usa los permisos de tu cuenta NAS actual. Solo el administrador que reclame la solicitud puede ver el código."
+          "claim": "Vincular con la cuenta actual",
+          "claimDesc": "La extensión usará los permisos de esta cuenta. A continuación, introduce el código en la extensión para completar la vinculación.",
+          "account": "Cuenta actual: {{name}}"
         },
         "pairUnavailable": "Esta solicitud de vinculación ya no está pendiente. Vuelve a iniciar la vinculación desde la extensión del navegador.",
         "trustedExtensions": "Extensiones de confianza",

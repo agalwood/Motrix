@@ -1956,8 +1956,9 @@
             "unverified": "Tiện ích mở rộng chưa xác minh"
           },
           "identityUnverifiedWarning": "Không thể xác minh danh tính tiện ích mở rộng này. Chỉ tiếp tục nếu bạn tin tưởng tiện ích.",
-          "claim": "Hiện mã ghép nối",
-          "claimDesc": "Sau khi ghép nối, máy khách dùng quyền của tài khoản NAS hiện tại của bạn. Chỉ quản trị viên tiếp nhận yêu cầu này mới có thể xem mã."
+          "claim": "Ghép nối bằng tài khoản hiện tại",
+          "claimDesc": "Tiện ích sẽ sử dụng quyền của tài khoản này. Tiếp theo, nhập mã vào tiện ích để hoàn tất ghép nối.",
+          "account": "Tài khoản hiện tại: {{name}}"
         },
         "pairUnavailable": "Yêu cầu ghép đôi này không còn ở trạng thái chờ — hãy thử ghép đôi lại từ tiện ích mở rộng trình duyệt.",
         "trustedExtensions": "Tiện ích mở rộng đáng tin cậy",

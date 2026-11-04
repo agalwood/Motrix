@@ -1970,8 +1970,9 @@
             "unverified": "Unverified extension"
           },
           "identityUnverifiedWarning": "This extension’s identity could not be verified. Only continue if you trust it.",
-          "claim": "Show pairing code",
-          "claimDesc": "Once paired, this client uses your current NAS account’s permissions. Only the administrator who claims this request can view the code."
+          "claim": "Pair with current account",
+          "claimDesc": "This extension will use this account’s permissions. Next, enter the pairing code in the extension to finish.",
+          "account": "Current account: {{name}}"
         },
         "pairUnavailable": "This pairing request is no longer pending — retry pairing from the browser extension.",
         "trustedExtensions": "Trusted extensions",

@@ -2423,8 +2423,9 @@
           "pairCode": "Cod de asociere",
           "pairCodeHint": "Introdu acest cod în extensie",
           "title": "O extensie {{browser}} dorește să se conecteze la Motrix",
-          "claim": "Arată codul de asociere",
-          "claimDesc": "După asociere, clientul folosește permisiunile contului NAS curent. Doar administratorul care preia cererea poate vedea codul."
+          "claim": "Asociază cu contul curent",
+          "claimDesc": "Extensia va folosi permisiunile acestui cont. Apoi introdu codul în extensie pentru a finaliza asocierea.",
+          "account": "Cont curent: {{name}}"
         },
         "pairUnavailable": "Această cerere de asociere nu mai este în așteptare — reîncearcă asocierea din extensia de browser.",
         "pairedEmpty": "Încă nu există extensii conectate.",

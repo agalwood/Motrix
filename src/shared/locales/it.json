@@ -1984,8 +1984,9 @@
             "unverified": "Estensione non verificata"
           },
           "identityUnverifiedWarning": "Impossibile verificare l’identità di questa estensione. Continua solo se la ritieni affidabile.",
-          "claim": "Mostra codice di abbinamento",
-          "claimDesc": "Dopo l’abbinamento, il client usa i permessi del tuo account NAS attuale. Solo l’amministratore che prende in carico la richiesta può vedere il codice."
+          "claim": "Associa all’account attuale",
+          "claimDesc": "L’estensione userà i permessi di questo account. Inserisci quindi il codice nell’estensione per completare l’associazione.",
+          "account": "Account attuale: {{name}}"
         },
         "pairUnavailable": "Questa richiesta di associazione non è più in attesa: riprova dall’estensione del browser.",
         "trustedExtensions": "Estensioni attendibili",

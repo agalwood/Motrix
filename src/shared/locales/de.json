@@ -1970,8 +1970,9 @@
             "unverified": "Nicht verifizierte Erweiterung"
           },
           "identityUnverifiedWarning": "Die Identität dieser Erweiterung konnte nicht bestätigt werden. Fahren Sie nur fort, wenn Sie ihr vertrauen.",
-          "claim": "Kopplungscode anzeigen",
-          "claimDesc": "Nach der Kopplung nutzt der Client die Berechtigungen Ihres aktuellen NAS-Kontos. Nur der Administrator, der die Anfrage übernimmt, kann den Code sehen."
+          "claim": "Mit aktuellem Konto koppeln",
+          "claimDesc": "Die Erweiterung verwendet die Berechtigungen dieses Kontos. Gib anschließend den Kopplungscode in der Erweiterung ein, um die Kopplung abzuschließen.",
+          "account": "Aktuelles Konto: {{name}}"
         },
         "pairUnavailable": "Diese Kopplungsanfrage ist nicht mehr offen. Starten Sie die Kopplung in der Browsererweiterung erneut.",
         "trustedExtensions": "Vertrauenswürdige Erweiterungen",

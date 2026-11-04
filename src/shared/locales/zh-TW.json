@@ -1956,8 +1956,9 @@
             "unverified": "未驗證的擴充功能"
           },
           "identityUnverifiedWarning": "無法驗證此擴充功能的身分，請確認信任後再繼續。",
-          "claim": "領取配對碼",
-          "claimDesc": "完成配對後，用戶端將使用目前 NAS 帳號的權限。配對碼僅對領取請求的管理員可見。"
+          "claim": "使用目前帳號配對",
+          "claimDesc": "擴充功能將使用此帳號的權限。下一步請在擴充功能中輸入配對碼，完成配對。",
+          "account": "目前帳號：{{name}}"
         },
         "pairUnavailable": "此配對要求已不再待處理，請從瀏覽器擴充功能重新配對。",
         "trustedExtensions": "受信任的擴充功能",

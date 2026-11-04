@@ -2423,8 +2423,9 @@
           "pairCode": "Code d’association",
           "pairCodeHint": "Saisissez ce code dans l’extension",
           "title": "Une extension {{browser}} souhaite se connecter à Motrix",
-          "claim": "Afficher le code d’association",
-          "claimDesc": "Une fois associé, ce client utilise les autorisations de votre compte NAS actuel. Seul l’administrateur qui prend en charge cette demande peut voir le code."
+          "claim": "Associer au compte actuel",
+          "claimDesc": "L’extension utilisera les autorisations de ce compte. Saisissez ensuite le code dans l’extension pour terminer l’association.",
+          "account": "Compte actuel : {{name}}"
         },
         "pairUnavailable": "Cette demande d’association n’est plus en attente. Relancez l’association depuis l’extension du navigateur.",
         "pairedEmpty": "Aucune extension connectée pour le moment.",

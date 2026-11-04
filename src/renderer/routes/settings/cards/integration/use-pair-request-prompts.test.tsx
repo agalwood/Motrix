@@ -166,6 +166,7 @@ describe('usePairRequestPrompts', () => {
     expect(invokeMock).toHaveBeenCalledTimes(1)
     expect(findAddCall(claimKey).data.pairRequest).not.toHaveProperty('code')
     expect(findAddCall(claimKey).data.pairRequest).not.toHaveProperty('onAllow')
+    expect(findAddCall(claimKey).data.pairRequest.accountName).toBe('alice')
     invokeMock.mockResolvedValueOnce({
       ok: true,
       code: 'ABCD-EFGH',
@@ -178,12 +179,14 @@ describe('usePairRequestPrompts', () => {
         browser: claimRequest.browser,
         extensionId: claimRequest.extensionId,
         pairingNonce: claimRequest.pairingNonce,
+        expectedUsername: 'alice',
       }
     )
     expect(toastUpdateMock).toHaveBeenLastCalledWith(claimKey, {
       data: {
         pairRequest: expect.objectContaining({
           kind: 'extension',
+          accountName: 'alice',
           code: 'ABCD-EFGH',
         }),
       },
@@ -227,6 +230,22 @@ describe('usePairRequestPrompts', () => {
       expect(toastCloseMock).toHaveBeenCalledWith(claimKey)
     }
   )
+
+  it('does not claim under another account before the old prompt is removed', async () => {
+    const claim = await showClaim()
+    invokeMock.mockResolvedValue([])
+    await act(async () => {
+      useOperatorSession.setState((state) => ({
+        status: { ...state.status!, username: 'bob' },
+      }))
+      claim()
+    })
+    expect(
+      invokeMock.mock.calls.some(
+        ([command]) => command === BridgeCommands.ClaimExtensionPair
+      )
+    ).toBe(false)
+  })
 
   it('coalesces a double claim click and restores the button when another administrator owns it', async () => {
     const claim = await showClaim()

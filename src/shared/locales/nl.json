@@ -2404,8 +2404,9 @@
           "pairCode": "Koppelingscode",
           "pairCodeHint": "Voer deze code in de extensie in",
           "title": "Een {{browser}}-extensie wil verbinding maken met Motrix",
-          "claim": "Koppelcode tonen",
-          "claimDesc": "Na het koppelen gebruikt de client de rechten van je huidige NAS-account. Alleen de beheerder die dit verzoek op zich neemt, kan de code zien."
+          "claim": "Koppelen met huidig account",
+          "claimDesc": "De extensie gebruikt de machtigingen van dit account. Voer daarna de koppelcode in de extensie in om de koppeling te voltooien.",
+          "account": "Huidig account: {{name}}"
         },
         "pairUnavailable": "Dit koppelingsverzoek is niet meer in behandeling — probeer opnieuw te koppelen vanuit de browserextensie.",
         "pairedEmpty": "Nog geen extensies verbonden.",
