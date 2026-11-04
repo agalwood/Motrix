@@ -205,6 +205,14 @@ try {
   await cp(path.join(project, 'cmd'), path.join(root, 'cmd'), {
     recursive: true,
   })
+  // Async fs.cp preserves the builder's file owner. Model fnOS installing its
+  // lifecycle metadata as root, even when the package was built by uid 1001.
+  const installedCmd = path.join(root, 'cmd')
+  await chown(installedCmd, 0, 0)
+  for (const entry of await readdir(installedCmd, { withFileTypes: true })) {
+    assert.ok(entry.isFile(), 'Installed callbacks must be regular files')
+    await chown(path.join(installedCmd, entry.name), 0, 0)
+  }
   execFileSync('chown', ['1600:1600', downloads])
   // fnOS grants package access through its ACL while leaving root ownership.
   // A group-writable parent models that access on the container's POSIX FS.
