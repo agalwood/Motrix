@@ -27,11 +27,14 @@ import { EventBus } from '@core/events/event-bus'
 import { SettingsManager } from '@core/settings/settings-manager'
 import { Methods, Notifications } from '@motrix/mdxp'
 import {
+  BridgeCommands,
   BridgeEvents,
   BridgeQueries,
   type PairedClientInfo,
+  type PendingPairRequestInfo,
 } from '@shared/protocol/bridge'
 import { Events } from '@shared/protocol/events'
+import { claimExtensionPairResultSchema } from '@shared/schemas/extension-pairing'
 import { EngineState } from '@shared/types/engine'
 import { TaskStatus } from '@shared/types/task'
 import {
@@ -43,6 +46,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import WebSocket from 'ws'
 import { createApp } from '../http/app'
 import { OperatorAdminExitCode, runOperatorAdmin } from '../operator-admin'
+import {
+  currentNasUser,
+  type NasIdentity,
+  runAsNasGatewayUser,
+} from '../platform/nas/identity'
 import {
   bootstrapBridgeForServer,
   type ServerExtensionReceiver,
@@ -798,6 +806,135 @@ describe('bootstrapBridgeForServer', () => {
       reconnectedMdxp.dispose()
     }
   )
+
+  it('binds a real NAS Extension handshake to its code claimant across restart and account revocation', async () => {
+    const alice: NasIdentity = {
+      platform: 'fnos',
+      userId: '1000',
+      username: 'alice',
+      administrator: true,
+      accountRevision: 'generation-one',
+    }
+    const accounts = {
+      platform: 'fnos' as const,
+      resolve: vi.fn(
+        async (identity: NasIdentity): Promise<NasIdentity | null> => ({
+          ...identity,
+        })
+      ),
+    }
+    const bus = new EventBus()
+    const requested = vi.fn()
+    bus.on(BridgeEvents.PairRequested as never, requested)
+    const reads = readDeps()
+    const getAll = reads.taskManager.getAll
+    const seen: (NasIdentity | undefined)[] = []
+    reads.taskManager.getAll = () => {
+      seen.push(currentNasUser())
+      return getAll()
+    }
+    const start = () =>
+      bootstrapBridgeForServer({
+        userDataDir,
+        host: '127.0.0.1',
+        port: 0,
+        motrixVersion: '2.2.0',
+        eventBus: bus,
+        readHandlerDeps: reads,
+        writeHandlerDeps: writeDeps(),
+        nasAccounts: accounts,
+        remoteExtensionConfig: parseRemoteExtensionConfig({
+          MOTRIX_REMOTE_EXTENSION_ENABLED: 'true',
+          MOTRIX_REMOTE_EXTENSION_PUBLIC_URL: 'wss://motrix.example/bridge',
+          MOTRIX_PUBLIC_URL: 'https://motrix.example',
+        }),
+        createExtensionReceiver: extensionReceiver,
+      })
+    runtime = await start()
+    const extensionId = 'lggbokfckofcgjndaboioakcmincinpo'
+    const origin = `chrome-extension://${extensionId}`
+    const handshake = await startPair({
+      port: runtime.port,
+      origin,
+      browser: 'chromium',
+      claimedExtensionId: extensionId,
+      routePrefix: '/bridge',
+      hostHeader: 'motrix.example',
+    })
+    const pending = (await runtime.bridgeQueryHandlers[
+      BridgeQueries.ListPendingPairRequests
+    ]()) as PendingPairRequestInfo[]
+    expect(pending).toEqual([
+      expect.objectContaining({ kind: 'extension-claim' }),
+    ])
+    expect(pending[0]).not.toHaveProperty('code')
+    if (pending[0].kind !== 'extension-claim')
+      throw new Error('Missing NAS claim')
+    const params = {
+      browser: pending[0].browser,
+      extensionId,
+      pairingNonce: pending[0].pairingNonce,
+      expectedUsername: alice.username,
+    }
+    const claim = () =>
+      runtime!.bridgeCommandHandlers[BridgeCommands.ClaimExtensionPair](params)
+    await expect(claim()).resolves.toMatchObject({ ok: false })
+    const result = claimExtensionPairResultSchema.parse(
+      await runAsNasGatewayUser(alice, claim)
+    )
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('Claim unavailable')
+    expect(JSON.stringify(requested.mock.calls)).not.toContain(result.code)
+    await expect(
+      runAsNasGatewayUser({ ...alice, userId: '1001', username: 'bob' }, claim)
+    ).resolves.toMatchObject({ ok: false })
+    const { channel } = await runPake(handshake, result.code)
+    const credential = await exchangeCredential(handshake, channel)
+    const connection = mdxpOverChannel(handshake.wire, channel)
+    await connection.sendRequest(
+      Methods.MotrixInitialize,
+      initializeParams(extensionId)
+    )
+    await connection.sendRequest(Methods.TaskList, {})
+    expect(seen.at(-1)).toEqual(alice)
+    connection.dispose()
+    handshake.wire.ws.close()
+    await handshake.wire.closed
+    await runtime.shutdown()
+    runtime = await start()
+    const instanceId = (
+      await readFile(join(userDataDir, 'bridge/server-instance-id'), 'utf8')
+    ).trim()
+    const reconnectPeer = () =>
+      reconnect({
+        port: runtime!.port,
+        origin,
+        instanceId,
+        credential,
+        routePrefix: '/bridge',
+        hostHeader: 'motrix.example',
+      })
+    accounts.resolve.mockResolvedValue(null)
+    await expect(reconnectPeer()).rejects.toThrow()
+    accounts.resolve.mockResolvedValue(alice)
+    const peer = await reconnectPeer()
+    const restored = mdxpOverChannel(peer.wire, peer.channel)
+    await restored.sendRequest(
+      Methods.MotrixInitialize,
+      initializeParams(extensionId)
+    )
+    await restored.sendRequest(Methods.TaskList, {})
+    expect(seen.at(-1)).toEqual(alice)
+    const before = seen.length
+    accounts.resolve.mockResolvedValue({ ...alice, administrator: false })
+    const rejected = restored
+      .sendRequest(Methods.TaskList, {})
+      .catch(() => 'closed')
+    expect((await peer.wire.closed).code).toBe(1008)
+    restored.dispose()
+    expect(await rejected).toBe('closed')
+    expect(seen).toHaveLength(before)
+  })
 
   it('quarantines a committed Extension when projection persistence fails and repairs it on restart', async () => {
     const remoteExtensionConfig = parseRemoteExtensionConfig({

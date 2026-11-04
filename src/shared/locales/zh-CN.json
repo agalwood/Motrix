@@ -4,7 +4,8 @@
     "help": "此服务器需要管理员令牌。请在主机上设置 MOTRIX_OPERATOR_TOKEN，或读取 <dataDir>/operator-token 中的令牌，然后粘贴到下方。",
     "placeholder": "管理员令牌",
     "error": "管理员令牌无效。请核对主机上的 MOTRIX_OPERATOR_TOKEN 或 <dataDir>/operator-token 后重试。",
-    "submit": "解锁"
+    "submit": "解锁",
+    "fnosSessionExpired": "飞牛管理员会话已失效，请从飞牛桌面重新打开 Motrix。"
   },
   "operatorAdmin": {
     "help": "用法：\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <配对码> [--json]\n  motrix-admin pairing deny <配对码> [--json]\n  motrix-admin extension pair\n\n此命令仅通过容器内的本机回环地址与正在运行的 Motrix 服务器通信。",
@@ -1860,6 +1861,12 @@
       "hideSecret": "隐藏密钥"
     },
     "integration": {
+      "clientPairingUnavailable": "当前安装版本暂不支持客户端配对。",
+      "extensionPairingUnavailable": "当前安装版本暂不支持浏览器扩展配对。",
+      "clients": {
+        "masterSwitch": "允许外部客户端连接",
+        "masterSwitchDesc": "客户端须经批准后才能管理下载。"
+      },
       "system": {
         "title": "默认应用",
         "protocolMagnet": "用 Motrix 打开磁力链接",
@@ -1948,7 +1955,10 @@
             "attested": "已验证的扩展",
             "unverified": "未验证的扩展"
           },
-          "identityUnverifiedWarning": "无法验证此扩展的身份，请确认信任后再继续。"
+          "identityUnverifiedWarning": "无法验证此扩展的身份，请确认信任后再继续。",
+          "claim": "使用当前账号配对",
+          "claimDesc": "扩展将使用此账号的权限。下一步请在扩展中输入配对码，完成配对。",
+          "account": "当前账号：{{name}}"
         },
         "pairUnavailable": "该配对请求已失效——请在浏览器扩展中重新发起配对。",
         "trustedExtensions": "受信任的扩展",

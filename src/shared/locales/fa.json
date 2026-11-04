@@ -400,7 +400,8 @@
     "help": "این سرور به توکن اپراتور نیاز دارد. روی میزبان، MOTRIX_OPERATOR_TOKEN را تنظیم کنید یا توکن را از <dataDir>/operator-token بخوانید، سپس آن را در زیر جای‌گذاری کنید.",
     "placeholder": "توکن اپراتور",
     "submit": "باز کردن قفل",
-    "title": "باز کردن قفل Motrix"
+    "title": "باز کردن قفل Motrix",
+    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
   },
   "panel": {
     "completed": {
@@ -2312,6 +2313,12 @@
       "warnBeforeQuitDesc": "اگر دانلودها هنوز در حال اجرا هستند، پیش از خروج پرسیده شود."
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "appimage": {
         "desc": "این AppImage مربوط به Motrix را در دسکتاپ ثبت کنید تا مرورگرها و پیوندهای magnet بتوانند دانلودها را به آن بسپارند.",
         "enable": "فعال کردن یکپارچگی با دسکتاپ",
@@ -2396,7 +2403,10 @@
           "identityUnverifiedWarning": "هویت این افزونه تأیید نشد. فقط اگر به آن اعتماد دارید ادامه دهید.",
           "pairCode": "کد جفت‌سازی",
           "pairCodeHint": "این کد را در افزونه وارد کنید",
-          "title": "یک افزونهٔ {{browser}} می‌خواهد به Motrix متصل شود"
+          "title": "یک افزونهٔ {{browser}} می‌خواهد به Motrix متصل شود",
+          "claim": "جفت‌سازی با حساب فعلی",
+          "claimDesc": "افزونه از مجوزهای این حساب استفاده خواهد کرد. سپس برای تکمیل جفت‌سازی، کد را در افزونه وارد کنید.",
+          "account": "حساب فعلی: {{name}}"
         },
         "pairUnavailable": "این درخواست جفت‌سازی دیگر در انتظار نیست؛ جفت‌سازی را از افزونهٔ مرورگر دوباره امتحان کنید.",
         "pairedEmpty": "هنوز افزونه‌ای متصل نشده است.",

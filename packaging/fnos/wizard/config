@@ -1,0 +1,97 @@
+[
+  {
+    "stepTitle": "客户端连接 / Client connections",
+    "items": [
+      {
+        "type": "text",
+        "field": "wizard_client_port",
+        "label": "客户端连接端口 / Client connection port",
+        "initValue": "16802",
+        "helpText": "用于 CLI 和扩展连接，与 Docker 版端口独立。配置修改后请重新启动 Motrix。 / Used by CLI and Extension clients, separately from Docker. Restart Motrix after changing this setting.",
+        "rules": [
+          {
+            "required": true,
+            "message": "请输入端口 / Enter a port"
+          },
+          {
+            "pattern": "^[0-9]{1,5}$",
+            "message": "请输入 1024–65535 之间的端口 / Enter a port from 1024 to 65535"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "stepTitle": "浏览器扩展连接（可选） / Browser Extension (optional)",
+    "items": [
+      {
+        "type": "radio",
+        "field": "wizard_extension_enabled",
+        "label": "启用浏览器扩展连接 / Enable browser Extension connections",
+        "initValue": "false",
+        "options": [
+          {
+            "label": "关闭 / Off",
+            "value": "false"
+          },
+          {
+            "label": "启用 / On",
+            "value": "true"
+          }
+        ],
+        "helpText": "配对需由飞牛管理员在 Motrix 中领取配对码。客户端使用该管理员账号的权限。修改后请重启 Motrix。 / A fnOS administrator must claim the pairing code in Motrix. The client uses that account’s permissions. Restart Motrix after changing these settings."
+      },
+      {
+        "type": "text",
+        "field": "wizard_extension_url",
+        "label": "扩展连接地址 / Extension connection URL",
+        "initValue": "",
+        "helpText": "填写扩展能访问的地址，例如 ws://nas.local:16802。通过 HTTPS 反向代理连接时使用 wss:// 地址；端口应与客户端连接端口对应。 / Enter the address reachable by the Extension, for example ws://nas.local:16802. Use wss:// through an HTTPS reverse proxy. Match the configured client port.",
+        "rules": [
+          {
+            "max": 4096,
+            "message": "地址过长 / URL is too long"
+          },
+          {
+            "pattern": "^wss?://",
+            "message": "请填写 ws:// 或 wss:// 地址 / Enter a ws:// or wss:// URL"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "field": "wizard_operator_url",
+        "label": "Motrix 网页地址 / Motrix Web URL",
+        "initValue": "",
+        "helpText": "填写浏览器打开 Motrix 的完整地址，例如 https://nas.example/app/motrix/。HTTP 地址需要在下方明确允许。 / Enter the complete Motrix browser address, for example https://nas.example/app/motrix/. HTTP requires explicit consent below.",
+        "rules": [
+          {
+            "max": 4096,
+            "message": "地址过长 / URL is too long"
+          },
+          {
+            "pattern": "^https?://",
+            "message": "请填写 http:// 或 https:// 地址 / Enter an http:// or https:// URL"
+          }
+        ]
+      },
+      {
+        "type": "radio",
+        "field": "wizard_allow_operator_http",
+        "label": "配对页面的连接方式 / Pairing page transport",
+        "initValue": "false",
+        "options": [
+          {
+            "label": "要求 HTTPS（推荐） / Require HTTPS (recommended)",
+            "value": "false"
+          },
+          {
+            "label": "允许 HTTP（仅受信任网络） / Allow HTTP (trusted networks only)",
+            "value": "true"
+          }
+        ],
+        "helpText": "HTTP 不加密页面和配对码。仅在你信任的网络中允许。 / HTTP does not encrypt the page or pairing code. Allow it only on a network you trust."
+      }
+    ]
+  }
+]

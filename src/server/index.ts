@@ -153,6 +153,7 @@ import { diagnoseMdxpPublicUrl } from './bridge/public-url-diagnostic'
 import { parseRemoteExtensionConfig } from './bridge/remote-extension-config'
 import { logRemoteExtensionPairingReady } from './bridge/remote-extension-startup-log'
 import {
+  establishLinuxServerProcessOwnershipAuthority,
   establishServerProcessOwnershipAuthority,
   ServerProcessOwnershipError,
 } from './bridge/server-process-ownership-authority'
@@ -170,6 +171,12 @@ import { buildServerCommandHandlers } from './ipc/commands'
 import { buildServerQueryHandlers } from './ipc/queries'
 import { createServerMediaRuntime } from './media-runtime'
 import { provisionOperatorToken } from './operator-token'
+import { FnosAccountAuthority } from './platform/fnos/accounts'
+import { FnosFiles } from './platform/fnos/files'
+import { registerFnosRoutes } from './platform/fnos/routes'
+import { fnosRuntime, listenFnos } from './platform/fnos/runtime'
+import { NasFileRemover } from './platform/nas/file-remover'
+import { NasTaskAccess } from './platform/nas/task-access'
 import { createNodePlatformServices } from './platform/services'
 import { createServerCapabilityHost } from './plugin/capability-host'
 import {
@@ -201,6 +208,7 @@ import { createServerPersistTask } from './task-persistence'
 let requestActiveServerExit: ((code: number) => Promise<void>) | null = null
 
 async function main() {
+  const fnos = fnosRuntime()
   // ─── Logger ───────────────────────────────────────────────────
   initLogger(pino({ level: process.env.LOG_LEVEL ?? 'info' }))
   const log = getLogger('server')
@@ -403,16 +411,23 @@ async function main() {
   })
   geoipManager = activeGeoipManager
   shutdownActions.stopGeoIP = () => activeGeoipManager.stop()
-  const hasDefaultSaveDirOverride = Boolean(
-    process.env.MOTRIX_DEFAULT_SAVE_DIR?.trim()
-  )
+  const hasDefaultSaveDirOverride =
+    !fnos && Boolean(process.env.MOTRIX_DEFAULT_SAVE_DIR?.trim())
   const effectiveDefaultSaveDir = hasDefaultSaveDirOverride
     ? configuredDefaultSaveDir
     : settingsManager.getApp().defaultSaveDir
-  const downloadPathPolicy = await createServerDownloadPathPolicy({
-    defaultSaveDir: effectiveDefaultSaveDir,
-    allowedSaveDirsValue: process.env.MOTRIX_ALLOWED_SAVE_DIRS,
-  })
+  const fnosFiles = fnos
+    ? new FnosFiles(process.env, process.env.MOTRIX_FNOS_API_SOCKET)
+    : undefined
+  const downloadPathPolicy = fnosFiles
+    ? await fnosFiles.policy(effectiveDefaultSaveDir)
+    : await createServerDownloadPathPolicy({
+        defaultSaveDir: effectiveDefaultSaveDir,
+        allowedSaveDirsValue: process.env.MOTRIX_ALLOWED_SAVE_DIRS,
+      })
+  const nasTaskAccess = fnosFiles
+    ? new NasTaskAccess(fnosFiles, downloadPathPolicy)
+    : undefined
   if (
     hasDefaultSaveDirOverride &&
     settingsManager.getApp().defaultSaveDir !== effectiveDefaultSaveDir
@@ -1109,9 +1124,18 @@ async function main() {
   await mediaMetaStore
     .pruneOrphans(db.getAllTasks().map(({ task }) => task.motrixId))
     .catch((err) => log.warn({ err }, 'Media metadata recovery failed'))
+  const nasFileRemover = fnosFiles
+    ? new NasFileRemover(
+        fnosFiles,
+        downloadPathPolicy,
+        finalizeFilesystemAdapter,
+        path.join(platform.userDataDir, 'nas-removals')
+      )
+    : undefined
   const fileCleanupService = new FileCleanupServiceImpl({
     async removePathRecursive(absPath: string): Promise<void> {
-      await fs.rm(absPath, { recursive: true, force: true })
+      if (nasFileRemover) await nasFileRemover.remove(absPath)
+      else await fs.rm(absPath, { recursive: true, force: true })
     },
   })
   const torrentParser = new TorrentParser()
@@ -1211,6 +1235,9 @@ async function main() {
     updateService,
     userDataDir: platform.userDataDir,
     trackAsyncWork: (operation) => shellAsyncWork.run(operation),
+    authorizeOutputWrite: nasTaskAccess?.authorizeOutputWrite,
+    authorizeTaskWrite: nasTaskAccess?.authorizeWrite,
+    authorizeTaskRemoval: nasTaskAccess?.authorizeRemoval,
     btStorageRuntime: durableFinalizeRuntime,
     persistBtStorage: (task, source, target) =>
       sessionManager.persistBtStorage(task, source, target),
@@ -1349,10 +1376,23 @@ async function main() {
     'operator token provisioned'
   )
 
-  const remoteExtensionConfig = parseRemoteExtensionConfig(process.env)
+  const remoteExtensionConfig = parseRemoteExtensionConfig(process.env, {
+    requireWebOperator: fnos !== undefined,
+  })
+  const nasAccounts = fnos?.accountSocketPath
+    ? new FnosAccountAuthority(fnos.accountSocketPath)
+    : undefined
   const app = await createApp({
     getHiddenNotificationKinds: () =>
       getHiddenNotificationKinds(settingsManager.getApp()),
+    clientPairing: {
+      cli: !fnos || nasAccounts !== undefined,
+      extension:
+        (!fnos || nasAccounts !== undefined) &&
+        remoteExtensionConfig.status === 'enabled',
+    },
+    basePath: process.env.MOTRIX_WEB_BASE_PATH,
+    fnosGateway: fnos,
     remoteExtensionConfig,
     torrentBodyLimitBytes,
     commandHandlers,
@@ -1362,12 +1402,14 @@ async function main() {
     eventBus,
     pluginLogSource: pluginCapHost,
     rendererDir,
-    operatorAuth: {
-      operatorToken: operator.token,
-      publicUrl: process.env.MOTRIX_PUBLIC_URL,
-      onEventSocketRejected: (detail) =>
-        log.warn(detail, 'operator event connection rejected'),
-    },
+    operatorAuth: fnos
+      ? undefined
+      : {
+          operatorToken: operator.token,
+          publicUrl: process.env.MOTRIX_PUBLIC_URL,
+          onEventSocketRejected: (detail) =>
+            log.warn(detail, 'operator event connection rejected'),
+        },
     healthCheck: () =>
       serverHealthSnapshot({
         accepting: shellAsyncWork.isAccepting(),
@@ -1385,6 +1427,10 @@ async function main() {
   }
 
   registerPluginUploadRoute(app, pluginUploadStore)
+  if (fnosFiles)
+    registerFnosRoutes(app, fnosFiles, downloadPathPolicy, (id) =>
+      taskManager.getById(id)
+    )
   registerServerDiagnosticsRoute(app, async () => ({
     generatedAt: Date.now(),
     health: serverHealthSnapshot({
@@ -1427,6 +1473,11 @@ async function main() {
   }))
 
   registerTasksBulkRoutes(app, {
+    resumeAll: fnosFiles
+      ? async () => {
+          await commandHandlers[Commands.ResumeAllTasks]?.()
+        }
+      : undefined,
     taskManager,
     adapter,
     eventBus,
@@ -1818,7 +1869,8 @@ async function main() {
     // can observe an empty/partial TaskManager or a false TaskNotFound.
     const port = parseServerPort(process.env.PORT, 'PORT', 8080)
     try {
-      await app.listen({ port, host: '0.0.0.0' })
+      if (fnos) await listenFnos(app, fnos.socketPath)
+      else await app.listen({ port, host: '0.0.0.0' })
     } catch (err) {
       if (!shellAsyncWork.isAccepting()) return
       throw err
@@ -1831,7 +1883,9 @@ async function main() {
       }
       return
     }
-    const serverUrl = `http://localhost:${port}`
+    const serverUrl = fnos
+      ? `unix:${fnos.socketPath}`
+      : `http://localhost:${port}`
     log.info({ port, url: serverUrl }, `server listening at ${serverUrl}`)
 
     let bridgeSetupStage:
@@ -1839,20 +1893,30 @@ async function main() {
       | 'bridge-data-lock'
       | 'trusted-extension-registry' = 'process-ownership'
     bridgeOwnershipSetup = (async () => {
-      bridgeDataDirLockRecoveryAuthority =
-        await establishServerProcessOwnershipAuthority({
+      if (fnos) {
+        const authority = await establishLinuxServerProcessOwnershipAuthority({
           userDataDir: platform.userDataDir,
-          port,
-          assertControlPlaneOwnership: () => {
-            if (!app.server.listening) return false
-            const address = app.server.address()
-            return (
-              typeof address === 'object' &&
-              address !== null &&
-              address.port === port
-            )
-          },
+          assertControlPlaneOwnership: () =>
+            app.server.listening && app.server.address() === fnos.socketPath,
         })
+        bridgeDataDirLockRecoveryAuthority = authority
+        shutdownActions.releaseProcessOwnership = authority.release
+      } else {
+        bridgeDataDirLockRecoveryAuthority =
+          await establishServerProcessOwnershipAuthority({
+            userDataDir: platform.userDataDir,
+            port,
+            assertControlPlaneOwnership: () => {
+              if (!app.server.listening) return false
+              const address = app.server.address()
+              return (
+                typeof address === 'object' &&
+                address !== null &&
+                address.port === port
+              )
+            },
+          })
+      }
       bridgeSetupStage = 'bridge-data-lock'
       const dataDirLock = await acquireBridgeDataDirLock(bridgeDataDir, {
         recoverExisting: bridgeDataDirLockRecoveryAuthority,
@@ -1889,6 +1953,9 @@ async function main() {
     })
     await bridgeOwnershipSetup
     if (!shellAsyncWork.isAccepting()) return
+    // Older native packages have no protected account authority. Keep client
+    // ingress closed until the lifecycle launcher supplies that endpoint.
+    if (fnos && !nasAccounts) return
 
     // ─── MDXP bridge (Spec 6) ─────────────────────────────────────
     // Agent-facing unary POST /mdxp + SSE GET /mdxp/events, on its OWN port
@@ -1899,6 +1966,7 @@ async function main() {
     bridgeRuntimeFactory = async (): Promise<ServerBridgeRuntime> => {
       let receiver: BridgeReceiver | null = null
       const removeTaskDeps = {
+        authorizeTaskRemoval: nasTaskAccess?.authorizeRemoval,
         cancelMedia: async (taskId: string) => receiver?.cancelMedia(taskId),
         taskManager,
         adapter,
@@ -1966,6 +2034,8 @@ async function main() {
           }),
       }
       const taskActionDeps = {
+        authorizeTaskWrite: nasTaskAccess?.authorizeWrite,
+        authorizeTaskRemoval: nasTaskAccess?.authorizeRemoval,
         getMediaSegmentGids: (taskId: string) =>
           receiver?.getMediaSegmentGids(taskId) ?? [],
         onPauseRequested: (taskId: string) =>
@@ -2007,7 +2077,8 @@ async function main() {
         : fixedPort === 'auto'
           ? 16801
           : fixedPort
-      const mdxpHost = process.env.MOTRIX_MDXP_HOST ?? '127.0.0.1'
+      const mdxpHost =
+        process.env.MOTRIX_MDXP_HOST ?? (fnos ? '0.0.0.0' : '127.0.0.1')
       if (remoteExtensionConfig.status === 'invalid') {
         log.warn(
           {
@@ -2021,7 +2092,7 @@ async function main() {
         mdxpHost,
         publicUrl: process.env.MOTRIX_PUBLIC_URL,
       })
-      if (publicUrlWarning) {
+      if (publicUrlWarning && !fnos) {
         log.warn(
           {
             reason: publicUrlWarning.reason,
@@ -2044,6 +2115,7 @@ async function main() {
           (await downloadPathPolicy.authorizeDirectory(path)).canonicalPath,
       })
       const candidateBridgeRuntime = await bootstrapBridgeForServer({
+        nasAccounts,
         userDataDir: platform.userDataDir,
         host: mdxpHost,
         port: mdxpPort,
@@ -2077,11 +2149,15 @@ async function main() {
                 removeTaskDeps
               )
             },
-            submitMagnetForFileSelection: (uri, saveDir, sourceMeta) =>
-              magnetTracker.submit(uri, saveDir, {
-                source: 'bridge',
-                sourceMeta,
-              }),
+            submitMagnetForFileSelection: async (uri, saveDir, sourceMeta) =>
+              magnetTracker.submit(
+                uri,
+                await downloadPathPolicy.prepareSaveDir(saveDir),
+                {
+                  source: 'bridge',
+                  sourceMeta,
+                }
+              ),
             isMagnetFileSelectionEnabled: () =>
               settingsManager.getApp().magnetFileSelection,
             eventBus,
@@ -2112,7 +2188,11 @@ async function main() {
           })),
         // The web approval UI is a separate (Fastify) service; the operator points
         // device-code clients at it via MOTRIX_PUBLIC_URL. Unset → no URL printed.
-        verificationUri: process.env.MOTRIX_PUBLIC_URL,
+        verificationUri: fnos
+          ? remoteExtensionConfig.status === 'enabled'
+            ? remoteExtensionConfig.publicOperatorBaseUrl
+            : undefined
+          : process.env.MOTRIX_PUBLIC_URL,
         readHandlerDeps: {
           taskManager,
           statsAggregator,

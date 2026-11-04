@@ -4,7 +4,8 @@
     "help": "此伺服器需要 Operator Token。請在主機上設定 MOTRIX_OPERATOR_TOKEN，或讀取 <dataDir>/operator-token 的 Token，然後貼到下方。",
     "placeholder": "Operator Token",
     "error": "Operator Token 無效。請確認主機上的 MOTRIX_OPERATOR_TOKEN 或 <dataDir>/operator-token，然後再試一次。",
-    "submit": "解鎖"
+    "submit": "解鎖",
+    "fnosSessionExpired": "飛牛管理員工作階段已失效，請從飛牛桌面重新開啟 Motrix。"
   },
   "operatorAdmin": {
     "help": "用法：\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\n此命令只會透過容器 loopback 與正在執行的 Motrix 伺服器通訊。",
@@ -1860,6 +1861,12 @@
       "hideSecret": "隱藏密鑰"
     },
     "integration": {
+      "clientPairingUnavailable": "目前安裝版本暫不支援用戶端配對。",
+      "extensionPairingUnavailable": "目前安裝版本暫不支援瀏覽器擴充功能配對。",
+      "clients": {
+        "masterSwitch": "允許外部用戶端連線",
+        "masterSwitchDesc": "用戶端須經核准後才能管理下載。"
+      },
       "system": {
         "title": "預設應用程式",
         "protocolMagnet": "使用 Motrix 開啟 Magnet 連結",
@@ -1948,7 +1955,10 @@
             "attested": "已驗證的擴充功能",
             "unverified": "未驗證的擴充功能"
           },
-          "identityUnverifiedWarning": "無法驗證此擴充功能的身分，請確認信任後再繼續。"
+          "identityUnverifiedWarning": "無法驗證此擴充功能的身分，請確認信任後再繼續。",
+          "claim": "使用目前帳號配對",
+          "claimDesc": "擴充功能將使用此帳號的權限。下一步請在擴充功能中輸入配對碼，完成配對。",
+          "account": "目前帳號：{{name}}"
         },
         "pairUnavailable": "此配對要求已不再待處理，請從瀏覽器擴充功能重新配對。",
         "trustedExtensions": "受信任的擴充功能",

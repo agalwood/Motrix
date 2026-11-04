@@ -25,6 +25,7 @@ import { useToastEvents } from '@renderer/hooks/use-toast-events'
 import { useWindowTorrentDrop } from '@renderer/hooks/use-window-torrent-drop'
 import { cn } from '@renderer/lib/utils'
 import { electronServices } from '@renderer/platform/electron-services'
+import { FnosEntry } from '@renderer/platform/fnos-entry'
 import { PlatformServicesProvider } from '@renderer/platform/services'
 import { webServices } from '@renderer/platform/web-services'
 import type { RouteHandle } from '@renderer/router-types'
@@ -88,6 +89,7 @@ export function AppLayout() {
   return (
     <TooltipProvider>
       <PlatformServicesProvider services={platformServices}>
+        {__MOTRIX_TARGET__ === 'web' && <FnosEntry />}
         {/* Unconditional bg-sidebar: below the md breakpoint the Sidebar
             renders as a portaled Sheet without data-variant="inset", so the
             wrapper's built-in has-data-[variant=inset]:bg-sidebar stops

@@ -129,6 +129,11 @@ export interface FinalizeFilesystemAdapter {
     relativePath: string,
     intent?: 'rename'
   ): Promise<FinalizeArtifactHandle>
+  openRemoval?(
+    root: FinalizeRootHandle,
+    relativePath: string,
+    expectedIdentity: string
+  ): Promise<FinalizeArtifactHandle>
   renameOpenedNoReplace(
     artifact: FinalizeArtifactHandle,
     targetRoot: FinalizeRootHandle,
@@ -408,6 +413,23 @@ export class NativeFinalizeFilesystemAdapter
     if (response.handle === undefined) {
       throw new Error('sidecar omitted artifact handle')
     }
+    return this.heldHandle(response.handle, generation)
+  }
+
+  async openRemoval(
+    root: FinalizeRootHandle,
+    relativePath: string,
+    expectedIdentity: string
+  ): Promise<FinalizeArtifactHandle> {
+    const generation = this.generation
+    const response = await this.request({
+      op: 'open_removal',
+      root: this.nativeId(root),
+      relative: relativePath,
+      expected_identity: expectedIdentity,
+    })
+    if (response.handle === undefined)
+      throw new Error('sidecar omitted removal handle')
     return this.heldHandle(response.handle, generation)
   }
 

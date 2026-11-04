@@ -1,25 +1,17 @@
 import { WarningIcon } from '@renderer/components/icons'
-import { SettingsFormRow } from '@renderer/components/settings-kit/settings-form-row'
 import {
   Alert,
   AlertDescription,
   AlertTitle,
 } from '@renderer/components/ui/alert'
 import { Button } from '@renderer/components/ui/button'
-import {
-  FormControl,
-  FormDescription,
-  FormField,
-  FormLabel,
-} from '@renderer/components/ui/form'
-import { Switch } from '@renderer/components/ui/switch'
-import { usePortableMode } from '@renderer/hooks/use-portable-mode'
 import { browserDisplayName } from '@renderer/lib/browser-name'
 import { cn } from '@renderer/lib/utils'
 import type { PairedClientInfo } from '@shared/protocol/bridge'
 import { useFormContext } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { BrowserExtensionInstalls } from './browser-extension-installs'
+import { ClientPairingSwitch } from './client-pairing-switch'
 import type { IntegrationFormValues } from './integration-dialog'
 import { TrustedExtensionsSection } from './trusted-extensions-section'
 import { useBridgeStatus, usePairedExtensions } from './use-bridge'
@@ -33,7 +25,6 @@ const IDENTITY_LABEL_KEYS = {
 
 export function BrowserExtensionsSection() {
   const { t } = useTranslation()
-  const portable = usePortableMode()
   const form = useFormContext<IntegrationFormValues>()
   const { items: paired, revoke } = usePairedExtensions()
   const status = useBridgeStatus()
@@ -47,29 +38,7 @@ export function BrowserExtensionsSection() {
 
   return (
     <div className="space-y-4">
-      <FormField
-        control={form.control}
-        name="app.browserBridgeEnabled"
-        render={({ field }) => (
-          <SettingsFormRow>
-            <div className="space-y-1">
-              <FormLabel>
-                {t('settings.integration.browser.masterSwitch')}
-              </FormLabel>
-              <FormDescription className="text-xs">
-                {t(
-                  portable
-                    ? 'settings.portable.browserDescription'
-                    : 'settings.integration.browser.masterSwitchDesc'
-                )}
-              </FormDescription>
-            </div>
-            <FormControl>
-              <Switch checked={field.value} onCheckedChange={field.onChange} />
-            </FormControl>
-          </SettingsFormRow>
-        )}
-      />
+      <ClientPairingSwitch browser />
 
       <BrowserExtensionInstalls />
 

@@ -4,7 +4,8 @@
     "help": "このサーバーには管理者トークンが必要です。ホスト上で MOTRIX_OPERATOR_TOKEN を設定するか、<dataDir>/operator-token からトークンを読み取り、以下に貼り付けてください。",
     "placeholder": "管理者トークン",
     "error": "管理者トークンが無効です。ホスト上の MOTRIX_OPERATOR_TOKEN または <dataDir>/operator-token を確認して、もう一度お試しください。",
-    "submit": "ロックを解除"
+    "submit": "ロックを解除",
+    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
   },
   "operatorAdmin": {
     "help": "使い方:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nこのコマンドは、コンテナーのループバック経由で、実行中の Motrix サーバーとのみ通信します。",
@@ -1860,6 +1861,12 @@
       "hideSecret": "シークレットを非表示"
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "system": {
         "title": "既定のアプリ",
         "protocolMagnet": "マグネットリンクを Motrix で開く",
@@ -1948,7 +1955,10 @@
             "attested": "確認済みの拡張機能",
             "unverified": "未確認の拡張機能"
           },
-          "identityUnverifiedWarning": "この拡張機能の身元を確認できませんでした。信頼できる場合にのみ続行してください。"
+          "identityUnverifiedWarning": "この拡張機能の身元を確認できませんでした。信頼できる場合にのみ続行してください。",
+          "claim": "現在のアカウントでペアリング",
+          "claimDesc": "拡張機能にはこのアカウントの権限が適用されます。次に、拡張機能でペアリングコードを入力して完了してください。",
+          "account": "現在のアカウント：{{name}}"
         },
         "pairUnavailable": "このペアリング要求は保留中ではありません。ブラウザー拡張機能からもう一度ペアリングしてください。",
         "trustedExtensions": "信頼する拡張機能",

@@ -4,7 +4,8 @@
     "help": "Este servidor exige o token do operador. No host, defina MOTRIX_OPERATOR_TOKEN ou leia o token em <dataDir>/operator-token e cole-o abaixo.",
     "placeholder": "Token do operador",
     "error": "Token do operador inválido. Verifique MOTRIX_OPERATOR_TOKEN ou <dataDir>/operator-token no host e tente novamente.",
-    "submit": "Desbloquear"
+    "submit": "Desbloquear",
+    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
   },
   "operatorAdmin": {
     "help": "Uso:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nO comando se comunica apenas com o servidor Motrix em execução, pela interface de loopback do contêiner.",
@@ -1888,6 +1889,12 @@
       "hideSecret": "Ocultar segredo"
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "system": {
         "title": "Aplicativo padrão",
         "protocolMagnet": "Abrir links magnet com o Motrix",
@@ -1976,7 +1983,10 @@
             "attested": "Extensão verificada",
             "unverified": "Extensão não verificada"
           },
-          "identityUnverifiedWarning": "Não foi possível verificar a identidade desta extensão. Continue apenas se confiar nela."
+          "identityUnverifiedWarning": "Não foi possível verificar a identidade desta extensão. Continue apenas se confiar nela.",
+          "claim": "Parear com a conta atual",
+          "claimDesc": "A extensão usará as permissões desta conta. Em seguida, insira o código na extensão para concluir o pareamento.",
+          "account": "Conta atual: {{name}}"
         },
         "pairUnavailable": "Esta solicitação não está mais pendente — tente parear novamente pela extensão do navegador.",
         "trustedExtensions": "Extensões confiáveis",

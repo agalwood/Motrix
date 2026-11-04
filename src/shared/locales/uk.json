@@ -402,7 +402,8 @@
     "help": "Цей сервер потребує токена оператора. На хості задайте MOTRIX_OPERATOR_TOKEN або прочитайте токен із <dataDir>/operator-token і вставте його нижче.",
     "placeholder": "Токен оператора",
     "submit": "Розблокувати",
-    "title": "Розблокувати Motrix"
+    "title": "Розблокувати Motrix",
+    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
   },
   "panel": {
     "completed": {
@@ -2350,6 +2351,12 @@
       "warnBeforeQuitDesc": "Запитувати перед виходом, якщо завантаження ще тривають."
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "appimage": {
         "desc": "Зареєструйте цей AppImage Motrix у стільничному середовищі, щоб браузери й magnet-посилання могли передавати йому завантаження.",
         "enable": "Увімкнути інтеграцію зі стільницею",
@@ -2434,7 +2441,10 @@
           "identityUnverifiedWarning": "Не вдалося перевірити ідентичність цього розширення. Продовжуйте, лише якщо довіряєте йому.",
           "pairCode": "Код сполучення",
           "pairCodeHint": "Введіть цей код у розширенні",
-          "title": "Розширення {{browser}} хоче підключитися до Motrix"
+          "title": "Розширення {{browser}} хоче підключитися до Motrix",
+          "claim": "Сполучити з поточним обліковим записом",
+          "claimDesc": "Розширення використовуватиме права цього облікового запису. Далі введіть код у розширенні, щоб завершити сполучення.",
+          "account": "Поточний обліковий запис: {{name}}"
         },
         "pairUnavailable": "Цей запит на сполучення вже не очікує відповіді — повторіть сполучення з розширення браузера.",
         "pairedEmpty": "Ще немає підключених розширень.",

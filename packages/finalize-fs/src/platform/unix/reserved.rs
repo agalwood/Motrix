@@ -254,6 +254,7 @@ pub(crate) fn reserve_exfat_target(
             opened_link_count: stat.st_nlink,
             opened_tree: None,
             opened_file_sha256: None,
+            metadata_removal: false,
             reservation_digest: Some(digest),
         },
         id,

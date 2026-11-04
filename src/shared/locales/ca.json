@@ -401,7 +401,8 @@
     "help": "Aquest servidor necessita el testimoni d'operador. A l'amfitrió, establiu MOTRIX_OPERATOR_TOKEN o llegiu el testimoni de <dataDir>/operator-token i enganxeu-lo a continuació.",
     "placeholder": "Testimoni d'operador",
     "submit": "Desbloquejar",
-    "title": "Desbloquejar el Motrix"
+    "title": "Desbloquejar el Motrix",
+    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
   },
   "panel": {
     "completed": {
@@ -2331,6 +2332,12 @@
       "warnBeforeQuitDesc": "Demana confirmació abans de sortir si encara hi ha baixades actives."
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "appimage": {
         "desc": "Registreu aquest AppImage del Motrix a l'escriptori perquè els navegadors i els enllaços magnet li puguin enviar baixades.",
         "enable": "Activar la integració amb l'escriptori",
@@ -2415,7 +2422,10 @@
           "identityUnverifiedWarning": "No s'ha pogut verificar la identitat d'aquesta extensió. Continueu només si hi confieu.",
           "pairCode": "Codi d'aparellament",
           "pairCodeHint": "Introduïu aquest codi a l'extensió",
-          "title": "Una extensió de {{browser}} vol connectar-se amb el Motrix"
+          "title": "Una extensió de {{browser}} vol connectar-se amb el Motrix",
+          "claim": "Vincula amb el compte actual",
+          "claimDesc": "L’extensió farà servir els permisos d’aquest compte. A continuació, introduïu el codi a l’extensió per completar la vinculació.",
+          "account": "Compte actual: {{name}}"
         },
         "pairUnavailable": "Aquesta petició d'aparellament ja no està pendent; torneu a aparellar des de l'extensió del navegador.",
         "pairedEmpty": "Encara no hi ha extensions connectades.",

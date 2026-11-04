@@ -400,7 +400,8 @@
     "help": "Denne serveren krever operatørtokenet. På vertsmaskinen setter du MOTRIX_OPERATOR_TOKEN eller leser tokenet fra <dataDir>/operator-token, og limer det inn nedenfor.",
     "placeholder": "Operatørtoken",
     "submit": "Lås opp",
-    "title": "Lås opp Motrix"
+    "title": "Lås opp Motrix",
+    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
   },
   "panel": {
     "completed": {
@@ -2312,6 +2313,12 @@
       "warnBeforeQuitDesc": "Spør før avslutning hvis nedlastinger fortsatt pågår."
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "appimage": {
         "desc": "Registrer dette Motrix-AppImage i skrivebordsmiljøet, slik at nettlesere og magnetlenker kan overføre nedlastinger til det.",
         "enable": "Aktiver skrivebordsintegrasjon",
@@ -2396,7 +2403,10 @@
           "identityUnverifiedWarning": "Identiteten til denne utvidelsen kunne ikke bekreftes. Fortsett bare hvis du stoler på den.",
           "pairCode": "Sammenkoblingskode",
           "pairCodeHint": "Skriv inn denne koden i utvidelsen",
-          "title": "En {{browser}}-utvidelse vil koble til Motrix"
+          "title": "En {{browser}}-utvidelse vil koble til Motrix",
+          "claim": "Koble til med gjeldende konto",
+          "claimDesc": "Utvidelsen vil bruke tillatelsene til denne kontoen. Skriv deretter inn paringskoden i utvidelsen for å fullføre.",
+          "account": "Gjeldende konto: {{name}}"
         },
         "pairUnavailable": "Denne sammenkoblingsforespørselen venter ikke lenger — prøv sammenkoblingen på nytt fra nettleserutvidelsen.",
         "pairedEmpty": "Ingen utvidelser er tilkoblet ennå.",

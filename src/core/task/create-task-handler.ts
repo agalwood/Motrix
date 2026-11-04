@@ -1191,8 +1191,8 @@ async function handleCreateTaskUnderAdmission(
     infoHash: btInfoHash,
     // For BT/Magnet, seed bt.isPrivate at creation time so SessionManager.save()
     // persists is_private to db. Other bt fields are filled in by the next poll
-    // cycle via translateBtExtension; mergeTask preserves isPrivate via the
-    // saved.isPrivate injection wired in Task 4.
+    // cycle via translateBtExtension; mergeEngineTask preserves this metadata
+    // while merging live engine metrics.
     bt: isBtLike
       ? makeDefaultBtExtension({
           isPrivate: isPrivateFromTorrent,

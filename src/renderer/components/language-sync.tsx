@@ -8,9 +8,14 @@ import {
   type SettingsReader,
 } from '@renderer/lib/settings-refresh'
 import { transport } from '@renderer/lib/transport'
-import { isSupportedLocale } from '@shared/constants/locales'
+import { fnosSdk, isFnos, watchFnosPlatform } from '@renderer/platform/fnos'
+import {
+  isSupportedLocale,
+  resolveSupportedLocale,
+} from '@shared/constants/locales'
 import { Events, type LocaleChangedPayload } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
+import type { AppSettings } from '@shared/types/settings'
 import { useEffect } from 'react'
 
 function localeFromEvent(
@@ -64,12 +69,25 @@ export function LanguageSync({
           : Queries.GetSettings
       )
       if (!active || localeGeneration !== generation) return
+      if (
+        isFnos() &&
+        windowId !== 'onboarding' &&
+        (state as AppSettings)?.app?.language === 'system'
+      ) {
+        const config = await (await fnosSdk()).getPlatformConfig()
+        await queueLocale(
+          resolveSupportedLocale(config.language),
+          localeGeneration
+        )
+        return
+      }
       const locale = languageFromState(windowId, state)
       if (!isSupportedLocale(locale)) return
       await queueLocale(locale, localeGeneration)
     }
 
     const refresh = () => void reconcileHostLocale().catch(() => {})
+    const stopFnosSync = watchFnosPlatform('os/language', refresh)
 
     // Subscribe before starting a query so a newer live/buffered event wins
     // over any older authoritative snapshot returned by IPC/HTTP.
@@ -87,6 +105,7 @@ export function LanguageSync({
     window.addEventListener('focus', refresh)
     return () => {
       active = false
+      stopFnosSync()
       generation += 1
       transport.off(Events.LocaleChanged, onLocaleChanged)
       stopConnectionSync?.()

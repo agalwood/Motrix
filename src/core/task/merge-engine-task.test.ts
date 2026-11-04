@@ -49,6 +49,26 @@ function instance(status: TaskStatus, index = 0): TaskInstance {
 }
 
 describe('mergeEngineTask', () => {
+  it.each([TaskStatus.Downloading, TaskStatus.Seeding])(
+    'preserves private torrent metadata while polling %s metrics',
+    (status) => {
+      const existing = baseTask({
+        status,
+        bt: makeDefaultBtExtension({ isPrivate: true }),
+      })
+      const engine = baseTask({
+        status,
+        totalBytes: 100,
+        downloadedBytes: 50,
+        bt: makeDefaultBtExtension({ isPrivate: false, peers: 3 }),
+      })
+      const merged = mergeEngineTask(existing, engine)
+      expect(merged.bt).toMatchObject({ isPrivate: true, peers: 3 })
+      expect(merged.progress).toBe(0.5)
+      expect(existing.bt?.peers).toBe(0)
+    }
+  )
+
   it('retains the original HTTP migration URI and status until completion is verified', () => {
     const existing = makeLegacyHttpTask({ status: TaskStatus.Downloading })
     const merged = mergeEngineTask(existing, {

@@ -42,6 +42,7 @@ import {
 } from './task-instance'
 
 export interface BtStorageServiceDeps extends ReAddTaskDeps {
+  authorizeOutputWrite?: (output: string) => Promise<void>
   runtime: Pick<
     DurableFinalizeRuntime,
     'commit' | 'withArtifactLease' | 'hasPendingFinalization'
@@ -158,6 +159,8 @@ export class BtStorageService {
       throw new StorageFault('busy')
     if (original.finalPath !== expectedPath)
       throw new StorageFault('unavailable')
+    if (request.mode !== 'locate') await deps.authorizeTaskWrite?.(original)
+    if (request.mode === 'move') await deps.authorizeTaskRemoval?.(original)
     if ((await deps.authorizeDirectory(directory)) !== directory)
       throw new StorageFault('destination')
     const metadata = await deps.torrentMetaStore.read(original.torrentMetaPath)
@@ -189,6 +192,7 @@ export class BtStorageService {
     )
       throw new StorageFault('destination')
     const target = path.join(directory, name)
+    await deps.authorizeOutputWrite?.(target)
     const sourceIdentity = outputPathIdentity(source)
     const targetIdentity = outputPathIdentity(target)
     if (

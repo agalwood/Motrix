@@ -2333,12 +2333,12 @@ describe('plugin diagnostic mode command', () => {
 })
 
 describe('BT storage command contract', () => {
-  it('authorizes a relocation destination before stopping or inspecting any files', async () => {
+  it('requires a writable relocation destination before stopping or inspecting any files', async () => {
     const ctx = makeFakeCtx() as ServerCommandContext
-    const authorizeDirectory = vi.fn(async () => {
+    const prepareSaveDir = vi.fn(async () => {
       throw new Error('outside allowed roots')
     })
-    ctx.downloadPathPolicy = { ...ctx.downloadPathPolicy, authorizeDirectory }
+    ctx.downloadPathPolicy = { ...ctx.downloadPathPolicy, prepareSaveDir }
     ctx.btStorageRuntime = {
       commit: vi.fn(),
       withArtifactLease: vi.fn(),
@@ -2365,7 +2365,7 @@ describe('BT storage command contract', () => {
         name: 'file',
       })
     ).toEqual({ error: 'failed' })
-    expect(authorizeDirectory).toHaveBeenCalledWith('/forbidden')
+    expect(prepareSaveDir).toHaveBeenCalledWith('/forbidden')
     expect(ctx.adapter.forceRemoveTask).not.toHaveBeenCalled()
     expect(ctx.persistBtStorage).not.toHaveBeenCalled()
   })

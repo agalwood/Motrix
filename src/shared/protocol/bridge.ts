@@ -60,6 +60,7 @@ export const BridgeCommands = {
   AddTrusted: 'bridge:addTrusted',
   RemoveTrusted: 'bridge:removeTrusted',
   ResolvePair: 'bridge:resolvePair',
+  ClaimExtensionPair: 'bridge:claimExtensionPair',
 } as const
 
 export const BridgeQueries = {
@@ -184,17 +185,35 @@ export type IdentityTriState =
  * authorize it. There is no `decision` to make here any more: approval is
  * proven by typing the code, not by a click in this dialog.
  */
+export interface ExtensionPairRequestDetails {
+  pairingNonce: string
+  extensionId: string
+  browser: Browser
+  identity: IdentityTriState
+  verifiedOrigin?: string
+  originHost?: string
+  claimedExtensionId?: string
+  attestationClass?: IdentityTriState
+  publicAuthority?: string
+}
+
+export type ExtensionCodeRequest = ExtensionPairRequestDetails & {
+  kind: 'extension'
+  /** PAKE password: render verbatim, never log or persist. */
+  code: string
+}
+
+/** A NAS operator must deliberately claim this request before receiving a code.
+ * This variant is safe to publish to the shared administrator inbox. */
+export type ExtensionClaimRequest = ExtensionPairRequestDetails & {
+  kind: 'extension-claim'
+  createdAt: number
+  expiresAt: number
+}
+
 export type PairRequestPayload =
-  | {
-      kind: 'extension'
-      pairingNonce: string
-      extensionId: string
-      browser: Browser
-      identity: IdentityTriState
-      /** The §7.1 display form, grouped `XXXX-XXXX`. Render verbatim — never
-       *  reformat, and never log (§7.1/§11: it is the PAKE password). */
-      code: string
-    }
+  | ExtensionCodeRequest
+  | ExtensionClaimRequest
   | {
       kind: 'cli'
       requestId: string
@@ -243,23 +262,8 @@ export type PendingPairRequestInfo =
       createdAt: number
       expiresAt: number
     }
-  | {
-      kind: 'extension'
-      pairingNonce: string
-      extensionId: string
-      browser: Browser
-      identity: IdentityTriState
-      code: string
-      /** Server operator evidence. Optional because the Desktop shell does
-       * not have a public authority and keeps its existing prompt shape. */
-      verifiedOrigin?: string
-      originHost?: string
-      claimedExtensionId?: string
-      attestationClass?: IdentityTriState
-      publicAuthority?: string
-      createdAt: number
-      expiresAt: number
-    }
+  | (ExtensionCodeRequest & { createdAt: number; expiresAt: number })
+  | ExtensionClaimRequest
 
 /**
  * Stable identity for prompt isolation and lifecycle routing. Mirrors the two
@@ -276,7 +280,10 @@ export function pairRequestKey(
         'kind' | 'requestId'
       >
     | Pick<
-        Extract<PendingPairRequestInfo, { kind: 'extension' }>,
+        Extract<
+          PendingPairRequestInfo,
+          { kind: 'extension' | 'extension-claim' }
+        >,
         'kind' | 'pairingNonce' | 'extensionId' | 'browser'
       >
 ): string {

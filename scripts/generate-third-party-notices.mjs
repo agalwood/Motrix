@@ -220,12 +220,16 @@ export async function collectRuntimePackages({
     }
     if (packages.has(packageKey)) continue
 
-    const licenseDeclared = manifest.license
+    const override = packageOverrides[packageKey]
+    // A version-specific reviewed exception can resolve metadata omitted by
+    // upstream; retain NOASSERTION as the package's actual declaration.
+    const licenseDeclared =
+      manifest.license ??
+      (override?.licenseConcluded ? 'NOASSERTION' : undefined)
     if (typeof licenseDeclared !== 'string' || licenseDeclared.trim() === '') {
       throw new Error(`${packageKey} has no declared license in package.json`)
     }
     const packageDirectory = await realpath(path.dirname(manifestPath))
-    const override = packageOverrides[packageKey]
     const licenseFiles = await packageLicenseFiles({
       projectDir: resolvedProjectDir,
       packageDirectory,

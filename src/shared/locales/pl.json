@@ -4,7 +4,8 @@
     "help": "Ten serwer wymaga tokenu operatora. Na hoście ustaw MOTRIX_OPERATOR_TOKEN lub odczytaj token z <dataDir>/operator-token, a następnie wklej go poniżej.",
     "placeholder": "Token operatora",
     "error": "Nieprawidłowy token operatora. Sprawdź MOTRIX_OPERATOR_TOKEN lub <dataDir>/operator-token na hoście i spróbuj ponownie.",
-    "submit": "Odblokuj"
+    "submit": "Odblokuj",
+    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
   },
   "operatorAdmin": {
     "help": "Użycie:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nPolecenie łączy się wyłącznie z działającym serwerem Motrix przez interfejs pętli zwrotnej kontenera.",
@@ -1902,6 +1903,12 @@
       "hideSecret": "Ukryj sekret"
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "system": {
         "title": "Domyślna aplikacja",
         "protocolMagnet": "Otwieraj linki magnet w Motrix",
@@ -1990,7 +1997,10 @@
             "attested": "Zweryfikowane rozszerzenie",
             "unverified": "Niezweryfikowane rozszerzenie"
           },
-          "identityUnverifiedWarning": "Nie udało się zweryfikować tożsamości tego rozszerzenia. Kontynuuj tylko, jeśli mu ufasz."
+          "identityUnverifiedWarning": "Nie udało się zweryfikować tożsamości tego rozszerzenia. Kontynuuj tylko, jeśli mu ufasz.",
+          "claim": "Sparuj z bieżącym kontem",
+          "claimDesc": "Rozszerzenie będzie korzystać z uprawnień tego konta. Następnie wpisz kod w rozszerzeniu, aby zakończyć parowanie.",
+          "account": "Bieżące konto: {{name}}"
         },
         "pairUnavailable": "To żądanie parowania nie jest już oczekujące — ponów parowanie w rozszerzeniu przeglądarki.",
         "trustedExtensions": "Zaufane rozszerzenia",

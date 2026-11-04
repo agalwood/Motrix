@@ -399,7 +399,8 @@
     "help": "เซิร์ฟเวอร์นี้ต้องใช้โทเค็นผู้ดูแล ตั้งค่า MOTRIX_OPERATOR_TOKEN บนโฮสต์ หรืออ่านโทเค็นจาก <dataDir>/operator-token แล้ววางด้านล่าง",
     "placeholder": "โทเค็นผู้ดูแล",
     "submit": "ปลดล็อก",
-    "title": "ปลดล็อก Motrix"
+    "title": "ปลดล็อก Motrix",
+    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
   },
   "panel": {
     "completed": {
@@ -2293,6 +2294,12 @@
       "warnBeforeQuitDesc": "ถามก่อนออกหากยังมีการดาวน์โหลดทำงานอยู่"
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "appimage": {
         "desc": "ลงทะเบียน Motrix AppImage นี้กับเดสก์ท็อปเพื่อให้เบราว์เซอร์และลิงก์แมกเน็ตส่งการดาวน์โหลดมาได้",
         "enable": "เปิดการผสานกับเดสก์ท็อป",
@@ -2377,7 +2384,10 @@
           "identityUnverifiedWarning": "ยืนยันตัวตนของส่วนขยายนี้ไม่ได้ ดำเนินการต่อเฉพาะเมื่อคุณเชื่อถือเท่านั้น",
           "pairCode": "รหัสจับคู่",
           "pairCodeHint": "ป้อนรหัสนี้ในส่วนขยาย",
-          "title": "ส่วนขยาย {{browser}} ต้องการเชื่อมต่อกับ Motrix"
+          "title": "ส่วนขยาย {{browser}} ต้องการเชื่อมต่อกับ Motrix",
+          "claim": "จับคู่ด้วยบัญชีปัจจุบัน",
+          "claimDesc": "ส่วนขยายจะใช้สิทธิ์ของบัญชีนี้ จากนั้นป้อนรหัสจับคู่ในส่วนขยายเพื่อดำเนินการให้เสร็จสิ้น",
+          "account": "บัญชีปัจจุบัน: {{name}}"
         },
         "pairUnavailable": "คำขอจับคู่นี้ไม่ได้อยู่ระหว่างรอแล้ว — ลองจับคู่จากส่วนขยายเบราว์เซอร์อีกครั้ง",
         "pairedEmpty": "ยังไม่มีส่วนขยายเชื่อมต่อ",

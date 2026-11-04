@@ -28,6 +28,7 @@ import { openAddTaskDialog } from '@renderer/lib/open-add-task-dialog'
 import { openMagnetFileSelection } from '@renderer/lib/open-magnet-file-selection'
 import { openTaskFile } from '@renderer/lib/open-task-file'
 import { transport } from '@renderer/lib/transport'
+import { hasHostFileActions } from '@renderer/platform/fnos'
 import { CommandIds } from '@shared/commands-catalog'
 import { formatNativePath } from '@shared/lib/path-display'
 import { Commands } from '@shared/protocol/commands'
@@ -278,42 +279,38 @@ export function TaskActionsMenu({
       visible: selected.length > 0 || !children,
       content: (
         <>
-          {single &&
-            __MOTRIX_TARGET__ === 'electron' &&
-            canOpenTaskFile(single) && (
-              <DropdownMenuItem
-                disabled={pending}
-                onClick={() =>
-                  void runAction(
-                    () => openTaskFile(single.id, t),
-                    t('panel.downloads.action.openFileFailed')
+          {single && hasHostFileActions() && canOpenTaskFile(single) && (
+            <DropdownMenuItem
+              disabled={pending}
+              onClick={() =>
+                void runAction(
+                  () => openTaskFile(single.id, t),
+                  t('panel.downloads.action.openFileFailed')
+                )
+              }
+            >
+              {t('panel.downloads.action.openFile')}
+            </DropdownMenuItem>
+          )}
+          {single && hasHostFileActions() && canRevealTaskFolder(single) && (
+            <DropdownMenuItem
+              onClick={() => {
+                void transport
+                  .invoke(Commands.RevealInFolder, { taskId: single.id })
+                  .catch((error: unknown) =>
+                    toast.add({
+                      title: t('panel.downloads.action.singleTaskFailed', {
+                        name: single.name,
+                        reason: String(error),
+                      }),
+                      type: 'error',
+                    })
                   )
-                }
-              >
-                {t('panel.downloads.action.openFile')}
-              </DropdownMenuItem>
-            )}
-          {single &&
-            __MOTRIX_TARGET__ === 'electron' &&
-            canRevealTaskFolder(single) && (
-              <DropdownMenuItem
-                onClick={() => {
-                  void transport
-                    .invoke(Commands.RevealInFolder, { taskId: single.id })
-                    .catch((error: unknown) =>
-                      toast.add({
-                        title: t('panel.downloads.action.singleTaskFailed', {
-                          name: single.name,
-                          reason: String(error),
-                        }),
-                        type: 'error',
-                      })
-                    )
-                }}
-              >
-                {t('panel.downloads.action.openFolder')}
-              </DropdownMenuItem>
-            )}
+              }}
+            >
+              {t('panel.downloads.action.openFolder')}
+            </DropdownMenuItem>
+          )}
           <OperationTaskMenuItems selected={selected} open={menuOpen} />
           <InspectorMenuItem
             visible={inspectorVisible}

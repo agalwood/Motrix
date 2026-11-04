@@ -109,6 +109,12 @@ describe('parseSha256Sums', () => {
 })
 
 describe('parseArgs', () => {
+  it('selects the requested target when pnpm forwards its leading separator', () => {
+    const args = parseArgs(['--', '--platform', 'linux', '--arch', 'arm64'])
+    expect(
+      selectKeys(LOCK, args, { platform: 'darwin', arch: 'arm64' })
+    ).toEqual(['linux-arm64'])
+  })
   it('defaults to host mode with no flags', () => {
     expect(parseArgs([])).toEqual({
       writeLock: false,

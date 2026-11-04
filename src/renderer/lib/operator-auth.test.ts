@@ -25,6 +25,22 @@ beforeEach(() => {
   })
 })
 afterEach(() => vi.unstubAllGlobals())
+it('locks a revoked fnOS session while retaining its host login mode', async () => {
+  useOperatorSession.setState({
+    status: {
+      authed: true,
+      mode: 'fnosGateway',
+      canLogout: false,
+      username: 'admin',
+    },
+  })
+  fetchMock.mockResolvedValueOnce(new Response('', { status: 401 }))
+  await refreshOperatorSession()
+  expect(useOperatorSession.getState()).toMatchObject({
+    state: 'locked',
+    status: { authed: false, mode: 'fnosGateway', canLogout: false },
+  })
+})
 it('preserves authentication on network failure and forbidden responses', async () => {
   fetchMock
     .mockRejectedValueOnce(new TypeError('offline'))

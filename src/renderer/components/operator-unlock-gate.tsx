@@ -22,6 +22,7 @@ export function OperatorUnlockGate({ children }: { children: ReactNode }) {
 function WebGate({ children }: { children: ReactNode }) {
   const { t } = useTranslation()
   const state = useOperatorSession((s) => s.state)
+  const fnos = useOperatorSession((s) => s.status?.mode === 'fnosGateway')
   const [token, setToken] = useState('')
   const [error, setError] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -43,6 +44,15 @@ function WebGate({ children }: { children: ReactNode }) {
     )
   if (state === 'authenticated' || state === 'logging-out')
     return <>{children}</>
+  if (fnos)
+    return (
+      <div className="flex h-svh flex-col items-center justify-center gap-4 p-6">
+        <p>{t('operatorUnlock.fnosSessionExpired')}</p>
+        <Button onClick={() => window.location.reload()}>
+          {t('applicationMenu.retry')}
+        </Button>
+      </div>
+    )
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()

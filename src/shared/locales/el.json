@@ -400,7 +400,8 @@
     "help": "Αυτός ο διακομιστής απαιτεί το διακριτικό χειριστή. Στον κεντρικό υπολογιστή, ορίστε το MOTRIX_OPERATOR_TOKEN ή διαβάστε το διακριτικό από το <dataDir>/operator-token και επικολλήστε το παρακάτω.",
     "placeholder": "Διακριτικό χειριστή",
     "submit": "Ξεκλείδωμα",
-    "title": "Ξεκλείδωμα του Motrix"
+    "title": "Ξεκλείδωμα του Motrix",
+    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
   },
   "panel": {
     "completed": {
@@ -2312,6 +2313,12 @@
       "warnBeforeQuitDesc": "Ζητά επιβεβαίωση πριν την έξοδο αν εκτελούνται ακόμη λήψεις."
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "appimage": {
         "desc": "Καταχωρίστε αυτό το Motrix AppImage στο περιβάλλον εργασίας σας, ώστε τα προγράμματα περιήγησης και οι σύνδεσμοι magnet να μπορούν να του μεταβιβάζουν λήψεις.",
         "enable": "Ενεργοποίηση ενσωμάτωσης στο περιβάλλον εργασίας",
@@ -2396,7 +2403,10 @@
           "identityUnverifiedWarning": "Δεν ήταν δυνατή η επαλήθευση της ταυτότητας αυτής της επέκτασης. Συνεχίστε μόνο αν την εμπιστεύεστε.",
           "pairCode": "Κωδικός σύζευξης",
           "pairCodeHint": "Πληκτρολογήστε αυτόν τον κωδικό στην επέκταση",
-          "title": "Μια επέκταση του {{browser}} θέλει να συνδεθεί στο Motrix"
+          "title": "Μια επέκταση του {{browser}} θέλει να συνδεθεί στο Motrix",
+          "claim": "Σύζευξη με τον τρέχοντα λογαριασμό",
+          "claimDesc": "Η επέκταση θα χρησιμοποιεί τα δικαιώματα αυτού του λογαριασμού. Στη συνέχεια, εισαγάγετε τον κωδικό στην επέκταση για να ολοκληρώσετε τη σύζευξη.",
+          "account": "Τρέχων λογαριασμός: {{name}}"
         },
         "pairUnavailable": "Αυτό το αίτημα σύζευξης δεν εκκρεμεί πλέον — δοκιμάστε ξανά τη σύζευξη από την επέκταση του προγράμματος περιήγησης.",
         "pairedEmpty": "Δεν έχουν συνδεθεί ακόμη επεκτάσεις.",

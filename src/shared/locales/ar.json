@@ -404,7 +404,8 @@
     "help": "يتطلب هذا الخادم رمز المشغّل. اضبط MOTRIX_OPERATOR_TOKEN على المضيف، أو اقرأ الرمز من <dataDir>/operator-token، ثم الصقه أدناه.",
     "placeholder": "رمز المشغّل",
     "submit": "فتح القفل",
-    "title": "فتح قفل Motrix"
+    "title": "فتح قفل Motrix",
+    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
   },
   "panel": {
     "completed": {
@@ -2388,6 +2389,12 @@
       "warnBeforeQuitDesc": "السؤال قبل الخروج إذا كانت التنزيلات لا تزال جارية."
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "appimage": {
         "desc": "سجّل AppImage Motrix هذا في سطح المكتب لتتمكن المتصفحات وروابط magnet من تمرير التنزيلات إليه.",
         "enable": "تفعيل التكامل مع سطح المكتب",
@@ -2472,7 +2479,10 @@
           "identityUnverifiedWarning": "تعذّر التحقق من هوية هذا الامتداد. تابع فقط إذا كنت تثق به.",
           "pairCode": "رمز الاقتران",
           "pairCodeHint": "أدخل هذا الرمز في الامتداد",
-          "title": "يريد امتداد {{browser}} الاتصال بـ Motrix"
+          "title": "يريد امتداد {{browser}} الاتصال بـ Motrix",
+          "claim": "الاقتران بالحساب الحالي",
+          "claimDesc": "ستستخدم الإضافة صلاحيات هذا الحساب. بعد ذلك، أدخل رمز الاقتران في الإضافة لإكمال العملية.",
+          "account": "الحساب الحالي: {{name}}"
         },
         "pairUnavailable": "لم يعد طلب الاقتران هذا معلّقًا — أعد محاولة الاقتران من امتداد المتصفح.",
         "pairedEmpty": "لا توجد امتدادات متصلة بعد.",

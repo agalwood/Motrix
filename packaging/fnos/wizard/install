@@ -1,0 +1,30 @@
+[
+  {
+    "stepTitle": "Motrix",
+    "items": [
+      {
+        "type": "tips",
+        "name": "notice",
+        "label": "管理员共享下载服务 / Administrator download service",
+        "helpText": "使用飞牛管理员账号打开 Motrix。下载文件存放在 motrix/downloads，共享目录可在应用内授权。所有管理员共同管理任务。 / Open Motrix with a fnOS administrator account. Downloads use motrix/downloads; additional shared folders can be authorized in the app. Administrators share all tasks."
+      },
+      {
+        "type": "text",
+        "field": "wizard_client_port",
+        "label": "客户端连接端口 / Client connection port",
+        "initValue": "16802",
+        "helpText": "用于 CLI 和扩展连接，与 Docker 版端口独立。配置修改后请重新启动 Motrix。 / Used by CLI and Extension clients, separately from Docker. Restart Motrix after changing this setting.",
+        "rules": [
+          {
+            "required": true,
+            "message": "请输入端口 / Enter a port"
+          },
+          {
+            "pattern": "^[0-9]{1,5}$",
+            "message": "请输入 1024–65535 之间的端口 / Enter a port from 1024 to 65535"
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -4,7 +4,8 @@
     "help": "Ez a szerver üzemeltetői tokent kér. A szervert futtató gépen állítsd be a MOTRIX_OPERATOR_TOKEN környezeti változót, vagy másold ki a tokent a <dataDir>/operator-token fájlból, majd illeszd be alább.",
     "placeholder": "Üzemeltetői token",
     "error": "Érvénytelen üzemeltetői token. Ellenőrizd a MOTRIX_OPERATOR_TOKEN értékét vagy a <dataDir>/operator-token fájlt a szervert futtató gépen, majd próbáld újra.",
-    "submit": "Feloldás"
+    "submit": "Feloldás",
+    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
   },
   "operatorAdmin": {
     "help": "Használat:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nA parancs kizárólag a futó Motrix szerverrel kommunikál a konténer loopback kapcsolatán keresztül.",
@@ -1874,6 +1875,12 @@
       "hideSecret": "Titkos érték elrejtése"
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "system": {
         "title": "Alapértelmezett alkalmazás",
         "protocolMagnet": "Magnet hivatkozások megnyitása a Motrixszal",
@@ -1962,7 +1969,10 @@
             "attested": "Ellenőrzött bővítmény",
             "unverified": "Nem ellenőrzött bővítmény"
           },
-          "identityUnverifiedWarning": "A bővítmény azonosságát nem sikerült ellenőrizni. Csak akkor folytasd, ha megbízol benne."
+          "identityUnverifiedWarning": "A bővítmény azonosságát nem sikerült ellenőrizni. Csak akkor folytasd, ha megbízol benne.",
+          "claim": "Párosítás a jelenlegi fiókkal",
+          "claimDesc": "A bővítmény ennek a fióknak a jogosultságait fogja használni. Ezután adja meg a párosítási kódot a bővítményben a befejezéshez.",
+          "account": "Jelenlegi fiók: {{name}}"
         },
         "pairUnavailable": "Ez a párosítási kérelem már nincs függőben — indítsd újra a párosítást a böngészőbővítményből.",
         "trustedExtensions": "Megbízható bővítmények",

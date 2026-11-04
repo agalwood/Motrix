@@ -401,7 +401,8 @@
     "help": "Acest server necesită tokenul operatorului. Pe gazdă, setează MOTRIX_OPERATOR_TOKEN sau citește tokenul din <dataDir>/operator-token, apoi lipește-l mai jos.",
     "placeholder": "Token operator",
     "submit": "Deblochează",
-    "title": "Deblochează Motrix"
+    "title": "Deblochează Motrix",
+    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
   },
   "panel": {
     "completed": {
@@ -2331,6 +2332,12 @@
       "warnBeforeQuitDesc": "Cere confirmare la ieșire dacă există descărcări active."
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "appimage": {
         "desc": "Înregistrează acest AppImage Motrix în mediul desktop, astfel încât browserele și linkurile magnet să îi poată trimite descărcări.",
         "enable": "Activează integrarea desktop",
@@ -2415,7 +2422,10 @@
           "identityUnverifiedWarning": "Identitatea acestei extensii nu a putut fi verificată. Continuă doar dacă ai încredere în ea.",
           "pairCode": "Cod de asociere",
           "pairCodeHint": "Introdu acest cod în extensie",
-          "title": "O extensie {{browser}} dorește să se conecteze la Motrix"
+          "title": "O extensie {{browser}} dorește să se conecteze la Motrix",
+          "claim": "Asociază cu contul curent",
+          "claimDesc": "Extensia va folosi permisiunile acestui cont. Apoi introdu codul în extensie pentru a finaliza asocierea.",
+          "account": "Cont curent: {{name}}"
         },
         "pairUnavailable": "Această cerere de asociere nu mai este în așteptare — reîncearcă asocierea din extensia de browser.",
         "pairedEmpty": "Încă nu există extensii conectate.",

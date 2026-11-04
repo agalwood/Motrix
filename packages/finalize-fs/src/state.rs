@@ -173,6 +173,25 @@ impl State {
                     }
                 }
             }
+            Request::OpenRemoval {
+                request_id,
+                root,
+                relative,
+                expected_identity,
+            } => {
+                let Some(root) = self.roots.get(&root) else {
+                    return Response::error(Some(request_id), "invalid_handle", "unknown root");
+                };
+                match crate::platform::open_removal(root, &relative, &expected_identity) {
+                    Ok(artifact) => {
+                        let handle = self.insert_artifact(artifact);
+                        let mut response = Response::ok(Some(request_id));
+                        response.handle = Some(handle);
+                        response
+                    }
+                    Err(error) => Response::filesystem_error(request_id, error),
+                }
+            }
             Request::RenameOpenedNoReplace {
                 request_id,
                 artifact,

@@ -110,6 +110,7 @@ async function removeTaskUnderMutation(
       'Cannot remove task while it is being finalized'
     )
   }
+  if (options.deleteWithFiles) await deps.authorizeTaskRemoval?.(task)
 
   // Both removal paths delete the durable parent row under one
   // exclusive-persistence window, with the Inspector Activity deletion

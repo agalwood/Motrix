@@ -1,5 +1,16 @@
 //! Compile-time platform facade for handle-bound filesystem operations.
 
+#[cfg(target_os = "linux")]
+pub(crate) use unix::open_removal;
+
+#[cfg(not(target_os = "linux"))]
+pub(crate) fn open_removal(_: &RootHandle, _: &str, _: &str) -> std::io::Result<ArtifactHandle> {
+    Err(std::io::Error::new(
+        std::io::ErrorKind::Unsupported,
+        "NAS removal requires Linux",
+    ))
+}
+
 #[cfg(target_os = "macos")]
 pub(crate) use unix::{exfat_volume_identity, rename_opened_reserved, reserve_exfat_target};
 

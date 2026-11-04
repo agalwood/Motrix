@@ -4,7 +4,8 @@
     "help": "Máy chủ này yêu cầu token quản trị. Trên máy chủ, đặt MOTRIX_OPERATOR_TOKEN hoặc đọc token từ <dataDir>/operator-token rồi dán vào bên dưới.",
     "placeholder": "Token quản trị",
     "error": "Token quản trị không hợp lệ. Hãy kiểm tra MOTRIX_OPERATOR_TOKEN hoặc <dataDir>/operator-token trên máy chủ rồi thử lại.",
-    "submit": "Mở khóa"
+    "submit": "Mở khóa",
+    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
   },
   "operatorAdmin": {
     "help": "Cách dùng:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nLệnh chỉ giao tiếp với máy chủ Motrix đang chạy qua địa chỉ loopback của container.",
@@ -1860,6 +1861,12 @@
       "hideSecret": "Ẩn giá trị bí mật"
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "system": {
         "title": "Ứng dụng mặc định",
         "protocolMagnet": "Mở liên kết magnet bằng Motrix",
@@ -1948,7 +1955,10 @@
             "attested": "Tiện ích mở rộng đã xác minh",
             "unverified": "Tiện ích mở rộng chưa xác minh"
           },
-          "identityUnverifiedWarning": "Không thể xác minh danh tính tiện ích mở rộng này. Chỉ tiếp tục nếu bạn tin tưởng tiện ích."
+          "identityUnverifiedWarning": "Không thể xác minh danh tính tiện ích mở rộng này. Chỉ tiếp tục nếu bạn tin tưởng tiện ích.",
+          "claim": "Ghép nối bằng tài khoản hiện tại",
+          "claimDesc": "Tiện ích sẽ sử dụng quyền của tài khoản này. Tiếp theo, nhập mã vào tiện ích để hoàn tất ghép nối.",
+          "account": "Tài khoản hiện tại: {{name}}"
         },
         "pairUnavailable": "Yêu cầu ghép đôi này không còn ở trạng thái chờ — hãy thử ghép đôi lại từ tiện ích mở rộng trình duyệt.",
         "trustedExtensions": "Tiện ích mở rộng đáng tin cậy",

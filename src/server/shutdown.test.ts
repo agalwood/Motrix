@@ -37,6 +37,24 @@ function actions(
 }
 
 describe('createServerShutdown', () => {
+  it('releases native process ownership only after persistent state has drained', async () => {
+    const order: string[] = []
+    const shutdown = createServerShutdown(
+      actions(order, {
+        releaseProcessOwnership: async () => {
+          order.push('release-ownership')
+        },
+      }),
+      vi.fn()
+    )
+    await shutdown()
+    expect(order.at(-1)).toBe('release-ownership')
+    expect(order.indexOf('release-ownership')).toBeGreaterThan(
+      order.indexOf('close-database')
+    )
+    await shutdown()
+    expect(order.filter((step) => step === 'release-ownership')).toHaveLength(1)
+  })
   it('drains media cancellation before stopping engine RPC and Session writes', async () => {
     const order: string[] = []
     let release!: () => void
@@ -438,7 +456,7 @@ describe('server lifecycle production wiring', () => {
     const listen = source.indexOf('await app.listen({ port')
     const serverUrl = source
       .slice(listen)
-      .search(/const serverUrl = `http:\/\/localhost:\$\{port\}`/)
+      .search(/: `http:\/\/localhost:\$\{port\}`/)
     const listeningLog = source
       .slice(listen)
       .search(

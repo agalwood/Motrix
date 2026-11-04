@@ -7,10 +7,12 @@ import type { TaskManager } from '@core/task/task-manager'
 import { AppError, ErrorCode } from '@shared/errors'
 import { Events } from '@shared/protocol/events'
 import { setSelectedFilesPayloadSchema } from '@shared/schemas/task-file-selection'
+import type { DownloadTask } from '@shared/types/task'
 
 const log = getLogger('SetSelectedFilesHandler')
 
 interface Deps {
+  authorizeTaskWrite?: (task: DownloadTask) => Promise<void>
   taskManager: Pick<TaskManager, 'getById' | 'set'>
   engine: Pick<EngineAdapter, 'changeOption' | 'getTaskFiles'>
   db: Pick<MotrixDatabase, 'replaceTaskFiles'>
@@ -43,6 +45,7 @@ export function createSetSelectedFilesHandler(deps: Deps) {
           ErrorCode.InvalidSelection,
           'legacyImport.activationRequired'
         )
+      await deps.authorizeTaskWrite?.(task)
       await deps.engine.changeOption(task.engineTaskId, {
         'select-file': formatRange(indices),
       })

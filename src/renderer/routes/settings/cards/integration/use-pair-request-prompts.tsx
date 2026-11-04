@@ -3,8 +3,13 @@ import {
   pairRequestCopy,
   toast,
 } from '@renderer/components/ui/toast'
+import {
+  refreshOperatorSession,
+  useOperatorSession,
+} from '@renderer/lib/operator-auth'
 import { transport } from '@renderer/lib/transport'
 import {
+  BridgeCommands,
   BridgeEvents,
   BridgeQueries,
   type PairRequestExpiredPayload,
@@ -14,8 +19,11 @@ import {
   pairRequestKey,
   type ResolvePairParams,
 } from '@shared/protocol/bridge'
+import type { CommandChannel } from '@shared/protocol/commands'
 import type { EventChannel } from '@shared/protocol/events'
 import type { QueryChannel } from '@shared/protocol/queries'
+import { claimExtensionPairResultSchema } from '@shared/schemas/extension-pairing'
+import { supportsClientPairing } from '@shared/schemas/operator-auth'
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { resolvePairWithFeedback } from './pair-resolve'
@@ -26,6 +34,7 @@ import { resolvePairWithFeedback } from './pair-resolve'
 function toPairRequestPayload(
   info: PendingPairRequestInfo
 ): PairRequestPayload {
+  if (info.kind === 'extension-claim') return info
   return info.kind === 'cli'
     ? {
         kind: 'cli',
@@ -65,7 +74,7 @@ function toPairRequestPayload(
  * `connected` transition (including the very first one) to close it; see the
  * `snapshot()` re-use below.
  *
- * The effect subscribes exactly once (empty deps) and never on a `t`
+ * The effect subscribes when pairing is supported and never on a `t`
  * identity change: `LanguageSync` calls `i18n.changeLanguage()`
  * unconditionally on every app start (even to the same language), which
  * bumps `t`'s identity via react-i18next with no same-language
@@ -77,12 +86,30 @@ function toPairRequestPayload(
  * announcement copy below, so it's threaded through a ref instead
  * (mirrors `use-notification-toasts.ts`'s mount-time engine-status check).
  */
+function operatorKey(
+  session: ReturnType<typeof useOperatorSession.getState>
+): string | undefined {
+  return session.status?.mode === 'fnosGateway' && session.status.authed
+    ? `${session.epoch}:${session.status.username ?? ''}`
+    : undefined
+}
+
 export function usePairRequestPrompts(): void {
   const { t } = useTranslation()
+  const supported = useOperatorSession(
+    (session) =>
+      supportsClientPairing(session.status, 'cli') ||
+      supportsClientPairing(session.status, 'extension')
+  )
+  const operatorIdentity = useOperatorSession(operatorKey)
   const tRef = useRef(t)
   tRef.current = t
 
   useEffect(() => {
+    if (!supported) return
+    const accountName = useOperatorSession.getState().status?.username
+    const sameOperator = () =>
+      operatorKey(useOperatorSession.getState()) === operatorIdentity
     // key -> lifecycle state for a prompt currently owned by this hook
     // instance. Guards three races: a duplicate `PairRequested` for a
     // live key (no-op), a double Allow/Deny click (no-op past the first),
@@ -90,12 +117,23 @@ export function usePairRequestPrompts(): void {
     // when OUR OWN `toast.close(key)` runs after we've already settled —
     // marking `settled` before that close is what makes the second deny
     // a no-op instead of a duplicate resolve.
-    const prompts = new Map<string, { settled: boolean }>()
+    const prompts = new Map<
+      string,
+      {
+        settled: boolean
+        claiming: boolean
+        expires?: ReturnType<typeof setTimeout>
+      }
+    >()
 
     const present = (payload: PairRequestPayload) => {
       const key = pairRequestKey(payload)
       if (prompts.has(key)) return
-      const state = { settled: false }
+      const state: {
+        settled: boolean
+        claiming: boolean
+        expires?: ReturnType<typeof setTimeout>
+      } = { settled: false, claiming: false }
       prompts.set(key, state)
 
       // Allow/Deny mark settled + close the toast optimistically, then await
@@ -113,6 +151,7 @@ export function usePairRequestPrompts(): void {
       const settle = async (decision: 'allow' | 'deny') => {
         if (state.settled) return
         state.settled = true
+        clearTimeout(state.expires)
         toast.close(key)
         const params: ResolvePairParams =
           payload.kind === 'cli'
@@ -154,6 +193,91 @@ export function usePairRequestPrompts(): void {
       // `onAllow` — an extension prompt has none to wire up. Annotated
       // explicitly (rather than inlined in the `toast.add()` call below) to
       // give the ternary's two closures a concrete expected type up front.
+      const claim = async () => {
+        if (
+          payload.kind !== 'extension-claim' ||
+          cancelled ||
+          !sameOperator() ||
+          !accountName ||
+          state.settled ||
+          state.claiming
+        )
+          return
+        state.claiming = true
+        let revealed = false
+        refreshClaim()
+        try {
+          const result = claimExtensionPairResultSchema.parse(
+            await transport.invoke(
+              BridgeCommands.ClaimExtensionPair as unknown as CommandChannel,
+              {
+                browser: payload.browser,
+                extensionId: payload.extensionId,
+                pairingNonce: payload.pairingNonce,
+                expectedUsername: accountName,
+              }
+            )
+          )
+          if (
+            cancelled ||
+            state.settled ||
+            prompts.get(key) !== state ||
+            !sameOperator()
+          )
+            return
+          if (!result.ok) {
+            void refreshOperatorSession()
+            toast.add({
+              title: tRef.current(
+                'settings.integration.browser.pairUnavailable'
+              ),
+            })
+            return
+          }
+          const request: PairRequestToastData['pairRequest'] = {
+            ...payload,
+            kind: 'extension',
+            accountName,
+            code: result.code,
+            onDeny: () => void settle('deny'),
+          }
+          toast.update(key, { data: { pairRequest: request } })
+          revealed = true
+          state.expires = setTimeout(
+            () => closeSilently(key),
+            result.expiresInMs
+          )
+        } catch {
+          if (!cancelled && !state.settled)
+            toast.add({
+              type: 'error',
+              title: tRef.current('settings.integration.pairResolveFailed'),
+            })
+        } finally {
+          state.claiming = false
+          if (!revealed) refreshClaim()
+        }
+      }
+      const refreshClaim = () => {
+        if (
+          payload.kind !== 'extension-claim' ||
+          cancelled ||
+          state.settled ||
+          !sameOperator()
+        )
+          return
+        toast.update(key, {
+          data: {
+            pairRequest: {
+              ...payload,
+              accountName,
+              claiming: state.claiming,
+              onClaim: () => void claim(),
+              onDeny: () => void settle('deny'),
+            },
+          },
+        })
+      }
       const pairRequestData: PairRequestToastData['pairRequest'] =
         payload.kind === 'cli'
           ? {
@@ -161,10 +285,15 @@ export function usePairRequestPrompts(): void {
               onAllow: () => void settle('allow'),
               onDeny: () => void settle('deny'),
             }
-          : {
-              ...payload,
-              onDeny: () => void settle('deny'),
-            }
+          : payload.kind === 'extension-claim'
+            ? {
+                ...payload,
+                accountName,
+                claiming: false,
+                onClaim: () => void claim(),
+                onDeny: () => void settle('deny'),
+              }
+            : { ...payload, onDeny: () => void settle('deny') }
 
       toast.add({
         id: key,
@@ -188,10 +317,11 @@ export function usePairRequestPrompts(): void {
     const closeSilently = (key: string) => {
       const state = prompts.get(key)
       if (state) {
+        clearTimeout(state.expires)
         if (state.settled) return
         state.settled = true
       } else {
-        prompts.set(key, { settled: true })
+        prompts.set(key, { settled: true, claiming: false })
       }
       toast.close(key)
     }
@@ -276,6 +406,14 @@ export function usePairRequestPrompts(): void {
       transport.off(pairRequestedChannel, onPairRequested)
       transport.off(settledChannel, onSettled)
       transport.off(expiredChannel, onExpired)
+      // Losing the host capability or session must also remove visible codes.
+      // This is a local teardown, not a decision to deny the server request.
+      for (const [key, state] of prompts) {
+        clearTimeout(state.expires)
+        if (state.settled) continue
+        state.settled = true
+        toast.close(key)
+      }
     }
-  }, [])
+  }, [supported, operatorIdentity])
 }

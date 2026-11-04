@@ -1,6 +1,8 @@
 import { toast } from '@renderer/components/ui/toast'
 import { i18n } from '@renderer/lib/i18n'
+import { webBaseUrl, webOriginHeaders } from '@renderer/lib/web-base-url'
 import type { FilePickerOptions } from '@shared/schemas/file-picker'
+import { isFnos, pickFnosDirectory } from './fnos'
 import type { PlatformServices } from './services'
 
 const SHA256_RE = /^[0-9a-f]{64}$/
@@ -83,7 +85,7 @@ export function createWebServices(
   options: WebServicesOptions = {}
 ): PlatformServices {
   const fetchImpl = options.fetchImpl ?? fetch.bind(globalThis)
-  const baseUrl = options.baseUrl ?? globalThis.location?.origin ?? ''
+  const baseUrl = options.baseUrl ?? webBaseUrl()
   return {
     kind: 'web',
 
@@ -94,6 +96,7 @@ export function createWebServices(
           method: 'POST',
           credentials: 'same-origin',
           headers: {
+            ...(isFnos() ? webOriginHeaders() : {}),
             'content-type': 'application/vnd.motrix.moext',
             'x-motrix-file-name': encodeURIComponent(file.name),
           },
@@ -129,6 +132,7 @@ export function createWebServices(
     },
 
     pickSaveDir(defaultPath, options) {
+      if (isFnos()) return pickFnosDirectory()
       return __webPathPickerBus.request({ defaultPath, ...options })
     },
 

@@ -4,7 +4,8 @@
     "help": "이 서버에는 관리자 토큰이 필요합니다. 호스트에서 MOTRIX_OPERATOR_TOKEN을 설정하거나 <dataDir>/operator-token에서 토큰을 읽어 아래에 붙여넣으세요.",
     "placeholder": "관리자 토큰",
     "error": "관리자 토큰이 올바르지 않습니다. 호스트의 MOTRIX_OPERATOR_TOKEN 또는 <dataDir>/operator-token을 확인하고 다시 시도하세요.",
-    "submit": "잠금 해제"
+    "submit": "잠금 해제",
+    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
   },
   "operatorAdmin": {
     "help": "사용법:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\n이 명령은 컨테이너 루프백을 통해 실행 중인 Motrix 서버와만 통신합니다.",
@@ -1860,6 +1861,12 @@
       "hideSecret": "비밀 값 숨기기"
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "system": {
         "title": "기본 앱",
         "protocolMagnet": "Motrix로 마그넷 링크 열기",
@@ -1948,7 +1955,10 @@
             "attested": "검증된 확장 프로그램",
             "unverified": "검증되지 않은 확장 프로그램"
           },
-          "identityUnverifiedWarning": "이 확장 프로그램의 신원을 확인하지 못했습니다. 신뢰하는 경우에만 계속하세요."
+          "identityUnverifiedWarning": "이 확장 프로그램의 신원을 확인하지 못했습니다. 신뢰하는 경우에만 계속하세요.",
+          "claim": "현재 계정으로 페어링",
+          "claimDesc": "확장 프로그램은 이 계정의 권한을 사용합니다. 다음으로 확장 프로그램에 페어링 코드를 입력하여 완료하세요.",
+          "account": "현재 계정: {{name}}"
         },
         "pairUnavailable": "이 페어링 요청은 더 이상 대기 상태가 아닙니다. 브라우저 확장 프로그램에서 페어링을 다시 시도하세요.",
         "trustedExtensions": "신뢰하는 확장 프로그램",

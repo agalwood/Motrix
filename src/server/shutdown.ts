@@ -1,6 +1,7 @@
 type ShutdownAction = () => void | Promise<void>
 
 export interface ServerShutdownActions {
+  releaseProcessOwnership?: ShutdownAction
   gateShellWork: () => Promise<void>
   /**
    * Drain a pending coalesced TaskUpdated snapshot (TaskUpdatePublisher)
@@ -102,6 +103,9 @@ export function createServerShutdown(
       await safely('task-inspector-activity', actions.disposeActivity)
       await safely('transfer-stats', actions.disposeTransferStats)
       await safely('database', actions.closeDatabase)
+      await safely('process-ownership', () =>
+        actions.releaseProcessOwnership?.()
+      )
     })()
     return shutdownPromise
   }

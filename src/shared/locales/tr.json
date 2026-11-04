@@ -4,7 +4,8 @@
     "help": "Bu sunucu operatör belirteci gerektirir. Sunucu makinesinde MOTRIX_OPERATOR_TOKEN değişkenini ayarlayın veya <dataDir>/operator-token dosyasındaki belirteci okuyup aşağıya yapıştırın.",
     "placeholder": "Operatör belirteci",
     "error": "Operatör belirteci geçersiz. Sunucu makinesindeki MOTRIX_OPERATOR_TOKEN değişkenini veya <dataDir>/operator-token dosyasını kontrol edip tekrar deneyin.",
-    "submit": "Kilidi aç"
+    "submit": "Kilidi aç",
+    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
   },
   "operatorAdmin": {
     "help": "Kullanım:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nKomut yalnızca çalışan Motrix sunucusuyla, kapsayıcının geri döngü bağlantısı üzerinden iletişim kurar.",
@@ -1874,6 +1875,12 @@
       "hideSecret": "Gizli bilgiyi gizle"
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "system": {
         "title": "Varsayılan uygulama",
         "protocolMagnet": "Magnet bağlantılarını Motrix ile aç",
@@ -1962,7 +1969,10 @@
             "attested": "Doğrulanmış uzantı",
             "unverified": "Doğrulanmamış uzantı"
           },
-          "identityUnverifiedWarning": "Bu uzantının kimliği doğrulanamadı. Yalnızca uzantıya güveniyorsanız devam edin."
+          "identityUnverifiedWarning": "Bu uzantının kimliği doğrulanamadı. Yalnızca uzantıya güveniyorsanız devam edin.",
+          "claim": "Geçerli hesapla eşleştir",
+          "claimDesc": "Uzantı bu hesabın izinlerini kullanacak. Ardından eşleştirmeyi tamamlamak için kodu uzantıya girin.",
+          "account": "Geçerli hesap: {{name}}"
         },
         "pairUnavailable": "Bu eşleştirme isteği artık beklemede değil. Tarayıcı uzantısından eşleştirmeyi yeniden deneyin.",
         "trustedExtensions": "Güvenilen uzantılar",

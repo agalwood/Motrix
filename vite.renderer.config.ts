@@ -12,6 +12,7 @@ export default defineConfig(({ command }) => ({
   worker: { rollupOptions: { output: PRODUCTION_OUTPUT } },
   define: {
     __MOTRIX_TARGET__: JSON.stringify('electron'),
+    __MOTRIX_FNOS__: JSON.stringify(false),
     __MOTRIX_PREVIEW_MAC_MENU__: JSON.stringify(
       command === 'serve' && process.env.MOTRIX_PREVIEW_MAC_MENU === '1'
     ),

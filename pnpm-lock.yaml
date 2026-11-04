@@ -215,6 +215,9 @@ importers:
       '@tanstack/react-virtual':
         specifier: ^3.14.24
         version: 3.14.24(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      '@trimjs/web-app':
+        specifier: ^0.5.0
+        version: 0.5.0
       '@xyflow/react':
         specifier: ^12.12.0
         version: 12.12.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(immer@11.2.9)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -1618,6 +1621,9 @@ packages:
     engines: {node: '>=12', npm: '>=6'}
     peerDependencies:
       '@testing-library/dom': '>=7.21.4'
+
+  '@trimjs/web-app@0.5.0':
+    resolution: {integrity: sha512-YHDVSUDP4CYoMAkplNyv+IxB0bTTH8IYPikQEx4RrSoOe3/oQC8wCa8OrXTc57EcYJW1gYC7EC+Z1q5vGEvipA==}
 
   '@ts-morph/common@0.27.0':
     resolution: {integrity: sha512-Wf29UqxWDpc+i61k3oIOzcUfQt79PIT9y/MWfAGlrkjg6lBC1hwDECLXPVJAhWjiGbfBCxZd65F/LIZF3+jeJQ==}
@@ -5583,6 +5589,8 @@ snapshots:
   '@testing-library/user-event@14.6.8(@testing-library/dom@10.4.2)':
     dependencies:
       '@testing-library/dom': 10.4.2
+
+  '@trimjs/web-app@0.5.0': {}
 
   '@ts-morph/common@0.27.0':
     dependencies:

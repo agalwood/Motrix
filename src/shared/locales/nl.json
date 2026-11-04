@@ -400,7 +400,8 @@
     "help": "Deze server vereist het operatortoken. Stel op de host MOTRIX_OPERATOR_TOKEN in of lees het token uit <dataDir>/operator-token en plak het hieronder.",
     "placeholder": "Operatortoken",
     "submit": "Ontgrendelen",
-    "title": "Motrix ontgrendelen"
+    "title": "Motrix ontgrendelen",
+    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
   },
   "panel": {
     "completed": {
@@ -2312,6 +2313,12 @@
       "warnBeforeQuitDesc": "Om bevestiging vragen bij het afsluiten als er nog downloads actief zijn."
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "appimage": {
         "desc": "Registreer deze Motrix-AppImage bij je desktop zodat browsers en magnetlinks downloads kunnen doorgeven.",
         "enable": "Desktopintegratie inschakelen",
@@ -2396,7 +2403,10 @@
           "identityUnverifiedWarning": "De identiteit van deze extensie kon niet worden geverifieerd. Ga alleen door als je deze vertrouwt.",
           "pairCode": "Koppelingscode",
           "pairCodeHint": "Voer deze code in de extensie in",
-          "title": "Een {{browser}}-extensie wil verbinding maken met Motrix"
+          "title": "Een {{browser}}-extensie wil verbinding maken met Motrix",
+          "claim": "Koppelen met huidig account",
+          "claimDesc": "De extensie gebruikt de machtigingen van dit account. Voer daarna de koppelcode in de extensie in om de koppeling te voltooien.",
+          "account": "Huidig account: {{name}}"
         },
         "pairUnavailable": "Dit koppelingsverzoek is niet meer in behandeling — probeer opnieuw te koppelen vanuit de browserextensie.",
         "pairedEmpty": "Nog geen extensies verbonden.",

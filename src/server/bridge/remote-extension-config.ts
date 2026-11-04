@@ -65,6 +65,7 @@ export interface EnabledRemoteExtensionConfig {
   readonly publicOperatorBasePath?: string
   /** Web code delivery requires an operator URL or explicit HTTP consent. */
   readonly operatorDelivery: 'web' | 'local'
+  readonly allowInsecureOperatorHttp?: true
 }
 
 export type RemoteExtensionConfig =
@@ -347,7 +348,8 @@ function parseBooleanFlag(
  * variables, including legacy token and forwarded-host settings, are ignored.
  */
 export function parseRemoteExtensionConfig(
-  environment: RemoteExtensionEnvironment = {}
+  environment: RemoteExtensionEnvironment = {},
+  options: { requireWebOperator?: boolean } = {}
 ): RemoteExtensionConfig {
   try {
     const parsedEnvironment =
@@ -409,6 +411,18 @@ export function parseRemoteExtensionConfig(
         RemoteExtensionConfigDiagnosticCode.InsecureOperatorHttpConsentRequired
       )
     }
+    // NAS operators use the vendor gateway; they have no local Bearer terminal
+    // fallback for claiming a code. Do not expose an unusable pairing surface.
+    if (
+      options.requireWebOperator &&
+      operator === null &&
+      !allowInsecureOperatorHttp
+    ) {
+      return invalid(
+        RemoteExtensionEnvironmentVariable.PublicOperatorUrl,
+        RemoteExtensionConfigDiagnosticCode.MissingUrl
+      )
+    }
 
     return issueConfig(
       Object.freeze({
@@ -425,6 +439,9 @@ export function parseRemoteExtensionConfig(
             }),
         operatorDelivery:
           operator !== null || allowInsecureOperatorHttp ? 'web' : 'local',
+        ...(allowInsecureOperatorHttp
+          ? { allowInsecureOperatorHttp: true as const }
+          : {}),
       })
     )
   } catch {

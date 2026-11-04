@@ -4,7 +4,8 @@
     "help": "Questo server richiede il token operatore. Sull’host, imposta MOTRIX_OPERATOR_TOKEN oppure leggi il token da <dataDir>/operator-token e incollalo qui sotto.",
     "placeholder": "Token operatore",
     "error": "Token operatore non valido. Controlla MOTRIX_OPERATOR_TOKEN o <dataDir>/operator-token sull’host e riprova.",
-    "submit": "Sblocca"
+    "submit": "Sblocca",
+    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
   },
   "operatorAdmin": {
     "help": "Utilizzo:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nIl comando comunica esclusivamente con il server Motrix in esecuzione tramite l’interfaccia di loopback del container.",
@@ -1888,6 +1889,12 @@
       "hideSecret": "Nascondi segreto"
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "system": {
         "title": "App predefinita",
         "protocolMagnet": "Apri i link magnet con Motrix",
@@ -1976,7 +1983,10 @@
             "attested": "Estensione verificata",
             "unverified": "Estensione non verificata"
           },
-          "identityUnverifiedWarning": "Impossibile verificare l’identità di questa estensione. Continua solo se la ritieni affidabile."
+          "identityUnverifiedWarning": "Impossibile verificare l’identità di questa estensione. Continua solo se la ritieni affidabile.",
+          "claim": "Associa all’account attuale",
+          "claimDesc": "L’estensione userà i permessi di questo account. Inserisci quindi il codice nell’estensione per completare l’associazione.",
+          "account": "Account attuale: {{name}}"
         },
         "pairUnavailable": "Questa richiesta di associazione non è più in attesa: riprova dall’estensione del browser.",
         "trustedExtensions": "Estensioni attendibili",

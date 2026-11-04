@@ -4,7 +4,8 @@
     "help": "Server ini memerlukan token operator. Pada host, atur MOTRIX_OPERATOR_TOKEN atau baca token dari <dataDir>/operator-token, lalu tempelkan di bawah ini.",
     "placeholder": "Token operator",
     "error": "Token operator tidak valid. Periksa MOTRIX_OPERATOR_TOKEN atau <dataDir>/operator-token pada host dan coba lagi.",
-    "submit": "Buka akses"
+    "submit": "Buka akses",
+    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
   },
   "operatorAdmin": {
     "help": "Penggunaan:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nPerintah ini hanya berkomunikasi dengan server Motrix yang berjalan melalui loopback kontainer.",
@@ -1860,6 +1861,12 @@
       "hideSecret": "Sembunyikan rahasia"
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "system": {
         "title": "Aplikasi bawaan",
         "protocolMagnet": "Buka tautan magnet dengan Motrix",
@@ -1948,7 +1955,10 @@
             "attested": "Ekstensi terverifikasi",
             "unverified": "Ekstensi belum terverifikasi"
           },
-          "identityUnverifiedWarning": "Identitas ekstensi ini tidak dapat diverifikasi. Lanjutkan hanya jika Anda memercayainya."
+          "identityUnverifiedWarning": "Identitas ekstensi ini tidak dapat diverifikasi. Lanjutkan hanya jika Anda memercayainya.",
+          "claim": "Pasangkan dengan akun saat ini",
+          "claimDesc": "Ekstensi akan menggunakan izin akun ini. Selanjutnya, masukkan kode pemasangan di ekstensi untuk menyelesaikannya.",
+          "account": "Akun saat ini: {{name}}"
         },
         "pairUnavailable": "Permintaan pemasangan ini tidak lagi tertunda — coba pasangkan lagi dari ekstensi browser.",
         "trustedExtensions": "Ekstensi tepercaya",

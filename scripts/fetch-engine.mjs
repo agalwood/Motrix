@@ -120,6 +120,8 @@ export function parseArgs(argv) {
   }
   for (let i = 0; i < argv.length; i++) {
     const token = argv[i]
+    // pnpm run forwards the leading argument separator to the script.
+    if (i === 0 && token === '--') continue
     let flag = token
     let inlineValue
     const eq = token.startsWith('--') ? token.indexOf('=') : -1

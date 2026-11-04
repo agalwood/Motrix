@@ -13,6 +13,46 @@ const enabledEnvironment = {
 }
 
 describe('parseRemoteExtensionConfig', () => {
+  it('requires a Web code-delivery path for gateway-only NAS operators', () => {
+    const environment = {
+      MOTRIX_REMOTE_EXTENSION_ENABLED: 'true',
+      MOTRIX_REMOTE_EXTENSION_PUBLIC_URL: 'ws://nas.local:16802',
+    }
+    expect(
+      parseRemoteExtensionConfig(environment, { requireWebOperator: true })
+    ).toEqual({
+      status: 'invalid',
+      diagnostic: {
+        variable: RemoteExtensionEnvironmentVariable.PublicOperatorUrl,
+        code: RemoteExtensionConfigDiagnosticCode.MissingUrl,
+      },
+    })
+    for (const operator of [
+      { MOTRIX_PUBLIC_URL: 'https://nas.local/app/motrix/' },
+      {
+        MOTRIX_PUBLIC_URL: 'http://nas.local:5666/app/motrix/',
+        MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP: 'true',
+      },
+    ])
+      expect(
+        parseRemoteExtensionConfig(
+          { ...environment, ...operator },
+          { requireWebOperator: true }
+        )
+      ).toMatchObject({ status: 'enabled', operatorDelivery: 'web' })
+    expect(
+      parseRemoteExtensionConfig(
+        {
+          ...environment,
+          MOTRIX_PUBLIC_URL: 'http://nas.local:5666/app/motrix/',
+        },
+        { requireWebOperator: true }
+      ).status
+    ).toBe('invalid')
+    expect(
+      parseRemoteExtensionConfig({}, { requireWebOperator: true }).status
+    ).toBe('disabled')
+  })
   it('enables remote pairing without a public operator URL', () => {
     expect(
       parseRemoteExtensionConfig({
@@ -166,6 +206,7 @@ describe('parseRemoteExtensionConfig', () => {
         publicWebSocketBasePath: '',
         operatorDelivery: 'web',
         publicOperatorBaseUrl: 'http://nas.local/admin',
+        allowInsecureOperatorHttp: true,
         publicOperatorAuthority: 'nas.local',
         publicOperatorBasePath: '/admin',
       })

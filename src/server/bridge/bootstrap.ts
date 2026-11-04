@@ -42,7 +42,19 @@ import {
   type ResolvePairResult,
 } from '@shared/protocol/bridge'
 import type { Handler } from '@shared/protocol/handler-types'
+import { claimExtensionPairParamsSchema } from '@shared/schemas/extension-pairing'
 import { CancellationTokenSource } from 'vscode-jsonrpc'
+import { NasCliPairingStore } from '../platform/nas/cli-pairing-store'
+import {
+  type NasAccountAuthority,
+  NasClientAuthorization,
+  resolveNasAdministrator,
+} from '../platform/nas/client-authorization'
+import {
+  currentNasApprover,
+  runAsNasGatewayUser,
+} from '../platform/nas/identity'
+import { nasPairingFile } from '../platform/nas/pairing-file'
 import {
   isIssuedRemoteExtensionConfig,
   type RemoteExtensionConfig,
@@ -79,6 +91,9 @@ export interface ServerExtensionReceiver {
 }
 
 export interface ServerBridgeOptions {
+  /** Couples NAS credential ownership and per-request account checks. The
+   * composition root must provide a real vendor authority before enabling it. */
+  nasAccounts?: NasAccountAuthority
   /** Server data dir (env MOTRIX_DATA_DIR / platform.userDataDir); the bridge
    *  state lives under `<userDataDir>/bridge/`. */
   userDataDir: string
@@ -154,8 +169,14 @@ export async function bootstrapBridgeForServer(
     ownership.own('bridge-data-dir-lock', () => dataDirLock.release())
   }
   try {
+    const nasPairings = opts.nasAccounts
+      ? new NasCliPairingStore(
+          opts.nasAccounts.platform,
+          nasPairingFile(join(dataDir, 'nas-cli-pairing.json'))
+        )
+      : undefined
     const pairing = new PairingService(
-      new FilePairingStore(join(dataDir, 'pairing.json'))
+      nasPairings ?? new FilePairingStore(join(dataDir, 'pairing.json'))
     )
     await pairing.load()
     const bridgeBus = new BridgeEventBus()
@@ -176,6 +197,7 @@ export async function bootstrapBridgeForServer(
     }
     const extensionMbp1 = remoteExtensionEnabled
       ? await ServerExtensionMbp1Runtime.load({
+          nasAccounts: opts.nasAccounts,
           dataDir,
           bus: bridgeBus,
           publicAuthority:
@@ -284,6 +306,14 @@ export async function bootstrapBridgeForServer(
       ffmpegAvailable:
         extensionReceiver != null ? (opts.ffmpegAvailable ?? false) : false,
       localToken,
+      cliAuthorization:
+        nasPairings && opts.nasAccounts
+          ? new NasClientAuthorization(nasPairings, opts.nasAccounts)
+          : undefined,
+      extensionAuthorization: extensionMbp1?.authorization,
+      createPairCredentialIssuer: extensionMbp1?.nasBindings
+        ? (audience) => extensionMbp1.prompts.issuerFor(audience)
+        : undefined,
       deviceCode,
       onPairRequested: (payload) => bridgeBus.emitPairRequested(payload),
       onExtensionSessionsChanged: () =>
@@ -331,13 +361,30 @@ export async function bootstrapBridgeForServer(
 
     // bridge:* RPC handlers the web renderer reaches via /rpc/{command,query}.
     const bridgeCommandHandlers: Record<string, Handler> = {
+      [BridgeCommands.ClaimExtensionPair]: async (input: unknown) => {
+        const parsed = claimExtensionPairParamsSchema.safeParse(input)
+        if (!parsed.success || !extensionMbp1?.nasBindings)
+          return { ok: false, reason: 'unavailable' }
+        return extensionMbp1.prompts.claim(parsed.data)
+      },
       [BridgeCommands.ResolvePair]: async (
         params: ResolvePairParams
       ): Promise<ResolvePairResult> => {
         if (params.kind === 'cli') {
-          return resolveCliPair(deviceCode, params, (paired) =>
-            bridgeBus.emitPaired({ identity: paired.identity })
+          const resolve = () =>
+            resolveCliPair(deviceCode, params, (paired) =>
+              bridgeBus.emitPaired({ identity: paired.identity })
+            )
+          if (!opts.nasAccounts) return resolve()
+          const actor = currentNasApprover()
+          if (
+            !actor?.administrator ||
+            actor.platform !== opts.nasAccounts.platform
           )
+            throw new Error('NAS administrator approval required')
+          if (params.decision === 'deny') return resolve()
+          const current = await resolveNasAdministrator(opts.nasAccounts, actor)
+          return runAsNasGatewayUser(current, resolve)
         }
         return (
           extensionMbp1?.settleExtensionPrompt(params) ?? {

@@ -164,6 +164,10 @@ describe('BT storage operations', () => {
     const { service, task, source, target, deps, adapter } = await setup()
     await rename(source, target)
     await rm(path.dirname(source), { recursive: true })
+    deps.authorizeTaskWrite = vi.fn(async () => {
+      throw new Error('old path unavailable')
+    })
+    deps.authorizeOutputWrite = vi.fn(async () => {})
     const result = await service.run({
       taskId: task.id,
       mode: 'locate',
@@ -175,6 +179,8 @@ describe('BT storage operations', () => {
       verification: { complete: true },
       resumed: false,
     })
+    expect(deps.authorizeTaskWrite).not.toHaveBeenCalled()
+    expect(deps.authorizeOutputWrite).toHaveBeenCalledWith(target)
     expect(deps.taskManager.getById(task.id)).toMatchObject({
       id: task.id,
       createdAt: 42,

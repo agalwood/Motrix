@@ -55,6 +55,8 @@ export class ServerBridgeManager {
           this.registry.remove(params.id, params.browser)
         )
       },
+      [BridgeCommands.ClaimExtensionPair]: (...args: unknown[]) =>
+        this.invokeCommand(BridgeCommands.ClaimExtensionPair, args),
       [BridgeCommands.ResolvePair]: (...args: unknown[]) =>
         this.invokeCommand(BridgeCommands.ResolvePair, args),
       [BridgeCommands.RevokePair]: (...args: unknown[]) =>
@@ -72,7 +74,9 @@ export class ServerBridgeManager {
       [BridgeQueries.CancelResolveUrl]: (...args: unknown[]) =>
         this.invokeQuery(BridgeQueries.CancelResolveUrl, args),
       [BridgeQueries.ListPendingPairRequests]: (...args: unknown[]) =>
-        this.invokeQuery(BridgeQueries.ListPendingPairRequests, args),
+        this.desiredEnabled
+          ? this.invokeQuery(BridgeQueries.ListPendingPairRequests, args)
+          : Promise.resolve([]),
       [BridgeQueries.GetStatus]: (...args: unknown[]) =>
         this.invokeQuery(BridgeQueries.GetStatus, args),
     }

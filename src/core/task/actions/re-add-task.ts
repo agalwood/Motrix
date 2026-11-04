@@ -515,6 +515,7 @@ export async function reAddTask(
         'Finalize recovery is unavailable'
       )
     }
+    await deps.authorizeTaskWrite?.(task)
     await deps.recoverFinalization(taskId)
     return
   }
@@ -558,6 +559,7 @@ async function reAddTaskUnderMutation(
 ): Promise<void> {
   const task = getTaskOrWarn(deps, taskId, 'reAddTask')
   if (!task) return
+  await deps.authorizeTaskWrite?.(task)
   const nativeInput = directTaskRetryInput(task)
   if (
     nativeInput &&

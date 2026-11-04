@@ -26,9 +26,11 @@ import {
 import { Separator } from '@renderer/components/ui/separator'
 import { toast } from '@renderer/components/ui/toast'
 import { pickDirty } from '@renderer/lib/form-utils'
+import { useOperatorSession } from '@renderer/lib/operator-auth'
 import { saveSettings } from '@renderer/lib/settings-save'
 import { transport } from '@renderer/lib/transport'
 import { DEFAULT_APP_SETTINGS, DEFAULT_MEDIA_SETTINGS } from '@shared/schemas'
+import { supportsClientPairing } from '@shared/schemas/operator-auth'
 import type { AppSettings } from '@shared/types/settings'
 import { useState } from 'react'
 import { FormProvider } from 'react-hook-form'
@@ -41,6 +43,7 @@ import { AppImageNativeHostSection } from './appimage-native-host-section'
 import { BrowserExtensionsSection } from './browser-extensions-section'
 import { CLIClientsSection } from './cli-clients-section'
 import { CliToolSection } from './cli-tool-section'
+import { ClientPairingSwitch } from './client-pairing-switch'
 import { MediaToolsSection } from './media-tools-section'
 import { PendingApprovalsSection } from './pending-approvals-section'
 import { SystemProtocolsSection } from './system-protocols-section'
@@ -62,6 +65,12 @@ export function IntegrationDialog({
 }: SettingsCardDialogProps) {
   const { t } = useTranslation()
   const isWeb = transport.platform === 'web'
+  const cliPairing = useOperatorSession((session) =>
+    supportsClientPairing(session.status, 'cli')
+  )
+  const extensionPairing = useOperatorSession((session) =>
+    supportsClientPairing(session.status, 'extension')
+  )
   const [protocolRevision, setProtocolRevision] = useState(0)
   const [saveError, setSaveError] = useState<string | null>(null)
   const form = useSettingsForm<IntegrationFormValues>(
@@ -155,21 +164,35 @@ export function IntegrationDialog({
                   disabled={!load.ready || form.formState.isSubmitting}
                   className="min-w-0 flex flex-col gap-6"
                 >
-                  <section
-                    aria-labelledby="integration-browser"
-                    className="flex flex-col gap-3"
-                  >
-                    <h3
-                      id="integration-browser"
-                      className="text-sm font-semibold text-foreground"
-                    >
-                      {t('settings.integration.browser.title')}
-                    </h3>
-                    <BrowserExtensionsSection />
-                    {!isWeb && <AppImageNativeHostSection />}
-                  </section>
+                  {!extensionPairing ? (
+                    <Alert>
+                      <AlertDescription>
+                        {t(
+                          cliPairing
+                            ? 'settings.integration.extensionPairingUnavailable'
+                            : 'settings.integration.clientPairingUnavailable'
+                        )}
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <>
+                      <section
+                        aria-labelledby="integration-browser"
+                        className="flex flex-col gap-3"
+                      >
+                        <h3
+                          id="integration-browser"
+                          className="text-sm font-semibold text-foreground"
+                        >
+                          {t('settings.integration.browser.title')}
+                        </h3>
+                        <BrowserExtensionsSection />
+                        {!isWeb && <AppImageNativeHostSection />}
+                      </section>
 
-                  <Separator />
+                      <Separator />
+                    </>
+                  )}
 
                   {!isWeb && (
                     <>
@@ -197,23 +220,28 @@ export function IntegrationDialog({
                     </>
                   )}
 
-                  <section
-                    aria-labelledby="integration-cli"
-                    className="flex flex-col gap-4"
-                  >
-                    <h3
-                      id="integration-cli"
-                      className="text-sm font-semibold text-foreground"
-                    >
-                      {t('settings.integration.cli.title')}
-                    </h3>
-                    <CliToolSection />
-                    <Separator />
-                    <CLIClientsSection />
-                    <PendingApprovalsSection />
-                  </section>
+                  {cliPairing && (
+                    <>
+                      <section
+                        aria-labelledby="integration-cli"
+                        className="flex flex-col gap-4"
+                      >
+                        <h3
+                          id="integration-cli"
+                          className="text-sm font-semibold text-foreground"
+                        >
+                          {t('settings.integration.cli.title')}
+                        </h3>
+                        {!extensionPairing && <ClientPairingSwitch />}
+                        <CliToolSection />
+                        <Separator />
+                        <CLIClientsSection />
+                        <PendingApprovalsSection />
+                      </section>
 
-                  <Separator />
+                      <Separator />
+                    </>
+                  )}
 
                   <section
                     aria-labelledby="integration-media"

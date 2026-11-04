@@ -4,7 +4,8 @@
     "help": "Este servidor requiere el token del operador. En el host, establece MOTRIX_OPERATOR_TOKEN o lee el token de <dataDir>/operator-token y pégalo a continuación.",
     "placeholder": "Token del operador",
     "error": "El token del operador no es válido. Comprueba MOTRIX_OPERATOR_TOKEN o <dataDir>/operator-token en el host y vuelve a intentarlo.",
-    "submit": "Desbloquear"
+    "submit": "Desbloquear",
+    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
   },
   "operatorAdmin": {
     "help": "Uso:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nEl comando solo se comunica con el servidor Motrix en ejecución a través de la interfaz de bucle local del contenedor.",
@@ -1888,6 +1889,12 @@
       "hideSecret": "Ocultar secreto"
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "system": {
         "title": "Aplicación predeterminada",
         "protocolMagnet": "Abrir enlaces magnet con Motrix",
@@ -1976,7 +1983,10 @@
             "attested": "Extensión verificada",
             "unverified": "Extensión sin verificar"
           },
-          "identityUnverifiedWarning": "No se pudo verificar la identidad de esta extensión. Continúa solo si confías en ella."
+          "identityUnverifiedWarning": "No se pudo verificar la identidad de esta extensión. Continúa solo si confías en ella.",
+          "claim": "Vincular con la cuenta actual",
+          "claimDesc": "La extensión usará los permisos de esta cuenta. A continuación, introduce el código en la extensión para completar la vinculación.",
+          "account": "Cuenta actual: {{name}}"
         },
         "pairUnavailable": "Esta solicitud de vinculación ya no está pendiente. Vuelve a iniciar la vinculación desde la extensión del navegador.",
         "trustedExtensions": "Extensiones de confianza",
