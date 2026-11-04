@@ -301,7 +301,7 @@ jobs:
                 -path "*/native-messaging-hosts/*" \
               \) -print -quit)"
               output="$("$aria2c" --version)"
-              printf "%s\n" "$output" | grep -qF "aria2 version 1.37.0-motrix.22"
+              printf "%s\n" "$output" | grep -qF "aria2 version 1.37.0-motrix.23"
               printf "%s\n" "$output" | grep -qF "Async DNS"
               printf "%s\n" "$output" | grep -qF "BitTorrent"
               printf "%s\n" "$output" | grep -qF "HTTPS"
