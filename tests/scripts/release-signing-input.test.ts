@@ -297,9 +297,12 @@ describe('isolated release signing input', () => {
               'Assets/Glass-WhiteRim-1024.png',
               'Assets/MO-solid-1024.png',
             ]) {
-              expect(await readFile(path.join(iconPath, asset))).toEqual(
-                await readFile(path.join(ROOT, 'build/Motrix.icon', asset))
+              const actual = await readFile(path.join(iconPath, asset))
+              const expected = await readFile(
+                path.join(ROOT, 'build/Motrix.icon', asset)
               )
+              // Compare full PNG bytes without a JavaScript deep walk per pixel.
+              expect(actual.equals(expected), asset).toBe(true)
             }
             return { assetCatalog: catalog }
           },
