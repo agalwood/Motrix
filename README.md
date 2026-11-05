@@ -19,14 +19,14 @@ The same core powers two ways to run Motrix:
 - **Desktop app:** Runs on macOS, Windows, and Linux
 - **Headless server:** Runs without a desktop environment, either directly on Node.js or in Docker, and includes a web UI for NAS devices and home servers
 
-## Motrix 2.2.1
+## Motrix 2.3.0
 
-Motrix 2.2.1 fixes startup recovery for broken magnet sessions and restores safe
-HTTP retries with the original task and download progress when the engine has
-retained the required context. It bundles aria2 1.37.0-motrix.22 and fixes stale
-retry actions after Web UI session changes.
-Download [v2.2.1 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.2.1)
-and read the [full release notes](./docs/release-notes/2.2.1.md).
+Motrix 2.3.0 refreshes the application artwork, restores cloud-drive directory
+downloads with aria2 1.37.0-motrix.23, and improves Server media tools, settings
+and update checks. It also introduces native fnOS integration; FPK packages
+remain separate test artifacts, not official Release downloads.
+Download [v2.3.0 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.3.0)
+and read the [full release notes](./docs/release-notes/2.3.0.md).
 
 Back up your existing Motrix profile and downloads before upgrading. The bundled
 engine upgrades its SQLite database to schema 6 and keeps a pre-upgrade backup;
@@ -180,14 +180,14 @@ You can also install it from Settings → Integration → Command-line tools in 
 ### Headless server with Docker
 
 Tagged releases publish a multi-architecture Server image to Docker Hub and
-GHCR. Stable releases also update `2.2`, `2`, `stable`, and `latest` after runtime
+GHCR. Stable releases also update `2.3`, `2`, `stable`, and `latest` after runtime
 verification; beta releases publish only their immutable version tag. The
 included `compose.yaml` keeps Server state separate from downloaded resources:
 
 ```bash
 mkdir -p motrix-data downloads
 sudo chown 1000:1000 motrix-data downloads
-export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.2.1'
+export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.3.0'
 export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
 docker compose pull server
 docker compose up -d --wait
