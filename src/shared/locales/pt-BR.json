@@ -5,7 +5,7 @@
     "placeholder": "Token do operador",
     "error": "Token do operador inválido. Verifique MOTRIX_OPERATOR_TOKEN ou <dataDir>/operator-token no host e tente novamente.",
     "submit": "Desbloquear",
-    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
+    "nasSessionExpired": "Your NAS administrator session has ended. Open Motrix again from the NAS desktop."
   },
   "operatorAdmin": {
     "help": "Uso:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nO comando se comunica apenas com o servidor Motrix em execução, pela interface de loopback do contêiner.",

@@ -6,7 +6,7 @@ import {
   FNOS_EVENT_TICKET_PREFIX,
   WEB_ORIGIN_HEADER,
 } from '@shared/schemas/operator-auth'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { HttpWsTransport } from './http-ws'
 
 class Socket {
@@ -26,70 +26,79 @@ class Socket {
       listener(new Event('close'))
   }
 }
-beforeEach(() => {
-  Socket.opened = []
-  useOperatorSession.setState({
-    state: 'authenticated',
-    status: { authed: true, mode: 'fnosGateway', canLogout: false },
-  })
-})
-afterEach(() => {
-  useOperatorSession.setState({ state: 'locked' })
-  vi.unstubAllGlobals()
-})
-
-it('marks fnOS HTTP calls with their actual browser origin', async () => {
-  const fetch = vi.fn().mockResolvedValue(new Response('{}'))
-  const transport = new HttpWsTransport('http://nas.local:5666/app/motrix', {
-    fetch,
-  })
-  await transport.invoke(Commands.PauseTask, 'task')
-  expect(fetch.mock.calls[0][1].headers[WEB_ORIGIN_HEADER]).toBe(
-    location.origin
-  )
-})
-it('gets one fresh ticket before connecting and never includes it in the URL', async () => {
-  const ticket = 'a'.repeat(32)
-  const fetch = vi
-    .fn()
-    .mockResolvedValue(new Response(JSON.stringify({ ticket })))
-  const transport = new HttpWsTransport('http://nas.local:5666/app/motrix', {
-    fetch,
-    WebSocketCtor: Socket as unknown as typeof WebSocket,
-  })
-  const callback = vi.fn()
-  transport.on(Events.TaskUpdated, callback)
-  transport.on(Events.EngineStateChanged, callback)
-  await vi.waitFor(() => expect(Socket.opened).toHaveLength(1))
-  expect(fetch).toHaveBeenCalledOnce()
-  expect(fetch.mock.calls[0][0]).toBe(
-    'http://nas.local:5666/app/motrix/rpc/auth/event-ticket'
-  )
-  expect(Socket.opened[0].url).toBe('ws://nas.local:5666/app/motrix/rpc/events')
-  expect(Socket.opened[0].protocols).toEqual([
-    FNOS_EVENT_PROTOCOL,
-    `${FNOS_EVENT_TICKET_PREFIX}${ticket}`,
-  ])
-  transport.off(Events.TaskUpdated, callback)
-  transport.off(Events.EngineStateChanged, callback)
-})
-it('discards late tickets after the last listener unsubscribes', async () => {
-  let complete!: (response: Response) => void
-  const fetch = vi.fn().mockImplementation(
-    () =>
-      new Promise<Response>((resolve) => {
-        complete = resolve
+describe.each(['fnosGateway', 'synologyDsm'] as const)(
+  '%s transport',
+  (mode) => {
+    const base =
+      mode === 'fnosGateway'
+        ? 'http://nas.local:5666/app/motrix'
+        : 'http://nas.local:5000/motrix'
+    beforeEach(() => {
+      Socket.opened = []
+      useOperatorSession.setState({
+        state: 'authenticated',
+        status: { authed: true, mode, canLogout: false },
       })
-  )
-  const transport = new HttpWsTransport('http://nas.local:5666/app/motrix', {
-    fetch,
-    WebSocketCtor: Socket as unknown as typeof WebSocket,
-  })
-  const callback = vi.fn()
-  transport.on(Events.TaskUpdated, callback)
-  transport.off(Events.TaskUpdated, callback)
-  expect(fetch.mock.calls[0][1].signal.aborted).toBe(true)
-  complete(new Response(JSON.stringify({ ticket: 'b'.repeat(32) })))
-  await new Promise((resolve) => setTimeout(resolve, 0))
-  expect(Socket.opened).toHaveLength(0)
-})
+    })
+    afterEach(() => {
+      useOperatorSession.setState({ state: 'locked' })
+      vi.unstubAllGlobals()
+    })
+
+    it('marks NAS HTTP calls with their actual browser origin', async () => {
+      const fetch = vi.fn().mockResolvedValue(new Response('{}'))
+      const transport = new HttpWsTransport(base, {
+        fetch,
+      })
+      await transport.invoke(Commands.PauseTask, 'task')
+      expect(fetch.mock.calls[0][1].headers[WEB_ORIGIN_HEADER]).toBe(
+        location.origin
+      )
+    })
+    it('gets one fresh ticket before connecting and never includes it in the URL', async () => {
+      const ticket = 'a'.repeat(32)
+      const fetch = vi
+        .fn()
+        .mockResolvedValue(new Response(JSON.stringify({ ticket })))
+      const transport = new HttpWsTransport(base, {
+        fetch,
+        WebSocketCtor: Socket as unknown as typeof WebSocket,
+      })
+      const callback = vi.fn()
+      transport.on(Events.TaskUpdated, callback)
+      transport.on(Events.EngineStateChanged, callback)
+      await vi.waitFor(() => expect(Socket.opened).toHaveLength(1))
+      expect(fetch).toHaveBeenCalledOnce()
+      expect(fetch.mock.calls[0][0]).toBe(`${base}/rpc/auth/event-ticket`)
+      expect(Socket.opened[0].url).toBe(
+        `${base.replace('http:', 'ws:')}/rpc/events`
+      )
+      expect(Socket.opened[0].protocols).toEqual([
+        FNOS_EVENT_PROTOCOL,
+        `${FNOS_EVENT_TICKET_PREFIX}${ticket}`,
+      ])
+      transport.off(Events.TaskUpdated, callback)
+      transport.off(Events.EngineStateChanged, callback)
+    })
+    it('discards late tickets after the last listener unsubscribes', async () => {
+      let complete!: (response: Response) => void
+      const fetch = vi.fn().mockImplementation(
+        () =>
+          new Promise<Response>((resolve) => {
+            complete = resolve
+          })
+      )
+      const transport = new HttpWsTransport(base, {
+        fetch,
+        WebSocketCtor: Socket as unknown as typeof WebSocket,
+      })
+      const callback = vi.fn()
+      transport.on(Events.TaskUpdated, callback)
+      transport.off(Events.TaskUpdated, callback)
+      expect(fetch.mock.calls[0][1].signal.aborted).toBe(true)
+      complete(new Response(JSON.stringify({ ticket: 'b'.repeat(32) })))
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      expect(Socket.opened).toHaveLength(0)
+    })
+  }
+)

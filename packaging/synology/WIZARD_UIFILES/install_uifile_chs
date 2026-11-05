@@ -1,0 +1,55 @@
+[
+  {
+    "step_title": "Motrix",
+    "items": [
+      {
+        "type": "description",
+        "desc": "所有 DSM 管理员共同管理同一组任务。下载文件保存在 motrix 共享文件夹。浏览器扩展默认关闭。"
+      },
+      {
+        "type": "textfield",
+        "desc": "客户端端口",
+        "subitems": [
+          {
+            "key": "wizard_client_port",
+            "defaultValue": "16802",
+            "validator": {
+              "allowBlank": false,
+              "regex": "^\\d{4,5}$"
+            }
+          }
+        ]
+      },
+      {
+        "type": "textfield",
+        "desc": "扩展 WS/WSS 地址（留空关闭）",
+        "subitems": [
+          {
+            "key": "wizard_extension_url",
+            "defaultValue": ""
+          }
+        ]
+      },
+      {
+        "type": "textfield",
+        "desc": "Motrix Web 地址（含 /motrix/）",
+        "subitems": [
+          {
+            "key": "wizard_operator_url",
+            "defaultValue": ""
+          }
+        ]
+      },
+      {
+        "type": "multiselect",
+        "subitems": [
+          {
+            "key": "wizard_allow_operator_http",
+            "desc": "允许在可信网络通过 HTTP 显示配对码",
+            "defaultValue": false
+          }
+        ]
+      }
+    ]
+  }
+]

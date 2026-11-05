@@ -1,0 +1,41 @@
+import { chmod, lstat, unlink } from 'node:fs/promises'
+import { connect } from 'node:net'
+import type { FastifyInstance } from 'fastify'
+
+export async function listenNas(
+  app: FastifyInstance,
+  socketPath: string
+): Promise<void> {
+  const before = await lstat(socketPath).catch(
+    (error: NodeJS.ErrnoException) => {
+      if (error.code === 'ENOENT') return undefined
+      throw error
+    }
+  )
+  if (before) {
+    if (!before.isSocket() || before.uid !== process.getuid?.())
+      throw new Error('Refusing to replace an unowned socket path')
+    await new Promise<void>((resolve, reject) => {
+      const probe = connect(socketPath)
+      probe.setTimeout(1_000, () => {
+        probe.destroy()
+        reject(new Error('Gateway socket is busy'))
+      })
+      probe.once('connect', () => {
+        probe.destroy()
+        reject(new Error('Gateway socket is already listening'))
+      })
+      probe.once('error', (error: NodeJS.ErrnoException) => {
+        if (error.code === 'ECONNREFUSED') resolve()
+        else reject(error)
+      })
+    })
+    const current = await lstat(socketPath)
+    if (before.dev !== current.dev || before.ino !== current.ino)
+      throw new Error('Gateway socket changed during startup')
+    await unlink(socketPath)
+  }
+  await app.listen({ path: socketPath })
+  // The platform selects access for its trusted gateway.
+  await chmod(socketPath, 0o600)
+}

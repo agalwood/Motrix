@@ -5,7 +5,7 @@
     "placeholder": "管理者トークン",
     "error": "管理者トークンが無効です。ホスト上の MOTRIX_OPERATOR_TOKEN または <dataDir>/operator-token を確認して、もう一度お試しください。",
     "submit": "ロックを解除",
-    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
+    "nasSessionExpired": "Your NAS administrator session has ended. Open Motrix again from the NAS desktop."
   },
   "operatorAdmin": {
     "help": "使い方:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nこのコマンドは、コンテナーのループバック経由で、実行中の Motrix サーバーとのみ通信します。",

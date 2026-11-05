@@ -5,7 +5,7 @@
     "placeholder": "Üzemeltetői token",
     "error": "Érvénytelen üzemeltetői token. Ellenőrizd a MOTRIX_OPERATOR_TOKEN értékét vagy a <dataDir>/operator-token fájlt a szervert futtató gépen, majd próbáld újra.",
     "submit": "Feloldás",
-    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
+    "nasSessionExpired": "Your NAS administrator session has ended. Open Motrix again from the NAS desktop."
   },
   "operatorAdmin": {
     "help": "Használat:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nA parancs kizárólag a futó Motrix szerverrel kommunikál a konténer loopback kapcsolatán keresztül.",

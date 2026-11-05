@@ -1,0 +1,55 @@
+[
+  {
+    "step_title": "Motrix",
+    "items": [
+      {
+        "type": "description",
+        "desc": "All DSM administrators manage the same tasks. Files are saved in the motrix shared folder. Browser extensions are disabled by default."
+      },
+      {
+        "type": "textfield",
+        "desc": "Client port",
+        "subitems": [
+          {
+            "key": "wizard_client_port",
+            "defaultValue": "16802",
+            "validator": {
+              "allowBlank": false,
+              "regex": "^\\d{4,5}$"
+            }
+          }
+        ]
+      },
+      {
+        "type": "textfield",
+        "desc": "Extension WS/WSS address (empty disables extensions)",
+        "subitems": [
+          {
+            "key": "wizard_extension_url",
+            "defaultValue": ""
+          }
+        ]
+      },
+      {
+        "type": "textfield",
+        "desc": "Motrix Web address (including /motrix/)",
+        "subitems": [
+          {
+            "key": "wizard_operator_url",
+            "defaultValue": ""
+          }
+        ]
+      },
+      {
+        "type": "multiselect",
+        "subitems": [
+          {
+            "key": "wizard_allow_operator_http",
+            "desc": "Allow pairing codes over HTTP on a trusted network",
+            "defaultValue": false
+          }
+        ]
+      }
+    ]
+  }
+]

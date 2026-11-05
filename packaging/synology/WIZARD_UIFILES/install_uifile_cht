@@ -1,0 +1,55 @@
+[
+  {
+    "step_title": "Motrix",
+    "items": [
+      {
+        "type": "description",
+        "desc": "所有 DSM 管理員共同管理同一組任務。下載檔案儲存在 motrix 共用資料夾。瀏覽器擴充功能預設關閉。"
+      },
+      {
+        "type": "textfield",
+        "desc": "用戶端連接埠",
+        "subitems": [
+          {
+            "key": "wizard_client_port",
+            "defaultValue": "16802",
+            "validator": {
+              "allowBlank": false,
+              "regex": "^\\d{4,5}$"
+            }
+          }
+        ]
+      },
+      {
+        "type": "textfield",
+        "desc": "擴充功能 WS/WSS 位址（留空關閉）",
+        "subitems": [
+          {
+            "key": "wizard_extension_url",
+            "defaultValue": ""
+          }
+        ]
+      },
+      {
+        "type": "textfield",
+        "desc": "Motrix Web 位址（含 /motrix/）",
+        "subitems": [
+          {
+            "key": "wizard_operator_url",
+            "defaultValue": ""
+          }
+        ]
+      },
+      {
+        "type": "multiselect",
+        "subitems": [
+          {
+            "key": "wizard_allow_operator_http",
+            "desc": "允許在可信任網路透過 HTTP 顯示配對碼",
+            "defaultValue": false
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "dsmVersion": "7.2.2-72806",
+  "architecture": "x64",
+  "platform": "geminilake",
+  "glibc": "2.36",
+  "kernel": "4.4.302",
+  "toolchain": {
+    "url": "https://global.synologydownload.com/download/ToolChain/toolchain/7.2-72806/Intel%20x86%20Linux%204.4.302%20%28GeminiLake%29/geminilake-gcc1220_glibc236_x86_64-GPL.txz",
+    "sha256": "9ffb02cbaa206fe822f437d78058e10755f03c5b974e0be3a5b61b44f49c8ee0"
+  },
+  "digestSource": "https://github.com/SynoCommunity/spksrc/blob/master/toolchain/syno-geminilake-7.2/digests"
+}

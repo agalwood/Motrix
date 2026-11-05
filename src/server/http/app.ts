@@ -46,6 +46,7 @@ import {
   isExtensionPairingCodeEvent,
 } from './extension-pairing-delivery'
 import { registerFnosAuth } from './fnos-auth'
+import { type NasGatewayOptions, registerNasAuth } from './nas-auth'
 import { type OperatorAuthOptions, registerOperatorAuth } from './operator-auth'
 import { ServiceUnavailableError } from './service-unavailable-error'
 import {
@@ -116,6 +117,7 @@ export interface AppOptions {
   clientPairing?: ClientPairingCapabilities
   basePath?: string
   fnosGateway?: FnosGatewayOptions
+  nasGateway?: NasGatewayOptions
   /** Torrent-only RPC budget; defaults to 8 MiB, configurable from 2 to 64 MiB. */
   torrentBodyLimitBytes?: number
   commandHandlers?: CommandHandlerMap
@@ -145,7 +147,10 @@ export interface AppOptions {
 export async function createApp(
   opts: AppOptions = {}
 ): Promise<FastifyInstance> {
-  if (opts.fnosGateway && opts.operatorAuth)
+  if (
+    [opts.fnosGateway, opts.nasGateway, opts.operatorAuth].filter(Boolean)
+      .length > 1
+  )
     throw new Error('Authentication modes are mutually exclusive')
   const clientPairing =
     opts.clientPairing === undefined
@@ -162,14 +167,17 @@ export async function createApp(
   // Register the deny-by-default operator gate FIRST so its onRequest hook runs
   // before every route (including /api/* added by the caller post-createApp and
   // the /rpc/events WS upgrade).
-  const operatorSessions = opts.fnosGateway
-    ? registerFnosAuth(app, opts.fnosGateway, clientPairing)
-    : opts.operatorAuth
-      ? registerOperatorAuth(app, {
-          ...opts.operatorAuth,
-          clientPairing: clientPairing ?? opts.operatorAuth.clientPairing,
-        })
-      : undefined
+  const nasGateway = opts.nasGateway ?? opts.fnosGateway
+  const operatorSessions = opts.nasGateway
+    ? registerNasAuth(app, opts.nasGateway, clientPairing)
+    : opts.fnosGateway
+      ? registerFnosAuth(app, opts.fnosGateway, clientPairing)
+      : opts.operatorAuth
+        ? registerOperatorAuth(app, {
+            ...opts.operatorAuth,
+            clientPairing: clientPairing ?? opts.operatorAuth.clientPairing,
+          })
+        : undefined
   if (!operatorSessions) {
     app.get('/rpc/auth/status', async () => ({
       authed: true,
@@ -202,7 +210,7 @@ export async function createApp(
       if (
         !(
           principal &&
-          (opts.fnosGateway
+          (nasGateway
             ? canDeliverGatewayExtensionPairingCode(
                 opts.remoteExtensionConfig,
                 req.headers[WEB_ORIGIN_HEADER]
@@ -260,7 +268,7 @@ export async function createApp(
       // An installation without a pairing surface has no pending requests.
       // Once configured, NAS hosts use the ordinary operator-gated inbox.
       if (
-        opts.fnosGateway &&
+        nasGateway &&
         !clientPairing?.cli &&
         !clientPairing?.extension &&
         req.params.channel === BridgeQueries.ListPendingPairRequests

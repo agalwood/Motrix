@@ -176,8 +176,13 @@ import { FnosFiles } from './platform/fnos/files'
 import { registerFnosRoutes } from './platform/fnos/routes'
 import { fnosRuntime, listenFnos } from './platform/fnos/runtime'
 import { NasFileRemover } from './platform/nas/file-remover'
+import { listenNas } from './platform/nas/listener'
 import { NasTaskAccess } from './platform/nas/task-access'
 import { createNodePlatformServices } from './platform/services'
+import { SynologyAccounts } from './platform/synology/accounts'
+import { SynologyFiles } from './platform/synology/files'
+import { synologyGateway } from './platform/synology/identity'
+import { synologyRuntime } from './platform/synology/runtime'
 import { createServerCapabilityHost } from './plugin/capability-host'
 import {
   createServerCommunityPluginPolicy,
@@ -209,6 +214,9 @@ let requestActiveServerExit: ((code: number) => Promise<void>) | null = null
 
 async function main() {
   const fnos = fnosRuntime()
+  const synology = synologyRuntime()
+  const nas = fnos ?? synology
+  const dsmAccounts = synology ? new SynologyAccounts() : undefined
   // ─── Logger ───────────────────────────────────────────────────
   initLogger(pino({ level: process.env.LOG_LEVEL ?? 'info' }))
   const log = getLogger('server')
@@ -412,21 +420,24 @@ async function main() {
   geoipManager = activeGeoipManager
   shutdownActions.stopGeoIP = () => activeGeoipManager.stop()
   const hasDefaultSaveDirOverride =
-    !fnos && Boolean(process.env.MOTRIX_DEFAULT_SAVE_DIR?.trim())
+    !nas && Boolean(process.env.MOTRIX_DEFAULT_SAVE_DIR?.trim())
   const effectiveDefaultSaveDir = hasDefaultSaveDirOverride
     ? configuredDefaultSaveDir
     : settingsManager.getApp().defaultSaveDir
-  const fnosFiles = fnos
-    ? new FnosFiles(process.env, process.env.MOTRIX_FNOS_API_SOCKET)
-    : undefined
-  const downloadPathPolicy = fnosFiles
-    ? await fnosFiles.policy(effectiveDefaultSaveDir)
+  const nasFiles =
+    synology && dsmAccounts
+      ? new SynologyFiles(synology.configFile, dsmAccounts)
+      : fnos
+        ? new FnosFiles(process.env, process.env.MOTRIX_FNOS_API_SOCKET)
+        : undefined
+  const downloadPathPolicy = nasFiles
+    ? await nasFiles.policy(effectiveDefaultSaveDir)
     : await createServerDownloadPathPolicy({
         defaultSaveDir: effectiveDefaultSaveDir,
         allowedSaveDirsValue: process.env.MOTRIX_ALLOWED_SAVE_DIRS,
       })
-  const nasTaskAccess = fnosFiles
-    ? new NasTaskAccess(fnosFiles, downloadPathPolicy)
+  const nasTaskAccess = nasFiles
+    ? new NasTaskAccess(nasFiles, downloadPathPolicy)
     : undefined
   if (
     hasDefaultSaveDirOverride &&
@@ -1124,9 +1135,9 @@ async function main() {
   await mediaMetaStore
     .pruneOrphans(db.getAllTasks().map(({ task }) => task.motrixId))
     .catch((err) => log.warn({ err }, 'Media metadata recovery failed'))
-  const nasFileRemover = fnosFiles
+  const nasFileRemover = nasFiles
     ? new NasFileRemover(
-        fnosFiles,
+        nasFiles,
         downloadPathPolicy,
         finalizeFilesystemAdapter,
         path.join(platform.userDataDir, 'nas-removals')
@@ -1225,7 +1236,14 @@ async function main() {
   )
 
   // ─── HTTP App ─────────────────────────────────────────────────
-  const serverDirectoryService = new ServerDirectoryService(downloadPathPolicy)
+  const serverDirectoryService = new ServerDirectoryService(
+    downloadPathPolicy,
+    undefined,
+    undefined,
+    nasFiles
+      ? (file) => nasFiles.authorizeFile(file, downloadPathPolicy)
+      : undefined
+  )
   const updateService = new ServerUpdateService({
     eventBus,
     currentVersion: appVersion,
@@ -1377,22 +1395,28 @@ async function main() {
   )
 
   const remoteExtensionConfig = parseRemoteExtensionConfig(process.env, {
-    requireWebOperator: fnos !== undefined,
+    requireWebOperator: nas !== undefined,
   })
-  const nasAccounts = fnos?.accountSocketPath
-    ? new FnosAccountAuthority(fnos.accountSocketPath)
-    : undefined
+  const nasAccounts =
+    dsmAccounts ??
+    (fnos?.accountSocketPath
+      ? new FnosAccountAuthority(fnos.accountSocketPath)
+      : undefined)
   const app = await createApp({
     getHiddenNotificationKinds: () =>
       getHiddenNotificationKinds(settingsManager.getApp()),
     clientPairing: {
-      cli: !fnos || nasAccounts !== undefined,
+      cli: !nas || nasAccounts !== undefined,
       extension:
-        (!fnos || nasAccounts !== undefined) &&
+        (!nas || nasAccounts !== undefined) &&
         remoteExtensionConfig.status === 'enabled',
     },
     basePath: process.env.MOTRIX_WEB_BASE_PATH,
     fnosGateway: fnos,
+    nasGateway:
+      synology && dsmAccounts
+        ? synologyGateway(synology.socketPath, dsmAccounts)
+        : undefined,
     remoteExtensionConfig,
     torrentBodyLimitBytes,
     commandHandlers,
@@ -1402,7 +1426,7 @@ async function main() {
     eventBus,
     pluginLogSource: pluginCapHost,
     rendererDir,
-    operatorAuth: fnos
+    operatorAuth: nas
       ? undefined
       : {
           operatorToken: operator.token,
@@ -1427,8 +1451,8 @@ async function main() {
   }
 
   registerPluginUploadRoute(app, pluginUploadStore)
-  if (fnosFiles)
-    registerFnosRoutes(app, fnosFiles, downloadPathPolicy, (id) =>
+  if (fnos && nasFiles)
+    registerFnosRoutes(app, nasFiles, downloadPathPolicy, (id) =>
       taskManager.getById(id)
     )
   registerServerDiagnosticsRoute(app, async () => ({
@@ -1473,7 +1497,7 @@ async function main() {
   }))
 
   registerTasksBulkRoutes(app, {
-    resumeAll: fnosFiles
+    resumeAll: nasFiles
       ? async () => {
           await commandHandlers[Commands.ResumeAllTasks]?.()
         }
@@ -1870,7 +1894,8 @@ async function main() {
     // can observe an empty/partial TaskManager or a false TaskNotFound.
     const port = parseServerPort(process.env.PORT, 'PORT', 8080)
     try {
-      if (fnos) await listenFnos(app, fnos.socketPath)
+      if (synology) await listenNas(app, synology.socketPath)
+      else if (fnos) await listenFnos(app, fnos.socketPath)
       else await app.listen({ port, host: '0.0.0.0' })
     } catch (err) {
       if (!shellAsyncWork.isAccepting()) return
@@ -1884,8 +1909,8 @@ async function main() {
       }
       return
     }
-    const serverUrl = fnos
-      ? `unix:${fnos.socketPath}`
+    const serverUrl = nas
+      ? `unix:${nas.socketPath}`
       : `http://localhost:${port}`
     log.info({ port, url: serverUrl }, `server listening at ${serverUrl}`)
 
@@ -1894,11 +1919,11 @@ async function main() {
       | 'bridge-data-lock'
       | 'trusted-extension-registry' = 'process-ownership'
     bridgeOwnershipSetup = (async () => {
-      if (fnos) {
+      if (nas) {
         const authority = await establishLinuxServerProcessOwnershipAuthority({
           userDataDir: platform.userDataDir,
           assertControlPlaneOwnership: () =>
-            app.server.listening && app.server.address() === fnos.socketPath,
+            app.server.listening && app.server.address() === nas.socketPath,
         })
         bridgeDataDirLockRecoveryAuthority = authority
         shutdownActions.releaseProcessOwnership = authority.release
@@ -1956,7 +1981,7 @@ async function main() {
     if (!shellAsyncWork.isAccepting()) return
     // Older native packages have no protected account authority. Keep client
     // ingress closed until the lifecycle launcher supplies that endpoint.
-    if (fnos && !nasAccounts) return
+    if (nas && !nasAccounts) return
 
     // ─── MDXP bridge (Spec 6) ─────────────────────────────────────
     // Agent-facing unary POST /mdxp + SSE GET /mdxp/events, on its OWN port
@@ -2079,7 +2104,7 @@ async function main() {
           ? 16801
           : fixedPort
       const mdxpHost =
-        process.env.MOTRIX_MDXP_HOST ?? (fnos ? '0.0.0.0' : '127.0.0.1')
+        process.env.MOTRIX_MDXP_HOST ?? (nas ? '0.0.0.0' : '127.0.0.1')
       if (remoteExtensionConfig.status === 'invalid') {
         log.warn(
           {
@@ -2093,7 +2118,7 @@ async function main() {
         mdxpHost,
         publicUrl: process.env.MOTRIX_PUBLIC_URL,
       })
-      if (publicUrlWarning && !fnos) {
+      if (publicUrlWarning && !nas) {
         log.warn(
           {
             reason: publicUrlWarning.reason,
@@ -2189,7 +2214,7 @@ async function main() {
           })),
         // The web approval UI is a separate (Fastify) service; the operator points
         // device-code clients at it via MOTRIX_PUBLIC_URL. Unset → no URL printed.
-        verificationUri: fnos
+        verificationUri: nas
           ? remoteExtensionConfig.status === 'enabled'
             ? remoteExtensionConfig.publicOperatorBaseUrl
             : undefined

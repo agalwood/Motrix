@@ -5,7 +5,7 @@
     "placeholder": "管理员令牌",
     "error": "管理员令牌无效。请核对主机上的 MOTRIX_OPERATOR_TOKEN 或 <dataDir>/operator-token 后重试。",
     "submit": "解锁",
-    "fnosSessionExpired": "飞牛管理员会话已失效，请从飞牛桌面重新打开 Motrix。"
+    "nasSessionExpired": "NAS管理员会话已失效，请从NAS桌面重新打开 Motrix。"
   },
   "operatorAdmin": {
     "help": "用法：\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <配对码> [--json]\n  motrix-admin pairing deny <配对码> [--json]\n  motrix-admin extension pair\n\n此命令仅通过容器内的本机回环地址与正在运行的 Motrix 服务器通信。",

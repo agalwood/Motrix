@@ -402,7 +402,7 @@
     "placeholder": "Jeton d’administration",
     "submit": "Déverrouiller",
     "title": "Déverrouiller Motrix",
-    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
+    "nasSessionExpired": "Your NAS administrator session has ended. Open Motrix again from the NAS desktop."
   },
   "panel": {
     "completed": {

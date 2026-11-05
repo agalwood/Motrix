@@ -5,7 +5,7 @@
     "placeholder": "Token operator",
     "error": "Token operator tidak valid. Periksa MOTRIX_OPERATOR_TOKEN atau <dataDir>/operator-token pada host dan coba lagi.",
     "submit": "Buka akses",
-    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
+    "nasSessionExpired": "Your NAS administrator session has ended. Open Motrix again from the NAS desktop."
   },
   "operatorAdmin": {
     "help": "Penggunaan:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nPerintah ini hanya berkomunikasi dengan server Motrix yang berjalan melalui loopback kontainer.",

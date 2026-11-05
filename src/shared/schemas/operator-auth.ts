@@ -25,12 +25,17 @@ export const operatorStatusSchema = z.object({
     'unrestricted',
     'unauthenticated',
     'fnosGateway',
+    'synologyDsm',
   ]),
   username: z.string().optional(),
   canLogout: z.boolean(),
   eventOriginMatches: z.boolean().optional(),
   clientPairing: clientPairingCapabilitiesSchema.optional(),
 })
+
+export function isNasAuthMode(mode: string | undefined): boolean {
+  return mode === 'fnosGateway' || mode === 'synologyDsm'
+}
 
 export type OperatorStatus = z.infer<typeof operatorStatusSchema>
 
@@ -40,5 +45,5 @@ export function supportsClientPairing(
   kind: keyof ClientPairingCapabilities
 ): boolean {
   if (status && !status.authed) return false
-  return status?.clientPairing?.[kind] ?? status?.mode !== 'fnosGateway'
+  return status?.clientPairing?.[kind] ?? !isNasAuthMode(status?.mode)
 }

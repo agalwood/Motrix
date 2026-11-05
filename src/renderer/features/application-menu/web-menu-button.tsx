@@ -1,4 +1,5 @@
 import { torrentFileErrorKey } from '@shared/lib/engine-torrent'
+import { isNasAuthMode } from '@shared/schemas/operator-auth'
 import './application-menu.css'
 import { useAddTaskDialogStore } from '@renderer/components/add-task-dialog/use-add-task-dialog-store'
 import { ArrowLeftIcon, ChevronRightIcon } from '@renderer/components/icons'
@@ -80,7 +81,7 @@ export function WebMenuButton() {
     useState<MenuConfirmationRequest | null>(null)
   const canLogout = useOperatorSession((s) => s.status?.canLogout === true)
   const username = useOperatorSession((s) =>
-    s.status?.mode === 'fnosGateway' ? s.status.username : undefined
+    isNasAuthMode(s.status?.mode) ? s.status?.username : undefined
   )
   const content = useRef<HTMLDivElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)

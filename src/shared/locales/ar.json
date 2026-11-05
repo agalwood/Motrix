@@ -405,7 +405,7 @@
     "placeholder": "رمز المشغّل",
     "submit": "فتح القفل",
     "title": "فتح قفل Motrix",
-    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
+    "nasSessionExpired": "Your NAS administrator session has ended. Open Motrix again from the NAS desktop."
   },
   "panel": {
     "completed": {

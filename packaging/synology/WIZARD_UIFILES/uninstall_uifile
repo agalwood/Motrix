@@ -1,0 +1,21 @@
+[
+  {
+    "step_title": "Motrix",
+    "items": [
+      {
+        "type": "description",
+        "desc": "Tasks, settings and paired clients are kept by default. Downloaded files are always kept."
+      },
+      {
+        "type": "multiselect",
+        "subitems": [
+          {
+            "key": "wizard_delete_data",
+            "desc": "Delete tasks, settings and paired clients",
+            "defaultValue": false
+          }
+        ]
+      }
+    ]
+  }
+]

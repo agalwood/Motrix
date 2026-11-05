@@ -91,7 +91,10 @@
     "test:browser:torrent": "node tests/browser/torrent-file.mjs",
     "prepare:fnos": "node scripts/prepare-fnos-project.mjs",
     "verify:fnos": "node scripts/verify-fnos-package.mjs",
-    "build:fnos": "node scripts/build-fnos-package.mjs"
+    "build:fnos": "node scripts/build-fnos-package.mjs",
+    "prepare:synology": "node scripts/prepare-synology-project.mjs",
+    "verify:synology": "node scripts/verify-synology-package.mjs",
+    "build:synology": "node scripts/build-synology-package.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "~2.6.4",

@@ -401,7 +401,7 @@
     "placeholder": "Διακριτικό χειριστή",
     "submit": "Ξεκλείδωμα",
     "title": "Ξεκλείδωμα του Motrix",
-    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
+    "nasSessionExpired": "Your NAS administrator session has ended. Open Motrix again from the NAS desktop."
   },
   "panel": {
     "completed": {

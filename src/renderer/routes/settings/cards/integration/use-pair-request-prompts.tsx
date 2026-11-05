@@ -23,7 +23,10 @@ import type { CommandChannel } from '@shared/protocol/commands'
 import type { EventChannel } from '@shared/protocol/events'
 import type { QueryChannel } from '@shared/protocol/queries'
 import { claimExtensionPairResultSchema } from '@shared/schemas/extension-pairing'
-import { supportsClientPairing } from '@shared/schemas/operator-auth'
+import {
+  isNasAuthMode,
+  supportsClientPairing,
+} from '@shared/schemas/operator-auth'
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { resolvePairWithFeedback } from './pair-resolve'
@@ -89,7 +92,9 @@ function toPairRequestPayload(
 function operatorKey(
   session: ReturnType<typeof useOperatorSession.getState>
 ): string | undefined {
-  return session.status?.mode === 'fnosGateway' && session.status.authed
+  return session.status &&
+    isNasAuthMode(session.status.mode) &&
+    session.status.authed
     ? `${session.epoch}:${session.status.username ?? ''}`
     : undefined
 }

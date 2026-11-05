@@ -18,6 +18,7 @@ import {
   FNOS_EVENT_PROTOCOL,
   FNOS_EVENT_TICKET_PREFIX,
   fnosEventTicketSchema,
+  isNasAuthMode,
 } from '@shared/schemas/operator-auth'
 import {
   WEB_EVENT_CONNECT_TIMEOUT_MS,
@@ -134,7 +135,7 @@ export class HttpWsTransport implements Transport {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
-          ...(isFnos() ? webOriginHeaders() : {}),
+          ...(isNasAuthMode(session.status?.mode) ? webOriginHeaders() : {}),
         },
         // Send the operator session cookie (Spec 9). Same-origin is the fetch
         // default, but set it explicitly so the control-plane auth is obvious.
@@ -208,7 +209,7 @@ export class HttpWsTransport implements Transport {
       return
     }
 
-    if (isFnos()) {
+    if (isNasAuthMode(useOperatorSession.getState().status?.mode)) {
       const pending = new AbortController()
       this.fnosTicketRequest = pending
       const sessionEpoch = useOperatorSession.getState().epoch

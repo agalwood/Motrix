@@ -6,6 +6,7 @@ import {
   watchOperatorSession,
 } from '@renderer/lib/operator-auth'
 import { transport } from '@renderer/lib/transport'
+import { isNasAuthMode } from '@shared/schemas/operator-auth'
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -22,7 +23,7 @@ export function OperatorUnlockGate({ children }: { children: ReactNode }) {
 function WebGate({ children }: { children: ReactNode }) {
   const { t } = useTranslation()
   const state = useOperatorSession((s) => s.state)
-  const fnos = useOperatorSession((s) => s.status?.mode === 'fnosGateway')
+  const fnos = useOperatorSession((s) => isNasAuthMode(s.status?.mode))
   const [token, setToken] = useState('')
   const [error, setError] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -47,7 +48,7 @@ function WebGate({ children }: { children: ReactNode }) {
   if (fnos)
     return (
       <div className="flex h-svh flex-col items-center justify-center gap-4 p-6">
-        <p>{t('operatorUnlock.fnosSessionExpired')}</p>
+        <p>{t('operatorUnlock.nasSessionExpired')}</p>
         <Button onClick={() => window.location.reload()}>
           {t('applicationMenu.retry')}
         </Button>
