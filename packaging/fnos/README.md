@@ -54,8 +54,24 @@ build; preparation never silently removes an existing output directory.
 
 `prepare:fnos` and `verify:fnos` can inspect cross-architecture payloads without
 executing them. They are not substitutes for the native build's smoke checks.
-The `fnOS native FPK` workflow builds both architectures and uploads test
-artifacts. It does not publish releases or submit packages to the app store.
+The `fnOS native FPK` workflow builds both architectures for pull-request
+validation and uploads test artifacts. Stable packages are distributed separately
+by `Publish fnOS FPK` after a successful protected-tag `Build/Release` run.
+The publication workflow builds the exact released commit on matching Linux
+hardware, verifies both packages and their SHA-256 files, and adds the complete
+set to the existing GitHub Release. It never overwrites a different existing
+asset. This distribution does not submit packages to the fnOS app store.
+
+For direct installation, download `Motrix-<version>-fnos-x64.fpk` for an x86 NAS
+or `Motrix-<version>-fnos-arm64.fpk` for an ARM64 NAS, together with its `.sha256`
+file, from the matching stable GitHub Release. Check the file before installing:
+
+```sh
+sha256sum -c Motrix-<version>-fnos-x64.fpk.sha256
+```
+
+The first native 2.3.0 packages are supplemented from the original `v2.3.0`
+commit; the application tag and the other release assets remain unchanged.
 
 The locks use official Node SHASUMS256 and observed fnpack binary hashes. At
 implementation time the official fnpack page linked 1.2.3 binaries returning

@@ -24,7 +24,7 @@ The same core powers two ways to run Motrix:
 Motrix 2.3.0 refreshes the application artwork, restores cloud-drive directory
 downloads with aria2 1.37.0-motrix.23, and improves Server media tools, settings
 and update checks. It also introduces native fnOS integration; FPK packages
-remain separate test artifacts, not official Release downloads.
+follow a separate verified publication workflow.
 Download [v2.3.0 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.3.0)
 and read the [full release notes](./docs/release-notes/2.3.0.md).
 

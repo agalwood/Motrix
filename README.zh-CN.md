@@ -23,7 +23,7 @@ Motrix 是一款界面简洁、功能丰富的桌面下载管理器，可处理 
 
 Motrix 2.3.0 更新应用图标，随 aria2 1.37.0-motrix.23 恢复网盘目录下载，
 并完善 Server 媒体工具、设置和更新检查。同时引入飞牛 fnOS 原生集成；
-FPK 仍为单独的测试构建产物，尚不属于正式 Release 下载。
+FPK 通过单独的验证与发布流程提供。
 从 GitHub Releases 下载 [v2.3.0](https://github.com/agalwood/Motrix/releases/tag/v2.3.0)，
 并阅读[完整发布说明](./docs/release-notes/2.3.0.zh-CN.md)。
 
