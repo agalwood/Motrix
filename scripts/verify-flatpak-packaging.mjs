@@ -18,8 +18,8 @@ export const FLATPAK_BUILDER_TOOLS_COMMIT =
 // tag resolves to is pinned by hand (and cross-checked against the manifest).
 export const ARIA2_SOURCE = Object.freeze({
   url: 'https://github.com/motrixapp/aria2.git',
-  // v1.37.0-motrix.22 — current Motrix aria2 fork release
-  commit: '96b49bb471c82d414c760bb67dd6085607174d7e',
+  // v1.37.0-motrix.23 — current Motrix aria2 fork release
+  commit: '7d318fcff6d2f00feddbe6ce81b0c89c808dfc15',
 })
 
 const PNPM_SOURCE = Object.freeze({

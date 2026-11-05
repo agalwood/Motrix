@@ -565,7 +565,7 @@ describe('PluginDiagnosticsPage', () => {
       })
     ).toBeInTheDocument()
     expect(
-      screen.getByText(/plugin\.removed Not installed/)
+      await screen.findByText(/plugin\.removed Not installed/)
     ).toBeInTheDocument()
   })
 
