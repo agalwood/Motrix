@@ -12,6 +12,8 @@ on:
       - 'src/server/http/fnos-auth*'
       - 'src/renderer/platform/fnos*'
       - '.github/workflows/fnos.yml'
+      - '.github/workflows/fnos-publish.yml'
+      - 'scripts/fnos_publication.py'
 
 permissions:
   contents: read
