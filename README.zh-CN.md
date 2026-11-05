@@ -19,13 +19,13 @@ Motrix 是一款界面简洁、功能丰富的桌面下载管理器，可处理 
 - **桌面应用**：可在 macOS、Windows 和 Linux 上运行；
 - **Headless server**：无需桌面环境，可直接使用 Node.js 运行或通过 Docker 部署，并提供 Web 界面，适合安装在 NAS 和家庭服务器上。
 
-## Motrix 2.2.1
+## Motrix 2.3.0
 
-Motrix 2.2.1 修复损坏磁力任务会话导致的启动问题，并在引擎保留了所需上下文时，
-使用原任务和已有下载进度安全重试 HTTP 下载。本版捆绑 aria2 1.37.0-motrix.22，
-同时修复 Web UI 会话变化后仍执行旧重试操作的问题。
-从 GitHub Releases 下载 [v2.2.1](https://github.com/agalwood/Motrix/releases/tag/v2.2.1)，
-并阅读[完整发布说明](./docs/release-notes/2.2.1.zh-CN.md)。
+Motrix 2.3.0 更新应用图标，随 aria2 1.37.0-motrix.23 恢复网盘目录下载，
+并完善 Server 媒体工具、设置和更新检查。同时引入飞牛 fnOS 原生集成；
+FPK 仍为单独的测试构建产物，尚不属于正式 Release 下载。
+从 GitHub Releases 下载 [v2.3.0](https://github.com/agalwood/Motrix/releases/tag/v2.3.0)，
+并阅读[完整发布说明](./docs/release-notes/2.3.0.zh-CN.md)。
 
 升级前请备份现有 Motrix 配置和下载文件。捆绑引擎会将 SQLite 数据库升级至
 schema 6，并保留升级前备份；旧引擎无法打开 schema 6，如需降级必须保留该备份。
@@ -170,13 +170,13 @@ npm install -g @motrix/cli
 ### Headless server（Docker）
 
 带 tag 的版本会把多架构 Server 镜像发布到 Docker Hub 和 GHCR。
-正式版通过运行验证后还会更新 `2.2`、`2`、`stable` 和 `latest`，beta 仅发布
+正式版通过运行验证后还会更新 `2.3`、`2`、`stable` 和 `latest`，beta 仅发布
 不可变的版本 tag。仓库的 `compose.yaml` 会分别持久化 Server 状态与用户下载资源：
 
 ```bash
 mkdir -p motrix-data downloads
 sudo chown 1000:1000 motrix-data downloads
-export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.2.1'
+export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.3.0'
 export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
 docker compose pull server
 docker compose up -d --wait

@@ -68,6 +68,16 @@
   </screenshots>
 
   <releases>
+    <release version="2.3.0" date="2026-11-05">
+      <description>
+        <p>
+          Refreshes application artwork and restores cloud-drive directory
+          downloads with aria2 1.37.0-motrix.23. Improves Server media tools,
+          settings and update checks, verifies legacy macOS FFmpeg installations,
+          and preserves hidden windows when cancelling new tasks.
+        </p>
+      </description>
+    </release>
     <release version="2.2.1" date="2026-11-03">
       <description>
         <p>
