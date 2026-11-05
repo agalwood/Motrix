@@ -39,6 +39,7 @@ import type { ComponentProps } from 'react'
 import { useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { AutoCategorizeSection } from './auto-categorize-section'
 import type { SettingsCardDialogProps } from './card-types'
 import {
   DOWNLOADS_DEFAULTS,
@@ -196,6 +197,8 @@ export function DownloadsDialog({
                       )}
                     />
                     <UserAgentSection form={form} />
+                    <Separator className="my-4" />
+                    <AutoCategorizeSection form={form} disabled={disabled} />
                     <Separator className="my-4" />
                     <PerformanceSection form={form} />
                     <Separator className="my-4" />
