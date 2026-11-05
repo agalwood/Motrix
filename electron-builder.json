@@ -87,6 +87,7 @@
     }
   ],
   "mac": {
+    "icon": "build/Motrix.icon",
     "category": "public.app-category.utilities",
     "type": "distribution",
     "artifactName": "${productName}-${version}-${arch}.${ext}",

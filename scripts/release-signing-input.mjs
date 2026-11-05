@@ -34,6 +34,12 @@ export const SIGNING_ARCHIVE_LIMITS = Object.freeze({
 })
 
 const TRUSTED_INPUT_SHA256 = Object.freeze({
+  'signing-build-resources/Motrix.icon/icon.json':
+    'd50dd058b74140104544837c4da56e501f6a4c3b948cd99e4f33f8d9ca95e095',
+  'signing-build-resources/Motrix.icon/Assets/Glass-WhiteRim-1024.png':
+    '7607c10d1b5e2182bba242093bd5e38778b52a0940d801970bd9b96ddb18305e',
+  'signing-build-resources/Motrix.icon/Assets/MO-solid-1024.png':
+    '5ce1623839f29dac26c6b35e1aab727ba3bf29e2fa268869ed7b320b6b42fcfb',
   'signing-build-resources/app.motrix.safari.bootstrap.plist':
     '27ad50100646b2696fd7a0cab8d5ce1f391730069350f6e3d76ace376e0ef696',
   'signing-build-resources/entitlements.safari.plist':
@@ -41,21 +47,21 @@ const TRUSTED_INPUT_SHA256 = Object.freeze({
   'scripts/sign-macos.mjs':
     '98bda5c77dce2a3e5d9c9a2f8211f4d5594d060bf9d2839326db50dc41f8c58b',
   'electron-builder.signing.json':
-    '6ab284b126989f1524c8389f821045d4e588f5600913bf0d99e512fe775d7951',
+    '6f793ce964e33695fcb07b98c36ff08ca49941a1c504f3c039852d0a4d2c6b1e',
   'signing-build-resources/256x256.png':
-    '044d3b64a14aa512ca41469372d1ad630557daaeb2cb4e709d34f2d3c57d4c3b',
+    'dcc14074b89edd296147ccd427e204e592c873cb2710eef539fabf2184ad0031',
   'signing-build-resources/background.tiff':
     'f15290fe1a059a6b262466445fd24a63eabf0e2a4f734f9812dfe8ac0b9609c1',
   'signing-build-resources/entitlements.mac.plist':
     '7520c54bdda9880a65e607a1539269ec69d60d97e54da36879d6ea089fb219dd',
   'signing-build-resources/icon.icns':
-    'f9ff86f32c2110b21d71a49a346f4186c4ef2cf1aed3884eca9704cb77fb4ed7',
+    '5d12f60c65a21eb6195272f372d4b01959c06ec47569d386c11e8edf151a5545',
   'signing-build-resources/icon.ico':
-    'a71d20d0ca732e27b445e3f09a0cd22cb356620929416e790d005dfff9c4e5a7',
+    '1e046608b5510e8c8f4f9168a29dd6a4ec36630639ab92eeee7a145c9dbe0f83',
   'signing-build-resources/installerHeader.bmp':
-    '1fec8201191e832831f93c5dbaca1a1941b17c72d29ede4ddbba0a721b58d3a5',
+    '9f03d5ceb770c60b7734f5653c3d06fec97d1fce4ea5a29f0910008c965566a1',
   'signing-build-resources/installerSidebar.bmp':
-    '510391ad03a2df0a83d2daaeacfc4d2a25b85166f701843d44d85b221df14ec0',
+    '464685dbb9c5bf1e6f83773028ca11c56d1a5d9b7038acf29f2ffc0c6d07c8d0',
   'signing-build-resources/torrent.icns':
     '1c8e042a7d4391fa241b4411badbe4a7393a8ad8429679838bf43b25ab29425f',
   'signing-build-resources/torrent.ico':
@@ -107,6 +113,7 @@ const SOURCE_MAPPINGS = [
   ],
   ['build/icon.icns', 'signing-build-resources/icon.icns'],
   ['build/icon.ico', 'signing-build-resources/icon.ico'],
+  ['build/Motrix.icon', 'signing-build-resources/Motrix.icon'],
   ...Object.entries(OPTIONAL_NSIS_ARTWORK).map(([destination, source]) => [
     source,
     destination,
@@ -239,6 +246,7 @@ function isAllowedSigningDirectory(relativePath) {
   ]
   const flatRoots = [
     'signing-build-resources',
+    'signing-build-resources/Motrix.icon/Assets',
     'signing-policy',
     'signing-tool',
     'scripts',
@@ -267,6 +275,9 @@ function isAllowedSigningBuildResource(relativePath) {
     'signing-build-resources/app.motrix.safari.bootstrap.plist',
     'signing-build-resources/icon.icns',
     'signing-build-resources/icon.ico',
+    'signing-build-resources/Motrix.icon/icon.json',
+    'signing-build-resources/Motrix.icon/Assets/Glass-WhiteRim-1024.png',
+    'signing-build-resources/Motrix.icon/Assets/MO-solid-1024.png',
     'signing-build-resources/torrent.icns',
     'signing-build-resources/torrent.ico',
   ]).has(relativePath)

@@ -29,6 +29,7 @@ const COMMIT = 'a'.repeat(40)
 const temporaryDirectories: string[] = []
 const HASH_PINNED_TEXT_SOURCES = [
   'electron-builder.signing.json',
+  'build/Motrix.icon/icon.json',
   'scripts/sign-macos.mjs',
   'build/entitlements.safari.plist',
   'build/app.motrix.safari.bootstrap.plist',
@@ -62,6 +63,18 @@ const TRUSTED_FIXTURES = [
   ],
   ['build/icon.icns', 'signing-build-resources/icon.icns'],
   ['build/icon.ico', 'signing-build-resources/icon.ico'],
+  [
+    'build/Motrix.icon/icon.json',
+    'signing-build-resources/Motrix.icon/icon.json',
+  ],
+  [
+    'build/Motrix.icon/Assets/Glass-WhiteRim-1024.png',
+    'signing-build-resources/Motrix.icon/Assets/Glass-WhiteRim-1024.png',
+  ],
+  [
+    'build/Motrix.icon/Assets/MO-solid-1024.png',
+    'signing-build-resources/Motrix.icon/Assets/MO-solid-1024.png',
+  ],
   ['build/installerHeader.bmp', 'signing-build-resources/installerHeader.bmp'],
   [
     'build/installerSidebar.bmp',
@@ -212,7 +225,7 @@ describe('isolated release signing input', () => {
   })
 
   it.each(['arm64', 'x64'] as const)(
-    'preserves shutdown permission metadata through isolated macOS signing: %s',
+    'preserves permission metadata and icon assets through isolated macOS signing: %s',
     async (arch) => {
       const { directory } = await createGeneratedSigningInput(
         [
@@ -258,6 +271,9 @@ describe('isolated release signing input', () => {
       require('app-builder-lib')
       const { MacPackager } = require('app-builder-lib/out/macPackager')
       const appPlist: Record<string, unknown> = {}
+      const contents = path.join(directory, 'Motrix.app/Contents')
+      const catalog = Buffer.from('compiled icon catalog fixture')
+      await mkdir(path.join(contents, 'Resources'), { recursive: true })
       // Exercise electron-builder's Info.plist generation from staged policy.
       await MacPackager.prototype.applyCommonInfo.call(
         {
@@ -270,10 +286,31 @@ describe('isolated release signing input', () => {
             buildVersion: '2.0.1',
           },
           getIconPath: async () => null,
+          getResource: async (resource: string) => {
+            const resolved = path.join(directory, resource)
+            expect((await lstat(resolved)).isDirectory()).toBe(true)
+            return resolved
+          },
+          generateAssetCatalogData: async (iconPath: string) => {
+            for (const asset of [
+              'icon.json',
+              'Assets/Glass-WhiteRim-1024.png',
+              'Assets/MO-solid-1024.png',
+            ]) {
+              expect(await readFile(path.join(iconPath, asset))).toEqual(
+                await readFile(path.join(ROOT, 'build/Motrix.icon', asset))
+              )
+            }
+            return { assetCatalog: catalog }
+          },
         },
         appPlist,
-        path.join(directory, 'Motrix.app/Contents')
+        contents
       )
+      expect(appPlist.CFBundleIconName).toBe('Icon')
+      expect(
+        await readFile(path.join(contents, 'Resources/Assets.car'))
+      ).toEqual(catalog)
       expect(appPlist.NSAppleEventsUsageDescription).toBe(
         'Motrix requests permission to shut down your Mac when all downloads finish, only when you enable this action.'
       )
@@ -337,7 +374,13 @@ describe('isolated release signing input', () => {
     }
   })
 
-  it.each(['installerHeader.bmp', 'installerSidebar.bmp'])(
+  it.each([
+    'installerHeader.bmp',
+    'installerSidebar.bmp',
+    'Motrix.icon/icon.json',
+    'Motrix.icon/Assets/Glass-WhiteRim-1024.png',
+    'Motrix.icon/Assets/MO-solid-1024.png',
+  ])(
     'rejects replaced branded artwork even with a refreshed manifest: %s',
     async (filename) => {
       const directory = await createFixture()
@@ -426,6 +469,7 @@ describe('isolated release signing input', () => {
     'signing-build-resources/installer.nsi',
     'signing-build-resources/installer.nsh',
     'signing-build-resources/messages.yml',
+    'signing-build-resources/Motrix.icon/Assets/unreviewed.png',
     'signing-build-resources/x86-unicode/plugin.dll',
     'signing-build-resources/x86-ansi/plugin.dll',
   ])('rejects reserved signing input path %s', async (reservedPath) => {
