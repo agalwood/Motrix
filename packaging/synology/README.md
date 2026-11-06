@@ -16,14 +16,22 @@ The first target is **DSM 7.2.2-72806 or later, x86_64**. It is an
 manage the same tasks, settings and plugins. Ordinary, disabled, domain and LDAP
 accounts are denied. There is no per-user task isolation or quota accounting.
 
-The current build has Linux simulation and DSM userspace ABI coverage, **not
-real-device acceptance**. The minimum version records the toolchain and resource
-contract being tested; it is not a claim that every newer DSM release or every
-x86_64 model has passed. The Gemini Lake toolchain identifies Linux 4.4.302 and
-glibc 2.36. [Node 24's upstream supported Linux kernel baseline](https://github.com/nodejs/node/blob/v24.x/BUILDING.md) is newer than
-DSM's 4.4 kernel: successful sysroot loading does not establish kernel or syscall
-compatibility. Installation and sustained downloads on the target NAS are a
-release gate.
+Revision **2.3.0-5** passed a core device smoke on **DS718+ (Apollo Lake),
+DSM 7.4.1**, on 2026-11-06. Manual upgrade, administrator login, nonroot service
+startup, HTTP/BT downloads with SHA-256 verification, redownload, file deletion,
+directory/symlink rejection, stop/start recovery, and CLI protocol pairing and
+revocation were exercised. Synthetic tasks and fixtures were removed after testing, and temporary client
+credentials were revoked. This does not establish support for every DSM release or model.
+
+Linux simulation and checksum-pinned Gemini Lake/Apollo Lake DSM 7.2.2 userspace
+ABI checks also passed. The minimum version records the toolchain/resource
+contract. The actual device uses Linux 4.4.302; [Node 24's upstream supported
+Linux kernel baseline](https://github.com/nodejs/node/blob/v24.x/BUILDING.md) is
+newer. Basic device operations passed, but long-running downloads, live account
+disable/recreation, ACL revocation, offline/replaced storage, interrupted
+finalization and upgrade with active tasks still need controlled device tests.
+Real extension pairing has not been exercised; its entry remains disabled by
+default. ARM builds and device acceptance are not available.
 
 ## Use and permissions
 
