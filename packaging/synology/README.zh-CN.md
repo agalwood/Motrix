@@ -29,7 +29,16 @@ Motrix Server/Web UI、aria2 和文件系统辅助程序。运行时不依赖 Do
 配置和应用数据仍仅限套件账号访问；组成员身份不能替代会话和账号认证。
 
 Web 服务、下载引擎、插件和文件系统辅助程序均以 `motrix` 套件账号运行。
-套件没有 root 进程，不申请 setuid、Linux capability、sudo 规则或特权辅助服务。
+实测 DSM 7.4.1 的账号查询程序仅限 root 执行，因此单独提供一次性的原生
+`motrix-dsm-authority` 辅助程序，通过 DSM `tool` 声明授予
+`cap_setuid,cap_setgid,cap_setpcap`。它的权限为 `0700`，仅接受自己的套件文件所有者调用，
+只处理会话验证、账号状态和 NAS ACL 查询。它清空环境后调用三个固定的系统程序，
+不提供 shell、任意命令或文件内容读取接口。校验通过后，只有限时运行的原生监控进程及
+其子进程使用 UID 0，防止套件调用者暂停超时监控。子进程的能力边界只保留文件系统访问，
+排除切换身份、设置 capability、ptrace、挂载和网络管理。
+输入、输出和运行时间均有限制，禁用 core dump，丢弃原始 stderr 和无关账号资料。
+ACL 路径在提权前通过句柄固定，禁止跟随符号链接。辅助程序不直接读取密码文件或
+下载内容，不监听端口、不保存状态。套件不增加 sudo 规则，Server 仍拒绝以 root 运行。
 DSM 资源管理器负责创建 `motrix` 共享文件夹和注册 Nginx 配置。
 下载范围同时受已配置目录、管理员账号权限和套件账号权限约束。授权目录必须
 存在、位于已挂载存储卷中，且不能通过符号链接改指其他位置。默认目录从
@@ -131,7 +140,7 @@ aria2 和文件系统辅助程序为静态程序。SDK 仅用于构建，不包�
 | 存储与生命周期 | [FHS](https://help.synology.com/developer-guide/integrate_dsm/fhs.html)、[data-share](https://help.synology.com/developer-guide/resource_acquisition/data_share.html)、[向导规范](https://help.synology.com/developer-guide/synology_package/wizard/WIZARD_UIFILES_v2.html)。FHS 状态跨升级保留，资源管理器不删除下载共享目录。 |
 | 桌面与代理 | [桌面配置](https://help.synology.com/developer-guide/integrate_dsm/config.html)、[web-config](https://help.synology.com/developer-guide/resource_acquisition/web_config.html)、[Web Station 方案](https://help.synology.com/developer-guide/resource_acquisition/web_service.html)。采用 DSM Nginx worker、Unix upstream 和明确的 WebSocket 转发，不接受 fnOS 身份 Header。 |
 | 登录身份 | [应用认证](https://help.synology.com/developer-guide/integrate_dsm/web_authentication.html)说明 `authenticate.cgi` 及 CGI 环境。调用不经过 shell，限制时间和输出，传入 Cookie 和网关地址上下文；套件账号能否执行仍需按 DSM 版本验证。 |
-| 账号与 ACL 状态 | `synouser --get`、`synoacltool -get-perm` 是依赖 DSM 版本的命令适配，**不是有稳定公开承诺的 JSON API**。只接受完整的本地有效管理员记录和明确有效权限位；不能用缓存的网关身份替代实时状态。如果命令需要提权或格式改变，入口会拒绝访问，必须完成实机验证的账号服务设计后，才能声明支持相应 DSM 版本。 |
+| 账号与 ACL 状态 | `synouser --get`、`synoacltool -get-perm` 是依赖 DSM 版本的命令适配，**不是有稳定公开承诺的 JSON API**。只接受完整的本地有效管理员记录和明确有效权限位；不能用缓存的网关身份替代实时状态。原生辅助程序只为这些固定查询提供必要权限；capability 缺失、输出格式变化或账号服务不可用时仍拒绝访问，仍需实际 DSM 验收。 |
 | 架构 | [官方架构映射](https://help.synology.com/developer-guide/appendix/platarchs.html)、[机型 CPU 列表](https://kb.synology.com/en-global/DSM/tutorial/What_kind_of_CPU_does_my_NAS_have)。DS920+/DS220+ 属于 Gemini Lake；DS220j 是 RTD1296（ARMv8），不能安装 x86_64 包。 |
 | 工具链 | [官方选择说明](https://help.synology.com/developer-guide/compile_applications/download_dsm_tool_chain.html)、[环境准备](https://help.synology.com/developer-guide/getting_started/prepare_environment.html)、[spksrc Gemini Lake 输入](https://github.com/SynoCommunity/spksrc/tree/master/toolchain/syno-geminilake-7.2)。准确归档 SHA-256 记录在 `scripts/synology-runtime.lock.json`。 |
 | 成熟开源参考 | [SynoCommunity/spksrc](https://github.com/SynoCommunity/spksrc) 及其 [Transmission 生命周期](https://github.com/SynoCommunity/spksrc/blob/master/spk/transmission/src/service-setup.sh)，用于核对 FHS 保留和套件账号运行；没有照搬安装时下载依赖的做法。 |

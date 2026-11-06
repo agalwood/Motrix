@@ -179,6 +179,7 @@ import { NasFileRemover } from './platform/nas/file-remover'
 import { NasTaskAccess } from './platform/nas/task-access'
 import { createNodePlatformServices } from './platform/services'
 import { SynologyAccounts } from './platform/synology/accounts'
+import { probeDsmAuthority } from './platform/synology/commands'
 import { SynologyFiles } from './platform/synology/files'
 import { synologyGateway } from './platform/synology/identity'
 import { listenSynology, synologyRuntime } from './platform/synology/runtime'
@@ -219,6 +220,7 @@ async function main() {
   // ─── Logger ───────────────────────────────────────────────────
   initLogger(pino({ level: process.env.LOG_LEVEL ?? 'info' }))
   const log = getLogger('server')
+  const dsmAuthority = synology ? await probeDsmAuthority() : undefined
   const torrentBodyLimitBytes = parseTorrentBodyLimit(
     process.env.MOTRIX_TORRENT_BODY_LIMIT_MIB
   )
@@ -1433,11 +1435,13 @@ async function main() {
           onEventSocketRejected: (detail) =>
             log.warn(detail, 'operator event connection rejected'),
         },
-    healthCheck: () =>
-      serverHealthSnapshot({
+    healthCheck: () => ({
+      ...serverHealthSnapshot({
         accepting: shellAsyncWork.isAccepting(),
         engine: supervisor.getStatus(),
       }),
+      ...(dsmAuthority ? { nasAuthority: dsmAuthority } : {}),
+    }),
   })
   shutdownActions.closeIngress = async () => {
     pluginUploadStore.dispose()

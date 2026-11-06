@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { chmod, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { expect, it } from 'vitest'
@@ -41,6 +41,9 @@ it('detects changed and additional payload bytes, including executable permissio
     const before = await payloadInventory(root)
     await writeFile(path.join(root, 'file'), 'tampered')
     expect(await payloadInventory(root)).not.toEqual(before)
+    const changed = await payloadInventory(root)
+    await chmod(path.join(root, 'file'), 0o700)
+    expect(await payloadInventory(root)).not.toEqual(changed)
     await writeFile(path.join(root, 'extra'), 'extra')
     expect(Object.keys(await payloadInventory(root))).toEqual(['extra', 'file'])
   } finally {
@@ -48,14 +51,21 @@ it('detects changed and additional payload bytes, including executable permissio
   }
 })
 
-it('refuses traversal, symlinks, macOS metadata and duplicate names in an SPK', async () => {
+it('refuses unsafe paths, links, metadata, duplicates and permissions in an SPK', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'motrix-spk-archive-'))
   try {
-    for (const kind of ['traversal', 'link', 'metadata', 'duplicate']) {
+    for (const kind of [
+      'traversal',
+      'link',
+      'metadata',
+      'duplicate',
+      'setuid',
+      'writable',
+    ]) {
       const archive = path.join(root, `${kind}.tar`)
       execFileSync('python3', [
         '-c',
-        `import tarfile,sys\nt=tarfile.open(sys.argv[1],'w')\nk=sys.argv[2]\na=tarfile.TarInfo('../outside' if k=='traversal' else '._file' if k=='metadata' else 'file')\nif k=='link': a.type=tarfile.SYMTYPE; a.linkname='/tmp'\nt.addfile(a)\nif k=='duplicate': t.addfile(a)\nt.close()`,
+        `import tarfile,sys\nt=tarfile.open(sys.argv[1],'w')\nk=sys.argv[2]\na=tarfile.TarInfo('../outside' if k=='traversal' else '._file' if k=='metadata' else 'file')\nif k=='link': a.type=tarfile.SYMTYPE; a.linkname='/tmp'\nif k=='setuid': a.mode=0o4700\nif k=='writable': a.mode=0o722\nt.addfile(a)\nif k=='duplicate': t.addfile(a)\nt.close()`,
         archive,
         kind,
       ])
@@ -67,6 +77,25 @@ it('refuses traversal, symlinks, macOS metadata and duplicate names in an SPK', 
         )
       ).toThrow()
     }
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+it('preserves the private authority executable mode when extracting an SPK', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'motrix-spk-mode-'))
+  try {
+    const archive = path.join(root, 'package.tar')
+    const output = path.join(root, 'extracted')
+    execFileSync('python3', [
+      '-c',
+      `import tarfile,sys\nwith tarfile.open(sys.argv[1],'w') as t:\n a=tarfile.TarInfo('authority'); a.mode=0o700; t.addfile(a)`,
+      archive,
+    ])
+    execFileSync('python3', ['scripts/spk_archive.py', archive, output])
+    expect((await stat(path.join(output, 'authority'))).mode & 0o7777).toBe(
+      0o700
+    )
   } finally {
     await rm(root, { recursive: true, force: true })
   }

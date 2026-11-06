@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict'
-import { execFileSync, spawn } from 'node:child_process'
+import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import { createHash, randomBytes } from 'node:crypto'
 import {
   access,
   chmod,
+  chown,
   cp,
   mkdir,
   readFile,
@@ -60,40 +61,116 @@ for (const folder of [
 await cp(path.join(project, 'app'), target, { recursive: true })
 await symlink(downloads, `${root}/shares/motrix`)
 execFileSync('chown', ['-R', '1600:1600', root, downloads])
+function grantAuthority() {
+  // Simulate DSM's declared tool worker only before starting any package process.
+  execFileSync('python3', [
+    '-c',
+    'import os,struct,sys;os.setxattr(sys.argv[1],"security.capability",struct.pack("<IIIII",0x02000001,(1<<6)|(1<<7)|(1<<8),0,0,0))',
+    `${target}/bin/motrix-dsm-authority`,
+  ])
+}
+grantAuthority()
+
 // These programs simulate DSM authority responses. They are never packaged.
 // No passwords or actual DSM cookies are used by this Linux acceptance test.
 await writeFile('/tmp/dsm-session-state', 'active')
 await writeFile('/tmp/dsm-account-state', 'active')
 await writeFile('/tmp/dsm-acl-state', 'allow')
 const mock = async (file, body) => {
-  await writeFile(file, `#!/bin/sh\n[ "$(id -u)" = 1600 ] || exit 1\n${body}\n`)
+  await writeFile(
+    file,
+    `#!/bin/sh\n[ "$(id -u)" = 0 ] || exit 91\ncase "$(awk '/^CapEff:/ {print $2}' /proc/$$/status)" in 0000000000000002|0000000000000006) ;; *) exit 92 ;; esac\n[ -z "$LD_PRELOAD$NODE_OPTIONS$SSH_AUTH_SOCK" ] || exit 93\n${body}\n`
+  )
   await chmod(file, 0o755)
 }
 await mock(
-  '/usr/syno/synoman/webman/modules/authenticate.cgi',
+  '/usr/syno/synoman/webman/authenticate.cgi',
   '[ "$(cat /tmp/dsm-session-state)" = active ] || exit 5; [ "$HTTP_COOKIE" = "id=synthetic-session" ] && [ "$REMOTE_ADDR" = 127.0.0.1 ] && [ "$SERVER_PORT" = 5000 ] && [ "$REQUEST_SCHEME" = http ] && printf alice'
+)
+await chown('/usr/syno/synoman/webman/authenticate.cgi', 1, 1)
+await symlink(
+  '../authenticate.cgi',
+  '/usr/syno/synoman/webman/modules/authenticate.cgi'
 )
 await mock(
   '/usr/syno/sbin/synouser',
   `
-[ "$1" = --get ] && [ "$2" = alice ] || exit 1
+[ "$1" = --get ] || exit 1
+if [ "$2" = timeout ]; then exec sleep 20; fi
+if [ "$2" = motrix ]; then printf 'User Name : [motrix]\\nUser Type : [AUTH_LOCAL]\\nUser uid : [1600]\\nExpired : [false]\\n'; exit 0; fi
+[ "$2" = alice ] || exit 1
 state=$(cat /tmp/dsm-account-state)
 [ "$state" != unavailable ] || exit 1
 printf 'User Name : [alice]\\nUser Type : [AUTH_LOCAL]\\nUser uid : [1700]\\n'
 if [ "$state" = disabled ]; then echo 'Expired : [true]'; else echo 'Expired : [false]'; fi
-[ "$state" != demoted ] && echo '(101) administrators'
+if [ "$state" = demoted ]; then echo 'Member Of : [0]'; else echo 'Member Of : [1]'; echo '(101) administrators'; fi
 exit 0`
 )
 await mock(
   '/usr/syno/bin/synoacltool',
   `
 [ "$1" = -get-perm ] && [ "$3" = alice ] || exit 1
+case "$2" in /proc/self/fd/*) ;; *) exit 94 ;; esac
+[ -e "$2" ] || exit 95
 case "$(cat /tmp/dsm-acl-state)" in
 allow) echo 'Final permission: [rwxpdDaARWcCo]';;
 readonly) echo 'Final permission: [r-x---a-R-c--]';;
 *) echo 'unexpected output';;
 esac`
 )
+await chmod('/usr/syno/sbin/synouser', 0o700)
+for (const body of [
+  { operation: 'exec', command: '/bin/sh' },
+  { operation: 'account', username: '--add' },
+  { operation: 'acl', username: 'alice', path: '/etc/shadow' },
+  { operation: 'session', context: { LD_PRELOAD: '/tmp/injection.so' } },
+]) {
+  const result = spawnSync(
+    'runuser',
+    ['-u', 'motrix', '--', `${target}/bin/motrix-dsm-authority`],
+    { input: JSON.stringify(body), encoding: 'utf8' }
+  )
+  assert.equal(result.status, 126)
+  assert.equal(result.stdout, '')
+  assert.equal(result.stderr, '')
+}
+// Exercise the privileged monitor and inherited signal state with real Linux
+// credentials, not a mocked spawn. All identities/data here are synthetic.
+execFileSync('runuser', [
+  '-u',
+  'motrix',
+  '--',
+  'python3',
+  '-c',
+  `import json,os,signal,subprocess,sys,time
+tool=sys.argv[1]
+started=time.monotonic()
+p=subprocess.Popen([tool],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+p.stdin.write(json.dumps({"operation":"account","username":"timeout"}).encode())
+p.stdin.close()
+p.stdin=None
+for _ in range(100):
+    with open('/proc/%s/status'%p.pid) as f:
+        root=any(line.startswith('Uid:') and line.split()[1:] == ['0']*4 for line in f)
+    if root: break
+    time.sleep(.01)
+assert root, 'monitor did not enter its protected identity'
+try:
+    os.kill(p.pid,signal.SIGSTOP)
+    raise AssertionError('package caller could suspend authority deadline')
+except PermissionError: pass
+out,err=p.communicate(timeout=5)
+assert p.returncode == 126 and out == err == b''
+assert time.monotonic()-started < 5
+signal.signal(signal.SIGALRM,signal.SIG_IGN)
+signal.pthread_sigmask(signal.SIG_BLOCK,{signal.SIGALRM})
+p=subprocess.Popen([tool],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+assert p.wait(timeout=8) == -signal.SIGALRM, 'incomplete stdin bypassed alarm'
+p.stdin.close()
+assert p.stdout.read() == p.stderr.read() == b''
+`,
+  `${target}/bin/motrix-dsm-authority`,
+])
 const env = {
   PATH: '/usr/sbin:/usr/bin:/sbin:/bin',
   SYNOPKG_PKGDEST: target,
@@ -285,6 +362,11 @@ try {
   assert.equal((await execute('postinst')).code, 0)
   await life('start')
   await life('status')
+  assert.equal(
+    JSON.parse((await web('/healthz', {})).body).nasAuthority
+      .accountLookupProbe,
+    'passed'
+  )
   // Exercise a separate unprivileged gateway account, not the root test driver.
   // Root bypasses Unix permissions and would miss the DSM 502 regression.
   const gatewayProbe = `const http=require('node:http');const fs=require('node:fs');const req=http.get({socketPath:process.argv[1],path:'/motrix/healthz'},res=>{res.resume();res.on('end',()=>{if(res.statusCode!==200)process.exit(2);for(const p of process.argv.slice(2)){try{fs.accessSync(p,fs.constants.R_OK);process.exit(3)}catch(e){if(e.code!=='EACCES')process.exit(4)}}})});req.on('error',e=>{console.error(e.code);process.exit(5)})`
@@ -439,6 +521,7 @@ try {
   await rm(target, { recursive: true, force: true })
   await cp(path.join(project, 'app'), target, { recursive: true })
   execFileSync('chown', ['-R', '1600:1600', target])
+  grantAuthority()
   assert.equal(
     (await execute('postupgrade', undefined, { SYNOPKG_PKG_STATUS: 'UPGRADE' }))
       .code,

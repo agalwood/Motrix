@@ -33,6 +33,9 @@ const { values } = parseArgs({
     revision: { type: 'string' },
   },
 })
+run(process.execPath, [
+  path.join(repositoryRoot, 'packages/synology-authority/build.mjs'),
+])
 const project = await prepareSynologyProject({
   appDir: values['app-dir'],
   outputDir: values['output-dir'],

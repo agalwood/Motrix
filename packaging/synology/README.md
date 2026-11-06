@@ -36,8 +36,21 @@ unprivileged Nginx gateway can connect. Private settings and application data
 remain owner-only; group membership never replaces session/account authentication.
 
 The `motrix` package account runs the Web service, download engine, plugins and
-filesystem helper. No package process is elevated to root; the SPK requests no
-setuid program, Linux capability, sudo rule or privileged helper. DSM's resource
+filesystem helper. DSM’s account tool is root-only on the tested DSM 7.4.1 host.
+A separate, one-shot native `motrix-dsm-authority` broker therefore receives
+`cap_setuid,cap_setgid,cap_setpcap` through DSM’s `tool` privilege declaration.
+It is owner-only (`0700`) and rejects callers other than its package file owner.
+It accepts only session validation, account lookup and NAS ACL queries. It
+executes three fixed, system-owned DSM programs with a cleared environment;
+there is no shell, arbitrary command or file-content operation. After validation,
+only the bounded native monitor and its child use UID 0, so the package caller
+cannot suspend the deadline monitor. The child's capability bounding set keeps filesystem
+access only, excluding setuid/setgid, setfcap, ptrace, mount and network administration.
+Input/output and lifetimes are bounded, core dumps are disabled, and raw stderr
+and profile fields are discarded. ACL paths are pinned without following links
+before elevation. The broker does not directly read password files or download
+contents, and has no listener or persistent state. The application requests no
+sudo rule and continues to reject running the Server as root. DSM's resource
 workers create the `motrix` shared folder and register the Nginx configuration.
 Downloads are restricted to existing, mounted, canonical configured roots and
 the permissions of both the account and the package user. The default root is
@@ -163,7 +176,7 @@ Sources reviewed for DSM 7.2.2 on 2026-11-05:
 | Storage and lifecycle | [DSM FHS](https://help.synology.com/developer-guide/integrate_dsm/fhs.html), [data-share](https://help.synology.com/developer-guide/resource_acquisition/data_share.html), and [wizard contracts](https://help.synology.com/developer-guide/synology_package/wizard/WIZARD_UIFILES_v2.html). FHS data survives upgrades; the resource worker does not delete the download share. |
 | Desktop and proxy | [Desktop config](https://help.synology.com/developer-guide/integrate_dsm/config.html), [web-config](https://help.synology.com/developer-guide/resource_acquisition/web_config.html), and [Web Station alternative](https://help.synology.com/developer-guide/resource_acquisition/web_service.html). Use DSM's Nginx worker with a Unix upstream and explicit WebSocket forwarding. No fnOS identity Header. |
 | Session identity | [Application authentication](https://help.synology.com/developer-guide/integrate_dsm/web_authentication.html) documents `authenticate.cgi` and CGI environment. Invoke it without a shell using bounded output/time and the cookie plus gateway address context. Its availability as the package user must be tested on each DSM version. |
-| Account/ACL status | `synouser --get` and `synoacltool -get-perm` are version-sensitive DSM command adapters, **not a documented stable JSON API**. Only complete local active administrator records and exact effective-permission masks are accepted. No cached gateway claim substitutes for live status. If these tools require privilege or change format, access fails closed; a device-tested authority design is required before declaring that DSM version supported. |
+| Account/ACL status | `synouser --get` and `synoacltool -get-perm` are version-sensitive DSM command adapters, **not a documented stable JSON API**. Only complete local active administrator records and exact effective-permission masks are accepted. No cached gateway claim substitutes for live status. The native broker supplies the required privilege only for these fixed queries. Missing capabilities, unexpected output or unavailable authority still fail closed; actual DSM acceptance is required. |
 | Architecture | [Official architecture mapping](https://help.synology.com/developer-guide/appendix/platarchs.html) and [model/CPU list](https://kb.synology.com/en-global/DSM/tutorial/What_kind_of_CPU_does_my_NAS_have). DS920+/DS220+ are Gemini Lake; DS220j is RTD1296 (ARMv8), not x86_64. |
 | Toolchain | [Official toolchain selection](https://help.synology.com/developer-guide/compile_applications/download_dsm_tool_chain.html), [environment preparation](https://help.synology.com/developer-guide/getting_started/prepare_environment.html), and [spksrc Gemini Lake inputs](https://github.com/SynoCommunity/spksrc/tree/master/toolchain/syno-geminilake-7.2). The exact archive SHA-256 is recorded in `scripts/synology-runtime.lock.json`. |
 | Mature packaging reference | [SynoCommunity/spksrc](https://github.com/SynoCommunity/spksrc) and its [Transmission lifecycle](https://github.com/SynoCommunity/spksrc/blob/master/spk/transmission/src/service-setup.sh) informed FHS persistence and isolated package-user execution. No install-time dependency fetching is copied. |
