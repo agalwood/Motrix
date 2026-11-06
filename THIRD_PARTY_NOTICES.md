@@ -193,11 +193,9 @@ files are platform-specific build output and are not committed.
 
 The `motrix-native-host`, host-side `motrix-flatpak-native-host`, and
 in-sandbox `motrix-native-host-broker` executables, together with the
-`motrix-finalize-fs` filesystem sidecar and the DSM-only `motrix-dsm-authority`
-broker, are built from the following reviewed
+`motrix-finalize-fs` filesystem sidecar, are built from the following reviewed
 crate inventory. Versions are locked in `packages/native-host/Cargo.lock` and
-`packages/finalize-fs/Cargo.lock`, and `packages/synology-authority/Cargo.lock`;
-the helper locks must remain subsets of
+`packages/finalize-fs/Cargo.lock`; the sidecar lock must remain a subset of
 this inventory. Windows-only crates are listed because they are included in
 the Windows native executable builds.
 

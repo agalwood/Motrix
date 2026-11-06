@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { execFileSync, spawn, spawnSync } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import { createHash, randomBytes } from 'node:crypto'
 import {
   access,
@@ -14,6 +14,7 @@ import {
   writeFile,
 } from 'node:fs/promises'
 import { createServer, request } from 'node:http'
+import { createServer as createSocketServer } from 'node:net'
 import path from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { pathToFileURL } from 'node:url'
@@ -48,129 +49,129 @@ execFileSync('useradd', [
   'gateway',
 ])
 execFileSync('useradd', ['--uid', '1602', '--no-create-home', 'unrelated'])
-for (const folder of [
-  target,
-  variable,
-  downloads,
-  `${root}/shares`,
-  '/usr/syno/sbin',
-  '/usr/syno/bin',
-  '/usr/syno/synoman/webman/modules',
-])
+for (const folder of [target, variable, downloads, `${root}/shares`])
   await mkdir(folder, { recursive: true })
 await cp(path.join(project, 'app'), target, { recursive: true })
 await symlink(downloads, `${root}/shares/motrix`)
 execFileSync('chown', ['-R', '1600:1600', root, downloads])
-function grantAuthority() {
-  // Simulate DSM's declared tool worker only before starting any package process.
-  execFileSync('python3', [
-    '-c',
-    'import os,struct,sys;os.setxattr(sys.argv[1],"security.capability",struct.pack("<IIIII",0x02000001,(1<<6)|(1<<7)|(1<<8),0,0,0))',
-    `${target}/bin/motrix-dsm-authority`,
-  ])
-}
-grantAuthority()
-
-// These programs simulate DSM authority responses. They are never packaged.
-// No passwords or actual DSM cookies are used by this Linux acceptance test.
+// Simulate only the fixed DSM read APIs with real unprivileged socket access.
+// No helper capabilities, root package processes, real cookies or passwords.
+execFileSync('groupadd', ['--non-unique', '--gid', '101', 'administrators'])
+execFileSync('useradd', [
+  '--uid',
+  '1700',
+  '--groups',
+  'administrators',
+  '--no-create-home',
+  'alice',
+])
 await writeFile('/tmp/dsm-session-state', 'active')
 await writeFile('/tmp/dsm-account-state', 'active')
 await writeFile('/tmp/dsm-acl-state', 'allow')
-const mock = async (file, body) => {
-  await writeFile(
-    file,
-    `#!/bin/sh\n[ "$(id -u)" = 0 ] || exit 91\ncase "$(awk '/^CapEff:/ {print $2}' /proc/$$/status)" in 0000000000000002|0000000000000006) ;; *) exit 92 ;; esac\n[ -z "$LD_PRELOAD$NODE_OPTIONS$SSH_AUTH_SOCK" ] || exit 93\n${body}\n`
-  )
-  await chmod(file, 0o755)
-}
-await mock(
-  '/usr/syno/synoman/webman/authenticate.cgi',
-  '[ "$(cat /tmp/dsm-session-state)" = active ] || exit 5; [ "$HTTP_COOKIE" = "id=synthetic-session" ] && [ "$REMOTE_ADDR" = 127.0.0.1 ] && [ "$SERVER_PORT" = 5000 ] && [ "$REQUEST_SCHEME" = http ] && printf alice'
-)
-await chown('/usr/syno/synoman/webman/authenticate.cgi', 1, 1)
-await symlink(
-  '../authenticate.cgi',
-  '/usr/syno/synoman/webman/modules/authenticate.cgi'
-)
-await mock(
-  '/usr/syno/sbin/synouser',
-  `
-[ "$1" = --get ] || exit 1
-if [ "$2" = timeout ]; then exec sleep 20; fi
-if [ "$2" = motrix ]; then printf 'User Name : [motrix]\\nUser Type : [AUTH_LOCAL]\\nUser uid : [1600]\\nExpired : [false]\\n'; exit 0; fi
-[ "$2" = alice ] || exit 1
-state=$(cat /tmp/dsm-account-state)
-[ "$state" != unavailable ] || exit 1
-printf 'User Name : [alice]\\nUser Type : [AUTH_LOCAL]\\nUser uid : [1700]\\n'
-if [ "$state" = disabled ]; then echo 'Expired : [true]'; else echo 'Expired : [false]'; fi
-if [ "$state" = demoted ]; then echo 'Member Of : [0]'; else echo 'Member Of : [1]'; echo '(101) administrators'; fi
-exit 0`
-)
-await mock(
-  '/usr/syno/bin/synoacltool',
-  `
-[ "$1" = -get-perm ] && [ "$3" = alice ] || exit 1
-case "$2" in /proc/self/fd/*) ;; *) exit 94 ;; esac
-[ -e "$2" ] || exit 95
-case "$(cat /tmp/dsm-acl-state)" in
-allow) echo 'Final permission: [rwxpdDaARWcCo]';;
-readonly) echo 'Final permission: [r-x---a-R-c--]';;
-*) echo 'unexpected output';;
-esac`
-)
-await chmod('/usr/syno/sbin/synouser', 0o700)
-for (const body of [
-  { operation: 'exec', command: '/bin/sh' },
-  { operation: 'account', username: '--add' },
-  { operation: 'acl', username: 'alice', path: '/etc/shadow' },
-  { operation: 'session', context: { LD_PRELOAD: '/tmp/injection.so' } },
-]) {
-  const result = spawnSync(
-    'runuser',
-    ['-u', 'motrix', '--', `${target}/bin/motrix-dsm-authority`],
-    { input: JSON.stringify(body), encoding: 'utf8' }
-  )
-  assert.equal(result.status, 126)
-  assert.equal(result.stdout, '')
-  assert.equal(result.stderr, '')
-}
-// Exercise the privileged monitor and inherited signal state with real Linux
-// credentials, not a mocked spawn. All identities/data here are synthetic.
-execFileSync('runuser', [
-  '-u',
-  'motrix',
-  '--',
-  'python3',
-  '-c',
-  `import json,os,signal,subprocess,sys,time
-tool=sys.argv[1]
-started=time.monotonic()
-p=subprocess.Popen([tool],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-p.stdin.write(json.dumps({"operation":"account","username":"timeout"}).encode())
-p.stdin.close()
-p.stdin=None
-for _ in range(100):
-    with open('/proc/%s/status'%p.pid) as f:
-        root=any(line.startswith('Uid:') and line.split()[1:] == ['0']*4 for line in f)
-    if root: break
-    time.sleep(.01)
-assert root, 'monitor did not enter its protected identity'
-try:
-    os.kill(p.pid,signal.SIGSTOP)
-    raise AssertionError('package caller could suspend authority deadline')
-except PermissionError: pass
-out,err=p.communicate(timeout=5)
-assert p.returncode == 126 and out == err == b''
-assert time.monotonic()-started < 5
-signal.signal(signal.SIGALRM,signal.SIG_IGN)
-signal.pthread_sigmask(signal.SIG_BLOCK,{signal.SIGALRM})
-p=subprocess.Popen([tool],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-assert p.wait(timeout=8) == -signal.SIGALRM, 'incomplete stdin bypassed alarm'
-p.stdin.close()
-assert p.stdout.read() == p.stderr.read() == b''
-`,
-  `${target}/bin/motrix-dsm-authority`,
-])
+const authority = createSocketServer((socket) => {
+  let input = Buffer.alloc(0),
+    handled = false
+  socket.on('data', async (chunk) => {
+    if (handled) return
+    input = Buffer.concat([input, chunk])
+    const colon = input.indexOf(':')
+    if (colon < 0) return
+    const length = Number(input.subarray(0, colon).toString())
+    assert.ok(length > 0 && length < 32768)
+    if (input.length < colon + length + 2) return
+    const parts = input
+      .subarray(colon + 1, colon + 1 + length)
+      .toString()
+      .split('\0')
+    parts.pop()
+    const env = Object.fromEntries(
+      Array.from({ length: parts.length / 2 }, (_, i) =>
+        parts.slice(i * 2, i * 2 + 2)
+      )
+    )
+    if (input.length < colon + length + 2 + Number(env.CONTENT_LENGTH)) return
+    handled = true
+    assert.equal(env.SCGI, '1')
+    assert.equal(env.REMOTE_ADDR, '127.0.0.1')
+    assert.equal(env.SERVER_PORT, '5000')
+    assert.equal(env.REQUEST_SCHEME, 'http')
+    assert.equal(env.LD_PRELOAD, undefined)
+    const reply = (data) =>
+      socket.end(
+        `Content-Type: application/json\r\n\r\n${JSON.stringify(data)}`
+      )
+    if (
+      env.HTTP_COOKIE !== 'id=synthetic-session' ||
+      (await readFile('/tmp/dsm-session-state', 'utf8')) !== 'active'
+    )
+      return reply({ success: false, error: { code: 119 } })
+    if (env.SCRIPT_FILENAME === '/usr/syno/synoman/webman/login.cgi')
+      return reply({ success: true, SynoToken: 'synthetic-token' })
+    assert.equal(env.SCRIPT_FILENAME, '/usr/syno/synoman/webapi/entry.cgi')
+    assert.equal(env.HTTP_X_SYNO_TOKEN, 'synthetic-token')
+    const params = new URLSearchParams(
+      input.subarray(colon + length + 2).toString()
+    )
+    if (params.get('api') === 'SYNO.Core.NormalUser')
+      return reply({ success: true, data: { username: 'alice' } })
+    if (params.get('api') === 'SYNO.Core.User') {
+      assert.equal(params.get('name'), 'alice')
+      assert.equal(params.get('additional'), '["expired"]')
+      const state = await readFile('/tmp/dsm-account-state', 'utf8')
+      return reply(
+        state === 'unavailable'
+          ? { success: false, error: { code: 105 } }
+          : {
+              success: true,
+              data: {
+                users: [
+                  {
+                    name: 'alice',
+                    uid: 1700,
+                    expired: state === 'disabled' ? 'now' : 'normal',
+                  },
+                ],
+              },
+            }
+      )
+    }
+    assert.equal(params.get('api'), 'SYNO.FileStation.List')
+    assert.equal(params.get('method'), 'getinfo')
+    const names = JSON.parse(params.get('path'))
+    assert.equal(names.length, 1)
+    const file = `/volume1${names[0]}`
+    assert.ok(file === downloads || file.startsWith(`${downloads}/`))
+    const info = await stat(file).catch(() => null)
+    if (!info) return reply({ success: false, error: { code: 408 } })
+    const writable = (await readFile('/tmp/dsm-acl-state', 'utf8')) === 'allow'
+    reply({
+      success: true,
+      data: {
+        files: [
+          {
+            path: names[0],
+            isdir: info.isDirectory(),
+            additional: {
+              real_path: file,
+              perm: {
+                acl: {
+                  read: true,
+                  exec: true,
+                  write: writable,
+                  append: writable,
+                  del: writable,
+                },
+              },
+            },
+          },
+        ],
+      },
+    })
+  })
+})
+await new Promise((resolve) => authority.listen('/run/synoscgi.sock', resolve))
+await chown('/run/synoscgi.sock', 1023, 1650)
+await chmod('/run/synoscgi.sock', 0o770)
 const env = {
   PATH: '/usr/sbin:/usr/bin:/sbin:/bin',
   SYNOPKG_PKGDEST: target,
@@ -362,11 +363,6 @@ try {
   assert.equal((await execute('postinst')).code, 0)
   await life('start')
   await life('status')
-  assert.equal(
-    JSON.parse((await web('/healthz', {})).body).nasAuthority
-      .accountLookupProbe,
-    'passed'
-  )
   // Exercise a separate unprivileged gateway account, not the root test driver.
   // Root bypasses Unix permissions and would miss the DSM 502 regression.
   const gatewayProbe = `const http=require('node:http');const fs=require('node:fs');const req=http.get({socketPath:process.argv[1],path:'/motrix/healthz'},res=>{res.resume();res.on('end',()=>{if(res.statusCode!==200)process.exit(2);for(const p of process.argv.slice(2)){try{fs.accessSync(p,fs.constants.R_OK);process.exit(3)}catch(e){if(e.code!=='EACCES')process.exit(4)}}})});req.on('error',e=>{console.error(e.code);process.exit(5)})`
@@ -404,10 +400,8 @@ try {
   const rejectedSession = JSON.parse((await web('/rpc/auth/status')).body)
   assert.equal(rejectedSession.authed, false)
   assert.deepEqual(rejectedSession.nasAuthDiagnostic, {
-    stage: 'session',
-    code: 'commandFailed',
-    failure: 'exit',
-    exitCode: 5,
+    stage: 'account',
+    code: 'rejected',
   })
   assert.equal(JSON.stringify(rejectedSession).includes('alice'), false)
   assert.equal(
@@ -433,12 +427,19 @@ try {
   )
   let token = await pair()
   assert.equal((await rpc(Methods.TaskList, {}, token)).status, 200)
-  for (const state of ['disabled', 'demoted', 'unavailable']) {
+  for (const state of ['disabled', 'unavailable']) {
     await writeFile('/tmp/dsm-account-state', state)
     assert.equal((await rpc(Methods.TaskList, {}, token)).status, 403)
     assert.equal(JSON.parse((await web('/rpc/auth/status')).body).authed, false)
   }
   await writeFile('/tmp/dsm-account-state', 'active')
+  assert.equal(JSON.parse((await web('/rpc/auth/status')).body).authed, true)
+  // Real group removal must reject the same account, including paired clients.
+  execFileSync('gpasswd', ['-d', 'alice', 'administrators'])
+  assert.equal((await rpc(Methods.TaskList, {}, token)).status, 403)
+  assert.equal(JSON.parse((await web('/rpc/auth/status')).body).authed, false)
+  execFileSync('usermod', ['-a', '-G', 'administrators', 'alice'])
+  token = await pair()
   const add = (saveDir) =>
     rpc(
       Methods.DownloadAdd,
@@ -521,13 +522,14 @@ try {
   await rm(target, { recursive: true, force: true })
   await cp(path.join(project, 'app'), target, { recursive: true })
   execFileSync('chown', ['-R', '1600:1600', target])
-  grantAuthority()
   assert.equal(
     (await execute('postupgrade', undefined, { SYNOPKG_PKG_STATUS: 'UPGRADE' }))
       .code,
     0
   )
   await life('start')
+  assert.equal((await rpc(Methods.TaskList, {}, token)).status, 403)
+  assert.equal(JSON.parse((await web('/rpc/auth/status')).body).authed, true)
   assert.equal((await rpc(Methods.TaskList, {}, token)).status, 200)
   assert.deepEqual(await readFile(`${downloads}/fixture.bin`), payload)
   assert.ok(
@@ -582,5 +584,6 @@ try {
   await execute('start-stop-status', 'stop')
   seeder.kill('SIGTERM')
   fixture.close()
+  authority.close()
   await rm(root, { recursive: true, force: true })
 }

@@ -6,7 +6,6 @@ on:
     branches: [main]
     paths:
       - 'packaging/synology/**'
-      - 'packages/synology-authority/**'
       - 'scripts/*synology*'
       - 'scripts/spk_archive.py'
       - 'src/server/platform/synology/**'
@@ -49,17 +48,11 @@ jobs:
         with:
           toolchain: 1.94.1
           targets: ${{ matrix.rust_target }}
-          components: clippy, rustfmt
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
         env:
           MOTRIX_SKIP_ELECTRON_REBUILD: '1'
           MOTRIX_SKIP_ENGINE_FETCH: '1'
-      - name: Check native authority boundary
-        run: |
-          cargo fmt --manifest-path packages/synology-authority/Cargo.toml --all -- --check
-          cargo clippy --manifest-path packages/synology-authority/Cargo.toml --locked --all-targets -- -D warnings
-          cargo test --manifest-path packages/synology-authority/Cargo.toml --locked
       - name: Build and verify native package
         run: |
           pnpm run fetch:engine -- --platform linux --arch '${{ matrix.arch }}'

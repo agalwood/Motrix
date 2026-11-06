@@ -24,7 +24,7 @@ def extract(source, destination):
         for member in archive.getmembers():
             archive.extract(member, root, set_attrs=False, filter="data")
             target = root / member.name
-            target.chmod(0o755 if member.isdir() else member.mode & 0o777)
+            target.chmod(0o755 if member.isdir() or member.mode & 0o111 else 0o644)
 
 
 if __name__ == "__main__":

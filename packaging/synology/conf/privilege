@@ -4,14 +4,5 @@
   },
   "username": "motrix",
   "groupname": "motrix",
-  "join-groupname": "http",
-  "tool": [
-    {
-      "relpath": "bin/motrix-dsm-authority",
-      "user": "package",
-      "group": "package",
-      "permission": "0700",
-      "capabilities": "cap_setuid,cap_setgid,cap_setpcap"
-    }
-  ]
+  "join-groupname": "http"
 }

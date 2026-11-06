@@ -480,24 +480,18 @@ describe('third-party graph dependency notices', () => {
     expect(registryPackagesFromCargoLock(cargoLock)).toEqual(expected)
   })
 
-  it.each([
-    FINALIZE_FS_CARGO_LOCK,
-    path.join(ROOT, 'packages/synology-authority/Cargo.lock'),
-  ])(
-    'keeps native helper crates in %s inside the reviewed Rust inventory',
-    async (lock) => {
-      const cargoLock = await readFile(lock, 'utf8')
-      const reviewed = new Set(
-        RUST_NATIVE_CRATES.map(({ name, version }) => `${name}@${version}`)
-      )
+  it('keeps every finalize filesystem crate inside the reviewed Rust inventory', async () => {
+    const cargoLock = await readFile(FINALIZE_FS_CARGO_LOCK, 'utf8')
+    const reviewed = new Set(
+      RUST_NATIVE_CRATES.map(({ name, version }) => `${name}@${version}`)
+    )
 
-      expect(
-        registryPackagesFromCargoLock(cargoLock).filter(
-          ({ name, version }) => !reviewed.has(`${name}@${version}`)
-        )
-      ).toEqual([])
-    }
-  )
+    expect(
+      registryPackagesFromCargoLock(cargoLock).filter(
+        ({ name, version }) => !reviewed.has(`${name}@${version}`)
+      )
+    ).toEqual([])
+  })
 
   it.each(['THIRD_PARTY_NOTICES.md', 'THIRD_PARTY_NOTICES.zh-CN.md'])(
     '%s records every reviewed native crate and SPDX expression',

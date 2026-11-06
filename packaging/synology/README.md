@@ -29,29 +29,26 @@ release gate.
 
 Open Motrix from the DSM desktop while signed in as a local administrator. The
 entry uses the same DSM host and port, at `/motrix/`, including HTTP, WebSocket
-and static asset paths. Web Station is not required. The application has no
+and static asset paths. Web Station is not required; File Station must be available for effective ACL queries. The application has no
 separate password and does not collect DSM passwords. The package joins DSM’s `http` group using the official privilege mechanism.
 Only the upstream socket is shared as `motrix:http`, mode `0660`, so the
 unprivileged Nginx gateway can connect. Private settings and application data
 remain owner-only; group membership never replaces session/account authentication.
 
 The `motrix` package account runs the Web service, download engine, plugins and
-filesystem helper. DSM’s account tool is root-only on the tested DSM 7.4.1 host.
-A separate, one-shot native `motrix-dsm-authority` broker therefore receives
-`cap_setuid,cap_setgid,cap_setpcap` through DSM’s `tool` privilege declaration.
-It is owner-only (`0700`) and rejects callers other than its package file owner.
-It accepts only session validation, account lookup and NAS ACL queries. It
-executes three fixed, system-owned DSM programs with a cleared environment;
-there is no shell, arbitrary command or file-content operation. After validation,
-only the bounded native monitor and its child use UID 0, so the package caller
-cannot suspend the deadline monitor. The child's capability bounding set keeps filesystem
-access only, excluding setuid/setgid, setfcap, ptrace, mount and network administration.
-Input/output and lifetimes are bounded, core dumps are disabled, and raw stderr
-and profile fields are discarded. ACL paths are pinned without following links
-before elevation. The broker does not directly read password files or download
-contents, and has no listener or persistent state. The application requests no
-sudo rule and continues to reject running the Server as root. DSM's resource
+filesystem helper. No package process is elevated to root; the SPK requests no
+setuid program, Linux capability, sudo rule or privileged helper. DSM's resource
 workers create the `motrix` shared folder and register the Nginx configuration.
+The `http` group also provides access to DSM's existing local SCGI socket. The
+adapter calls only fixed vendor routes: `login.cgi` retrieves the current
+session's SynoToken, `SYNO.Core.NormalUser.get` identifies its owner, and
+`SYNO.Core.User.get` queries that local account's `expired` status. Nonprivileged
+`id` queries independently check UID and current membership of group 101.
+File Station `List.getinfo` supplies effective ACL rights for the exact requested
+path; the returned physical path must match. No API can read file contents or
+mutate DSM settings through this adapter. Raw responses and credentials are
+never returned in diagnostics.
+
 Downloads are restricted to existing, mounted, canonical configured roots and
 the permissions of both the account and the package user. The default root is
 resolved from DSM's `/var/packages/Motrix/shares/motrix` link. An unavailable
@@ -99,11 +96,16 @@ demotion, missing records or an authority failure deny access. Any change to the
 root-owned local passwd/group database conservatively invalidates all existing
 bindings, including after UID reuse; pair again. Explicit credential revocation
 continues to use the existing protocol. DSM session cookies are neither saved in
-pairing state nor used as CLI credentials. Web event tickets are one-use,
+pairing state nor used as CLI credentials. At most 64 session contexts are kept
+in memory for 30 minutes after the last authenticated Web request; every client
+operation revalidates the actual DSM session and account. A DSM logout, expired
+context or Motrix restart requires the corresponding administrator to reopen
+Motrix. Paired credentials and tasks survive an upgrade, but no client is allowed
+to act until its account has supplied a fresh verified session. Web event tickets are one-use,
 origin-bound and short-lived; connections reauthenticate at least every minute.
 
 If the account cannot be verified, the page shows a bounded diagnostic such as
-`session / commandFailed / exit / 5` or `account / commandFailed / accessDenied`.
+`account / rejected` or `account / commandFailed / accessDenied`.
 The same metadata is available at `/motrix/rpc/auth/status` in the signed-in
 browser. It contains no Cookie, token, account name or raw command output.
 Session and account checks still fail closed; a diagnostic is not an authorization
@@ -158,16 +160,16 @@ DSM loader and exercises SQLite read/write. aria2 and the filesystem helper are
 static. The SDK is a build input and is not redistributed inside the SPK.
 
 The build runs ordinary Server smoke and DSM lifecycle simulation against the
-**extracted SPK bytes**. The simulated DSM authority programs exist only inside
-a disposable container. They validate integration behavior, not the availability,
-output format or permissions of DSM's real programs. The package receipt records the source commit and whether the source tree was
+**extracted SPK bytes**. A simulated DSM SCGI API exists only inside
+a disposable container. It validates integration behavior, not the availability,
+output format or permissions of DSM's real API. The package receipt records the source commit and whether the source tree was
 dirty. Keep `.abi.json` and test
 logs with the SPK and its SHA-256. Do not publish a release or claim device
 compatibility based on those reports alone.
 
 ## Implementation evidence and limits
 
-Sources reviewed for DSM 7.2.2 on 2026-11-05:
+Sources reviewed for DSM 7.2.2 and DSM 7.4.1 on 2026-11-06:
 
 | Area | Basis and implementation boundary |
 | --- | --- |
@@ -175,8 +177,8 @@ Sources reviewed for DSM 7.2.2 on 2026-11-05:
 | Least privilege | [Privilege configuration](https://help.synology.com/developer-guide/privilege/privilege_config.html) and the [official web-package group example](https://help.synology.com/developer-guide/examples/compile_web_package.html). Use `run-as: package` and `join-groupname: http`; root packages require additional Synology authorization. |
 | Storage and lifecycle | [DSM FHS](https://help.synology.com/developer-guide/integrate_dsm/fhs.html), [data-share](https://help.synology.com/developer-guide/resource_acquisition/data_share.html), and [wizard contracts](https://help.synology.com/developer-guide/synology_package/wizard/WIZARD_UIFILES_v2.html). FHS data survives upgrades; the resource worker does not delete the download share. |
 | Desktop and proxy | [Desktop config](https://help.synology.com/developer-guide/integrate_dsm/config.html), [web-config](https://help.synology.com/developer-guide/resource_acquisition/web_config.html), and [Web Station alternative](https://help.synology.com/developer-guide/resource_acquisition/web_service.html). Use DSM's Nginx worker with a Unix upstream and explicit WebSocket forwarding. No fnOS identity Header. |
-| Session identity | [Application authentication](https://help.synology.com/developer-guide/integrate_dsm/web_authentication.html) documents `authenticate.cgi` and CGI environment. Invoke it without a shell using bounded output/time and the cookie plus gateway address context. Its availability as the package user must be tested on each DSM version. |
-| Account/ACL status | `synouser --get` and `synoacltool -get-perm` are version-sensitive DSM command adapters, **not a documented stable JSON API**. Only complete local active administrator records and exact effective-permission masks are accepted. No cached gateway claim substitutes for live status. The native broker supplies the required privilege only for these fixed queries. Missing capabilities, unexpected output or unavailable authority still fail closed; actual DSM acceptance is required. |
+| Session identity | [Application authentication](https://help.synology.com/developer-guide/integrate_dsm/web_authentication.html) establishes the cookie/CGI context. Direct `authenticate.cgi` execution and the privileged r4 broker are not used. The `login.cgi` bootstrap and `SYNO.Core.NormalUser.get` read calls were verified with a real DSM 7.4.1 browser session. The local SCGI transport remains version-sensitive and must be tested on each DSM release. |
+| Account/ACL status | `SYNO.Core.User.get` with only `additional=["expired"]` was verified on DSM 7.4.1; requesting `groups` additionally returns error 3106. Local UID and administrator membership use nonprivileged `id`. The [official File Station API](https://global.download.synology.com/download/Document/Software/DeveloperGuide/Package/FileStation/All/enu/Synology_File_Station_API_Guide.pdf) documents `List.getinfo` and effective ACL fields; browser requests were verified against two explicitly authorized shares. Those API checks do not establish complete SPK/device acceptance. |
 | Architecture | [Official architecture mapping](https://help.synology.com/developer-guide/appendix/platarchs.html) and [model/CPU list](https://kb.synology.com/en-global/DSM/tutorial/What_kind_of_CPU_does_my_NAS_have). DS920+/DS220+ are Gemini Lake; DS220j is RTD1296 (ARMv8), not x86_64. |
 | Toolchain | [Official toolchain selection](https://help.synology.com/developer-guide/compile_applications/download_dsm_tool_chain.html), [environment preparation](https://help.synology.com/developer-guide/getting_started/prepare_environment.html), and [spksrc Gemini Lake inputs](https://github.com/SynoCommunity/spksrc/tree/master/toolchain/syno-geminilake-7.2). The exact archive SHA-256 is recorded in `scripts/synology-runtime.lock.json`. |
 | Mature packaging reference | [SynoCommunity/spksrc](https://github.com/SynoCommunity/spksrc) and its [Transmission lifecycle](https://github.com/SynoCommunity/spksrc/blob/master/spk/transmission/src/service-setup.sh) informed FHS persistence and isolated package-user execution. No install-time dependency fetching is copied. |

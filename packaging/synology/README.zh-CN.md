@@ -23,23 +23,21 @@ Motrix Server/Web UI、aria2 和文件系统辅助程序。运行时不依赖 Do
 ## 使用与权限
 
 使用本地管理员账号登录 DSM 后，从桌面打开 Motrix。入口沿用 DSM 的主机名和
-端口，路径为 `/motrix/`，包括 HTTP、WebSocket 和静态资源。无需安装 Web Station。
+端口，路径为 `/motrix/`，包括 HTTP、WebSocket 和静态资源。无需安装 Web Station；有效 ACL 查询需要 File Station 可用。
 应用没有单独的登录密码，也不收集 DSM 密码。套件通过 DSM 官方权限机制加入 `http` 组，
 仅将上游 socket 设为 `motrix:http`、权限 `0660`，供非 root Nginx 网关连接。
 配置和应用数据仍仅限套件账号访问；组成员身份不能替代会话和账号认证。
 
 Web 服务、下载引擎、插件和文件系统辅助程序均以 `motrix` 套件账号运行。
-实测 DSM 7.4.1 的账号查询程序仅限 root 执行，因此单独提供一次性的原生
-`motrix-dsm-authority` 辅助程序，通过 DSM `tool` 声明授予
-`cap_setuid,cap_setgid,cap_setpcap`。它的权限为 `0700`，仅接受自己的套件文件所有者调用，
-只处理会话验证、账号状态和 NAS ACL 查询。它清空环境后调用三个固定的系统程序，
-不提供 shell、任意命令或文件内容读取接口。校验通过后，只有限时运行的原生监控进程及
-其子进程使用 UID 0，防止套件调用者暂停超时监控。子进程的能力边界只保留文件系统访问，
-排除切换身份、设置 capability、ptrace、挂载和网络管理。
-输入、输出和运行时间均有限制，禁用 core dump，丢弃原始 stderr 和无关账号资料。
-ACL 路径在提权前通过句柄固定，禁止跟随符号链接。辅助程序不直接读取密码文件或
-下载内容，不监听端口、不保存状态。套件不增加 sudo 规则，Server 仍拒绝以 root 运行。
+套件没有 root 进程，不申请 setuid、Linux capability、sudo 规则或特权辅助服务。
 DSM 资源管理器负责创建 `motrix` 共享文件夹和注册 Nginx 配置。
+`http` 组还允许连接 DSM 已有的本地 SCGI socket。适配层只调用固定的系统接口：
+`login.cgi` 获取当前会话的 SynoToken，`SYNO.Core.NormalUser.get` 识别会话所有者，
+`SYNO.Core.User.get` 查询该本地账号的 `expired` 状态。非特权 `id` 命令独立核对
+UID 和当前是否属于管理员组 101。File Station `List.getinfo` 返回指定路径的
+有效 ACL 权限，返回的实际路径必须与请求完全一致。适配层不能调用读取文件内容或
+修改 DSM 设置的接口；诊断不会返回原始响应或凭据。
+
 下载范围同时受已配置目录、管理员账号权限和套件账号权限约束。授权目录必须
 存在、位于已挂载存储卷中，且不能通过符号链接改指其他位置。默认目录从
 `/var/packages/Motrix/shares/motrix` 解析；存储离线时不会在系统卷重建替代目录。
@@ -75,14 +73,17 @@ DSM 资源管理器负责创建 `motrix` 共享文件夹和注册 Nginx 配置�
 账号状态；停用、过期、降权、记录缺失或查询失败都会拒绝访问。root 所有的
 passwd/group 数据库发生任何变化时，会保守地让全部既有绑定失效，包括 UID
 被复用的情况，此时需要重新配对。明确撤销凭据仍走既有协议。DSM 会话 Cookie
-不会写入配对状态，也不能作为 CLI 凭据使用。Web 事件票据只能使用一次，绑定
+不会写入配对状态，也不能作为 CLI 凭据使用。内存中最多保留 64 个会话上下文，
+距最近一次已认证 Web 请求超过 30 分钟即失效；每次客户端操作仍会实时核对 DSM
+会话和账号。退出 DSM、上下文过期或 Motrix 重启后，对应管理员需重新打开 Motrix。
+升级保留配对凭据和任务，但账号提供新的已验证会话前，客户端操作均被拒绝。Web 事件票据只能使用一次，绑定
 当前 Origin 并短期有效；连接至少每分钟重新认证。
 
 无法验证账号时，页面会显示有限的诊断，例如
-`session / commandFailed / exit / 5` 或 `account / commandFailed / accessDenied`。
+`account / rejected` 或 `account / commandFailed / accessDenied`。
 已登录的浏览器访问 `/motrix/rpc/auth/status` 也可获取这些状态；其中不包含 Cookie、
 令牌、账号名或命令原始输出。认证和账号检查失败时仍拒绝访问，诊断不是授权回退。
-代理会传递 CGI 协议和端口，后端补充经过长度校验的主机与浏览器信息，供 DSM 认证程序使用。
+代理会传递 CGI 协议和端口，后端补充经过长度校验的主机与浏览器信息，供 DSM 本地 API 使用。
 
 ## 生命周期与数据保留
 
@@ -124,14 +125,14 @@ SPK 构建器会解包实际外层归档和 `package.tgz`，拒绝目录穿越�
 aria2 和文件系统辅助程序为静态程序。SDK 仅用于构建，不包含在分发 SPK 中。
 
 普通 Server smoke 和 DSM 生命周期模拟均针对**最终 SPK 解包后的文件**运行。
-模拟 DSM 认证程序仅存在于一次性容器中，验证的是集成行为，不能证明真实 DSM
-程序的可用性、输出格式或执行权限。包内构建记录包含源码 commit 和工作区是否有未提交改动。
+模拟 DSM SCGI API 仅存在于一次性容器中，验证的是集成行为，不能证明真实 DSM
+接口的可用性、输出格式或访问权限。包内构建记录包含源码 commit 和工作区是否有未提交改动。
 请将 `.abi.json` 和测试日志与 SPK、SHA-256
 一同保留，不要仅凭这些结果发布正式版本或宣称实机兼容。
 
 ## 实现依据与边界
 
-以下资料于 2026-11-05 按 DSM 7.2.2 核对：
+以下资料于 2026-11-06 按 DSM 7.2.2 和 DSM 7.4.1 核对：
 
 | 范围 | 依据与实现边界 |
 | --- | --- |
@@ -139,8 +140,8 @@ aria2 和文件系统辅助程序为静态程序。SDK 仅用于构建，不包�
 | 最小权限 | [权限配置](https://help.synology.com/developer-guide/privilege/privilege_config.html)、[官方 Web 套件分组示例](https://help.synology.com/developer-guide/examples/compile_web_package.html)。使用 `run-as: package` 和 `join-groupname: http`；root 套件需要群晖额外授权。 |
 | 存储与生命周期 | [FHS](https://help.synology.com/developer-guide/integrate_dsm/fhs.html)、[data-share](https://help.synology.com/developer-guide/resource_acquisition/data_share.html)、[向导规范](https://help.synology.com/developer-guide/synology_package/wizard/WIZARD_UIFILES_v2.html)。FHS 状态跨升级保留，资源管理器不删除下载共享目录。 |
 | 桌面与代理 | [桌面配置](https://help.synology.com/developer-guide/integrate_dsm/config.html)、[web-config](https://help.synology.com/developer-guide/resource_acquisition/web_config.html)、[Web Station 方案](https://help.synology.com/developer-guide/resource_acquisition/web_service.html)。采用 DSM Nginx worker、Unix upstream 和明确的 WebSocket 转发，不接受 fnOS 身份 Header。 |
-| 登录身份 | [应用认证](https://help.synology.com/developer-guide/integrate_dsm/web_authentication.html)说明 `authenticate.cgi` 及 CGI 环境。调用不经过 shell，限制时间和输出，传入 Cookie 和网关地址上下文；套件账号能否执行仍需按 DSM 版本验证。 |
-| 账号与 ACL 状态 | `synouser --get`、`synoacltool -get-perm` 是依赖 DSM 版本的命令适配，**不是有稳定公开承诺的 JSON API**。只接受完整的本地有效管理员记录和明确有效权限位；不能用缓存的网关身份替代实时状态。原生辅助程序只为这些固定查询提供必要权限；capability 缺失、输出格式变化或账号服务不可用时仍拒绝访问，仍需实际 DSM 验收。 |
+| 登录身份 | [应用认证](https://help.synology.com/developer-guide/integrate_dsm/web_authentication.html)说明 Cookie 和 CGI 上下文。新版不再直接执行 `authenticate.cgi`，也不使用 r4 提权辅助程序。已用 DSM 7.4.1 的真实浏览器会话验证 `login.cgi` 和 `SYNO.Core.NormalUser.get`；本地 SCGI 传输仍依赖 DSM 版本，需要逐版本验收。 |
+| 账号与 ACL 状态 | DSM 7.4.1 已验证 `SYNO.Core.User.get` 单独查询 `additional=["expired"]`；附带 `groups` 会报 3106。UID 和管理员组通过非特权 `id` 核对。[官方 File Station API](https://global.download.synology.com/download/Document/Software/DeveloperGuide/Package/FileStation/All/enu/Synology_File_Station_API_Guide.pdf)规定了 `List.getinfo` 和有效 ACL 字段，已在两个明确授权的共享目录完成浏览器查询。这些接口检查不等同于完整 SPK 实机验收。 |
 | 架构 | [官方架构映射](https://help.synology.com/developer-guide/appendix/platarchs.html)、[机型 CPU 列表](https://kb.synology.com/en-global/DSM/tutorial/What_kind_of_CPU_does_my_NAS_have)。DS920+/DS220+ 属于 Gemini Lake；DS220j 是 RTD1296（ARMv8），不能安装 x86_64 包。 |
 | 工具链 | [官方选择说明](https://help.synology.com/developer-guide/compile_applications/download_dsm_tool_chain.html)、[环境准备](https://help.synology.com/developer-guide/getting_started/prepare_environment.html)、[spksrc Gemini Lake 输入](https://github.com/SynoCommunity/spksrc/tree/master/toolchain/syno-geminilake-7.2)。准确归档 SHA-256 记录在 `scripts/synology-runtime.lock.json`。 |
 | 成熟开源参考 | [SynoCommunity/spksrc](https://github.com/SynoCommunity/spksrc) 及其 [Transmission 生命周期](https://github.com/SynoCommunity/spksrc/blob/master/spk/transmission/src/service-setup.sh)，用于核对 FHS 保留和套件账号运行；没有照搬安装时下载依赖的做法。 |

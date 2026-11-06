@@ -57,27 +57,7 @@ export async function verifySynologyProject(root) {
     username: 'motrix',
     groupname: 'motrix',
     'join-groupname': 'http',
-    tool: [
-      {
-        relpath: 'bin/motrix-dsm-authority',
-        user: 'package',
-        group: 'package',
-        permission: '0700',
-        capabilities: 'cap_setuid,cap_setgid,cap_setpcap',
-      },
-    ],
   })
-  const authority = path.join(app, 'bin/motrix-dsm-authority')
-  assert.equal((await lstat(authority)).mode & 0o777, 0o700)
-  assert.equal(sha256(await readFile(authority)), receipt.authoritySha256)
-  assert.equal(
-    sha256(
-      await readFile(
-        path.join(repositoryRoot, 'packages/synology-authority/Cargo.lock')
-      )
-    ),
-    receipt.authorityLockSha256
-  )
   const info = await readFile(path.join(root, 'INFO'), 'utf8')
   for (const field of [
     `version="${receipt.version}-${receipt.revision}"`,
@@ -89,7 +69,6 @@ export async function verifySynologyProject(root) {
     assert.ok(info.split('\n').includes(field), field)
   for (const file of [
     'runtime/bin/node',
-    'bin/motrix-dsm-authority',
     'server/bin/aria2c',
     'server/bin/motrix-finalize-fs',
   ])

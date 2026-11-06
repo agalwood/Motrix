@@ -1,33 +1,97 @@
 import { describe, expect, it, vi } from 'vitest'
 import { NasClientAuthorization } from '../nas/client-authorization'
 import { currentNasUser } from '../nas/identity'
-import { parseDsmAccount, SynologyAccounts } from './accounts'
+import { SynologyAccounts } from './accounts'
+import type { DsmApi } from './api'
 
-const output = (state = 'false', group = '(101) administrators') =>
-  `User Name : [alice]\nUser Type : [AUTH_LOCAL]\nUser uid : [1700]\nExpired : [${state}]\n${group}\n`
-
-describe('DSM live account authorization', () => {
-  it('requires a complete, unambiguous local active administrator record', () => {
-    expect(parseDsmAccount(output(), 'alice')?.userId).toBe('1700')
-    for (const value of [
-      output('true'),
-      output('false', '(100) users'),
-      output().replace('AUTH_LOCAL', 'AUTH_DOMAIN'),
-      `${output()}Expired : [false]\n`,
-      '',
-    ])
-      expect(parseDsmAccount(value, 'alice')).toBeNull()
-    expect(parseDsmAccount(output(), '--enum')).toBeNull()
+const context = {
+  cookie: 'id=synthetic',
+  remoteAddress: '127.0.0.1',
+  serverAddress: '127.0.0.1',
+  serverPort: 5001,
+  scheme: 'https' as const,
+}
+function fixture() {
+  const state = {
+    expired: 'normal',
+    admin: true,
+    epoch: 'first',
+    username: 'alice',
+    uid: 1700,
+    session: true,
+    now: 0,
+    filePath: '/volume1/motrix/file',
+  }
+  const api: DsmApi = vi.fn(async (_context, request, token) => {
+    if (!state.session) return { success: false, error: { code: 119 } }
+    if (request.kind === 'bootstrap')
+      return { success: true, SynoToken: 'synthetic-token' }
+    expect(token).toBe('synthetic-token')
+    if (request.kind === 'session')
+      return { success: true, data: { username: state.username } }
+    if (request.kind === 'account')
+      return {
+        success: true,
+        data: {
+          users: [
+            { name: request.username, uid: state.uid, expired: state.expired },
+          ],
+        },
+      }
+    return {
+      success: true,
+      data: {
+        files: [
+          {
+            path: request.path,
+            isdir: false,
+            additional: {
+              real_path: state.filePath,
+              perm: {
+                acl: {
+                  read: true,
+                  write: true,
+                  append: true,
+                  exec: true,
+                  del: true,
+                },
+              },
+            },
+          },
+        ],
+      },
+    }
   })
-  it('revalidates bound clients and rejects disable, demotion, account recreation and lookup failure', async () => {
-    let state = output()
-    let epoch = 'first'
-    const accounts = new SynologyAccounts(
-      async () => state,
-      async () => epoch
-    )
-    const owner = await accounts.lookup('alice', AbortSignal.timeout(1000))
-    expect(owner).not.toBeNull()
+  const accounts = new SynologyAccounts(
+    api,
+    async () => state.epoch,
+    async () => ({ uid: state.uid, administrator: state.admin }),
+    () => state.now
+  )
+  return { state, api, accounts }
+}
+describe('DSM live account authorization', () => {
+  it('requires live session, local active account and POSIX administrator membership', async () => {
+    const { state, accounts } = fixture()
+    const signal = AbortSignal.timeout(1000)
+    expect(await accounts.lookup('alice', signal)).toBeNull()
+    expect(await accounts.authenticate(context, signal)).toMatchObject({
+      username: 'alice',
+      userId: '1700',
+      administrator: true,
+    })
+    for (const expired of ['now', '', 'false', '2030-01-01']) {
+      state.expired = expired
+      expect(await accounts.authenticate(context, signal)).toBeNull()
+    }
+    state.expired = 'normal'
+    state.admin = false
+    expect(await accounts.authenticate(context, signal)).toBeNull()
+  })
+  it('revalidates paired credentials and rejects disable, demotion, expiry, UID reuse and missing context', async () => {
+    const { state, accounts } = fixture()
+    const signal = AbortSignal.timeout(1000)
+    const owner = await accounts.authenticate(context, signal)
     const authorization = new NasClientAuthorization(
       { ownerOf: () => owner ?? undefined },
       accounts
@@ -38,28 +102,101 @@ describe('DSM live account authorization', () => {
     }
     const operation = vi.fn(async () => currentNasUser()?.username)
     expect(await authorization.run(client, operation)).toBe('alice')
-    for (const disabled of [
-      output('true'),
-      output('false', '(100) users'),
-      '',
-    ]) {
-      state = disabled
-      await expect(authorization.run(client, operation)).rejects.toThrow()
-    }
-    state = output()
-    epoch = 'recreated'
+    state.expired = 'now'
+    await expect(authorization.run(client, operation)).rejects.toThrow()
+    state.expired = 'normal'
+    // Failed authority clears the in-memory context until this account returns.
+    await expect(authorization.run(client, operation)).rejects.toThrow()
+    await accounts.authenticate(context, signal)
+    state.admin = false
+    await expect(authorization.run(client, operation)).rejects.toThrow()
+    state.admin = true
+    await accounts.authenticate(context, signal)
+    state.session = false
+    await expect(authorization.run(client, operation)).rejects.toThrow()
+    state.session = true
+    await accounts.authenticate(context, signal)
+    state.epoch = 'recreated'
+    await expect(authorization.run(client, operation)).rejects.toThrow()
+    state.epoch = 'first'
+    state.uid = 1800
     await expect(authorization.run(client, operation)).rejects.toThrow()
     expect(operation).toHaveBeenCalledTimes(1)
   })
-  it('rejects an account database change during the authority lookup', async () => {
-    let epoch = 'before'
-    const accounts = new SynologyAccounts(
-      async () => {
-        epoch = 'after'
-        return output()
-      },
-      async () => epoch
-    )
+  it('does not authorize an old owner with another current session account', async () => {
+    const { state, accounts } = fixture()
+    await accounts.authenticate(context, AbortSignal.timeout(1000))
+    state.username = 'bob'
     expect(await accounts.lookup('alice', AbortSignal.timeout(1000))).toBeNull()
+  })
+  it('bounds context lifetime and does not serialize session secrets', async () => {
+    const { state, accounts } = fixture()
+    const identity = await accounts.authenticate(
+      context,
+      AbortSignal.timeout(1000)
+    )
+    expect(JSON.stringify(identity)).not.toContain('synthetic')
+    state.now = 30 * 60_000
+    expect(await accounts.lookup('alice', AbortSignal.timeout(1000))).toBeNull()
+  })
+  it('keeps concurrent client validation valid when the same browser renews its context', async () => {
+    const { api, accounts } = fixture()
+    await accounts.authenticate(context, AbortSignal.timeout(1000))
+    const original = vi.mocked(api).getMockImplementation()
+    if (!original) throw new Error('Fixture API missing')
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    vi.mocked(api).mockImplementationOnce(async (...args) => {
+      await gate
+      return original(...args)
+    })
+    const pending = accounts.lookup('alice', AbortSignal.timeout(1000))
+    await accounts.authenticate(context, AbortSignal.timeout(1000))
+    release()
+    expect(await pending).toMatchObject({ username: 'alice' })
+  })
+  it('requires exact File Station path mapping and complete permission metadata', async () => {
+    const { state, accounts } = fixture()
+    const identity = await accounts.authenticate(
+      context,
+      AbortSignal.timeout(1000)
+    )
+    if (!identity) throw new Error('Fixture identity missing')
+    expect(
+      await accounts.inspectFile(
+        identity,
+        '/volume1/motrix/file',
+        AbortSignal.timeout(1000)
+      )
+    ).not.toBeNull()
+    state.filePath = '/volume2/motrix/file'
+    expect(
+      await accounts.inspectFile(
+        identity,
+        '/volume1/motrix/file',
+        AbortSignal.timeout(1000)
+      )
+    ).toBeNull()
+    expect(
+      await accounts.inspectFile(
+        identity,
+        '/etc/shadow',
+        AbortSignal.timeout(1000)
+      )
+    ).toBeNull()
+  })
+  it('rejects account generation changes during an authority lookup', async () => {
+    const { api } = fixture()
+    let epoch = 0
+    const accounts = new SynologyAccounts(
+      api,
+      async () => String(epoch++),
+      async () => ({ uid: 1700, administrator: true })
+    )
+    expect(
+      await accounts.authenticate(context, AbortSignal.timeout(1000))
+    ).toBeNull()
   })
 })

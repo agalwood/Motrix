@@ -179,7 +179,7 @@ import { NasFileRemover } from './platform/nas/file-remover'
 import { NasTaskAccess } from './platform/nas/task-access'
 import { createNodePlatformServices } from './platform/services'
 import { SynologyAccounts } from './platform/synology/accounts'
-import { probeDsmAuthority } from './platform/synology/commands'
+import { probeDsmApi } from './platform/synology/api'
 import { SynologyFiles } from './platform/synology/files'
 import { synologyGateway } from './platform/synology/identity'
 import { listenSynology, synologyRuntime } from './platform/synology/runtime'
@@ -220,7 +220,7 @@ async function main() {
   // ─── Logger ───────────────────────────────────────────────────
   initLogger(pino({ level: process.env.LOG_LEVEL ?? 'info' }))
   const log = getLogger('server')
-  const dsmAuthority = synology ? await probeDsmAuthority() : undefined
+  const dsmAuthority = synology ? await probeDsmApi() : undefined
   const torrentBodyLimitBytes = parseTorrentBodyLimit(
     process.env.MOTRIX_TORRENT_BODY_LIMIT_MIB
   )

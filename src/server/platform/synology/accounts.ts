@@ -1,45 +1,22 @@
 import { createHash } from 'node:crypto'
 import { stat } from 'node:fs/promises'
-import type { NasAccountAuthority } from '../nas/client-authorization'
+import {
+  type NasAccountAuthority,
+  sameNasAccount,
+} from '../nas/client-authorization'
 import type { NasIdentity } from '../nas/identity'
-import { type DsmCommand, dsmCommand } from './commands'
+import {
+  type DsmApi,
+  dsmAccountSchema,
+  dsmApi,
+  dsmBootstrapSchema,
+  dsmFileSchema,
+  dsmSessionSchema,
+} from './api'
+import { readDsmPosixAccount } from './commands'
+import { type DsmContext, validDsmUsername } from './validation'
 
-const usernamePattern = /^(?!.*[\s:[\]\\/])\P{Cc}{1,128}$/u
-export function validDsmUsername(name: string): boolean {
-  return usernamePattern.test(name) && !name.startsWith('-')
-}
-
-/** synouser's local-account view includes live expiration and group membership.
- * Domain/LDAP accounts need their own authoritative status contract. */
-export function parseDsmAccount(output: string, username: string) {
-  const field = (name: string) => {
-    const matches = [
-      ...output.matchAll(
-        new RegExp(`^${name}\\s*:\\s*\\[([^\\]\\r\\n]*)\\]\\s*$`, 'gm')
-      ),
-    ]
-    return matches.length === 1 ? matches[0][1] : undefined
-  }
-  const uid = field('User uid')
-  if (
-    !validDsmUsername(username) ||
-    field('User Name') !== username ||
-    field('User Type') !== 'AUTH_LOCAL' ||
-    field('Expired') !== 'false' ||
-    !uid ||
-    !/^[1-9]\d*$/.test(uid) ||
-    !Number.isSafeInteger(Number(uid)) ||
-    Number(uid) >= 0xffffffff ||
-    !/^\(101\) administrators\s*$/m.test(output)
-  )
-    return null
-  return {
-    platform: 'synology' as const,
-    userId: uid,
-    username,
-    administrator: true,
-  }
-}
+export { validDsmUsername } from './validation'
 
 async function accountEpoch(): Promise<string> {
   const records = await Promise.all(
@@ -57,39 +34,123 @@ async function accountEpoch(): Promise<string> {
 
 export class SynologyAccounts implements NasAccountAuthority {
   readonly platform = 'synology' as const
+  // No cookie/token is written to disk or returned to a client. Reopening the
+  // DSM app supplies a new context after restart/expiration; bindings persist.
+  private readonly sessions = new Map<
+    string,
+    { context: DsmContext; expiresAt: number }
+  >()
   constructor(
-    private readonly command: DsmCommand = dsmCommand,
-    private readonly epoch = accountEpoch
+    private readonly api: DsmApi = dsmApi,
+    private readonly epoch = accountEpoch,
+    private readonly posix = readDsmPosixAccount,
+    private readonly now = Date.now
   ) {}
+
+  private async validate(context: DsmContext, signal: AbortSignal) {
+    const bootstrap = dsmBootstrapSchema.safeParse(
+      await this.api(context, { kind: 'bootstrap' }, undefined, signal)
+    )
+    if (!bootstrap.success) return null
+    const token = bootstrap.data.SynoToken
+    const session = dsmSessionSchema.safeParse(
+      await this.api(context, { kind: 'session' }, token, signal)
+    )
+    if (!session.success) return null
+    const username = session.data.data.username
+    const before = await this.epoch()
+    const result = dsmAccountSchema.safeParse(
+      await this.api(context, { kind: 'account', username }, token, signal)
+    )
+    if (!result.success) return null
+    const record = result.data.data.users[0]
+    const unix = await this.posix(username, signal)
+    const after = await this.epoch()
+    if (
+      record.name !== username ||
+      record.uid !== unix.uid ||
+      !unix.administrator ||
+      before !== after
+    )
+      return null
+    return {
+      token,
+      identity: {
+        platform: this.platform,
+        userId: String(record.uid),
+        username,
+        administrator: true,
+        accountRevision: createHash('sha256')
+          .update(`${after}|${record.uid}|${username}`)
+          .digest('hex'),
+      },
+    }
+  }
+
+  async authenticate(
+    context: DsmContext,
+    signal: AbortSignal
+  ): Promise<NasIdentity | null> {
+    const result = await this.validate(context, signal)
+    if (!result) return null
+    for (const [name, entry] of this.sessions)
+      if (entry.expiresAt <= this.now()) this.sessions.delete(name)
+    if (
+      !this.sessions.has(result.identity.username) &&
+      this.sessions.size >= 64
+    ) {
+      const oldest = this.sessions.keys().next().value
+      if (oldest !== undefined) this.sessions.delete(oldest)
+    }
+    const existing = this.sessions.get(result.identity.username)
+    const expiresAt = this.now() + 30 * 60_000
+    if (
+      existing &&
+      JSON.stringify(existing.context) === JSON.stringify(context)
+    )
+      existing.expiresAt = expiresAt
+    else
+      this.sessions.set(result.identity.username, {
+        context: { ...context },
+        expiresAt,
+      })
+    return result.identity
+  }
+
+  private async current(username: string, signal: AbortSignal) {
+    if (!validDsmUsername(username)) return null
+    const entry = this.sessions.get(username)
+    if (!entry || entry.expiresAt <= this.now()) {
+      this.sessions.delete(username)
+      return null
+    }
+    const forget = () => {
+      if (this.sessions.get(username) === entry) this.sessions.delete(username)
+    }
+    try {
+      const result = await this.validate(entry.context, signal)
+      if (!result || result.identity.username !== username) {
+        forget()
+        return null
+      }
+      if (
+        this.sessions.get(username) !== entry ||
+        entry.expiresAt <= this.now()
+      )
+        return null
+      return { ...result, context: entry.context }
+    } catch (error) {
+      forget()
+      throw error
+    }
+  }
 
   async lookup(
     username: string,
     signal: AbortSignal
   ): Promise<NasIdentity | null> {
-    if (!validDsmUsername(username)) return null
-    signal.throwIfAborted()
-    const before = await this.epoch()
-    const account = parseDsmAccount(
-      await this.command(
-        '/usr/syno/sbin/synouser',
-        ['--get', username],
-        {},
-        signal
-      ),
-      username
-    )
-    const after = await this.epoch()
-    if (!account || before !== after) return null
-    // Conservatively revoke every binding when either local account database
-    // changes, including UID reuse. No password data is read or persisted.
-    return {
-      ...account,
-      accountRevision: createHash('sha256')
-        .update(`${after}|${account.userId}|${username}`)
-        .digest('hex'),
-    }
+    return (await this.current(username, signal))?.identity ?? null
   }
-
   async resolve(
     identity: NasIdentity,
     signal: AbortSignal
@@ -97,5 +158,35 @@ export class SynologyAccounts implements NasAccountAuthority {
     if (identity.platform !== this.platform) return null
     const current = await this.lookup(identity.username, signal)
     return current?.userId === identity.userId ? current : null
+  }
+  async inspectFile(
+    identity: NasIdentity,
+    candidate: string,
+    signal: AbortSignal
+  ) {
+    if (
+      !/^\/volume[1-9]\d*\/[^/]+(?:\/.*)?$/.test(candidate) ||
+      candidate
+        .split('/')
+        .slice(1)
+        .some((p) => !p || p === '.' || p === '..')
+    )
+      return null
+    const current = await this.current(identity.username, signal)
+    if (!current || !sameNasAccount(current.identity, identity)) return null
+    const virtual = candidate.replace(/^\/volume[1-9]\d*/, '')
+    const result = dsmFileSchema.safeParse(
+      await this.api(
+        current.context,
+        { kind: 'file', path: virtual },
+        current.token,
+        signal
+      )
+    )
+    if (!result.success) return null
+    const file = result.data.data.files[0]
+    if (file.path !== virtual || file.additional.real_path !== candidate)
+      return null
+    return file
   }
 }

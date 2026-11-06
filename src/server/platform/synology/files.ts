@@ -2,7 +2,6 @@ import { constants } from 'node:fs'
 import { access, lstat, readFile, realpath } from 'node:fs/promises'
 import path from 'node:path'
 import { z } from 'zod'
-import { sameNasAccount } from '../nas/client-authorization'
 import {
   type NasFileAccess,
   type NasFilePermission,
@@ -10,7 +9,6 @@ import {
 } from '../nas/files'
 import type { NasIdentity } from '../nas/identity'
 import type { SynologyAccounts } from './accounts'
-import { type DsmCommand, dsmCommand } from './commands'
 
 export const dsmDirectoryConfig = z
   .object({
@@ -26,33 +24,29 @@ export const dsmDirectoryConfig = z
   })
   .strict()
 
-/** Only the single effective-permission mask is accepted, never an ACE list.
- * Unknown DSM tool output fails closed and must be checked on the target DSM. */
 export function dsmPermission(
-  output: string,
+  acl: {
+    read: boolean
+    write: boolean
+    append: boolean
+    exec: boolean
+    del: boolean
+  },
   permission: NasFilePermission,
   directory: boolean
 ): boolean {
-  const match =
-    /^Final permission: \[([r-][w-][x-][p-][d-][D-][a-][A-][R-][W-][c-][C-][o-])\]\s*$/.exec(
-      output.trim()
-    )
-  if (!match) return false
-  const mask = match[1]
   return permission === 'deletable'
-    ? mask.includes('d')
+    ? acl.del
     : permission === 'writable'
-      ? mask.includes('w') &&
-        (!directory || (mask.includes('x') && mask.includes('p')))
-      : mask.includes('r') && (!directory || mask.includes('x'))
+      ? acl.write && (!directory || (acl.exec && acl.append))
+      : acl.read && (!directory || acl.exec)
 }
 
 export class SynologyFileAccess implements NasFileAccess {
   readonly platform = 'synology' as const
   constructor(
     private readonly configFile: string,
-    private readonly accounts: SynologyAccounts,
-    private readonly command: DsmCommand = dsmCommand
+    private readonly accounts: SynologyAccounts
   ) {}
 
   async authorizedRoots(): Promise<string[]> {
@@ -82,11 +76,12 @@ export class SynologyFileAccess implements NasFileAccess {
   ): Promise<boolean> {
     if (user.platform !== this.platform) return false
     try {
-      const account = await this.accounts.resolve(
-        user,
-        AbortSignal.timeout(4000)
+      const roots = await this.authorizedRoots()
+      if (
+        !roots.some(
+          (root) => candidate === root || candidate.startsWith(`${root}/`)
+        )
       )
-      if (!account || (user.accountRevision && !sameNasAccount(user, account)))
         return false
       const info = await lstat(candidate)
       if (info.isSymbolicLink()) return false
@@ -94,14 +89,15 @@ export class SynologyFileAccess implements NasFileAccess {
         permission === 'deletable' ? path.dirname(candidate) : candidate,
         permission === 'readable' ? constants.R_OK : constants.W_OK
       )
-      return dsmPermission(
-        await this.command('/usr/syno/bin/synoacltool', [
-          '-get-perm',
-          candidate,
-          user.username,
-        ]),
-        permission,
-        info.isDirectory()
+      const file = await this.accounts.inspectFile(
+        user,
+        candidate,
+        AbortSignal.timeout(5000)
+      )
+      return (
+        file !== null &&
+        file.isdir === info.isDirectory() &&
+        dsmPermission(file.additional.perm.acl, permission, file.isdir)
       )
     } catch {
       return false

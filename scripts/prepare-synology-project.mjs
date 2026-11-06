@@ -1,6 +1,5 @@
 import { execFileSync } from 'node:child_process'
 import {
-  chmod,
   cp,
   mkdir,
   mkdtemp,
@@ -94,25 +93,7 @@ export async function prepareSynologyProject({
         cwd: repositoryRoot,
         encoding: 'utf8',
       }).trim()
-    const authorityDir = path.join(temporary, 'app/bin')
-    await mkdir(authorityDir, { recursive: true })
-    const authority = path.join(authorityDir, 'motrix-dsm-authority')
-    await cp(
-      path.join(
-        repositoryRoot,
-        'packages/synology-authority/dist/linux-x64/motrix-dsm-authority'
-      ),
-      authority
-    )
-    await chmod(authority, 0o700)
-    await verifyFnosBinary(authority, 'x64')
     const receipt = {
-      authoritySha256: sha256(await readFile(authority)),
-      authorityLockSha256: sha256(
-        await readFile(
-          path.join(repositoryRoot, 'packages/synology-authority/Cargo.lock')
-        )
-      ),
       sourceCommit: git(['rev-parse', 'HEAD']),
       sourceDirty:
         git(['status', '--porcelain', '--untracked-files=normal']) !== '',

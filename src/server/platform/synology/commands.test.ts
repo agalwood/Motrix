@@ -26,19 +26,3 @@ describe('DSM command failure metadata', () => {
     }
   )
 })
-
-it('reports only the startup probe outcome without disclosing account profile data', async () => {
-  const { probeDsmAuthority } = await import('./commands')
-  expect(
-    await probeDsmAuthority(
-      async () =>
-        'User Name : [motrix]\nUser uid : [1600]\nUser Mail : [private]',
-      1600
-    )
-  ).toEqual({ accountLookupProbe: 'passed' })
-  expect(
-    await probeDsmAuthority(async () => {
-      throw new DsmCommandError({ code: 126, stderr: 'private' })
-    }, 1600)
-  ).toEqual({ accountLookupProbe: 'failed', failure: 'exit', exitCode: 126 })
-})
