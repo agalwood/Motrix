@@ -1,11 +1,20 @@
-import { chmod, lstat, unlink } from 'node:fs/promises'
+import { chmod, chown, lstat, unlink } from 'node:fs/promises'
 import { connect } from 'node:net'
 import type { FastifyInstance } from 'fastify'
 
 export async function listenNas(
   app: FastifyInstance,
-  socketPath: string
+  socketPath: string,
+  gatewayGroupId?: number
 ): Promise<void> {
+  if (
+    gatewayGroupId !== undefined &&
+    (!Number.isInteger(gatewayGroupId) ||
+      gatewayGroupId <= 0 ||
+      gatewayGroupId >= 0xffffffff ||
+      !process.getgroups?.().includes(gatewayGroupId))
+  )
+    throw new Error('Gateway group is not available to the package account')
   const before = await lstat(socketPath).catch(
     (error: NodeJS.ErrnoException) => {
       if (error.code === 'ENOENT') return undefined
@@ -36,6 +45,8 @@ export async function listenNas(
     await unlink(socketPath)
   }
   await app.listen({ path: socketPath })
-  // The platform selects access for its trusted gateway.
-  await chmod(socketPath, 0o600)
+  // Grant only a declared supplementary gateway group. Application state keeps
+  // its private owner/modes; membership is never an authenticated NAS identity.
+  if (gatewayGroupId !== undefined) await chown(socketPath, -1, gatewayGroupId)
+  await chmod(socketPath, gatewayGroupId === undefined ? 0o600 : 0o660)
 }

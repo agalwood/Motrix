@@ -29,7 +29,24 @@ if (await stat(root).catch(() => null))
 const target = path.join(root, 'target')
 const variable = path.join(root, 'var')
 const downloads = '/volume1/motrix'
-execFileSync('useradd', ['--uid', '1600', '--no-create-home', 'motrix'])
+execFileSync('groupadd', ['--gid', '1650', 'http'])
+execFileSync('useradd', [
+  '--uid',
+  '1600',
+  '--groups',
+  'http',
+  '--no-create-home',
+  'motrix',
+])
+execFileSync('useradd', [
+  '--uid',
+  '1601',
+  '--gid',
+  'http',
+  '--no-create-home',
+  'gateway',
+])
+execFileSync('useradd', ['--uid', '1602', '--no-create-home', 'unrelated'])
 for (const folder of [
   target,
   variable,
@@ -265,6 +282,38 @@ try {
   assert.equal((await execute('postinst')).code, 0)
   await life('start')
   await life('status')
+  // Exercise a separate unprivileged gateway account, not the root test driver.
+  // Root bypasses Unix permissions and would miss the DSM 502 regression.
+  const gatewayProbe = `const http=require('node:http');const fs=require('node:fs');const req=http.get({socketPath:process.argv[1],path:'/motrix/healthz'},res=>{res.resume();res.on('end',()=>{if(res.statusCode!==200)process.exit(2);for(const p of process.argv.slice(2)){try{fs.accessSync(p,fs.constants.R_OK);process.exit(3)}catch(e){if(e.code!=='EACCES')process.exit(4)}}})});req.on('error',e=>{console.error(e.code);process.exit(5)})`
+  execFileSync(
+    'runuser',
+    [
+      '-u',
+      'gateway',
+      '--',
+      `${target}/runtime/bin/node`,
+      '-e',
+      gatewayProbe,
+      `${variable}/web.sock`,
+      `${variable}/data`,
+      `${variable}/package-settings.json`,
+    ],
+    { stdio: 'pipe' }
+  )
+  const unrelatedProbe = `require('node:http').get({socketPath:process.argv[1],path:'/motrix/healthz'},()=>process.exit(2)).on('error',e=>process.exit(e.code==='EACCES'?0:3))`
+  execFileSync(
+    'runuser',
+    [
+      '-u',
+      'unrelated',
+      '--',
+      `${target}/runtime/bin/node`,
+      '-e',
+      unrelatedProbe,
+      `${variable}/web.sock`,
+    ],
+    { stdio: 'pipe' }
+  )
   const status = JSON.parse((await web('/rpc/auth/status')).body)
   assert.equal(status.username, 'alice')
   assert.deepEqual(status.clientPairing, { cli: true, extension: false })
@@ -426,7 +475,7 @@ try {
   assert.equal(await stat(`${variable}/data`).catch(() => null), null)
   assert.ok(await stat(downloads))
   console.log(
-    'DSM Linux simulation passed: nonroot lifecycle, cookie authentication, CLI pairing, account revocation, HTTP/BT download, ACL denial, symlink denial, file deletion, upgrade persistence, stale PID, uninstall retention'
+    'DSM Linux simulation passed: nonroot lifecycle and gateway socket isolation, cookie authentication, CLI pairing, account revocation, HTTP/BT download, ACL denial, symlink denial, file deletion, upgrade persistence, stale PID, uninstall retention'
   )
 } finally {
   await execute('start-stop-status', 'stop')

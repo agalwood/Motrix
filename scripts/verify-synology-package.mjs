@@ -56,6 +56,7 @@ export async function verifySynologyProject(root) {
     defaults: { 'run-as': 'package' },
     username: 'motrix',
     groupname: 'motrix',
+    'join-groupname': 'http',
   })
   const info = await readFile(path.join(root, 'INFO'), 'utf8')
   for (const field of [

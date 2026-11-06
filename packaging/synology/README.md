@@ -30,10 +30,10 @@ release gate.
 Open Motrix from the DSM desktop while signed in as a local administrator. The
 entry uses the same DSM host and port, at `/motrix/`, including HTTP, WebSocket
 and static asset paths. Web Station is not required. The application has no
-separate password and does not collect DSM passwords. The upstream socket is
-mode `0600`; validate that the target DSM gateway can reach it. If it cannot,
-the integration needs a documented, narrow gateway grant, not a world-writable
-socket or a more privileged application account.
+separate password and does not collect DSM passwords. The package joins DSM’s `http` group using the official privilege mechanism.
+Only the upstream socket is shared as `motrix:http`, mode `0660`, so the
+unprivileged Nginx gateway can connect. Private settings and application data
+remain owner-only; group membership never replaces session/account authentication.
 
 The `motrix` package account runs the Web service, download engine, plugins and
 filesystem helper. No package process is elevated to root; the SPK requests no
@@ -151,7 +151,7 @@ Sources reviewed for DSM 7.2.2 on 2026-11-05:
 | Area | Basis and implementation boundary |
 | --- | --- |
 | Package layout and metadata | [SPK layout](https://help.synology.com/developer-guide/synology_package/introduction.html), [INFO](https://help.synology.com/developer-guide/synology_package/INFO.html), and [localized fields](https://help.synology.com/developer-guide/synology_package/INFO_optional_fields.html). English fallback plus `chs`/`cht` descriptions and wizard files. |
-| Least privilege | [Privilege configuration](https://help.synology.com/developer-guide/privilege/privilege_config.html) and [DSM 7 changes](https://help.synology.com/developer-guide/breaking_changes.html). Use `run-as: package`; root packages require additional Synology authorization. |
+| Least privilege | [Privilege configuration](https://help.synology.com/developer-guide/privilege/privilege_config.html) and the [official web-package group example](https://help.synology.com/developer-guide/examples/compile_web_package.html). Use `run-as: package` and `join-groupname: http`; root packages require additional Synology authorization. |
 | Storage and lifecycle | [DSM FHS](https://help.synology.com/developer-guide/integrate_dsm/fhs.html), [data-share](https://help.synology.com/developer-guide/resource_acquisition/data_share.html), and [wizard contracts](https://help.synology.com/developer-guide/synology_package/wizard/WIZARD_UIFILES_v2.html). FHS data survives upgrades; the resource worker does not delete the download share. |
 | Desktop and proxy | [Desktop config](https://help.synology.com/developer-guide/integrate_dsm/config.html), [web-config](https://help.synology.com/developer-guide/resource_acquisition/web_config.html), and [Web Station alternative](https://help.synology.com/developer-guide/resource_acquisition/web_service.html). Use DSM's Nginx worker with a Unix upstream and explicit WebSocket forwarding. No fnOS identity Header. |
 | Session identity | [Application authentication](https://help.synology.com/developer-guide/integrate_dsm/web_authentication.html) documents `authenticate.cgi` and CGI environment. Invoke it without a shell using bounded output/time and the cookie plus gateway address context. Its availability as the package user must be tested on each DSM version. |

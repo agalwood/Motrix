@@ -176,13 +176,12 @@ import { FnosFiles } from './platform/fnos/files'
 import { registerFnosRoutes } from './platform/fnos/routes'
 import { fnosRuntime, listenFnos } from './platform/fnos/runtime'
 import { NasFileRemover } from './platform/nas/file-remover'
-import { listenNas } from './platform/nas/listener'
 import { NasTaskAccess } from './platform/nas/task-access'
 import { createNodePlatformServices } from './platform/services'
 import { SynologyAccounts } from './platform/synology/accounts'
 import { SynologyFiles } from './platform/synology/files'
 import { synologyGateway } from './platform/synology/identity'
-import { synologyRuntime } from './platform/synology/runtime'
+import { listenSynology, synologyRuntime } from './platform/synology/runtime'
 import { createServerCapabilityHost } from './plugin/capability-host'
 import {
   createServerCommunityPluginPolicy,
@@ -1894,7 +1893,7 @@ async function main() {
     // can observe an empty/partial TaskManager or a false TaskNotFound.
     const port = parseServerPort(process.env.PORT, 'PORT', 8080)
     try {
-      if (synology) await listenNas(app, synology.socketPath)
+      if (synology) await listenSynology(app, synology.socketPath)
       else if (fnos) await listenFnos(app, fnos.socketPath)
       else await app.listen({ port, host: '0.0.0.0' })
     } catch (err) {

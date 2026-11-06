@@ -1,4 +1,7 @@
+import { readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
+import type { FastifyInstance } from 'fastify'
+import { listenNas } from '../nas/listener'
 
 export function synologyRuntime(env: NodeJS.ProcessEnv = process.env) {
   if (env.MOTRIX_AUTH_MODE !== 'synologyDsm') return undefined
@@ -15,4 +18,35 @@ export function synologyRuntime(env: NodeJS.ProcessEnv = process.env) {
     socketPath: path.join(variable, 'web.sock'),
     configFile: path.join(variable, 'directories.json'),
   }
+}
+
+/** DSM provisions the supplementary http group through conf/privilege.
+ * Read the system-assigned GID instead of assuming a numeric value. */
+export function dsmGatewayGroup(contents: string, groups: number[]): number {
+  const entries = contents
+    .split('\n')
+    .filter((line) => line.startsWith('http:'))
+  if (entries.length !== 1) throw new Error('DSM http group is unavailable')
+  const fields = entries[0].split(':')
+  const gid = Number(fields[2])
+  if (
+    fields.length !== 4 ||
+    !/^[1-9]\d*$/.test(fields[2]) ||
+    !Number.isSafeInteger(gid) ||
+    gid >= 0xffffffff ||
+    !groups.includes(gid)
+  )
+    throw new Error('DSM http group is not assigned to the package account')
+  return gid
+}
+
+export async function listenSynology(app: FastifyInstance, socketPath: string) {
+  const info = await stat('/etc/group')
+  if (!info.isFile() || info.uid !== 0 || (info.mode & 0o022) !== 0)
+    throw new Error('Untrusted DSM group database')
+  const gid = dsmGatewayGroup(
+    await readFile('/etc/group', 'utf8'),
+    process.getgroups?.() ?? []
+  )
+  await listenNas(app, socketPath, gid)
 }

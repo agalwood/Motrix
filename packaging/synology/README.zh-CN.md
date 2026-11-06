@@ -24,9 +24,9 @@ Motrix Server/Web UI、aria2 和文件系统辅助程序。运行时不依赖 Do
 
 使用本地管理员账号登录 DSM 后，从桌面打开 Motrix。入口沿用 DSM 的主机名和
 端口，路径为 `/motrix/`，包括 HTTP、WebSocket 和静态资源。无需安装 Web Station。
-应用没有单独的登录密码，也不收集 DSM 密码。上游 socket 权限为 `0600`，
-需验证目标 DSM 网关是否能访问。如果不能，应补充有明确依据的网关专用授权，
-不能把 socket 改成所有用户可写，也不能提升整个应用的权限。
+应用没有单独的登录密码，也不收集 DSM 密码。套件通过 DSM 官方权限机制加入 `http` 组，
+仅将上游 socket 设为 `motrix:http`、权限 `0660`，供非 root Nginx 网关连接。
+配置和应用数据仍仅限套件账号访问；组成员身份不能替代会话和账号认证。
 
 Web 服务、下载引擎、插件和文件系统辅助程序均以 `motrix` 套件账号运行。
 套件没有 root 进程，不申请 setuid、Linux capability、sudo 规则或特权辅助服务。
@@ -121,7 +121,7 @@ aria2 和文件系统辅助程序为静态程序。SDK 仅用于构建，不包�
 | 范围 | 依据与实现边界 |
 | --- | --- |
 | 套件结构与元信息 | [SPK 结构](https://help.synology.com/developer-guide/synology_package/introduction.html)、[INFO](https://help.synology.com/developer-guide/synology_package/INFO.html)、[多语言字段](https://help.synology.com/developer-guide/synology_package/INFO_optional_fields.html)。英文默认值，另提供 `chs`/`cht` 介绍和向导。 |
-| 最小权限 | [权限配置](https://help.synology.com/developer-guide/privilege/privilege_config.html)、[DSM 7 变化](https://help.synology.com/developer-guide/breaking_changes.html)。使用 `run-as: package`；root 套件需要群晖额外授权。 |
+| 最小权限 | [权限配置](https://help.synology.com/developer-guide/privilege/privilege_config.html)、[官方 Web 套件分组示例](https://help.synology.com/developer-guide/examples/compile_web_package.html)。使用 `run-as: package` 和 `join-groupname: http`；root 套件需要群晖额外授权。 |
 | 存储与生命周期 | [FHS](https://help.synology.com/developer-guide/integrate_dsm/fhs.html)、[data-share](https://help.synology.com/developer-guide/resource_acquisition/data_share.html)、[向导规范](https://help.synology.com/developer-guide/synology_package/wizard/WIZARD_UIFILES_v2.html)。FHS 状态跨升级保留，资源管理器不删除下载共享目录。 |
 | 桌面与代理 | [桌面配置](https://help.synology.com/developer-guide/integrate_dsm/config.html)、[web-config](https://help.synology.com/developer-guide/resource_acquisition/web_config.html)、[Web Station 方案](https://help.synology.com/developer-guide/resource_acquisition/web_service.html)。采用 DSM Nginx worker、Unix upstream 和明确的 WebSocket 转发，不接受 fnOS 身份 Header。 |
 | 登录身份 | [应用认证](https://help.synology.com/developer-guide/integrate_dsm/web_authentication.html)说明 `authenticate.cgi` 及 CGI 环境。调用不经过 shell，限制时间和输出，传入 Cookie 和网关地址上下文；套件账号能否执行仍需按 DSM 版本验证。 |
