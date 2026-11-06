@@ -6,10 +6,12 @@ import { Button } from '@renderer/components/ui/button'
 import {
   Tabs,
   TabsContent,
+  TabsIndicator,
   TabsList,
   TabsTrigger,
 } from '@renderer/components/ui/tabs'
 import { useSyncTrackers } from '@renderer/hooks/use-sync-trackers'
+import { useReducedMotion } from '@renderer/lib/reduced-motion'
 import { cn } from '@renderer/lib/utils'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -21,6 +23,7 @@ export function TrackersPage() {
   const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState<'effective' | 'blacklist'>('effective')
+  const reducedMotion = useReducedMotion()
   const { sync, isSyncing, status, error } = useSyncTrackers()
   const syncMessage = isSyncing
     ? status === 'probing'
@@ -93,11 +96,18 @@ export function TrackersPage() {
         onValueChange={(v) => setTab(v as 'effective' | 'blacklist')}
         className="flex min-h-0 min-w-0 flex-1"
       >
-        <TabsList className="shrink-0 bg-tab-background">
-          <TabsTrigger value="effective">
+        <TabsList className="relative isolate shrink-0 bg-tab-background">
+          <TabsIndicator animated={!reducedMotion} />
+          <TabsTrigger
+            value="effective"
+            className="relative z-10 data-active:bg-transparent group-data-[variant=default]/tabs-list:data-active:bg-transparent group-data-[variant=default]/tabs-list:data-active:shadow-none dark:data-active:bg-transparent"
+          >
             {t('panel.trackers.tab.effective')}
           </TabsTrigger>
-          <TabsTrigger value="blacklist">
+          <TabsTrigger
+            value="blacklist"
+            className="relative z-10 data-active:bg-transparent group-data-[variant=default]/tabs-list:data-active:bg-transparent group-data-[variant=default]/tabs-list:data-active:shadow-none dark:data-active:bg-transparent"
+          >
             {t('panel.trackers.tab.blacklist')}
           </TabsTrigger>
         </TabsList>

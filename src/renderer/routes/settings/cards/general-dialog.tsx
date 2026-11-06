@@ -53,6 +53,7 @@ import { generalFormSchema } from './settings-form-schemas'
 export function GeneralDialog({
   open,
   onClose,
+  onClosed,
   labelKey,
 }: SettingsCardDialogProps) {
   const { t, i18n } = useTranslation()
@@ -218,6 +219,7 @@ export function GeneralDialog({
   return (
     <Dialog
       open={open}
+      onOpenChangeComplete={(next) => !next && onClosed?.()}
       onOpenChange={(v, details) => {
         if (!v) {
           if (busy) details.cancel()

@@ -83,6 +83,7 @@ const DEFAULTS: AdvancedFields = {
 export function AdvancedDialog({
   open,
   onClose,
+  onClosed,
   labelKey,
 }: SettingsCardDialogProps) {
   const { t } = useTranslation()
@@ -166,6 +167,7 @@ export function AdvancedDialog({
   return (
     <Dialog
       open={open}
+      onOpenChangeComplete={(next) => !next && onClosed?.()}
       onOpenChange={(v, details) => {
         if (!v) {
           if (form.formState.isSubmitting) details.cancel()

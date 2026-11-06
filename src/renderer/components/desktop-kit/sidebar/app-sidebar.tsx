@@ -23,8 +23,10 @@ import {
 } from '@renderer/components/ui/sidebar'
 import { useLegacyImportNavigation } from '@renderer/features/legacy-import/use-legacy-import-navigation'
 import { LEGACY_MIGRATION_ROUTE } from '@shared/lib/legacy-import-navigation'
+import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { NavLink } from 'react-router'
+import { SidebarSelectionIndicator } from './sidebar-selection-indicator'
 
 interface NavItem {
   to: string
@@ -46,6 +48,7 @@ const FOOTER_NAV_ITEMS: readonly NavItem[] = [
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { t } = useTranslation()
+  const navContainerRef = useRef<HTMLDivElement>(null)
   const direction = useDirection()
   const { visible } = useLegacyImportNavigation()
   const items = visible
@@ -70,64 +73,70 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           height: 45,
         }}
       ></SidebarHeader>
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {items.map((item) => {
-                const Icon = item.icon
-                return (
-                  <SidebarMenuItem key={item.to}>
-                    <NavLink to={item.to} end={item.end}>
-                      {({ isActive }) => (
-                        <SidebarMenuButton
-                          render={<span />}
-                          isActive={isActive}
-                          tooltip={t(item.labelKey)}
-                          className="cursor-default"
-                        >
-                          <Icon />
-                          <span className="select-none">
-                            {t(item.labelKey)}
-                          </span>
-                        </SidebarMenuButton>
-                      )}
-                    </NavLink>
-                  </SidebarMenuItem>
-                )
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-      <SidebarFooter className="px-0.5">
-        <SidebarMenu>
-          <NotificationsNavItem />
-          <SidebarMenuItem aria-hidden="true">
-            <SidebarSeparator className="mx-0" />
-          </SidebarMenuItem>
-          {FOOTER_NAV_ITEMS.map((item) => {
-            const Icon = item.icon
-            return (
-              <SidebarMenuItem key={item.to}>
-                <NavLink to={item.to} end={item.end}>
-                  {({ isActive }) => (
-                    <SidebarMenuButton
-                      render={<span />}
-                      isActive={isActive}
-                      tooltip={t(item.labelKey)}
-                      className="cursor-default"
-                    >
-                      <Icon />
-                      <span className="select-none">{t(item.labelKey)}</span>
-                    </SidebarMenuButton>
-                  )}
-                </NavLink>
-              </SidebarMenuItem>
-            )
-          })}
-        </SidebarMenu>
-      </SidebarFooter>
+      <div
+        ref={navContainerRef}
+        className="relative flex min-h-0 flex-1 flex-col"
+      >
+        <SidebarSelectionIndicator containerRef={navContainerRef} />
+        <SidebarContent className="relative z-10">
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {items.map((item) => {
+                  const Icon = item.icon
+                  return (
+                    <SidebarMenuItem key={item.to}>
+                      <NavLink to={item.to} end={item.end}>
+                        {({ isActive }) => (
+                          <SidebarMenuButton
+                            render={<span />}
+                            isActive={isActive}
+                            tooltip={t(item.labelKey)}
+                            className="cursor-default"
+                          >
+                            <Icon />
+                            <span className="select-none">
+                              {t(item.labelKey)}
+                            </span>
+                          </SidebarMenuButton>
+                        )}
+                      </NavLink>
+                    </SidebarMenuItem>
+                  )
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+        <SidebarFooter className="relative z-10 px-0.5">
+          <SidebarMenu>
+            <NotificationsNavItem />
+            <SidebarMenuItem aria-hidden="true">
+              <SidebarSeparator className="mx-0" />
+            </SidebarMenuItem>
+            {FOOTER_NAV_ITEMS.map((item) => {
+              const Icon = item.icon
+              return (
+                <SidebarMenuItem key={item.to}>
+                  <NavLink to={item.to} end={item.end}>
+                    {({ isActive }) => (
+                      <SidebarMenuButton
+                        render={<span />}
+                        isActive={isActive}
+                        tooltip={t(item.labelKey)}
+                        className="cursor-default"
+                      >
+                        <Icon />
+                        <span className="select-none">{t(item.labelKey)}</span>
+                      </SidebarMenuButton>
+                    )}
+                  </NavLink>
+                </SidebarMenuItem>
+              )
+            })}
+          </SidebarMenu>
+        </SidebarFooter>
+      </div>
     </Sidebar>
   )
 }

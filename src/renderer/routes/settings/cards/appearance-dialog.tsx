@@ -98,6 +98,7 @@ const LANGUAGE_OPTIONS = SUPPORTED_LOCALES.map(({ code, nativeName }) => ({
 export function AppearanceDialog({
   open,
   onClose,
+  onClosed,
   labelKey,
 }: SettingsCardDialogProps) {
   const { t } = useTranslation()
@@ -216,6 +217,7 @@ export function AppearanceDialog({
   return (
     <Dialog
       open={open}
+      onOpenChangeComplete={(next) => !next && onClosed?.()}
       onOpenChange={(v, details) => {
         if (!v) {
           if (form.formState.isSubmitting) details.cancel()

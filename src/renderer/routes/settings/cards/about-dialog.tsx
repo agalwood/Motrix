@@ -45,6 +45,7 @@ function CompactLink({ href, title }: CompactLinkProps) {
 export function AboutDialog({
   open,
   onClose,
+  onClosed,
   labelKey,
   descKey,
 }: SettingsCardDialogProps) {
@@ -55,7 +56,11 @@ export function AboutDialog({
   const update = useAppUpdate(open)
 
   return (
-    <Dialog open={open} onOpenChange={(value) => !value && onClose()}>
+    <Dialog
+      open={open}
+      onOpenChange={(value) => !value && onClose()}
+      onOpenChangeComplete={(next) => !next && onClosed?.()}
+    >
       <DialogContent
         className="flex max-h-[calc(100svh-2rem)] flex-col gap-0 overflow-hidden rounded-2xl border-border/70 bg-background/95 p-0 shadow-2xl backdrop-blur-xl sm:max-w-[700px]"
         initialFocus={heading}

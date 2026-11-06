@@ -61,6 +61,7 @@ const DEFAULTS: IntegrationFormValues = {
 export function IntegrationDialog({
   open,
   onClose,
+  onClosed,
   labelKey,
 }: SettingsCardDialogProps) {
   const { t } = useTranslation()
@@ -130,6 +131,7 @@ export function IntegrationDialog({
   return (
     <Dialog
       open={open}
+      onOpenChangeComplete={(next) => !next && onClosed?.()}
       onOpenChange={(v, details) => {
         if (!v) {
           if (form.formState.isSubmitting) details.cancel()

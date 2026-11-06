@@ -58,6 +58,7 @@ import { useDownloadsSettingsDraft } from './use-downloads-settings-draft'
 export function DownloadsDialog({
   open,
   onClose,
+  onClosed,
   labelKey,
 }: SettingsCardDialogProps) {
   const { t } = useTranslation()
@@ -91,6 +92,7 @@ export function DownloadsDialog({
   return (
     <Dialog
       open={open}
+      onOpenChangeComplete={(next) => !next && onClosed?.()}
       onOpenChange={(v, details) => {
         if (!v) {
           if (busy) details.cancel()

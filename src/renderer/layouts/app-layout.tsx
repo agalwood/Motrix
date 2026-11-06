@@ -23,6 +23,7 @@ import { useNotificationToasts } from '@renderer/hooks/use-notification-toasts'
 import { useSidebarColor } from '@renderer/hooks/use-sidebar-color'
 import { useToastEvents } from '@renderer/hooks/use-toast-events'
 import { useWindowTorrentDrop } from '@renderer/hooks/use-window-torrent-drop'
+import { useReducedMotion } from '@renderer/lib/reduced-motion'
 import { cn } from '@renderer/lib/utils'
 import { electronServices } from '@renderer/platform/electron-services'
 import { FnosEntry } from '@renderer/platform/fnos-entry'
@@ -39,7 +40,7 @@ import { usePairRequestPrompts } from '@renderer/routes/settings/cards/integrati
 import { LEGACY_MIGRATION_ROUTE } from '@shared/lib/legacy-import-navigation'
 import { isDownloadsListRoute } from '@shared/lib/task-navigation'
 import { Events } from '@shared/protocol/events'
-import { type ReactNode, useRef } from 'react'
+import { type ReactNode, useLayoutEffect, useRef } from 'react'
 import { useLocation, useMatches, useNavigate, useOutlet } from 'react-router'
 
 const platformServices =
@@ -56,6 +57,18 @@ function WindowTorrentDrop() {
   return null
 }
 
+function sidebarPageIndex(pathname: string): number | null {
+  if (pathname === '/') return 0
+  if (pathname.startsWith('/downloads')) return 1
+  if (pathname.startsWith('/trackers')) return 2
+  if (pathname === '/plugins') return 3
+  if (pathname.startsWith('/plugins/')) return 4
+  if (pathname === LEGACY_MIGRATION_ROUTE) return 5
+  if (pathname.startsWith('/notifications')) return 6
+  if (pathname.startsWith('/settings')) return 7
+  return null
+}
+
 export function AppLayout() {
   useSidebarColor()
   useToastEvents()
@@ -63,10 +76,62 @@ export function AppLayout() {
   useEngineRestartRequiredToast()
   useGraphicsRecoveryToast()
   useNotificationToasts()
+  const reducedMotion = useReducedMotion()
 
   const navigate = useNavigate()
   const location = useLocation()
   const outlet = useOutlet()
+  const pageIndex = sidebarPageIndex(location.pathname)
+  const previousPageIndex = useRef(pageIndex)
+  const pageSurfaceRef = useRef<HTMLDivElement>(null)
+  const transitionDirection =
+    pageIndex === null || previousPageIndex.current === null
+      ? null
+      : pageIndex === previousPageIndex.current
+        ? null
+        : pageIndex > previousPageIndex.current
+          ? 'down'
+          : 'up'
+  useLayoutEffect(() => {
+    const surface = pageSurfaceRef.current
+    const previousIndex = previousPageIndex.current
+    const nextPageIndex = sidebarPageIndex(location.pathname)
+    previousPageIndex.current = nextPageIndex
+    if (typeof surface?.getAnimations === 'function') {
+      surface.getAnimations().forEach((animation) => {
+        animation.cancel()
+      })
+    }
+    if (
+      !surface ||
+      typeof surface.animate !== 'function' ||
+      reducedMotion ||
+      nextPageIndex === null ||
+      previousIndex === null ||
+      nextPageIndex === previousIndex
+    )
+      return
+
+    // Keep page transitions off the document top layer so later navigation
+    // and dialogs cannot inherit stale snapshots.
+    const offset = nextPageIndex > previousIndex ? -14 : 14
+    const animation = surface.animate(
+      [
+        {
+          filter: 'blur(5px)',
+          opacity: 0.55,
+          transform: `translate3d(0, ${offset}px, 0)`,
+        },
+        { filter: 'blur(0)', opacity: 1, transform: 'translate3d(0, 0, 0)' },
+      ],
+      {
+        duration: 240,
+        easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+        fill: 'both',
+      }
+    )
+    animation.onfinish = () => animation.cancel()
+  }, [location.pathname, reducedMotion])
   const migrationActive = location.pathname === LEGACY_MIGRATION_ROUTE
   const settingsActive = /^\/settings(?:\/|$)/.test(location.pathname)
   const retainedSettings = useRef<ReactNode>(null)
@@ -85,6 +150,29 @@ export function AppLayout() {
     }
     return navigate(path)
   })
+
+  const pageContent = (
+    <div
+      ref={pageSurfaceRef}
+      data-slot="page-transition"
+      data-page-index={pageIndex ?? 'none'}
+      data-transition-direction={transitionDirection ?? 'none'}
+      className="min-h-0 flex-1 overflow-hidden"
+    >
+      <div hidden={!migrationActive} className="h-full min-h-0">
+        <MigrationPage active={migrationActive} />
+      </div>
+      <div hidden={!settingsActive} className="h-full min-h-0">
+        {retainedSettings.current}
+      </div>
+      <div
+        hidden={migrationActive || settingsActive}
+        className="h-full min-h-0"
+      >
+        {!settingsActive && outlet}
+      </div>
+    </div>
+  )
 
   return (
     <TooltipProvider>
@@ -118,7 +206,7 @@ export function AppLayout() {
           <AppSidebar />
           <SidebarInset
             className={cn(
-              'min-h-0 overflow-hidden bg-sidebar-inset',
+              'min-h-0 overflow-hidden bg-sidebar-inset transition-[background-color,box-shadow] duration-200 ease-out motion-reduce:transition-none',
               // Keep the inset card look below the md breakpoint too —
               // upstream gates these behind md:peer-data-[variant=inset]:,
               // which stops matching once the sidebar renders as a Sheet.
@@ -137,20 +225,7 @@ export function AppLayout() {
               className="mx-4 mb-2 mt-12"
               onOpenDownloads={() => void navigate('/downloads/all')}
             />
-            <div className="min-h-0 flex-1 overflow-hidden">
-              <div hidden={!migrationActive} className="h-full min-h-0">
-                <MigrationPage active={migrationActive} />
-              </div>
-              <div hidden={!settingsActive} className="h-full min-h-0">
-                {retainedSettings.current}
-              </div>
-              <div
-                hidden={migrationActive || settingsActive}
-                className="h-full min-h-0"
-              >
-                {!settingsActive && outlet}
-              </div>
-            </div>
+            {pageContent}
             <WebConnectionNotice />
           </SidebarInset>
         </SidebarProvider>

@@ -96,6 +96,7 @@ const NAT_PROTOCOL_OPTIONS = [
 export function NetworkDialog({
   open,
   onClose,
+  onClosed,
   labelKey,
 }: SettingsCardDialogProps) {
   const { t } = useTranslation()
@@ -160,6 +161,7 @@ export function NetworkDialog({
   return (
     <Dialog
       open={open}
+      onOpenChangeComplete={(next) => !next && onClosed?.()}
       onOpenChange={(v, details) => {
         if (!v) {
           if (form.formState.isSubmitting) details.cancel()
