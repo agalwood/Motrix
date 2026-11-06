@@ -3,6 +3,7 @@ import {
   useOperatorSession,
 } from '@renderer/lib/operator-auth'
 import { fnosFileAction, isFnos } from '@renderer/platform/fnos'
+import { isSynology, synologyFileAction } from '@renderer/platform/nas'
 import { ErrorCode } from '@shared/errors'
 import { BridgeCommands, BridgeQueries } from '@shared/protocol/bridge'
 import { Commands } from '@shared/protocol/commands'
@@ -117,6 +118,17 @@ export class HttpWsTransport implements Transport {
     const session = useOperatorSession.getState()
     if (session.state === 'locked' || session.state === 'logging-out')
       throw new Error('Operator session is locked')
+    if (
+      isSynology() &&
+      session.status?.nasCapabilities?.fileActions &&
+      (channel === Commands.OpenTaskFile || channel === Commands.RevealInFolder)
+    ) {
+      const { taskId } = openTaskFilePayloadSchema.parse(args[0])
+      return synologyFileAction(
+        taskId,
+        channel === Commands.OpenTaskFile ? 'open' : 'reveal'
+      )
+    }
     if (
       isFnos() &&
       (channel === Commands.OpenTaskFile || channel === Commands.RevealInFolder)

@@ -1,4 +1,5 @@
 export const Queries = {
+  GetNasSettings: 'query:getNasSettings',
   GetPortableMode: 'query:getPortableMode',
   GetGraphicsRecoveryNotice: 'query:getGraphicsRecoveryNotice',
   GetRendererSession: 'query:getRendererSession',

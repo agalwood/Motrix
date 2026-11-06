@@ -9,10 +9,10 @@ const TARGETS = [
   { name: 'main', initial: 2 * MIB, total: 5.5 * MIB + 12 * 1024 },
   { name: 'preload', initial: 80 * 1024, total: 80 * 1024 },
   { name: 'worker', initial: 48 * 1024, total: 48 * 1024 },
-  { name: 'renderer', initial: 2.75 * MIB, total: 8 * MIB },
-  // NAS integration and code claims bring total Web JS to ~8.009 MiB.
-  // Keep the startup ceiling unchanged and bound the added UI/locales to 12 KiB.
-  { name: 'renderer.web', initial: 2.75 * MIB, total: 8 * MIB + 12 * 1024 },
+  // Native NAS strings in all 26 catalogs add ~60 KiB; the Web-only settings
+  // dialog stays lazy and is excluded from Electron. Startup ceilings are unchanged.
+  { name: 'renderer', initial: 2.75 * MIB, total: 8 * MIB + 64 * 1024 },
+  { name: 'renderer.web', initial: 2.75 * MIB, total: 8 * MIB + 96 * 1024 },
   // The shared operation runtime brings total server JS to ~5.01 MiB.
   { name: 'server', initial: 2 * MIB, total: 5.25 * MIB },
 ]

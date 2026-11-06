@@ -3,7 +3,6 @@
     "step_title": "Motrix",
     "items": [
       {
-        "type": "description",
         "desc": "The upgrade stops downloads and keeps tasks, settings, paired clients and files."
       }
     ]

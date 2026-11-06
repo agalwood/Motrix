@@ -232,11 +232,11 @@ const admin = {
   origin: 'http://nas.test',
   'content-type': 'application/json',
 }
-const web = (route, headers = admin, body) =>
+const web = (route, headers = admin, body, client = false) =>
   new Promise((resolve, reject) => {
     const req = request(
       {
-        socketPath: `${variable}/web.sock`,
+        socketPath: `${variable}/${client ? 'client' : 'web'}.sock`,
         path: `/motrix${route}`,
         headers,
         method: body ? 'POST' : 'GET',
@@ -427,6 +427,44 @@ try {
   )
   let token = await pair()
   assert.equal((await rpc(Methods.TaskList, {}, token)).status, 200)
+  const client = (route, body, bearer) =>
+    web(
+      route,
+      {
+        host: 'nas.test',
+        'content-type': 'application/json',
+        ...(bearer ? { authorization: `Bearer ${bearer}` } : {}),
+      },
+      body,
+      true
+    )
+  assert.equal(
+    (
+      await client(
+        '/client/mdxp',
+        { jsonrpc: '2.0', id: 1, method: Methods.TaskList, params: {} },
+        token
+      )
+    ).status,
+    200
+  )
+  assert.equal((await client('/bridge/discovery')).status, 404)
+  assert.equal(
+    (
+      await client('/client/mdxp', {
+        jsonrpc: '2.0',
+        id: 1,
+        method: Methods.TaskList,
+        params: {},
+      })
+    ).status,
+    401
+  )
+  const nativeSettings = JSON.parse(
+    (await web('/rpc/query/query%3AgetNasSettings', admin, { args: [] })).body
+  )
+  assert.equal(nativeSettings.ok, true)
+  assert.equal(nativeSettings.value.active.extensionUrl, '')
   for (const state of ['disabled', 'unavailable']) {
     await writeFile('/tmp/dsm-account-state', state)
     assert.equal((await rpc(Methods.TaskList, {}, token)).status, 403)
@@ -473,6 +511,38 @@ try {
   assert.equal(task?.status, 'completed', JSON.stringify(task))
   assert.deepEqual(await readFile(`${downloads}/fixture.bin`), payload)
   assert.equal((await stat(`${downloads}/fixture.bin`)).uid, 1600)
+  const opened = await web('/api/nas/task-action', admin, {
+    taskId: task.id,
+    action: 'open',
+  })
+  assert.equal(opened.status, 200, opened.body)
+  const fileUrl = JSON.parse(opened.body).url
+  const ranged = await web(fileUrl.replace(/^\/motrix/, ''), {
+    ...admin,
+    range: 'bytes=0-15',
+  })
+  assert.equal(ranged.status, 206)
+  assert.equal(ranged.body, payload.subarray(0, 16).toString())
+  const revealed = JSON.parse(
+    (
+      await web('/api/nas/task-action', admin, {
+        taskId: task.id,
+        action: 'reveal',
+      })
+    ).body
+  )
+  assert.equal(revealed.kind, 'file-manager')
+  assert.ok(revealed.url.startsWith('/?launchApp='))
+  await writeFile(`${downloads}/selection.torrent`, torrent)
+  await chown(`${downloads}/selection.torrent`, 1600, 1600)
+  assert.equal(
+    (
+      await web('/api/nas/torrent', admin, {
+        path: `${downloads}/selection.torrent`,
+      })
+    ).status,
+    200
+  )
   await writeFile('/tmp/dsm-acl-state', 'readonly')
   assert.ok(
     (
@@ -514,6 +584,26 @@ try {
   )
   assert.deepEqual(await readFile(`${downloads}/bt-fixture.bin`), payload)
   assert.ok(announces >= 2)
+  const settingsBeforeUpgrade = JSON.parse(
+    (await web('/rpc/query/query%3AgetNasSettings', admin, { args: [] })).body
+  ).value
+  const savedSettings = JSON.parse(
+    (
+      await web('/rpc/command/command%3AsaveNasSettings', admin, {
+        args: [
+          {
+            revision: settingsBeforeUpgrade.revision,
+            settings: {
+              ...settingsBeforeUpgrade.settings,
+              operatorUrl: 'http://nas.test/motrix/',
+            },
+          },
+        ],
+      })
+    ).body
+  )
+  assert.equal(savedSettings.ok, true, JSON.stringify(savedSettings))
+  assert.equal(savedSettings.value.restartRequired, true)
   assert.equal(
     (await execute('preupgrade', undefined, { SYNOPKG_PKG_STATUS: 'UPGRADE' }))
       .code,
@@ -532,6 +622,11 @@ try {
   assert.equal(JSON.parse((await web('/rpc/auth/status')).body).authed, true)
   assert.equal((await rpc(Methods.TaskList, {}, token)).status, 200)
   assert.deepEqual(await readFile(`${downloads}/fixture.bin`), payload)
+  const appliedSettings = JSON.parse(
+    (await web('/rpc/query/query%3AgetNasSettings', admin, { args: [] })).body
+  ).value
+  assert.equal(appliedSettings.active.operatorUrl, 'http://nas.test/motrix/')
+  assert.equal(appliedSettings.restartRequired, false)
   assert.ok(
     !(
       await (

@@ -3,8 +3,58 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { expect, it } from 'vitest'
-import { configure } from '../../packaging/synology/app/lifecycle.mjs'
+import {
+  applyPendingSettings,
+  configure,
+} from '../../packaging/synology/app/lifecycle.mjs'
 import { payloadInventory } from '../../scripts/verify-synology-package.mjs'
+
+it.skipIf(process.platform === 'win32')(
+  'replays pending settings after an interrupted apply and preserves the journal on failure',
+  async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'motrix-spk-pending-'))
+    try {
+      const value = {
+        roots: ['/volume1/motrix', '/volume1/downloads'],
+        clientPort: 16812,
+        extensionUrl: 'wss://nas.test:5001/motrix/bridge',
+        operatorUrl: 'https://nas.test:5001/motrix/',
+        allowHttp: false,
+      }
+      await writeFile(
+        path.join(root, 'pending-settings.json'),
+        JSON.stringify(value),
+        { mode: 0o600 }
+      )
+      const { mkdir } = await import('node:fs/promises')
+      await mkdir(path.join(root, 'directories.json'))
+      await expect(
+        applyPendingSettings({ SYNOPKG_PKGVAR: root })
+      ).rejects.toThrow()
+      expect(
+        JSON.parse(
+          await readFile(path.join(root, 'pending-settings.json'), 'utf8')
+        )
+      ).toEqual(value)
+      await rm(path.join(root, 'directories.json'), { recursive: true })
+      await applyPendingSettings({ SYNOPKG_PKGVAR: root })
+      expect(
+        JSON.parse(
+          await readFile(path.join(root, 'package-settings.json'), 'utf8')
+        )
+      ).toMatchObject({ clientPort: 16812, extensionUrl: value.extensionUrl })
+      expect(
+        JSON.parse(await readFile(path.join(root, 'directories.json'), 'utf8'))
+      ).toEqual({ roots: value.roots })
+      await expect(
+        readFile(path.join(root, 'pending-settings.json'))
+      ).rejects.toMatchObject({ code: 'ENOENT' })
+      await applyPendingSettings({ SYNOPKG_PKGVAR: root })
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  }
+)
 
 it('preserves package settings on upgrade and rejects invalid client ports before writing', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'motrix-spk-config-'))

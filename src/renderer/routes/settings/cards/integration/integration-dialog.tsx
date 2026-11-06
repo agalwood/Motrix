@@ -65,6 +65,9 @@ export function IntegrationDialog({
 }: SettingsCardDialogProps) {
   const { t } = useTranslation()
   const isWeb = transport.platform === 'web'
+  const nasSettings = useOperatorSession(
+    (session) => session.status?.nasCapabilities?.settings === true
+  )
   const cliPairing = useOperatorSession((session) =>
     supportsClientPairing(session.status, 'cli')
   )
@@ -173,6 +176,14 @@ export function IntegrationDialog({
                             : 'settings.integration.clientPairingUnavailable'
                         )}
                       </AlertDescription>
+                      {nasSettings && (
+                        <a
+                          className="mt-2 inline-block text-xs underline underline-offset-4"
+                          href="#/settings/nas"
+                        >
+                          {t('settings.nas.openSettings')}
+                        </a>
+                      )}
                     </Alert>
                   ) : (
                     <>

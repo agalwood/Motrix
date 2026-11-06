@@ -5,7 +5,8 @@
     "placeholder": "管理员令牌",
     "error": "管理员令牌无效。请核对主机上的 MOTRIX_OPERATOR_TOKEN 或 <dataDir>/operator-token 后重试。",
     "submit": "解锁",
-    "nasSessionExpired": "无法验证 NAS 管理员会话，请从 NAS 桌面重新打开 Motrix。"
+    "nasSessionExpired": "无法验证 NAS 管理员会话，请从 NAS 桌面重新打开 Motrix。",
+    "openDsm": "打开 DSM 登录"
   },
   "operatorAdmin": {
     "help": "用法：\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <配对码> [--json]\n  motrix-admin pairing deny <配对码> [--json]\n  motrix-admin extension pair\n\n此命令仅通过容器内的本机回环地址与正在运行的 Motrix 服务器通信。",
@@ -933,7 +934,11 @@
         "redownloadStarted": "已重新发起下载",
         "retryDialogTitle": "重试下载",
         "retryDialogDescription": "修改 {{name}} 的请求参数以开始新下载。原失败任务和部分文件将保留。",
-        "retryDialogProgress": "第 {{current}} 项，共 {{total}} 项"
+        "retryDialogProgress": "第 {{current}} 项，共 {{total}} 项",
+        "downloadToDevice": "下载到本机",
+        "revealInFileStation": "在 File Station 中显示",
+        "nasFileUnavailable": "无法授权访问文件，请检查当前账号和目录权限。",
+        "fileStationWindowBlocked": "浏览器阻止了 File Station 窗口，请允许此站点打开弹窗后重试。"
       },
       "titleCount": "{{shown}} 项 · 共 {{total}}",
       "type": {
@@ -1122,7 +1127,8 @@
         "failed": "无法自动开始下载 {{name}}，请打开任务详情，选择文件后重试。"
       },
       "undoCorrection": "撤销 URL 修正",
-      "submissionUnconfirmed": "结果尚未确认。再次提交时会先核对原请求，避免重复创建任务。"
+      "submissionUnconfirmed": "结果尚未确认。再次提交时会先核对原请求，避免重复创建任务。",
+      "selectNasTorrent": "从 NAS 选择种子文件"
     },
     "detail": {
       "peers": "节点：{{count}}",
@@ -1277,6 +1283,10 @@
       "integration": {
         "title": "集成",
         "desc": "浏览器扩展、命令行工具、操作系统集成"
+      },
+      "nas": {
+        "title": "群晖套件",
+        "desc": "授权目录与客户端连接"
       }
     },
     "general": {
@@ -2251,6 +2261,34 @@
       "updateDescription": "请下载 Windows ZIP，退出 Motrix 后将完整的 data 文件夹移到新版本目录。便携模式不会运行安装程序。",
       "recoveryError": "无法安全恢复便携数据。请保留 data 文件夹，检查日志和目录权限后重试。Motrix 已停止启动，未使用系统用户数据目录。",
       "enginePathDescription": "便携模式将引擎状态保存在 data 文件夹内，随应用位置自动管理。"
+    },
+    "nas": {
+      "description": "所有 DSM 管理员共享这些套件设置。修改后需在套件中心重启 Motrix 才会生效。",
+      "account": "当前 DSM 账号：{{username}}",
+      "restartRequired": "设置已保存。请在 DSM 套件中心停止并重新启动 Motrix，任务、文件和配对记录都会保留。",
+      "roots": "授权下载目录",
+      "rootsHint": "每行填写一个已存在的 NAS 目录。当前账号和内部系统用户 motrix 都需要读写权限。若移除默认下载目录，将使用列表中的第一个目录作为默认目录。",
+      "extensionEnabled": "启用浏览器扩展连接",
+      "extensionHint": "复用 DSM 的 HTTPS 地址进行安全连接，配对时仍需使用当前账号授权。",
+      "webAddress": "Motrix Web 地址",
+      "webAddressHint": "填写平时打开的地址，包含 /motrix/。可直接使用当前浏览器的地址。",
+      "useCurrentAddress": "使用当前 DSM 地址",
+      "extensionAddress": "扩展连接地址",
+      "allowHttp": "允许通过 HTTP 显示配对码",
+      "allowHttpHint": "仅在可信网络中启用。使用 HTTPS 时无需开启此选项。",
+      "clientPort": "客户端直连端口",
+      "clientPortHint": "高级选项：CLI 和扩展直连使用此端口（1024–65535）。修改后，下方 DSM HTTPS 地址仍保持不变。",
+      "activeConnections": "当前连接地址",
+      "cliAddress": "CLI 连接地址",
+      "sessionHint": "客户端沿用配对账号的当前权限。退出 DSM、会话过期或套件重启后，请用对应账号重新打开 Motrix，无需重新配对。",
+      "copy": "复制地址",
+      "openSettings": "配置 NAS 连接",
+      "errors": {
+        "invalid": "请检查目录、端口和连接地址。通过 HTTP 显示配对码需要明确许可。",
+        "permissionDenied": "无法授权当前账号或目录。请在 DSM 共享文件夹权限中检查当前账号及内部系统用户 motrix 的权限。",
+        "unavailable": "暂时无法读取或保存套件设置，请在服务恢复后重试。",
+        "conflict": "已保存的配置发生变化，请重新加载后再编辑。重新加载会替换尚未保存的修改。"
+      }
     }
   },
   "menu": {

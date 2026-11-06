@@ -19,7 +19,6 @@ function fixture() {
     username: 'alice',
     uid: 1700,
     session: true,
-    now: 0,
     filePath: '/volume1/motrix/file',
   }
   const api: DsmApi = vi.fn(async (_context, request, token) => {
@@ -65,8 +64,7 @@ function fixture() {
   const accounts = new SynologyAccounts(
     api,
     async () => state.epoch,
-    async () => ({ uid: state.uid, administrator: state.admin }),
-    () => state.now
+    async () => ({ uid: state.uid, administrator: state.admin })
   )
   return { state, api, accounts }
 }
@@ -129,15 +127,29 @@ describe('DSM live account authorization', () => {
     state.username = 'bob'
     expect(await accounts.lookup('alice', AbortSignal.timeout(1000))).toBeNull()
   })
-  it('bounds context lifetime and does not serialize session secrets', async () => {
-    const { state, accounts } = fixture()
+  it('rechecks DSM instead of expiring a valid account after browser inactivity', async () => {
+    const { state, api, accounts } = fixture()
     const identity = await accounts.authenticate(
       context,
       AbortSignal.timeout(1000)
     )
     expect(JSON.stringify(identity)).not.toContain('synthetic')
-    state.now = 30 * 60_000
-    expect(await accounts.lookup('alice', AbortSignal.timeout(1000))).toBeNull()
+    const before = vi.mocked(api).mock.calls.length
+    const clock = vi
+      .spyOn(Date, 'now')
+      .mockReturnValue(Date.now() + 8 * 60 * 60_000)
+    try {
+      expect(
+        await accounts.lookup('alice', AbortSignal.timeout(1000))
+      ).toMatchObject({ userId: '1700' })
+      expect(vi.mocked(api).mock.calls.length).toBeGreaterThan(before)
+      state.session = false
+      expect(
+        await accounts.lookup('alice', AbortSignal.timeout(1000))
+      ).toBeNull()
+    } finally {
+      clock.mockRestore()
+    }
   })
   it('keeps concurrent client validation valid when the same browser renews its context', async () => {
     const { api, accounts } = fixture()

@@ -7,6 +7,15 @@ export async function listenNas(
   socketPath: string,
   gatewayGroupId?: number
 ): Promise<void> {
+  await prepareNasSocket(socketPath, gatewayGroupId)
+  await app.listen({ path: socketPath })
+  await secureNasSocket(socketPath, gatewayGroupId)
+}
+
+export async function prepareNasSocket(
+  socketPath: string,
+  gatewayGroupId?: number
+): Promise<void> {
   if (
     gatewayGroupId !== undefined &&
     (!Number.isInteger(gatewayGroupId) ||
@@ -44,7 +53,12 @@ export async function listenNas(
       throw new Error('Gateway socket changed during startup')
     await unlink(socketPath)
   }
-  await app.listen({ path: socketPath })
+}
+
+export async function secureNasSocket(
+  socketPath: string,
+  gatewayGroupId?: number
+): Promise<void> {
   // Grant only a declared supplementary gateway group. Application state keeps
   // its private owner/modes; membership is never an authenticated NAS identity.
   if (gatewayGroupId !== undefined) await chown(socketPath, -1, gatewayGroupId)

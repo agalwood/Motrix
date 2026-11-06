@@ -115,6 +115,7 @@ import {
   defaultRecoveryFs,
   TaskRecoveryServiceImpl,
 } from '@core/task/task-recovery-service'
+import { taskRowToDownloadTask } from '@core/task/task-row-to-download-task'
 import { TaskUpdatePublisher } from '@core/task/task-update-publisher'
 import { TorrentMetaStoreImpl } from '@core/task/torrent-meta-store'
 import { MagnetSelectionTimeout } from '@core/torrent/magnet-selection-timeout'
@@ -132,6 +133,7 @@ import { resolveSupportedLocale } from '@shared/constants/locales'
 import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
 import type { TaskCreateCommandResult } from '@shared/schemas/add-task'
+import { synologyFileStationUrl } from '@shared/schemas/nas-files'
 import { REGISTRY_CACHE_FILENAME } from '@shared/schemas/registry'
 import { EngineState } from '@shared/types/engine'
 import { getHiddenNotificationKinds } from '@shared/types/notification'
@@ -175,14 +177,23 @@ import { FnosAccountAuthority } from './platform/fnos/accounts'
 import { FnosFiles } from './platform/fnos/files'
 import { registerFnosRoutes } from './platform/fnos/routes'
 import { fnosRuntime, listenFnos } from './platform/fnos/runtime'
+import { listenNasClientGateway } from './platform/nas/client-gateway'
 import { NasFileRemover } from './platform/nas/file-remover'
+import { registerNasFileRoutes } from './platform/nas/file-routes'
+import { NasRecoveryAccess } from './platform/nas/recovery-access'
 import { NasTaskAccess } from './platform/nas/task-access'
 import { createNodePlatformServices } from './platform/services'
 import { SynologyAccounts } from './platform/synology/accounts'
 import { probeDsmApi } from './platform/synology/api'
 import { SynologyFiles } from './platform/synology/files'
 import { synologyGateway } from './platform/synology/identity'
-import { listenSynology, synologyRuntime } from './platform/synology/runtime'
+import {
+  dsmDefaultSaveDir,
+  dsmGatewayGroupId,
+  listenSynology,
+  synologyRuntime,
+} from './platform/synology/runtime'
+import { synologySettingsHandlers } from './platform/synology/settings'
 import { createServerCapabilityHost } from './plugin/capability-host'
 import {
   createServerCommunityPluginPolicy,
@@ -424,7 +435,13 @@ async function main() {
     !nas && Boolean(process.env.MOTRIX_DEFAULT_SAVE_DIR?.trim())
   const effectiveDefaultSaveDir = hasDefaultSaveDirOverride
     ? configuredDefaultSaveDir
-    : settingsManager.getApp().defaultSaveDir
+    : synology
+      ? dsmDefaultSaveDir(
+          settingsManager.getApp().defaultSaveDir,
+          configuredDefaultSaveDir,
+          process.env.MOTRIX_ALLOWED_SAVE_DIRS
+        )
+      : settingsManager.getApp().defaultSaveDir
   const nasFiles =
     synology && dsmAccounts
       ? new SynologyFiles(synology.configFile, dsmAccounts)
@@ -441,7 +458,7 @@ async function main() {
     ? new NasTaskAccess(nasFiles, downloadPathPolicy)
     : undefined
   if (
-    hasDefaultSaveDirOverride &&
+    (hasDefaultSaveDirOverride || synology) &&
     settingsManager.getApp().defaultSaveDir !== effectiveDefaultSaveDir
   ) {
     await settingsManager.update({
@@ -804,6 +821,34 @@ async function main() {
   supervisor.setSessionRecoveryStore(
     sessionManager.getEngineSessionRecoveryStore()
   )
+  const nasRecoveryAccess = nasTaskAccess
+    ? new NasRecoveryAccess({
+        access: nasTaskAccess,
+        policy: downloadPathPolicy,
+        tempDir: runtimeDirectories.tempDir,
+        getTask: (gid) => {
+          const owners = db
+            .getAllTasks()
+            .filter((pair) =>
+              pair.instances.some((instance) => instance.gid === gid)
+            )
+          return owners.length === 1
+            ? taskRowToDownloadTask(owners[0].task, owners[0].instances)
+            : undefined
+        },
+        getEnginePaths: async (gid) => {
+          const state = await rpcClient.tellStatus(gid, ['dir', 'files'])
+          return {
+            directory: state.dir,
+            files: state.files.map((file) => file.path),
+          }
+        },
+      })
+    : undefined
+  if (nasRecoveryAccess)
+    sessionManager.setRecoveryWriteAuthorization(
+      nasRecoveryAccess.authorizeWrite
+    )
   supervisor.setStartupGuard(
     new CompletedTaskStartupGuard({
       completedGids: () => sessionManager.getCompletedDirectEngineTaskIds(),
@@ -815,6 +860,7 @@ async function main() {
         ),
       rpc: rpcClient,
       removeResult: (gid) => adapter.removeDownloadResult(gid),
+      authorizeResume: nasRecoveryAccess?.authorizeResume,
     })
   )
   supervisor.setPreReadyMaintenance(() =>
@@ -1403,6 +1449,13 @@ async function main() {
     (fnos?.accountSocketPath
       ? new FnosAccountAuthority(fnos.accountSocketPath)
       : undefined)
+  const nasSettings =
+    synology && dsmAccounts
+      ? await synologySettingsHandlers(synology.variable, dsmAccounts)
+      : undefined
+  let nasClientGateway:
+    | Awaited<ReturnType<typeof listenNasClientGateway>>
+    | undefined
   const app = await createApp({
     getHiddenNotificationKinds: () =>
       getHiddenNotificationKinds(settingsManager.getApp()),
@@ -1420,8 +1473,8 @@ async function main() {
         : undefined,
     remoteExtensionConfig,
     torrentBodyLimitBytes,
-    commandHandlers,
-    queryHandlers,
+    commandHandlers: { ...commandHandlers, ...nasSettings?.commandHandlers },
+    queryHandlers: { ...queryHandlers, ...nasSettings?.queryHandlers },
     bridgeCommandHandlers: bridgeManager.bridgeCommandHandlers,
     bridgeQueryHandlers: bridgeManager.bridgeQueryHandlers,
     eventBus,
@@ -1444,6 +1497,7 @@ async function main() {
     }),
   })
   shutdownActions.closeIngress = async () => {
+    await nasClientGateway?.close()
     pluginUploadStore.dispose()
     await app.close()
   }
@@ -1454,6 +1508,14 @@ async function main() {
   }
 
   registerPluginUploadRoute(app, pluginUploadStore)
+  if (synology && nasFiles)
+    registerNasFileRoutes(app, {
+      files: nasFiles,
+      policy: downloadPathPolicy,
+      getTask: (id) => taskManager.getById(id),
+      webBasePath: '/motrix',
+      fileManagerUrl: synologyFileStationUrl,
+    })
   if (fnos && nasFiles)
     registerFnosRoutes(app, nasFiles, downloadPathPolicy, (id) =>
       taskManager.getById(id)
@@ -1897,8 +1959,15 @@ async function main() {
     // can observe an empty/partial TaskManager or a false TaskNotFound.
     const port = parseServerPort(process.env.PORT, 'PORT', 8080)
     try {
-      if (synology) await listenSynology(app, synology.socketPath)
-      else if (fnos) await listenFnos(app, fnos.socketPath)
+      if (synology) {
+        await listenSynology(app, synology.socketPath)
+        nasClientGateway = await listenNasClientGateway({
+          socketPath: synology.clientSocketPath,
+          groupId: await dsmGatewayGroupId(),
+          currentPort: () => bridgeManager.current?.port,
+          extensionEnabled: () => remoteExtensionConfig.status === 'enabled',
+        })
+      } else if (fnos) await listenFnos(app, fnos.socketPath)
       else await app.listen({ port, host: '0.0.0.0' })
     } catch (err) {
       if (!shellAsyncWork.isAccepting()) return

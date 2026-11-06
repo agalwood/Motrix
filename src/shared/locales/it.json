@@ -5,7 +5,8 @@
     "placeholder": "Token operatore",
     "error": "Token operatore non valido. Controlla MOTRIX_OPERATOR_TOKEN o <dataDir>/operator-token sull’host e riprova.",
     "submit": "Sblocca",
-    "nasSessionExpired": "Impossibile verificare la sessione di amministratore NAS. Apri Motrix dal desktop del NAS."
+    "nasSessionExpired": "Impossibile verificare la sessione di amministratore NAS. Apri Motrix dal desktop del NAS.",
+    "openDsm": "Open DSM to sign in"
   },
   "operatorAdmin": {
     "help": "Utilizzo:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nIl comando comunica esclusivamente con il server Motrix in esecuzione tramite l’interfaccia di loopback del container.",
@@ -957,7 +958,11 @@
         "redownloadStarted": "Re-download started",
         "retryDialogTitle": "Riprova il download",
         "retryDialogDescription": "Modifica i parametri della richiesta per {{name}} per avviare un nuovo download. L’attività non riuscita e il suo file parziale verranno conservati.",
-        "retryDialogProgress": "Download {{current}} di {{total}}"
+        "retryDialogProgress": "Download {{current}} di {{total}}",
+        "downloadToDevice": "Download to this device",
+        "revealInFileStation": "Show in File Station",
+        "nasFileUnavailable": "File access could not be authorized. Check the account and folder permissions.",
+        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again."
       },
       "titleCount": "Visualizzati: {{shown}} · Totale: {{total}}",
       "type": {
@@ -1148,7 +1153,8 @@
         "failed": "Impossibile avviare {{name}} automaticamente. Apri i dettagli dell’attività per selezionare i file e riprovare."
       },
       "undoCorrection": "Annulla correzione URL",
-      "submissionUnconfirmed": "L’esito non è confermato. Un nuovo tentativo verificherà la richiesta originale prima di creare un’altra attività."
+      "submissionUnconfirmed": "L’esito non è confermato. Un nuovo tentativo verificherà la richiesta originale prima di creare un’altra attività.",
+      "selectNasTorrent": "Choose a torrent from the NAS"
     },
     "detail": {
       "peers": "Peer: {{count}}",
@@ -1305,6 +1311,10 @@
       "integration": {
         "title": "Integrazione",
         "desc": "Estensioni del browser, CLI, integrazione con il sistema"
+      },
+      "nas": {
+        "title": "Synology NAS",
+        "desc": "Download folders and client connections"
       }
     },
     "general": {
@@ -2281,6 +2291,34 @@
       "updateDescription": "Download the Windows ZIP, exit Motrix, and move the entire data folder to the new version. Portable mode never runs the installer.",
       "recoveryError": "Portable data could not be recovered safely. Keep the data folder and check the logs and directory permissions before retrying. Motrix has stopped without using the system profile.",
       "enginePathDescription": "Portable mode manages engine state inside the data folder for the current application location."
+    },
+    "nas": {
+      "description": "All DSM administrators share these package settings. Changes apply after Motrix is restarted from Package Center.",
+      "account": "Current DSM account: {{username}}",
+      "restartRequired": "Settings saved. Stop and start Motrix in DSM Package Center to apply them. Tasks, files and pairing records are kept.",
+      "roots": "Authorized download folders",
+      "rootsHint": "Enter one existing NAS folder per line. Both your account and the internal system user motrix need read/write access. If the default download folder is removed, the first folder becomes the new default.",
+      "extensionEnabled": "Enable browser extension connections",
+      "extensionHint": "Use DSM’s HTTPS address for secure remote connections. Pairing still requires approval with your current account.",
+      "webAddress": "Motrix Web address",
+      "webAddressHint": "Use the address you normally open, including /motrix/. You can fill it from this browser.",
+      "useCurrentAddress": "Use this DSM address",
+      "extensionAddress": "Extension connection address",
+      "allowHttp": "Allow pairing codes over HTTP",
+      "allowHttpHint": "Enable only on a trusted network. HTTPS does not require this option.",
+      "clientPort": "Direct client port",
+      "clientPortHint": "Advanced: direct CLI/extension connections use this port (1024–65535). The DSM HTTPS addresses below keep working when it changes.",
+      "activeConnections": "Current connection addresses",
+      "cliAddress": "CLI endpoint",
+      "sessionHint": "Clients use their paired DSM account’s current permissions. After DSM logout, session expiration or a package restart, reopen Motrix with that account; pairing again is not required.",
+      "copy": "Copy address",
+      "openSettings": "Configure NAS connections",
+      "errors": {
+        "invalid": "Check the folder paths, port and connection addresses. HTTP code delivery requires explicit permission.",
+        "permissionDenied": "The account or folder cannot be authorized. Check DSM shared-folder permissions for your account and the internal system user motrix.",
+        "unavailable": "Package settings are unavailable. Try again after the service has recovered.",
+        "conflict": "The saved configuration changed. Reload before editing again; your unsaved changes will be replaced."
+      }
     }
   },
   "errors": {

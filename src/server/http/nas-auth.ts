@@ -4,6 +4,7 @@ import {
   type ClientPairingCapabilities,
   FNOS_EVENT_PROTOCOL,
   FNOS_EVENT_TICKET_PREFIX,
+  type NasCapabilities,
   nasAuthDiagnosticSchema,
   WEB_ORIGIN_HEADER,
 } from '@shared/schemas/operator-auth'
@@ -23,6 +24,7 @@ export interface NasGatewayOptions {
   hasIdentity(req: FastifyRequest): boolean
   diagnostic?(req: FastifyRequest): object | undefined
   publicShell?: boolean
+  capabilities?: NasCapabilities
 }
 interface EventTicket {
   principal: Principal
@@ -167,6 +169,7 @@ export function registerNasAuth(
       canLogout: false,
       username: identities.get(req)?.username,
       clientPairing,
+      ...(opts.capabilities ? { nasCapabilities: opts.capabilities } : {}),
       ...(diagnostic?.success ? { nasAuthDiagnostic: diagnostic.data } : {}),
     }
   })

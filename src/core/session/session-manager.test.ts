@@ -295,6 +295,7 @@ function seedAsPair(
     errorMessage?: string | null
     errorCode?: DownloadErrorCode | null
     payload?: Record<string, unknown>
+    phase?: TaskInstancePhase
   }
 ): void {
   const isBtLike =
@@ -303,9 +304,9 @@ function seedAsPair(
     opts.kind === TaskKind.Bt ||
     !!opts.infoHash ||
     !!opts.torrentMetaPath
-  const phase = isBtLike
-    ? TaskInstancePhase.BtDownload
-    : TaskInstancePhase.HttpDownload
+  const phase =
+    opts.phase ??
+    (isBtLike ? TaskInstancePhase.BtDownload : TaskInstancePhase.HttpDownload)
   const kind = opts.kind ?? (isBtLike ? TaskKind.Bt : TaskKind.Direct)
   const status = opts.status ?? TaskStatus.Queued
   db.saveTaskWithInstances({
@@ -2335,6 +2336,42 @@ describe('SessionManager', () => {
         fs.rmSync(torrentDir, { recursive: true, force: true })
       }
     })
+
+    it.each([
+      TaskInstancePhase.HttpDownload,
+      TaskInstancePhase.MagnetMetadataResolution,
+    ])(
+      'does not reconstruct lost work when host grants are revoked (%s)',
+      async (phase) => {
+        seedAsPair(db, {
+          motrixId: 'revoked',
+          gid: 'lost-revoked',
+          diskPath: '/tmp/revoked.bin.motrix',
+          finalPath: '/tmp/revoked.bin',
+          uris: ['http://example.com/revoked.bin'],
+          status: TaskStatus.Downloading,
+          phase,
+          payload: { metadataDir: '/tmp/motrix-magnet-metadata-test' },
+        })
+        rpc.tellActive = vi.fn(async () => [])
+        rpc.tellWaiting = vi.fn(async () => [])
+        rpc.tellStopped = vi.fn(async () => [])
+        rpc.addUri = vi.fn()
+        const authorize = vi.fn(async () => {
+          throw new Error('revoked')
+        })
+        sessionManager.setRecoveryWriteAuthorization(authorize)
+        await sessionManager.restore()
+        expect(authorize).toHaveBeenCalled()
+        expect(adapter.createDownload).not.toHaveBeenCalled()
+        expect(adapter.addTorrent).not.toHaveBeenCalled()
+        expect(rpc.addUri).not.toHaveBeenCalled()
+        expect(taskManager.getById('revoked')).toMatchObject({
+          status: TaskStatus.Error,
+          errorDetailKey: 'task.recovery.startup.resumePathInvalid',
+        })
+      }
+    )
 
     it('re-adds HTTP task via adapter.createDownload when aria2 has lost it', async () => {
       seedAsPair(db, {

@@ -28,7 +28,11 @@ import { openAddTaskDialog } from '@renderer/lib/open-add-task-dialog'
 import { openMagnetFileSelection } from '@renderer/lib/open-magnet-file-selection'
 import { openTaskFile } from '@renderer/lib/open-task-file'
 import { transport } from '@renderer/lib/transport'
-import { hasHostFileActions } from '@renderer/platform/fnos'
+import {
+  hasHostFileActions,
+  hostOpenFileLabelKey,
+  hostRevealFolderLabelKey,
+} from '@renderer/platform/nas'
 import { CommandIds } from '@shared/commands-catalog'
 import { formatNativePath } from '@shared/lib/path-display'
 import { Commands } from '@shared/protocol/commands'
@@ -289,7 +293,7 @@ export function TaskActionsMenu({
                 )
               }
             >
-              {t('panel.downloads.action.openFile')}
+              {t(hostOpenFileLabelKey())}
             </DropdownMenuItem>
           )}
           {single && hasHostFileActions() && canRevealTaskFolder(single) && (
@@ -308,7 +312,7 @@ export function TaskActionsMenu({
                   )
               }}
             >
-              {t('panel.downloads.action.openFolder')}
+              {t(hostRevealFolderLabelKey())}
             </DropdownMenuItem>
           )}
           <OperationTaskMenuItems selected={selected} open={menuOpen} />

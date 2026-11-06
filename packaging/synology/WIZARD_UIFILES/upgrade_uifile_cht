@@ -3,7 +3,6 @@
     "step_title": "Motrix",
     "items": [
       {
-        "type": "description",
         "desc": "升級將停止下載，保留任務、設定、配對資訊和檔案。"
       }
     ]

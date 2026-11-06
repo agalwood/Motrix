@@ -1,8 +1,10 @@
 import { spawn } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
 import { once } from 'node:events'
 import {
   access,
   chmod,
+  lstat,
   mkdir,
   open,
   readFile,
@@ -83,6 +85,82 @@ export async function configure(env) {
     }),
     { flag: 'wx', mode: 0o600 }
   )
+}
+
+/** Apply the administrator's restart journal before any new application process
+ * starts. Retain it on failure so interrupted two-file application is replayable. */
+export async function applyPendingSettings(env) {
+  const variable = env.SYNOPKG_PKGVAR
+  const pending = path.join(variable, 'pending-settings.json')
+  const info = await lstat(pending).catch((error) => {
+    if (error.code === 'ENOENT') return undefined
+    throw error
+  })
+  if (!info) return
+  if (
+    !info.isFile() ||
+    info.uid !== process.getuid() ||
+    (info.mode & 0o077) !== 0 ||
+    info.size > 32768
+  )
+    throw new Error('Unsafe pending package settings')
+  const value = JSON.parse(await readFile(pending, 'utf8'))
+  if (
+    !value ||
+    Object.keys(value).sort().join(',') !==
+      'allowHttp,clientPort,extensionUrl,operatorUrl,roots' ||
+    !Number.isInteger(value.clientPort) ||
+    value.clientPort < 1024 ||
+    value.clientPort > 65535 ||
+    typeof value.allowHttp !== 'boolean' ||
+    !['extensionUrl', 'operatorUrl'].every(
+      (key) =>
+        typeof value[key] === 'string' &&
+        value[key].length <= 2048 &&
+        !/\p{Cc}/u.test(value[key])
+    ) ||
+    !Array.isArray(value.roots) ||
+    value.roots.length < 1 ||
+    value.roots.length > 64 ||
+    !value.roots.every(
+      (root) =>
+        typeof root === 'string' &&
+        root.length <= 4096 &&
+        /^\/volume[1-9]\d*\/[^:]+$/.test(root) &&
+        !/\p{Cc}/u.test(root) &&
+        root
+          .split('/')
+          .slice(1)
+          .every((part) => part && part !== '.' && part !== '..')
+    )
+  )
+    throw new Error('Invalid pending package settings')
+  const { roots, ...settings } = value
+  for (const [name, data] of [
+    ['package-settings.json', settings],
+    ['directories.json', { roots }],
+  ]) {
+    const temporary = path.join(variable, `${name}.${randomUUID()}.next`)
+    try {
+      const handle = await open(temporary, 'wx', 0o600)
+      try {
+        await handle.writeFile(`${JSON.stringify(data)}\n`)
+        await handle.sync()
+      } finally {
+        await handle.close()
+      }
+      await rename(temporary, path.join(variable, name))
+    } finally {
+      await rm(temporary, { force: true })
+    }
+  }
+  const directory = await open(variable, 'r')
+  try {
+    await directory.sync()
+  } finally {
+    await directory.close()
+  }
+  await rm(pending)
 }
 
 export function processStartTime(contents) {
@@ -199,7 +277,11 @@ export async function lifecycle(action, env = process.env) {
       env.wizard_delete_data === 'true'
     ) {
       await rm(path.join(variable, 'data'), { recursive: true, force: true })
-      for (const name of ['package-settings.json', 'directories.json'])
+      for (const name of [
+        'package-settings.json',
+        'directories.json',
+        'pending-settings.json',
+      ])
         await rm(path.join(variable, name), { force: true })
     }
     return 0
@@ -219,6 +301,7 @@ export async function lifecycle(action, env = process.env) {
     return 0
   }
   await configure(env)
+  await applyPendingSettings(env)
   const runtime = await runtimeEnvironment(env)
   // Missing shares are never recreated: that might write into an unmounted volume.
   if (!(await stat(runtime.MOTRIX_DEFAULT_SAVE_DIR)).isDirectory())

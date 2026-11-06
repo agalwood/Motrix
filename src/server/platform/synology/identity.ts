@@ -16,6 +16,12 @@ export function synologyGateway(
   return {
     mode: 'synologyDsm',
     publicShell: true,
+    capabilities: {
+      settings: true,
+      fileActions: true,
+      torrentPicker: true,
+      clientGateway: true,
+    },
     isListener,
     // DSM authenticates upgrades as well; tickets cannot extend a disabled account.
     hasIdentity: () => true,

@@ -24,6 +24,7 @@ function WebGate({ children }: { children: ReactNode }) {
   const { t } = useTranslation()
   const state = useOperatorSession((s) => s.state)
   const fnos = useOperatorSession((s) => isNasAuthMode(s.status?.mode))
+  const synology = useOperatorSession((s) => s.status?.mode === 'synologyDsm')
   const diagnostic = useOperatorSession((s) => s.status?.nasAuthDiagnostic)
   const [token, setToken] = useState('')
   const [error, setError] = useState(false)
@@ -65,6 +66,11 @@ function WebGate({ children }: { children: ReactNode }) {
         <Button onClick={() => window.location.reload()}>
           {t('applicationMenu.retry')}
         </Button>
+        {synology && (
+          <Button variant="outline" onClick={() => window.location.assign('/')}>
+            {t('operatorUnlock.openDsm')}
+          </Button>
+        )}
       </div>
     )
 

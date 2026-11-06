@@ -62,17 +62,27 @@ the permissions of both the account and the package user. The default root is
 resolved from DSM's `/var/packages/Motrix/shares/motrix` link. An unavailable
 volume is never created as a replacement directory on the system volume.
 
-Additional roots can be explicitly listed in `var/directories.json` under the
-package directory, as `{"roots":["/volume1/motrix","/volume2/Downloads"]}`.
+Use **Settings → NAS** to manage authorized directories and client connections.
 First grant the internal system user `motrix` access in DSM's shared-folder
-permissions. Motrix's existing Server folder picker only browses authorized
-roots; choosing a path never grants permission. Backend checks apply again to
-new tasks, resume, redownload, BT selection, existing output writes and removal.
-Local browser `.torrent` uploads are supported. DSM `.torrent` associations and
-File Station open/reveal actions are not registered: no stable, tested public
-contract has been established for this integration. These actions remain
-unavailable rather than invoking fnOS APIs or accepting arbitrary file paths.
+permissions. Add an existing path such as `/volume1/downloads` to Motrix's
+root list, apply, then stop and start Motrix in Package Center. Changes are
+queued and take effect after the old engine has stopped; the interface shows
+pending changes and currently active connection addresses. Concurrent edits
+require reloading the latest settings instead of silently overwriting them.
+The folder picker only browses authorized roots; selection never grants access.
+Backend checks cover new tasks, resume, redownload, BT selection and file removal.
 
+Upload a local `.torrent`, or choose a torrent from an authorized NAS directory.
+Completed single-file tasks offer **Download to this device**; the server streams
+from a verified file handle and supports resumable HTTP ranges. **Show in File
+Station** opens the task folder in DSM. Its launch URL was verified on DS718+
+with DSM 7.4.1; other DSM versions still require device acceptance. No File Station
+`.torrent` context-menu association is registered.
+
+Engine startup loads persisted work paused, verifies task ownership and actual
+output paths against current grants, then resumes authorized tasks that were
+previously running. Unknown or unauthorized engine rows remain paused. Automatic
+reconstruction of lost tasks also checks the host's directory grants.
 Directory grants and account/ACL state are refreshed on admission. Removal uses
 the existing descriptor-relative filesystem helper, file identity checks and
 persistent removal recovery journal. Revoking a grant does not instantly cancel
@@ -82,16 +92,19 @@ replacement, offline storage and interrupted finalization.
 
 ## Pair clients
 
-The installation wizard selects the CLI/Extension port (default **16802**).
-Browser extensions are disabled when their WS/WSS address is empty. To enable
-them, set the reachable client WS/WSS address and complete Motrix Web URL,
-including `/motrix/`. Displaying codes over HTTP requires explicitly enabling
-the trusted-network option. The configured origin and actual browser origin
-must agree. An HTTPS address never authorizes displaying a code on an HTTP page.
-These options persist in `var/package-settings.json`; stop the package before
-editing them, then start it again. Invalid optional Extension configuration
-closes that entry without opening an unauthenticated fallback.
+The installation wizard selects the direct client port (default **16802**).
+In **Settings → NAS**, copy the CLI address using the DSM HTTPS origin and
+`/motrix/client`. The gateway forwards only the existing CLI protocol routes;
+it does not forward DSM cookies. The direct port remains available and configurable.
 
+Browser extension access is disabled by default. Enable it in **Settings → NAS**;
+the suggested address uses the current DSM origin and `/motrix/bridge` with WSS
+for HTTPS. Advanced connection fields support a separately configured public
+origin. Set the full Motrix Web address including `/motrix/`.
+Displaying pairing codes over HTTP requires explicit trusted-network consent.
+The configured origin must match the current page; an HTTPS address never
+permits code delivery to an HTTP page. Apply and restart the package for changes
+to take effect. Invalid configuration closes the extension entry.
 The existing CLI device-code protocol and Extension MBP1 protocol are unchanged.
 The pairing UI shows the current account and **Pair with current account**.
 Next, enter the code in the browser extension. The server checks the page's
@@ -105,9 +118,9 @@ root-owned local passwd/group database conservatively invalidates all existing
 bindings, including after UID reuse; pair again. Explicit credential revocation
 continues to use the existing protocol. DSM session cookies are neither saved in
 pairing state nor used as CLI credentials. At most 64 session contexts are kept
-in memory for 30 minutes after the last authenticated Web request; every client
-operation revalidates the actual DSM session and account. A DSM logout, expired
-context or Motrix restart requires the corresponding administrator to reopen
+in memory with bounded least-recently-used eviction; every client operation
+revalidates the actual DSM session and account. A DSM logout, session expiry,
+evicted context or Motrix restart requires the corresponding administrator to reopen
 Motrix. Paired credentials and tasks survive an upgrade, but no client is allowed
 to act until its account has supplied a fresh verified session. Web event tickets are one-use,
 origin-bound and short-lived; connections reauthenticate at least every minute.

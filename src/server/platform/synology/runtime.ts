@@ -3,6 +3,21 @@ import path from 'node:path'
 import type { FastifyInstance } from 'fastify'
 import { listenNas } from '../nas/listener'
 
+export function dsmDefaultSaveDir(
+  current: string,
+  configured: string,
+  rootsValue: string | undefined
+): string {
+  const roots = rootsValue?.split(':').filter(Boolean) ?? []
+  const normalized = path.posix.resolve(current)
+  return roots.length > 0 &&
+    !roots.some(
+      (root) => normalized === root || normalized.startsWith(`${root}/`)
+    )
+    ? configured
+    : current
+}
+
 export function synologyRuntime(env: NodeJS.ProcessEnv = process.env) {
   if (env.MOTRIX_AUTH_MODE !== 'synologyDsm') return undefined
   const variable = env.SYNOPKG_PKGVAR
@@ -16,6 +31,8 @@ export function synologyRuntime(env: NodeJS.ProcessEnv = process.env) {
     throw new Error('DSM Server must run as the package account')
   return {
     socketPath: path.join(variable, 'web.sock'),
+    clientSocketPath: path.join(variable, 'client.sock'),
+    variable,
     configFile: path.join(variable, 'directories.json'),
   }
 }
@@ -40,13 +57,16 @@ export function dsmGatewayGroup(contents: string, groups: number[]): number {
   return gid
 }
 
-export async function listenSynology(app: FastifyInstance, socketPath: string) {
+export async function dsmGatewayGroupId() {
   const info = await stat('/etc/group')
   if (!info.isFile() || info.uid !== 0 || (info.mode & 0o022) !== 0)
     throw new Error('Untrusted DSM group database')
-  const gid = dsmGatewayGroup(
+  return dsmGatewayGroup(
     await readFile('/etc/group', 'utf8'),
     process.getgroups?.() ?? []
   )
-  await listenNas(app, socketPath, gid)
+}
+
+export async function listenSynology(app: FastifyInstance, socketPath: string) {
+  await listenNas(app, socketPath, await dsmGatewayGroupId())
 }

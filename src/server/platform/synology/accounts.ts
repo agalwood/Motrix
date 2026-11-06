@@ -36,15 +36,13 @@ export class SynologyAccounts implements NasAccountAuthority {
   readonly platform = 'synology' as const
   // No cookie/token is written to disk or returned to a client. Reopening the
   // DSM app supplies a new context after restart/expiration; bindings persist.
-  private readonly sessions = new Map<
-    string,
-    { context: DsmContext; expiresAt: number }
-  >()
+  // Only DSM determines session validity: every operation rechecks it. A local
+  // inactivity cutoff must not interrupt a still-authorized long download.
+  private readonly sessions = new Map<string, { context: DsmContext }>()
   constructor(
     private readonly api: DsmApi = dsmApi,
     private readonly epoch = accountEpoch,
-    private readonly posix = readDsmPosixAccount,
-    private readonly now = Date.now
+    private readonly posix = readDsmPosixAccount
   ) {}
 
   private async validate(context: DsmContext, signal: AbortSignal) {
@@ -93,8 +91,6 @@ export class SynologyAccounts implements NasAccountAuthority {
   ): Promise<NasIdentity | null> {
     const result = await this.validate(context, signal)
     if (!result) return null
-    for (const [name, entry] of this.sessions)
-      if (entry.expiresAt <= this.now()) this.sessions.delete(name)
     if (
       !this.sessions.has(result.identity.username) &&
       this.sessions.size >= 64
@@ -103,27 +99,19 @@ export class SynologyAccounts implements NasAccountAuthority {
       if (oldest !== undefined) this.sessions.delete(oldest)
     }
     const existing = this.sessions.get(result.identity.username)
-    const expiresAt = this.now() + 30 * 60_000
-    if (
-      existing &&
-      JSON.stringify(existing.context) === JSON.stringify(context)
-    )
-      existing.expiresAt = expiresAt
-    else
-      this.sessions.set(result.identity.username, {
-        context: { ...context },
-        expiresAt,
-      })
+    const entry =
+      existing && JSON.stringify(existing.context) === JSON.stringify(context)
+        ? existing
+        : { context: { ...context } }
+    this.sessions.delete(result.identity.username)
+    this.sessions.set(result.identity.username, entry)
     return result.identity
   }
 
   private async current(username: string, signal: AbortSignal) {
     if (!validDsmUsername(username)) return null
     const entry = this.sessions.get(username)
-    if (!entry || entry.expiresAt <= this.now()) {
-      this.sessions.delete(username)
-      return null
-    }
+    if (!entry) return null
     const forget = () => {
       if (this.sessions.get(username) === entry) this.sessions.delete(username)
     }
@@ -133,11 +121,9 @@ export class SynologyAccounts implements NasAccountAuthority {
         forget()
         return null
       }
-      if (
-        this.sessions.get(username) !== entry ||
-        entry.expiresAt <= this.now()
-      )
-        return null
+      if (this.sessions.get(username) !== entry) return null
+      this.sessions.delete(username)
+      this.sessions.set(username, entry)
       return { ...result, context: entry.context }
     } catch (error) {
       forget()

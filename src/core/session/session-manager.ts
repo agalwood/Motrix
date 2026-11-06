@@ -302,6 +302,26 @@ export class SessionManager {
       null
   ) {}
 
+  private authorizeRecoveryWrite?: (task: DownloadTask) => Promise<void>
+
+  /** Host grants apply to automatic reconstruction as well as explicit resume. */
+  setRecoveryWriteAuthorization(
+    authorize: (task: DownloadTask) => Promise<void>
+  ): void {
+    this.authorizeRecoveryWrite = authorize
+  }
+
+  private async canRecoverWrite(pair: TaskWithInstances): Promise<boolean> {
+    try {
+      await this.authorizeRecoveryWrite?.(
+        taskRowToDownloadTask(pair.task, pair.instances)
+      )
+      return true
+    } catch {
+      return false
+    }
+  }
+
   /**
    * Binds the shared plugin terminal boundary after the Hook runtime is built.
    * Session restore owns a few terminal transitions internally; routing those
@@ -1670,6 +1690,11 @@ export class SessionManager {
     pair: TaskWithInstances,
     assertProxyCurrent?: () => void
   ): Promise<DownloadTask> {
+    if (!(await this.canRecoverWrite(pair)))
+      return this.markRecoverErrorFromPair(
+        pair,
+        'task.recovery.startup.resumePathInvalid'
+      )
     const taskPart = pair.task
     const primary = pair.instances[0]
 
@@ -2090,6 +2115,11 @@ export class SessionManager {
   private async recoverMagnetMetadata(
     pair: TaskWithInstances
   ): Promise<DownloadTask> {
+    if (!(await this.canRecoverWrite(pair)))
+      return this.markRecoverErrorFromPair(
+        pair,
+        'task.recovery.startup.resumePathInvalid'
+      )
     const now = Date.now()
     const taskPart = pair.task
     const primary = pair.instances[0]

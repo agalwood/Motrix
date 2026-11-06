@@ -17,6 +17,16 @@ export type ClientPairingCapabilities = z.infer<
   typeof clientPairingCapabilitiesSchema
 >
 
+export const nasCapabilitiesSchema = z
+  .object({
+    settings: z.boolean(),
+    fileActions: z.boolean(),
+    torrentPicker: z.boolean(),
+    clientGateway: z.boolean(),
+  })
+  .readonly()
+export type NasCapabilities = z.infer<typeof nasCapabilitiesSchema>
+
 /** Safe support metadata only: no session, account name, command output or path. */
 export const nasAuthDiagnosticSchema = z
   .object({
@@ -60,6 +70,7 @@ export const operatorStatusSchema = z.object({
   eventOriginMatches: z.boolean().optional(),
   clientPairing: clientPairingCapabilitiesSchema.optional(),
   nasAuthDiagnostic: nasAuthDiagnosticSchema.optional(),
+  nasCapabilities: nasCapabilitiesSchema.optional(),
 })
 
 export function isNasAuthMode(mode: string | undefined): boolean {
