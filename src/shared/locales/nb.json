@@ -401,7 +401,7 @@
     "placeholder": "Operatørtoken",
     "submit": "Lås opp",
     "title": "Lås opp Motrix",
-    "nasSessionExpired": "Your NAS administrator session has ended. Open Motrix again from the NAS desktop."
+    "nasSessionExpired": "Kan ikke bekrefte NAS-administratorøkten. Åpne Motrix fra NAS-skrivebordet."
   },
   "panel": {
     "completed": {

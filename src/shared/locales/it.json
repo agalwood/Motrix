@@ -5,7 +5,7 @@
     "placeholder": "Token operatore",
     "error": "Token operatore non valido. Controlla MOTRIX_OPERATOR_TOKEN o <dataDir>/operator-token sull’host e riprova.",
     "submit": "Sblocca",
-    "nasSessionExpired": "Your NAS administrator session has ended. Open Motrix again from the NAS desktop."
+    "nasSessionExpired": "Impossibile verificare la sessione di amministratore NAS. Apri Motrix dal desktop del NAS."
   },
   "operatorAdmin": {
     "help": "Utilizzo:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nIl comando comunica esclusivamente con il server Motrix in esecuzione tramite l’interfaccia di loopback del container.",

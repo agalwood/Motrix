@@ -402,7 +402,7 @@
     "placeholder": "Jeton d’administration",
     "submit": "Déverrouiller",
     "title": "Déverrouiller Motrix",
-    "nasSessionExpired": "Your NAS administrator session has ended. Open Motrix again from the NAS desktop."
+    "nasSessionExpired": "Impossible de vérifier votre session administrateur NAS. Ouvrez Motrix depuis le bureau du NAS."
   },
   "panel": {
     "completed": {

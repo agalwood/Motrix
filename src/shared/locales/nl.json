@@ -401,7 +401,7 @@
     "placeholder": "Operatortoken",
     "submit": "Ontgrendelen",
     "title": "Motrix ontgrendelen",
-    "nasSessionExpired": "Your NAS administrator session has ended. Open Motrix again from the NAS desktop."
+    "nasSessionExpired": "De NAS-beheerderssessie kan niet worden geverifieerd. Open Motrix vanaf het NAS-bureaublad."
   },
   "panel": {
     "completed": {

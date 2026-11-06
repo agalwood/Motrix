@@ -5,7 +5,7 @@
     "placeholder": "Token quản trị",
     "error": "Token quản trị không hợp lệ. Hãy kiểm tra MOTRIX_OPERATOR_TOKEN hoặc <dataDir>/operator-token trên máy chủ rồi thử lại.",
     "submit": "Mở khóa",
-    "nasSessionExpired": "Your NAS administrator session has ended. Open Motrix again from the NAS desktop."
+    "nasSessionExpired": "Không thể xác minh phiên quản trị viên NAS. Hãy mở Motrix từ màn hình NAS."
   },
   "operatorAdmin": {
     "help": "Cách dùng:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nLệnh chỉ giao tiếp với máy chủ Motrix đang chạy qua địa chỉ loopback của container.",

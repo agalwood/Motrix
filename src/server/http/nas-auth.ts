@@ -4,6 +4,7 @@ import {
   type ClientPairingCapabilities,
   FNOS_EVENT_PROTOCOL,
   FNOS_EVENT_TICKET_PREFIX,
+  nasAuthDiagnosticSchema,
   WEB_ORIGIN_HEADER,
 } from '@shared/schemas/operator-auth'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
@@ -20,7 +21,7 @@ export interface NasGatewayOptions {
     req: FastifyRequest
   ): Principal | undefined | Promise<Principal | undefined>
   hasIdentity(req: FastifyRequest): boolean
-  diagnostic?(req: FastifyRequest): object
+  diagnostic?(req: FastifyRequest): object | undefined
   publicShell?: boolean
 }
 interface EventTicket {
@@ -155,13 +156,20 @@ export function registerNasAuth(
     }
     identities.set(req, principal)
   })
-  app.get('/rpc/auth/status', async (req) => ({
-    authed: identities.has(req),
-    mode: opts.mode,
-    canLogout: false,
-    username: identities.get(req)?.username,
-    clientPairing,
-  }))
+  app.get('/rpc/auth/status', async (req) => {
+    const diagnostic =
+      opts.mode === 'synologyDsm' && !identities.has(req)
+        ? nasAuthDiagnosticSchema.safeParse(opts.diagnostic?.(req))
+        : undefined
+    return {
+      authed: identities.has(req),
+      mode: opts.mode,
+      canLogout: false,
+      username: identities.get(req)?.username,
+      clientPairing,
+      ...(diagnostic?.success ? { nasAuthDiagnostic: diagnostic.data } : {}),
+    }
+  })
   app.post('/rpc/auth/event-ticket', async (req, reply) => {
     const principal = identities.get(req)
     const origin = requestOrigin(req)

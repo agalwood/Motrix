@@ -5,7 +5,7 @@
     "placeholder": "Betreiber-Token",
     "error": "Ungültiges Betreiber-Token. Prüfen Sie MOTRIX_OPERATOR_TOKEN oder <dataDir>/operator-token auf dem Host und versuchen Sie es erneut.",
     "submit": "Entsperren",
-    "nasSessionExpired": "Your NAS administrator session has ended. Open Motrix again from the NAS desktop."
+    "nasSessionExpired": "Die NAS-Administratorsitzung konnte nicht bestätigt werden. Öffne Motrix über den NAS-Desktop."
   },
   "operatorAdmin": {
     "help": "Verwendung:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nDer Befehl kommuniziert ausschließlich über die Loopback-Schnittstelle des Containers mit dem laufenden Motrix-Server.",

@@ -401,7 +401,7 @@
     "placeholder": "توکن اپراتور",
     "submit": "باز کردن قفل",
     "title": "باز کردن قفل Motrix",
-    "nasSessionExpired": "Your NAS administrator session has ended. Open Motrix again from the NAS desktop."
+    "nasSessionExpired": "تأیید نشست مدیر NAS ممکن نیست. Motrix را از دسکتاپ NAS باز کنید."
   },
   "panel": {
     "completed": {

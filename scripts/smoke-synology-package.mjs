@@ -62,6 +62,7 @@ await symlink(downloads, `${root}/shares/motrix`)
 execFileSync('chown', ['-R', '1600:1600', root, downloads])
 // These programs simulate DSM authority responses. They are never packaged.
 // No passwords or actual DSM cookies are used by this Linux acceptance test.
+await writeFile('/tmp/dsm-session-state', 'active')
 await writeFile('/tmp/dsm-account-state', 'active')
 await writeFile('/tmp/dsm-acl-state', 'allow')
 const mock = async (file, body) => {
@@ -70,7 +71,7 @@ const mock = async (file, body) => {
 }
 await mock(
   '/usr/syno/synoman/webman/modules/authenticate.cgi',
-  '[ "$HTTP_COOKIE" = "id=synthetic-session" ] && [ "$REMOTE_ADDR" = 127.0.0.1 ] && printf alice'
+  '[ "$(cat /tmp/dsm-session-state)" = active ] || exit 5; [ "$HTTP_COOKIE" = "id=synthetic-session" ] && [ "$REMOTE_ADDR" = 127.0.0.1 ] && [ "$SERVER_PORT" = 5000 ] && [ "$REQUEST_SCHEME" = http ] && printf alice'
 )
 await mock(
   '/usr/syno/sbin/synouser',
@@ -147,6 +148,8 @@ const admin = {
   cookie: 'id=synthetic-session',
   'x-motrix-dsm-remote-addr': '127.0.0.1',
   'x-motrix-dsm-server-addr': '127.0.0.1',
+  'x-motrix-dsm-server-port': '5000',
+  'x-motrix-dsm-scheme': 'http',
   'x-motrix-web-origin': 'http://nas.test',
   origin: 'http://nas.test',
   'content-type': 'application/json',
@@ -315,6 +318,21 @@ try {
     { stdio: 'pipe' }
   )
   const status = JSON.parse((await web('/rpc/auth/status')).body)
+  await writeFile('/tmp/dsm-session-state', 'unavailable')
+  const rejectedSession = JSON.parse((await web('/rpc/auth/status')).body)
+  assert.equal(rejectedSession.authed, false)
+  assert.deepEqual(rejectedSession.nasAuthDiagnostic, {
+    stage: 'session',
+    code: 'commandFailed',
+    failure: 'exit',
+    exitCode: 5,
+  })
+  assert.equal(JSON.stringify(rejectedSession).includes('alice'), false)
+  assert.equal(
+    JSON.stringify(rejectedSession).includes('synthetic-session'),
+    false
+  )
+  await writeFile('/tmp/dsm-session-state', 'active')
   assert.equal(status.username, 'alice')
   assert.deepEqual(status.clientPairing, { cli: true, extension: false })
   assert.equal(

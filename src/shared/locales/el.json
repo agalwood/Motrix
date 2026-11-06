@@ -401,7 +401,7 @@
     "placeholder": "Διακριτικό χειριστή",
     "submit": "Ξεκλείδωμα",
     "title": "Ξεκλείδωμα του Motrix",
-    "nasSessionExpired": "Your NAS administrator session has ended. Open Motrix again from the NAS desktop."
+    "nasSessionExpired": "Δεν ήταν δυνατή η επαλήθευση της συνεδρίας διαχειριστή NAS. Ανοίξτε το Motrix από την επιφάνεια εργασίας του NAS."
   },
   "panel": {
     "completed": {

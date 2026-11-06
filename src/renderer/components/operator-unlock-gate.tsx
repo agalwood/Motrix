@@ -24,6 +24,7 @@ function WebGate({ children }: { children: ReactNode }) {
   const { t } = useTranslation()
   const state = useOperatorSession((s) => s.state)
   const fnos = useOperatorSession((s) => isNasAuthMode(s.status?.mode))
+  const diagnostic = useOperatorSession((s) => s.status?.nasAuthDiagnostic)
   const [token, setToken] = useState('')
   const [error, setError] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -49,6 +50,18 @@ function WebGate({ children }: { children: ReactNode }) {
     return (
       <div className="flex h-svh flex-col items-center justify-center gap-4 p-6">
         <p>{t('operatorUnlock.nasSessionExpired')}</p>
+        {diagnostic && (
+          <code className="select-text text-xs text-muted-foreground">
+            {[
+              diagnostic.stage,
+              diagnostic.code,
+              diagnostic.failure,
+              diagnostic.exitCode,
+            ]
+              .filter((value) => value !== undefined)
+              .join(' / ')}
+          </code>
+        )}
         <Button onClick={() => window.location.reload()}>
           {t('applicationMenu.retry')}
         </Button>

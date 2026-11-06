@@ -400,7 +400,7 @@
     "placeholder": "โทเค็นผู้ดูแล",
     "submit": "ปลดล็อก",
     "title": "ปลดล็อก Motrix",
-    "nasSessionExpired": "Your NAS administrator session has ended. Open Motrix again from the NAS desktop."
+    "nasSessionExpired": "ไม่สามารถตรวจสอบเซสชันผู้ดูแลระบบ NAS ได้ โปรดเปิด Motrix จากเดสก์ท็อป NAS"
   },
   "panel": {
     "completed": {

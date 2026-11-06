@@ -24,6 +24,8 @@ describe('DSM session boundary', () => {
       cookie: 'id=synthetic',
       'x-motrix-dsm-remote-addr': '192.0.2.2',
       'x-motrix-dsm-server-addr': '192.0.2.1',
+      'x-motrix-dsm-server-port': '5001',
+      'x-motrix-dsm-scheme': 'https',
     }
     expect(await adapter.authenticate(request(headers))).toMatchObject({
       platform: 'synology',
@@ -36,6 +38,9 @@ describe('DSM session boundary', () => {
       expect.objectContaining({
         HTTP_COOKIE: 'id=synthetic',
         REMOTE_ADDR: '192.0.2.2',
+        SERVER_PORT: '5001',
+        HTTPS: 'on',
+        GATEWAY_INTERFACE: 'CGI/1.1',
       }),
     ])
     command.mockClear()
@@ -60,6 +65,8 @@ describe('DSM session boundary', () => {
       cookie: 'id=synthetic',
       'x-motrix-dsm-remote-addr': '127.0.0.1',
       'x-motrix-dsm-server-addr': '127.0.0.1',
+      'x-motrix-dsm-server-port': '5001',
+      'x-motrix-dsm-scheme': 'https',
     }
     for (const output of ['', 'alice\nbob', 'root'])
       expect(
@@ -75,4 +82,49 @@ describe('DSM session boundary', () => {
       }).authenticate(request(headers))
     ).toBeUndefined()
   })
+})
+
+it('distinguishes a session helper failure from account lookup failure without returning private data', async () => {
+  const { DsmCommandError } = await import('./commands')
+  const headers = {
+    cookie: 'id=private-cookie',
+    'x-motrix-dsm-remote-addr': '127.0.0.1',
+    'x-motrix-dsm-server-addr': '127.0.0.1',
+    'x-motrix-dsm-server-port': '5001',
+    'x-motrix-dsm-scheme': 'https',
+  }
+  const accounts = new SynologyAccounts(
+    async () => {
+      throw new DsmCommandError({ code: 'EACCES', stderr: 'private-output' })
+    },
+    async () => 'generation'
+  )
+  const session = synologyGateway('/var/test.sock', accounts, async () => {
+    throw new DsmCommandError({ code: 5, stderr: 'private-output' })
+  })
+  const req = request(headers)
+  expect(await session.authenticate(req)).toBeUndefined()
+  expect(session.diagnostic?.(req)).toEqual({
+    stage: 'session',
+    code: 'commandFailed',
+    failure: 'exit',
+    exitCode: 5,
+  })
+  const accountAdapter = synologyGateway(
+    '/var/test.sock',
+    accounts,
+    async () => 'alice'
+  )
+  expect(await accountAdapter.authenticate(req)).toBeUndefined()
+  expect(accountAdapter.diagnostic?.(req)).toEqual({
+    stage: 'account',
+    code: 'commandFailed',
+    failure: 'accessDenied',
+  })
+  expect(JSON.stringify(accountAdapter.diagnostic?.(req))).not.toContain(
+    'private'
+  )
+  expect(JSON.stringify(accountAdapter.diagnostic?.(req))).not.toContain(
+    'alice'
+  )
 })

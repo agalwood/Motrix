@@ -403,7 +403,7 @@
     "placeholder": "Токен оператора",
     "submit": "Розблокувати",
     "title": "Розблокувати Motrix",
-    "nasSessionExpired": "Your NAS administrator session has ended. Open Motrix again from the NAS desktop."
+    "nasSessionExpired": "Не вдалося перевірити сеанс адміністратора NAS. Відкрийте Motrix із робочого столу NAS."
   },
   "panel": {
     "completed": {

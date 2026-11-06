@@ -17,6 +17,34 @@ export type ClientPairingCapabilities = z.infer<
   typeof clientPairingCapabilitiesSchema
 >
 
+/** Safe support metadata only: no session, account name, command output or path. */
+export const nasAuthDiagnosticSchema = z
+  .object({
+    stage: z.enum(['gateway', 'session', 'account']),
+    code: z.enum([
+      'untrustedListener',
+      'missingCookie',
+      'invalidContext',
+      'rejected',
+      'commandFailed',
+      'unavailable',
+    ]),
+    failure: z
+      .enum([
+        'accessDenied',
+        'notFound',
+        'timeout',
+        'outputLimit',
+        'exit',
+        'unavailable',
+      ])
+      .optional(),
+    exitCode: z.number().int().min(0).max(255).optional(),
+  })
+  .strict()
+  .readonly()
+export type NasAuthDiagnostic = z.infer<typeof nasAuthDiagnosticSchema>
+
 export const operatorStatusSchema = z.object({
   authed: z.boolean(),
   mode: z.enum([
@@ -31,6 +59,7 @@ export const operatorStatusSchema = z.object({
   canLogout: z.boolean(),
   eventOriginMatches: z.boolean().optional(),
   clientPairing: clientPairingCapabilitiesSchema.optional(),
+  nasAuthDiagnostic: nasAuthDiagnosticSchema.optional(),
 })
 
 export function isNasAuthMode(mode: string | undefined): boolean {

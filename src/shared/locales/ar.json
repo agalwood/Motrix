@@ -405,7 +405,7 @@
     "placeholder": "رمز المشغّل",
     "submit": "فتح القفل",
     "title": "فتح قفل Motrix",
-    "nasSessionExpired": "Your NAS administrator session has ended. Open Motrix again from the NAS desktop."
+    "nasSessionExpired": "تعذر التحقق من جلسة مسؤول NAS. افتح Motrix من سطح مكتب NAS."
   },
   "panel": {
     "completed": {

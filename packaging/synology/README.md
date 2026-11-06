@@ -89,6 +89,14 @@ continues to use the existing protocol. DSM session cookies are neither saved in
 pairing state nor used as CLI credentials. Web event tickets are one-use,
 origin-bound and short-lived; connections reauthenticate at least every minute.
 
+If the account cannot be verified, the page shows a bounded diagnostic such as
+`session / commandFailed / exit / 5` or `account / commandFailed / accessDenied`.
+The same metadata is available at `/motrix/rpc/auth/status` in the signed-in
+browser. It contains no Cookie, token, account name or raw command output.
+Session and account checks still fail closed; a diagnostic is not an authorization
+fallback. The proxy forwards the CGI scheme and port, while the backend supplies
+the bounded host/user-agent context to DSM’s authentication program.
+
 ## Lifecycle and retained data
 
 Package lifecycle scripts run as the package user and serialize with `flock`.
