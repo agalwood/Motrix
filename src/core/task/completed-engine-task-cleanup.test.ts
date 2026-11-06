@@ -88,6 +88,21 @@ function harness(
 afterEach(() => vi.useRealTimers())
 
 describe('CompletedEngineTaskCleanup', () => {
+  it('retains single-file metadata when a tiny HTTP download completes before polling', async () => {
+    const h = harness()
+    h.taskManager.set(
+      'task-1',
+      output({ status: TaskStatus.Downloading, fileCount: 0, finishedAt: null })
+    )
+    await h.cleanup.observe(output({ fileCount: 0 }))
+    expect(h.taskManager.getById('task-1')?.fileCount).toBe(1)
+    expect(h.persist).toHaveBeenCalledWith(
+      expect.objectContaining({ fileCount: 1 }),
+      expect.anything()
+    )
+    expect(h.adapter.removeDownloadResult).toHaveBeenCalledOnce()
+    await h.cleanup.stopAndDrain()
+  })
   it('retains completion observed before the first HTTP resume becomes durable', async () => {
     vi.useFakeTimers()
     const active = makeLegacyHttpTask({ status: TaskStatus.Downloading })

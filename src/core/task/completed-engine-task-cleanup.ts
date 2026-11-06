@@ -74,6 +74,9 @@ function isPendingLegacyHttpResume(task: DownloadTask): boolean {
 }
 
 function completeMetrics(task: DownloadTask): void {
+  // HTTP/FTP final-path output is one file, even if completion beats the first
+  // metadata poll. Keep that fact after the engine row is retired.
+  if (task.fileCount === 0) task.fileCount = 1
   task.totalBytes = Math.max(task.totalBytes, task.downloadedBytes)
   task.downloadedBytes = task.totalBytes
   task.sizeWhenDone = task.totalBytes

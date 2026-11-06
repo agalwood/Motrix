@@ -3,7 +3,9 @@ import { legacyTaskMetadataSchema } from '@shared/schemas/legacy-import'
 import {
   type DownloadTask,
   makeDefaultBtExtension,
+  TaskKind,
   TaskStatus,
+  TaskType,
   TransitionPhase,
 } from '@shared/types/task'
 import { isTorrentLikeType } from '@shared/types/task-actions'
@@ -71,7 +73,13 @@ export function taskRowToDownloadTask(
     uris: primary?.uris ?? [],
     uploadedBytes,
     uploadedBytesBaseline: task.uploadedBytesBaseline,
-    fileCount: task.fileCount,
+    fileCount:
+      task.fileCount === 0 &&
+      task.kind === TaskKind.Direct &&
+      task.aggStatus === TaskStatus.Completed &&
+      (task.taskType === TaskType.Http || task.taskType === TaskType.Ftp)
+        ? 1
+        : task.fileCount,
     connections: 0,
     pieceLength: task.pieceLength,
     infoHash: task.infoHash,

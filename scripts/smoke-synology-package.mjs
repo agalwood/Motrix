@@ -284,6 +284,10 @@ const fixture = createServer((req, res) => {
     )
     return
   }
+  if (req.url === '/tiny.txt') {
+    res.end('tiny native download')
+    return
+  }
   res.writeHead(200, { 'content-length': payload.length })
   res.end(payload)
 })
@@ -494,6 +498,40 @@ try {
   assert.equal(await stat(`${downloads}/denied`).catch(() => null), null)
   await writeFile('/tmp/dsm-acl-state', 'allow')
   assert.ok((await (await add('/tmp')).json()).error)
+  const tiny = JSON.parse(
+    (
+      await web('/rpc/command/command%3AcreateTask', admin, {
+        args: [
+          {
+            type: 'http',
+            uris: [`http://127.0.0.1:${fixture.address().port}/tiny.txt`],
+            saveDir: downloads,
+            filename: 'tiny.txt',
+            connections: 1,
+          },
+        ],
+      })
+    ).body
+  )
+  assert.ok(tiny.taskId)
+  let tinyTask
+  for (let i = 0; i < 100; i++) {
+    tinyTask = (
+      await (await rpc(Methods.TaskGet, { taskId: tiny.taskId }, token)).json()
+    ).result?.task
+    if (tinyTask?.status === 'completed') break
+    await delay(100)
+  }
+  assert.equal(tinyTask?.fileCount, 1)
+  assert.equal(
+    (
+      await web('/api/nas/task-action', admin, {
+        taskId: tiny.taskId,
+        action: 'open',
+      })
+    ).status,
+    200
+  )
   await symlink('/tmp', `${downloads}/escape`)
   assert.ok((await (await add(`${downloads}/escape`)).json()).error)
   const added = await (await add(downloads)).json()
