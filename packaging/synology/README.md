@@ -41,9 +41,12 @@ paired through the DSM HTTPS gateway and ran `list` and `stats`. Across a packag
 restart the same credential received HTTP 403 until the administrator reopened
 Motrix, then HTTP 200. Revocation returned HTTP 401. The test container resolved
 the certificate hostname to the NAS LAN IP and verified the TLS chain and name.
-The installed Chrome extension stopped before pairing because the certificate
-did not cover the IP in its WSS address. Its settings page fetched discovery,
-obtained a nonce and opened a WebSocket with the `motrix-bridge.v1` subprotocol.
+Chrome extension 0.1.23 paired through WSS after the Mac resolved the DSM
+certificate hostname to the NAS LAN address. The administrator claimed the code
+and entered it in the extension. The extension reconnected after a package
+restart and fresh Web authentication, ran task and stats queries, and added
+and deleted a 51-byte test download. Its SHA-256 matched the source. Revocation
+disconnected the extension and denied subsequent task queries.
 ARM builds and device acceptance are not available.
 
 ## Use and permissions
