@@ -176,6 +176,7 @@ export function usePairRequestPrompts(): void {
         try {
           await resolvePairWithFeedback(params, tRef.current)
         } catch {
+          if (cancelled || !sameOperator() || prompts.get(key) !== state) return
           state.settled = false
           prompts.delete(key)
           toast.add({
@@ -362,6 +363,7 @@ export function usePairRequestPrompts(): void {
     // so a later settle would fire the stale closure instead (spurious deny
     // + wrong "unavailable" toast).
     let cancelled = false
+    let snapshotGeneration = 0
 
     // Reconciles `prompts`/the toast set against the backend's own
     // bookkeeping. Called once on mount, and again on every web-transport
@@ -369,6 +371,8 @@ export function usePairRequestPrompts(): void {
     // guard makes repeat calls idempotent, so re-running this on reconnect
     // is safe even if nothing actually changed backend-side.
     const snapshot = async (): Promise<void> => {
+      const generation = ++snapshotGeneration
+      const known = new Map(prompts)
       let raw: unknown
       try {
         raw = await transport.invoke(
@@ -382,11 +386,16 @@ export function usePairRequestPrompts(): void {
         // use-notification-toasts.ts's mount-time engine-status check catch).
         return
       }
-      if (cancelled) return
-      // Defensive against a non-array reply (e.g. an unrelated stub that
-      // resolves every query to `{}`) — reload recovery degrades to "no
-      // prompts yet" rather than throwing.
-      const list = Array.isArray(raw) ? (raw as PendingPairRequestInfo[]) : []
+      if (cancelled || generation !== snapshotGeneration || !Array.isArray(raw))
+        return
+      const list = raw as PendingPairRequestInfo[]
+      if (operatorIdentity !== undefined) {
+        const live = new Set(list.map(pairRequestKey))
+        for (const [key, state] of known) {
+          if (!state.settled && prompts.get(key) === state && !live.has(key))
+            closeSilently(key)
+        }
+      }
       for (const info of list) {
         present(toPairRequestPayload(info))
       }
@@ -403,6 +412,13 @@ export function usePairRequestPrompts(): void {
     // what covers its (much narrower) startup race instead.
     const stopConnectionSync = transport.onConnectionChange?.((event) => {
       if (event.state === 'connected') void snapshot()
+      if (event.state === 'disconnected' && operatorIdentity !== undefined) {
+        // A restarted package cannot honor a code from the old connection.
+        // Forget local receipts without denying still-live requests on the host.
+        snapshotGeneration++
+        for (const key of prompts.keys()) closeSilently(key)
+        prompts.clear()
+      }
     })
 
     return () => {

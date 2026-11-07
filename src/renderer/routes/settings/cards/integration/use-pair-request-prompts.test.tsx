@@ -162,6 +162,31 @@ describe('usePairRequestPrompts', () => {
     return findAddCall(claimKey).data.pairRequest.onClaim as () => void
   }
 
+  it('drops a NAS code on disconnect and requires a new claim after reconnect', async () => {
+    const claim = await showClaim('synologyDsm')
+    invokeMock.mockResolvedValueOnce({
+      ok: true,
+      code: 'ABCD-EFGH',
+      expiresInMs: 120000,
+    })
+    await act(async () => claim())
+    const connection = onConnectionChangeMock.mock.calls[0][0]
+    act(() => connection({ state: 'disconnected' }))
+    expect(toastCloseMock).toHaveBeenCalledWith(claimKey)
+    invokeMock.mockResolvedValueOnce([claimRequest])
+    await act(async () => connection({ state: 'connected' }))
+    const latest = toastAddMock.mock.calls.at(-1)?.[0] as ReturnType<
+      typeof findAddCall
+    >
+    expect(latest.id).toBe(claimKey)
+    expect(latest.data.pairRequest.kind).toBe('extension-claim')
+    expect(latest.data.pairRequest).not.toHaveProperty('code')
+    expect(invokeMock).not.toHaveBeenCalledWith(
+      BridgeCommands.ResolvePair,
+      expect.anything()
+    )
+  })
+
   it.each(['fnosGateway', 'synologyDsm'] as const)(
     'reveals a %s code only after claiming, then clears it at the server-provided lifetime',
     async (mode) => {
