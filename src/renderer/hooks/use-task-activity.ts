@@ -230,6 +230,7 @@ function applyContiguousEvent(payload: TaskActivityUpdatedPayload): boolean {
 
 function markDirty(): void {
   if (pendingRequest) trailingRequested = true
+  if (activitySnapshot) publishFromSnapshot('stale')
 }
 
 function processEvent(payload: TaskActivityUpdatedPayload): void {
@@ -243,7 +244,6 @@ function processEvent(payload: TaskActivityUpdatedPayload): void {
   }
 
   markDirty()
-  if (current) publishFromSnapshot('stale')
   if (!pendingRequest) void requestSnapshot()
 }
 
@@ -316,7 +316,7 @@ function requestSnapshot(
       reason === 'authoritative' ||
       pendingRequest.rangeEpoch !== rangeEpoch
     ) {
-      markDirty()
+      trailingRequested = true
     }
     return pendingRequest.promise
   }
@@ -324,8 +324,9 @@ function requestSnapshot(
   const capturedRangeEpoch = rangeEpoch
   const capturedRangeSignature = rangeEnvironment.signature
   const params = rangeEnvironment.params
-  if (activitySnapshot) publishFromSnapshot('stale')
-  else publish({ status: 'loading', retry })
+  // Refreshing a current snapshot does not make it stale. Gaps, range changes
+  // and failed reads mark it explicitly; keep that status until reconciled.
+  if (!activitySnapshot) publish({ status: 'loading', retry })
 
   let request!: PendingRequest
   const work = transport

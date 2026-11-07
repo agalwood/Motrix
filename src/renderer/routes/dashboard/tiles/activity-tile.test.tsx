@@ -128,11 +128,10 @@ describe('ActivityTile', () => {
     const status = screen.getByRole('status')
     expect(status.textContent).toContain('Activity may be out of date')
     expect(status.textContent).toContain('Activity may be incomplete since')
+    expect(status.closest('header')).not.toBeNull()
     expect(
-      screen
-        .getByTestId('activity-calendar-stub')
-        .getAttribute('data-class-name')
-    ).toContain('min-h-12')
+      screen.getByTestId('activity-calendar-stub').closest('header')
+    ).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
     expect(retry).toHaveBeenCalledTimes(1)
   })

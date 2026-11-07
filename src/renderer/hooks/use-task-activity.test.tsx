@@ -370,6 +370,25 @@ describe('useTaskActivity external store', () => {
     expect(transportMock.invoke).toHaveBeenCalledTimes(2)
   })
 
+  it('keeps the calendar ready while a healthy reconnect refresh is pending', async () => {
+    const refresh = deferred<TaskActivitySnapshot>()
+    transportMock.invoke
+      .mockImplementationOnce(async (_query, params: GetTaskActivityParams) =>
+        makeSnapshot('generation-a', 1, params)
+      )
+      .mockReturnValueOnce(refresh.promise)
+    const hook = renderHook(() => useTaskActivity())
+    await waitFor(() => expect(hook.result.current.status).toBe('ready'))
+    const before = hook.result.current
+    act(() => emitConnection())
+    expect(transportMock.invoke).toHaveBeenCalledTimes(2)
+    expect(hook.result.current).toBe(before)
+    await act(async () => {
+      refresh.reject(new Error('refresh failed'))
+    })
+    expect(hook.result.current.status).toBe('stale')
+  })
+
   it('distinguishes initial unavailable from cached stale and retries', async () => {
     transportMock.invoke
       .mockRejectedValueOnce(new Error('offline'))
