@@ -162,6 +162,27 @@ describe('usePairRequestPrompts', () => {
     return findAddCall(claimKey).data.pairRequest.onClaim as () => void
   }
 
+  it('refetches NAS requests when the administrator returns from the extension', async () => {
+    useOperatorSession.setState({
+      status: {
+        mode: 'synologyDsm',
+        authed: true,
+        canLogout: false,
+        username: 'alice',
+        clientPairing: { cli: true, extension: true },
+      },
+    })
+    invokeMock.mockResolvedValueOnce([])
+    render(<Host />)
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledOnce())
+    invokeMock.mockResolvedValueOnce([claimRequest])
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    expect(findAddCall(claimKey).data.pairRequest.kind).toBe('extension-claim')
+    expect(findAddCall(claimKey).data.pairRequest).not.toHaveProperty('code')
+  })
+
   it('drops a NAS code on disconnect and requires a new claim after reconnect', async () => {
     const claim = await showClaim('synologyDsm')
     invokeMock.mockResolvedValueOnce({

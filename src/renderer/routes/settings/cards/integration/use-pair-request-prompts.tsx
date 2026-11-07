@@ -421,8 +421,15 @@ export function usePairRequestPrompts(): void {
       }
     })
 
+    const refreshVisibleInbox = () => {
+      if (!document.hidden) void snapshot()
+    }
+    if (operatorIdentity !== undefined)
+      document.addEventListener('visibilitychange', refreshVisibleInbox)
+
     return () => {
       cancelled = true
+      document.removeEventListener('visibilitychange', refreshVisibleInbox)
       stopConnectionSync?.()
       transport.off(pairRequestedChannel, onPairRequested)
       transport.off(settledChannel, onSettled)
