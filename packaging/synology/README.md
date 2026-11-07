@@ -16,6 +16,17 @@ The first target is **DSM 7.2.2-72806 or later, x86_64**. It is an
 manage the same tasks, settings and plugins. Ordinary, disabled, domain and LDAP
 accounts are denied. There is no per-user task isolation or quota accounting.
 
+On 2026-11-07, **2.3.0-10** passed a directory replacement test on a **DS718+
+(DSM 7.4.1)** after a manual upgrade from 2.3.0-9. A completed HTTP task had
+written 27,648 bytes to an explicitly authorized test directory. Substituting
+a different directory and file at the same paths caused Motrix to deny reading
+and deleting the old task’s file. Both files retained their original hashes.
+Restarting with the substitute in place opened the recovery page and stopped
+the engine. Saving the same folder list could not transfer the grant. After
+restoring the original directory and restarting, HEAD and GET returned 200
+and the downloaded bytes matched the source SHA-256. Removing the test task
+with its file then succeeded.
+
 On 2026-11-07, Package Center upgraded **2.3.0-8 to 2.3.0-9** on a **DS718+
 (Apollo Lake) running DSM 7.4.1**. The installed build matched the verified SPK.
 Opening Motrix from DSM loaded the administrator dashboard. Renaming an empty
