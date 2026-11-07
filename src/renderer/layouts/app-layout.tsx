@@ -88,83 +88,84 @@ export function AppLayout() {
 
   return (
     <TooltipProvider>
-      <PlatformServicesProvider services={platformServices}>
-        {__MOTRIX_TARGET__ === 'web' && <FnosEntry />}
-        {/* Unconditional bg-sidebar: below the md breakpoint the Sidebar
+      <RendererToaster>
+        <PlatformServicesProvider services={platformServices}>
+          {__MOTRIX_TARGET__ === 'web' && <FnosEntry />}
+          {/* Unconditional bg-sidebar: below the md breakpoint the Sidebar
             renders as a portaled Sheet without data-variant="inset", so the
             wrapper's built-in has-data-[variant=inset]:bg-sidebar stops
             matching and transparent-inset pages would fall through to the
             white body background. */}
-        <SidebarProvider
-          className={cn(
-            'h-svh overflow-hidden bg-sidebar',
-            __MOTRIX_TARGET__ === 'web' && 'web-window-chrome',
-            __MOTRIX_TARGET__ === 'electron' && 'electron-window-chrome',
-            __MOTRIX_TARGET__ === 'electron' &&
-              __MOTRIX_PREVIEW_MAC_MENU__ &&
-              'preview-desktop-window-controls'
-          )}
-        >
-          <WindowChrome
-            variant="overlay"
-            leading={<MotrixMenuButton />}
-            previewDesktopControls={__MOTRIX_PREVIEW_MAC_MENU__}
-          >
-            <div className="flex items-center gap-1.5">
-              <SidebarTriggerButton />
-              <AddTaskTriggerButton />
-            </div>
-          </WindowChrome>
-          <AppSidebar />
-          <SidebarInset
+          <SidebarProvider
             className={cn(
-              'min-h-0 overflow-hidden bg-sidebar-inset',
-              // Keep the inset card look below the md breakpoint too —
-              // upstream gates these behind md:peer-data-[variant=inset]:,
-              // which stops matching once the sidebar renders as a Sheet.
-              // At md+ the built-in ms-0 / collapsed ms-2 still win over
-              // m-2 (Tailwind orders ms-* after m-*).
-              'm-2 rounded-xl shadow-sm',
-              // Suppress BOTH shadow forms: tailwind-merge only collapses
-              // identical-modifier classes, so a bare shadow-none would
-              // leave the component's built-in
-              // md:peer-data-[variant=inset]:shadow-sm alive at md+.
-              transparentInset &&
-                'bg-transparent shadow-none md:peer-data-[variant=inset]:shadow-none'
+              'h-svh overflow-hidden bg-sidebar',
+              __MOTRIX_TARGET__ === 'web' && 'web-window-chrome',
+              __MOTRIX_TARGET__ === 'electron' && 'electron-window-chrome',
+              __MOTRIX_TARGET__ === 'electron' &&
+                __MOTRIX_PREVIEW_MAC_MENU__ &&
+                'preview-desktop-window-controls'
             )}
           >
-            <RendererSubmissionNotice
-              className="mx-4 mb-2 mt-12"
-              onOpenDownloads={() => void navigate('/downloads/all')}
-            />
-            <div className="min-h-0 flex-1 overflow-hidden">
-              <div hidden={!migrationActive} className="h-full min-h-0">
-                <MigrationPage active={migrationActive} />
+            <WindowChrome
+              variant="overlay"
+              leading={<MotrixMenuButton />}
+              previewDesktopControls={__MOTRIX_PREVIEW_MAC_MENU__}
+            >
+              <div className="flex items-center gap-1.5">
+                <SidebarTriggerButton />
+                <AddTaskTriggerButton />
               </div>
-              <div hidden={!settingsActive} className="h-full min-h-0">
-                {retainedSettings.current}
+            </WindowChrome>
+            <AppSidebar />
+            <SidebarInset
+              className={cn(
+                'min-h-0 overflow-hidden bg-sidebar-inset',
+                // Keep the inset card look below the md breakpoint too —
+                // upstream gates these behind md:peer-data-[variant=inset]:,
+                // which stops matching once the sidebar renders as a Sheet.
+                // At md+ the built-in ms-0 / collapsed ms-2 still win over
+                // m-2 (Tailwind orders ms-* after m-*).
+                'm-2 rounded-xl shadow-sm',
+                // Suppress BOTH shadow forms: tailwind-merge only collapses
+                // identical-modifier classes, so a bare shadow-none would
+                // leave the component's built-in
+                // md:peer-data-[variant=inset]:shadow-sm alive at md+.
+                transparentInset &&
+                  'bg-transparent shadow-none md:peer-data-[variant=inset]:shadow-none'
+              )}
+            >
+              <RendererSubmissionNotice
+                className="mx-4 mb-2 mt-12"
+                onOpenDownloads={() => void navigate('/downloads/all')}
+              />
+              <div className="min-h-0 flex-1 overflow-hidden">
+                <div hidden={!migrationActive} className="h-full min-h-0">
+                  <MigrationPage active={migrationActive} />
+                </div>
+                <div hidden={!settingsActive} className="h-full min-h-0">
+                  {retainedSettings.current}
+                </div>
+                <div
+                  hidden={migrationActive || settingsActive}
+                  className="h-full min-h-0"
+                >
+                  {!settingsActive && outlet}
+                </div>
               </div>
-              <div
-                hidden={migrationActive || settingsActive}
-                className="h-full min-h-0"
-              >
-                {!settingsActive && outlet}
-              </div>
-            </div>
-            <WebConnectionNotice />
-          </SidebarInset>
-        </SidebarProvider>
-        {__MOTRIX_TARGET__ === 'electron' && <DesktopMenuContext />}
-        <MenuNavigationFocus />
-        <RemoveTasksDialogHost />
-        <RedownloadOverwriteDialogHost />
-        <RetryParametersDialogHost />
-        <OperationDialogHost />
-        <EngineDiagnosticsDialogHost />
-        {__MOTRIX_TARGET__ === 'web' && <AddTaskDialogHost />}
-        {__MOTRIX_TARGET__ === 'web' && <WindowTorrentDrop />}
-      </PlatformServicesProvider>
-      <RendererToaster />
+              <WebConnectionNotice />
+            </SidebarInset>
+          </SidebarProvider>
+          {__MOTRIX_TARGET__ === 'electron' && <DesktopMenuContext />}
+          <MenuNavigationFocus />
+          <RemoveTasksDialogHost />
+          <RedownloadOverwriteDialogHost />
+          <RetryParametersDialogHost />
+          <OperationDialogHost />
+          <EngineDiagnosticsDialogHost />
+          {__MOTRIX_TARGET__ === 'web' && <AddTaskDialogHost />}
+          {__MOTRIX_TARGET__ === 'web' && <WindowTorrentDrop />}
+        </PlatformServicesProvider>
+      </RendererToaster>
     </TooltipProvider>
   )
 }

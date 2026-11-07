@@ -5,7 +5,8 @@
     "placeholder": "Токен оператора",
     "error": "Неверный токен оператора. Проверьте MOTRIX_OPERATOR_TOKEN или <dataDir>/operator-token на хосте и повторите попытку.",
     "submit": "Разблокировать",
-    "fnosSessionExpired": "Your fnOS administrator session has ended. Open Motrix again from the fnOS desktop."
+    "nasSessionExpired": "Не удалось проверить сеанс администратора NAS. Откройте Motrix с рабочего стола NAS.",
+    "openDsm": "Open DSM to sign in"
   },
   "operatorAdmin": {
     "help": "Использование:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nКоманда взаимодействует только с запущенным сервером Motrix через интерфейс обратной петли контейнера.",
@@ -334,7 +335,7 @@
         "loading": "Загрузка активности",
         "unavailable": "Активность недоступна",
         "retry": "Повторить",
-        "stale": "Данные об активности могут быть устаревшими",
+        "refreshFailed": "Не удалось обновить",
         "coverageDegraded": "Данные об активности могут быть неполными с {{time}}",
         "rangeSummary": "Активность загрузок с {{start}} по {{end}} (недель: {{weeks}})",
         "completedIntensity": "Интенсивность цвета показывает количество завершённых загрузок",
@@ -969,7 +970,11 @@
         "redownloadStarted": "Re-download started",
         "retryDialogTitle": "Повторить загрузку",
         "retryDialogDescription": "Измените параметры запроса для {{name}}, чтобы начать новую загрузку. Неудачная задача и её частичный файл будут сохранены.",
-        "retryDialogProgress": "Загрузка {{current}} из {{total}}"
+        "retryDialogProgress": "Загрузка {{current}} из {{total}}",
+        "downloadToDevice": "Download to this device",
+        "revealInFileStation": "Show in File Station",
+        "nasFileUnavailable": "File access could not be authorized. Check the account and folder permissions.",
+        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again."
       },
       "titleCount": "Показано: {{shown}} · Всего: {{total}}",
       "type": {
@@ -1161,7 +1166,8 @@
         "failed": "Не удалось автоматически запустить {{name}}. Откройте сведения о задаче, выберите файлы и повторите попытку."
       },
       "undoCorrection": "Отменить исправление URL",
-      "submissionUnconfirmed": "Результат не подтверждён. При повторной попытке исходный запрос будет проверен перед созданием новой задачи."
+      "submissionUnconfirmed": "Результат не подтверждён. При повторной попытке исходный запрос будет проверен перед созданием новой задачи.",
+      "selectNasTorrent": "Choose a torrent from the NAS"
     },
     "detail": {
       "peers": "Пиры: {{count}}",
@@ -1319,6 +1325,10 @@
       "integration": {
         "title": "Интеграция",
         "desc": "Расширения браузера, CLI, интеграция с системой"
+      },
+      "nas": {
+        "title": "Synology NAS",
+        "desc": "Download folders and client connections"
       }
     },
     "general": {
@@ -1967,6 +1977,8 @@
           "store": "Установить",
           "development": "Разработка"
         },
+        "pendingTitle": "Browser pairing requests",
+        "pendingEmpty": "Start pairing in your extension.",
         "pairedTitle": "Подключённые расширения",
         "pairedEmpty": "Расширения ещё не подключены.",
         "profile": "Профиль браузера {{number}}",
@@ -2296,6 +2308,37 @@
       "updateDescription": "Download the Windows ZIP, exit Motrix, and move the entire data folder to the new version. Portable mode never runs the installer.",
       "recoveryError": "Portable data could not be recovered safely. Keep the data folder and check the logs and directory permissions before retrying. Motrix has stopped without using the system profile.",
       "enginePathDescription": "Portable mode manages engine state inside the data folder for the current application location."
+    },
+    "nas": {
+      "description": "Shared by all DSM administrators. Restart Motrix in Package Center to apply changes.",
+      "account": "Current DSM account: {{username}}",
+      "restartRequired": "Settings saved. Restart Motrix in Package Center to apply them.",
+      "storageUnavailable": "Download folders unavailable",
+      "storageRecoveryHint": "Downloads are paused. Restore the original folders or authorize a different path, then restart Motrix in Package Center.",
+      "roots": "Authorized download folders",
+      "rootsHint": "One existing folder per line. Both your account and the system user motrix need read/write access. Removing the default makes the first folder the new default.",
+      "extensionEnabled": "Enable browser extension connections",
+      "extensionHint": "Use a DSM certificate hostname that resolves to the NAS LAN address.",
+      "webAddress": "Motrix Web address",
+      "webAddressHint": "Use the address you normally open, including /motrix/. You can fill it from this browser.",
+      "useCurrentAddress": "Use this DSM address",
+      "extensionAddress": "Extension connection address",
+      "allowHttp": "Allow pairing codes over HTTP",
+      "allowHttpHint": "Enable only on a trusted network. HTTPS does not require this option.",
+      "clientPort": "Direct client port",
+      "clientPortHint": "Direct clients use this port (1024–65535). DSM HTTPS addresses use the DSM port.",
+      "activeConnections": "Current connection addresses",
+      "cliAddress": "CLI endpoint",
+      "sessionHint": "Clients use their paired DSM account’s current permissions. After DSM logout, session expiration or a package restart, reopen Motrix with that account; pairing again is not required.",
+      "copy": "Copy address",
+      "openSettings": "Configure NAS connections",
+      "errors": {
+        "invalid": "Check the folder paths, port and connection addresses. HTTP code delivery requires explicit permission.",
+        "folderUnavailable": "Check that each folder is on a mounted volume and writable by the internal system user motrix.",
+        "permissionDenied": "The account or folder cannot be authorized. Check DSM shared-folder permissions for your account and the internal system user motrix.",
+        "unavailable": "Package settings are unavailable. Try again after the service has recovered.",
+        "conflict": "The saved configuration changed. Reload before editing again; your unsaved changes will be replaced."
+      }
     }
   },
   "errors": {

@@ -143,11 +143,13 @@ describe('usePairRequestPrompts', () => {
     expiresAt: 120001,
   }
   const claimKey = pairRequestKey(claimRequest)
-  async function showClaim() {
+  async function showClaim(
+    mode: 'fnosGateway' | 'synologyDsm' = 'fnosGateway'
+  ) {
     useOperatorSession.setState({
       epoch: 1,
       status: {
-        mode: 'fnosGateway',
+        mode,
         authed: true,
         canLogout: false,
         username: 'alice',
@@ -160,44 +162,95 @@ describe('usePairRequestPrompts', () => {
     return findAddCall(claimKey).data.pairRequest.onClaim as () => void
   }
 
-  it('reveals a NAS code only after claiming, then clears it at the server-provided lifetime', async () => {
-    vi.useFakeTimers()
-    const claim = await showClaim()
-    expect(invokeMock).toHaveBeenCalledTimes(1)
+  it('refetches NAS requests when the administrator returns from the extension', async () => {
+    useOperatorSession.setState({
+      status: {
+        mode: 'synologyDsm',
+        authed: true,
+        canLogout: false,
+        username: 'alice',
+        clientPairing: { cli: true, extension: true },
+      },
+    })
+    invokeMock.mockResolvedValueOnce([])
+    render(<Host />)
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledOnce())
+    invokeMock.mockResolvedValueOnce([claimRequest])
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    expect(findAddCall(claimKey).data.pairRequest.kind).toBe('extension-claim')
     expect(findAddCall(claimKey).data.pairRequest).not.toHaveProperty('code')
-    expect(findAddCall(claimKey).data.pairRequest).not.toHaveProperty('onAllow')
-    expect(findAddCall(claimKey).data.pairRequest.accountName).toBe('alice')
+  })
+
+  it('drops a NAS code on disconnect and requires a new claim after reconnect', async () => {
+    const claim = await showClaim('synologyDsm')
     invokeMock.mockResolvedValueOnce({
       ok: true,
       code: 'ABCD-EFGH',
-      expiresInMs: 500,
+      expiresInMs: 120000,
     })
     await act(async () => claim())
-    expect(invokeMock).toHaveBeenLastCalledWith(
-      BridgeCommands.ClaimExtensionPair,
-      {
-        browser: claimRequest.browser,
-        extensionId: claimRequest.extensionId,
-        pairingNonce: claimRequest.pairingNonce,
-        expectedUsername: 'alice',
-      }
-    )
-    expect(toastUpdateMock).toHaveBeenLastCalledWith(claimKey, {
-      data: {
-        pairRequest: expect.objectContaining({
-          kind: 'extension',
-          accountName: 'alice',
-          code: 'ABCD-EFGH',
-        }),
-      },
-    })
-    toastCloseMock.mockImplementation((key: string) =>
-      findAddCall(key).onClose()
-    )
-    await act(async () => vi.advanceTimersByTime(500))
+    const connection = onConnectionChangeMock.mock.calls[0][0]
+    act(() => connection({ state: 'disconnected' }))
     expect(toastCloseMock).toHaveBeenCalledWith(claimKey)
-    expect(invokeMock).toHaveBeenCalledTimes(2)
+    invokeMock.mockResolvedValueOnce([claimRequest])
+    await act(async () => connection({ state: 'connected' }))
+    const latest = toastAddMock.mock.calls.at(-1)?.[0] as ReturnType<
+      typeof findAddCall
+    >
+    expect(latest.id).toBe(claimKey)
+    expect(latest.data.pairRequest.kind).toBe('extension-claim')
+    expect(latest.data.pairRequest).not.toHaveProperty('code')
+    expect(invokeMock).not.toHaveBeenCalledWith(
+      BridgeCommands.ResolvePair,
+      expect.anything()
+    )
   })
+
+  it.each(['fnosGateway', 'synologyDsm'] as const)(
+    'reveals a %s code only after claiming, then clears it at the server-provided lifetime',
+    async (mode) => {
+      vi.useFakeTimers()
+      const claim = await showClaim(mode)
+      expect(invokeMock).toHaveBeenCalledTimes(1)
+      expect(findAddCall(claimKey).data.pairRequest).not.toHaveProperty('code')
+      expect(findAddCall(claimKey).data.pairRequest).not.toHaveProperty(
+        'onAllow'
+      )
+      expect(findAddCall(claimKey).data.pairRequest.accountName).toBe('alice')
+      invokeMock.mockResolvedValueOnce({
+        ok: true,
+        code: 'ABCD-EFGH',
+        expiresInMs: 500,
+      })
+      await act(async () => claim())
+      expect(invokeMock).toHaveBeenLastCalledWith(
+        BridgeCommands.ClaimExtensionPair,
+        {
+          browser: claimRequest.browser,
+          extensionId: claimRequest.extensionId,
+          pairingNonce: claimRequest.pairingNonce,
+          expectedUsername: 'alice',
+        }
+      )
+      expect(toastUpdateMock).toHaveBeenLastCalledWith(claimKey, {
+        data: {
+          pairRequest: expect.objectContaining({
+            kind: 'extension',
+            accountName: 'alice',
+            code: 'ABCD-EFGH',
+          }),
+        },
+      })
+      toastCloseMock.mockImplementation((key: string) =>
+        findAddCall(key).onClose()
+      )
+      await act(async () => vi.advanceTimersByTime(500))
+      expect(toastCloseMock).toHaveBeenCalledWith(claimKey)
+      expect(invokeMock).toHaveBeenCalledTimes(2)
+    }
+  )
 
   it.each(['account-change', 'settled'] as const)(
     'ignores a late claimed code after %s',

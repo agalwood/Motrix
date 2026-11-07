@@ -5,7 +5,12 @@ import {
   AlertTitle,
 } from '@renderer/components/ui/alert'
 import { Button } from '@renderer/components/ui/button'
+import {
+  ExtensionPairRequestContent,
+  usePageExtensionPrompts,
+} from '@renderer/components/ui/toast'
 import { browserDisplayName } from '@renderer/lib/browser-name'
+import { useOperatorSession } from '@renderer/lib/operator-auth'
 import { cn } from '@renderer/lib/utils'
 import type { PairedClientInfo } from '@shared/protocol/bridge'
 import { useFormContext } from 'react-hook-form'
@@ -23,11 +28,47 @@ const IDENTITY_LABEL_KEYS = {
   unverified: 'settings.integration.browser.pairToast.identityLabel.unverified',
 } as const
 
+function NasPairingInbox({ accountName }: { accountName: string }) {
+  const { t } = useTranslation()
+  const requests = usePageExtensionPrompts(accountName)
+  return (
+    <section
+      aria-label={t('settings.integration.browser.pendingTitle')}
+      className="space-y-2"
+    >
+      <h3 className="text-xs font-medium">
+        {t('settings.integration.browser.pendingTitle')} ({requests.length})
+      </h3>
+      {requests.length ? (
+        requests.map(({ id, prompt }) => (
+          <div
+            key={id}
+            className="rounded border border-border px-3 py-2 text-xs"
+          >
+            <ExtensionPairRequestContent pairRequest={prompt} inline />
+          </div>
+        ))
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          {t('settings.integration.browser.pendingEmpty')}
+        </p>
+      )}
+    </section>
+  )
+}
+
 export function BrowserExtensionsSection() {
   const { t } = useTranslation()
   const form = useFormContext<IntegrationFormValues>()
   const { items: paired, revoke } = usePairedExtensions()
   const status = useBridgeStatus()
+  const accountName = useOperatorSession((session) =>
+    session.state === 'authenticated' &&
+    session.status?.mode === 'synologyDsm' &&
+    session.status.clientPairing?.extension
+      ? session.status.username
+      : undefined
+  )
   // This section lists browser extensions only; cli/agent clients (device-code
   // paired) are a separate principal kind.
   const pairedExtensions = paired.filter(
@@ -41,6 +82,7 @@ export function BrowserExtensionsSection() {
       <ClientPairingSwitch browser />
 
       <BrowserExtensionInstalls />
+      {enabled && accountName && <NasPairingInbox accountName={accountName} />}
 
       {status?.degraded && (
         <Alert className="border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] leading-4 text-amber-900 dark:text-amber-200">

@@ -39,12 +39,17 @@ export class NasFileRemover {
     private readonly intentsDirectory: string
   ) {}
 
-  remove(candidate: string): Promise<void> {
+  remove(
+    candidate: string,
+    expectedIdentity?: (selectedPath: string) => Promise<string | undefined>
+  ): Promise<void> {
     if (!path.isAbsolute(candidate) || candidate.includes('\0'))
       return Promise.reject(new Error('Invalid NAS cleanup path'))
     const requested = path.resolve(candidate)
     const previous = this.pending.get(requested) ?? Promise.resolve()
-    const current = previous.catch(() => {}).then(() => this.perform(requested))
+    const current = previous
+      .catch(() => {})
+      .then(() => this.perform(requested, expectedIdentity))
     this.pending.set(requested, current)
     void current
       .finally(() => {
@@ -55,7 +60,10 @@ export class NasFileRemover {
     return current
   }
 
-  private async perform(requested: string): Promise<void> {
+  private async perform(
+    requested: string,
+    expectedIdentity?: (selectedPath: string) => Promise<string | undefined>
+  ): Promise<void> {
     if (!this.adapter.openRemoval)
       throw new Error('Held NAS cleanup is unavailable')
     const journal = path.join(
@@ -88,6 +96,11 @@ export class NasFileRemover {
       path.resolve(intent.original) !== intent.original
     )
       throw new Error('Invalid NAS cleanup intent')
+    const checkOwnership = async (selectedPath: string) => {
+      const expected = await expectedIdentity?.(selectedPath)
+      if (expected && expected !== intent.artifactIdentity)
+        throw new Error('Task output changed')
+    }
     const parentPath = path.dirname(intent.original)
     const quarantine = path.join(parentPath, intent.quarantine)
     const originalInfo = await inspect(intent.original)
@@ -112,6 +125,7 @@ export class NasFileRemover {
         return
       }
       await this.files.authorizeRemoval(selectedPath, this.policy)
+      await checkOwnership(selectedPath)
       const artifact = await this.adapter.openRemoval(
         root,
         path.basename(selectedPath),
@@ -128,6 +142,7 @@ export class NasFileRemover {
           currentFile.isSymbolicLink()
         )
           throw new Error('NAS cleanup path changed during authorization')
+        await checkOwnership(selectedPath)
         await storage.write(`${JSON.stringify(intent)}\n`)
         await this.adapter.removeOpened(
           artifact,

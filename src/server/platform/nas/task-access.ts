@@ -38,13 +38,21 @@ export class NasTaskAccess {
       NasFiles,
       'authorizeFile' | 'authorizeRemoval' | 'check'
     >,
-    private readonly policy: ServerDownloadPathPolicy
+    private readonly policy: ServerDownloadPathPolicy,
+    private readonly ownership?: {
+      checkDirectory(task: DownloadTask): Promise<void>
+      checkRemoval(task: DownloadTask, path: string): Promise<void>
+      checkOutput(task: DownloadTask, path: string): Promise<void>
+    }
   ) {}
 
   readonly authorizeWrite = async (task: DownloadTask): Promise<void> => {
+    await this.ownership?.checkDirectory(task)
     await this.policy.prepareSaveDir(task.saveDir)
-    for (const output of outputPaths(task))
+    for (const output of outputPaths(task)) {
       await this.authorizeOutputWrite(output)
+      await this.ownership?.checkOutput(task, output)
+    }
   }
 
   readonly authorizeOutputWrite = async (output: string): Promise<void> => {
@@ -61,7 +69,10 @@ export class NasTaskAccess {
   }
 
   readonly authorizeRemoval = async (task: DownloadTask): Promise<void> => {
-    for (const output of outputPaths(task))
+    await this.ownership?.checkDirectory(task)
+    for (const output of outputPaths(task)) {
       await this.files.authorizeRemoval(output, this.policy)
+      await this.ownership?.checkRemoval(task, output)
+    }
   }
 }

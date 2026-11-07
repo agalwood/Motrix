@@ -12,6 +12,7 @@ export type {
 } from '@renderer/hooks/use-engine-display-status'
 
 import { DiagnosticsIcon } from '@renderer/components/icons'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { StatusDot } from '../components/status-dot'
 import { TileShell } from '../components/tile-shell'
@@ -47,17 +48,27 @@ export function EngineTile({
     status.state === 'ready' ||
     status.state === 'starting' ||
     status.state === 'reconnecting'
-  const connectionLabel = status.connection
-    ? t(`panel.connection.${status.connection}`)
+  // A normal NAS event-ticket renewal briefly uses HTTP polling while the
+  // engine is still ready. Expose sustained transport issues separately.
+  const connection = status.connection ?? null
+  const [sustained, setSustained] = useState<typeof connection>(null)
+  useEffect(() => {
+    setSustained(null)
+    if (!connection) return
+    const timer = setTimeout(() => setSustained(connection), 2000)
+    return () => clearTimeout(timer)
+  }, [connection])
+  const visibleConnection =
+    connection === 'unavailable' ||
+    connection === 'originMismatch' ||
+    sustained === connection
+      ? connection
+      : null
+  const connectionLabel = visibleConnection
+    ? t(`panel.connection.${visibleConnection}`)
     : null
-  const stateLabel =
-    status.state === 'ready' && connectionLabel
-      ? connectionLabel
-      : t(`panel.dashboard.engine.state.${status.state}`)
-  const dot =
-    status.connection && status.state !== 'failed'
-      ? 'bg-amber-500'
-      : DOT[status.state]
+  const stateLabel = t(`panel.dashboard.engine.state.${status.state}`)
+  const dot = DOT[status.state]
 
   // 'aria2c 1.37.0-motrix.1' only show '1.37.0'
   const shortVersion = String(status.version).split('-')[0]
@@ -103,7 +114,7 @@ export function EngineTile({
       <TileTitle variant="text" title={stateLabel}>
         {stateLabel}
       </TileTitle>
-      {connectionLabel && status.state !== 'ready' && !compact && (
+      {connectionLabel && (
         <p
           role="status"
           title={connectionLabel}
@@ -138,10 +149,7 @@ export function EngineTile({
               />
             ))}
           </div>
-          <StatusDot
-            pulse={pulse && !status.connection}
-            className={cn(dot, tall && 'self-end')}
-          />
+          <StatusDot pulse={pulse} className={cn(dot, tall && 'self-end')} />
         </div>
       ) : (
         <div
@@ -151,7 +159,7 @@ export function EngineTile({
           <div className="flex shrink-0 items-center gap-3 text-muted-foreground text-[11px]">
             {`aria2 v${shortVersion}`}
           </div>
-          <StatusDot pulse={pulse && !status.connection} className={cn(dot)} />
+          <StatusDot pulse={pulse} className={cn(dot)} />
         </div>
       )}
     </TileShell>

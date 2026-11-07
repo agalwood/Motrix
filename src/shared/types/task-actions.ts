@@ -90,6 +90,14 @@ export function canOpenTaskFile(t: DownloadTask): boolean {
   )
 }
 
+export function canRevealTaskFolder(task: DownloadTask): boolean {
+  if (task.status === TaskStatus.FetchingMetadata) return false
+  const diskPath = task.diskPath.trim()
+  if (!diskPath) return false
+  const normalized = diskPath.replace(/[\\/]+$/, '')
+  return normalized !== '' && !/^[A-Za-z]:$/.test(normalized)
+}
+
 /** Live multi-file downloads that accept a changed file selection. */
 export function canSelectTaskFiles(t: DownloadTask): boolean {
   return (

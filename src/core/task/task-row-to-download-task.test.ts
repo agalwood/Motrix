@@ -71,6 +71,26 @@ function makeInstance(phase: TaskInstancePhase): TaskInstanceRow {
 }
 
 describe('taskRowToDownloadTask', () => {
+  it.each([
+    [TaskType.Http, 1],
+    [TaskType.Ftp, 1],
+    [TaskType.Metalink, 0],
+    [TaskType.Bt, 0],
+  ] as const)(
+    'restores known single-file history without guessing multifile output (%s)',
+    (taskType, count) => {
+      const task = taskRowToDownloadTask(
+        makeTaskRow({
+          kind: TaskKind.Direct,
+          taskType,
+          aggStatus: TaskStatus.Completed,
+          fileCount: 0,
+        }),
+        [makeInstance(TaskInstancePhase.HttpDownload)]
+      )
+      expect(task.fileCount).toBe(count)
+    }
+  )
   it('restores media progress from the phase payload even when instance order differs', () => {
     const primary = makeInstance(TaskInstancePhase.HlsSegment)
     primary.payload.mediaProgress = makeMediaProgress()

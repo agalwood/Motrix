@@ -1,5 +1,7 @@
 import '@testing-library/jest-dom/vitest'
+import { Toaster, toast } from '@renderer/components/ui/toast'
 import { i18n } from '@renderer/lib/i18n'
+import { useOperatorSession } from '@renderer/lib/operator-auth'
 import { transport } from '@renderer/lib/transport'
 import {
   BridgeCommands,
@@ -87,6 +89,75 @@ describe('browser extension installations', () => {
       }
       return null
     })
+  })
+
+  it('claims the current account’s pending request inside settings and hides its code on account change', async () => {
+    const original = useOperatorSession.getState()
+    const status = {
+      mode: 'synologyDsm' as const,
+      authed: true,
+      username: 'alice',
+      canLogout: false,
+      clientPairing: { cli: true, extension: true },
+    }
+    const id = 'nas-inbox-request'
+    const request = {
+      browser: 'chromium',
+      extensionId: 'test-extension',
+      pairingNonce: 'fixture-nonce',
+      identity: 'official',
+      accountName: 'alice',
+      onDeny: vi.fn(),
+    }
+    const onClaim = vi.fn(() =>
+      toast.update(id, {
+        data: {
+          pairRequest: { ...request, kind: 'extension', code: 'ABCD-EFGH' },
+        },
+      })
+    )
+    try {
+      useOperatorSession.setState({ status, state: 'authenticated' })
+      render(
+        <Toaster>
+          <Wrapper />
+        </Toaster>
+      )
+      act(() => {
+        toast.add({
+          id,
+          timeout: 0,
+          priority: 'high',
+          data: {
+            pairRequest: {
+              ...request,
+              kind: 'extension-claim',
+              claiming: false,
+              onClaim,
+            },
+          },
+        })
+      })
+      const inbox = within(
+        await screen.findByRole('region', { name: 'Browser pairing requests' })
+      )
+      expect(inbox.getByText(/Current account: alice/)).toBeVisible()
+      expect(inbox.queryByText('ABCD-EFGH')).toBeNull()
+      fireEvent.click(
+        inbox.getByRole('button', { name: 'Pair with current account' })
+      )
+      expect(onClaim).toHaveBeenCalledOnce()
+      expect(await inbox.findByText('ABCD-EFGH')).toBeVisible()
+      act(() =>
+        useOperatorSession.setState({ status: { ...status, username: 'bob' } })
+      )
+      expect(inbox.queryByText('ABCD-EFGH')).toBeNull()
+    } finally {
+      act(() => {
+        toast.close(id)
+        useOperatorSession.setState(original)
+      })
+    }
   })
 
   it('shows both profiles, refreshes disconnect status, and revokes the entire extension group', async () => {

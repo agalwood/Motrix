@@ -66,12 +66,13 @@ beforeEach(() => {
   })
 })
 
-it('shows the same periodic-update state on both surfaces and restores engine readiness', async () => {
+it('keeps the engine tile ready during a brief Web transport renewal', async () => {
   const { rerender } = render(<Surfaces />)
   await waitFor(() => expect(screen.getByText('Engine ready')).toBeVisible())
   health.realtimeConnected = false
   rerender(<Surfaces />)
-  expect(screen.getAllByText('Periodic updates')).toHaveLength(2)
+  expect(screen.getByText('Ready')).toBeVisible()
+  expect(screen.getAllByText('Periodic updates')).toHaveLength(1)
   expect(screen.queryByText('Engine offline')).not.toBeInTheDocument()
   health.realtimeConnected = true
   rerender(<Surfaces />)

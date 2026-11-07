@@ -1,4 +1,5 @@
 export const Commands = {
+  SaveNasSettings: 'command:saveNasSettings',
   AcknowledgeGraphicsRecoveryNotice:
     'command:acknowledgeGraphicsRecoveryNotice',
   ExecuteRendererSubmission: 'command:executeRendererSubmission',

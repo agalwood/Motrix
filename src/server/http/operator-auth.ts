@@ -174,8 +174,9 @@ function isPublic(method: string, url: string): boolean {
   return false
 }
 
-interface SessionSocket {
+export interface SessionSocket {
   close(code: number, reason: string): void
+  send(data: string, callback: (error?: Error) => void): void
 }
 
 export interface OperatorSessionPolicy {

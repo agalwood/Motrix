@@ -1212,6 +1212,25 @@ test.describe('Activity Tile production renderer', () => {
       width: (element as HTMLElement).style.width,
       height: (element as HTMLElement).style.height,
     }))
+    // The deployed DSM Dashboard measured a 597 × 186 CSS-pixel calendar.
+    await referenceCard.evaluate((element) => {
+      const card = element as HTMLElement
+      card.style.width = '629px'
+      card.style.height = '238px'
+    })
+    await expect
+      .poll(async () => {
+        const p = await readRendererProfile(mainWindow)
+        return [
+          p.calendarClientWidth,
+          p.monthLabels.length >= 11,
+          p.weekdayLabels.length,
+        ]
+      })
+      .toEqual([597, true, 3])
+    await referenceCard.screenshot({
+      path: testInfo.outputPath('activity-dsm-597-calendar.png'),
+    })
     await referenceCard.evaluate((element) => {
       const card = element as HTMLElement
       card.style.width = '690px'

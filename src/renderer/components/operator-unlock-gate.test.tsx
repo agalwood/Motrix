@@ -76,3 +76,27 @@ describe('OperatorUnlockGate', () => {
     await waitFor(() => expect(screen.getByTestId('app')).toBeTruthy())
   })
 })
+
+it('shows a safe DSM failure code while keeping the app locked without requesting a password', async () => {
+  fetchMock.mockResolvedValueOnce(
+    new Response(
+      JSON.stringify({
+        authed: false,
+        mode: 'synologyDsm',
+        canLogout: false,
+        nasAuthDiagnostic: {
+          stage: 'session',
+          code: 'commandFailed',
+          failure: 'exit',
+          exitCode: 5,
+        },
+      })
+    )
+  )
+  render(<OperatorUnlockGate>{child}</OperatorUnlockGate>)
+  expect(
+    await screen.findByText('session / commandFailed / exit / 5')
+  ).toBeTruthy()
+  expect(screen.queryByTestId('app')).toBeNull()
+  expect(screen.queryByPlaceholderText('Operator token')).toBeNull()
+})

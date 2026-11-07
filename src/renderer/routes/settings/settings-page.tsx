@@ -1,9 +1,10 @@
 import { PanelShell } from '@renderer/components/desktop-kit/panel/panel-shell'
+import { useOperatorSession } from '@renderer/lib/operator-auth'
 import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate, useParams } from 'react-router'
-import { findCard, SETTINGS_CARDS } from './card-registry'
+import { findCard, NAS_SETTINGS_CARD, SETTINGS_CARDS } from './card-registry'
 import { SettingsCard } from './cards/settings-card'
 
 export function SettingsPage() {
@@ -12,9 +13,17 @@ export function SettingsPage() {
   const location = useLocation()
   const visible = /^\/settings(?:\/|$)/.test(location.pathname)
   const { cardId } = useParams<{ cardId: string }>()
-  const activeCard = findCard(cardId)
+  const isSynology = useOperatorSession(
+    (session) =>
+      session.status?.mode === 'synologyDsm' &&
+      session.status.nasCapabilities?.settings === true
+  )
+  const cards = isSynology
+    ? [...SETTINGS_CARDS, NAS_SETTINGS_CARD]
+    : SETTINGS_CARDS
+  const activeCard = findCard(cardId, cards)
   const lastRowStart = (columns: number) =>
-    Math.floor((SETTINGS_CARDS.length - 1) / columns) * columns
+    Math.floor((cards.length - 1) / columns) * columns
 
   const closeDialog = () => navigate('/settings')
 
@@ -27,7 +36,7 @@ export function SettingsPage() {
         data-slot="settings-grid"
         className="grid min-h-0 flex-1 grid-cols-1 content-start items-stretch overflow-y-auto border-t-[0.5px] px-2 py-2 min-[914px]:content-stretch @min-[400px]/settings:grid-cols-2 @min-[400px]/settings:px-6 @min-[400px]/settings:py-4 @min-[600px]/settings:grid-cols-3"
       >
-        {SETTINGS_CARDS.map((card, index) => (
+        {cards.map((card, index) => (
           <SettingsCard
             key={card.id}
             icon={card.icon}

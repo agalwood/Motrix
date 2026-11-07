@@ -1,13 +1,12 @@
 import path from 'node:path'
-import { MAX_TORRENT_FILE_SIZE } from '@shared/lib/torrent-meta'
 import type { DownloadTask } from '@shared/types/task'
 import { canOpenTaskFile } from '@shared/types/task-actions'
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import type { ServerDownloadPathPolicy } from '../../download-path-policy'
+import { readNasTorrent } from '../nas/file-routes'
 import type { NasFiles } from '../nas/files'
 import { currentNasUser } from '../nas/identity'
-import { openFnosFile } from './open-file'
 
 const pathSchema = z.object({ path: z.string().min(1).max(4096) }).strict()
 const taskSchema = z
@@ -68,34 +67,8 @@ export function registerFnosRoutes(
     )
       return reply.code(400).send({ error: 'invalid torrent path' })
     try {
-      const candidate = await files.authorizeFile(body.data.path, policy, user)
-      const handle = await openFnosFile(candidate, (opened) =>
-        files.authorizeFile(opened, policy, user)
-      )
-      try {
-        const info = await handle.stat()
-        if (!info.isFile() || info.size > MAX_TORRENT_FILE_SIZE)
-          throw new Error('Invalid torrent file')
-        // Bounded read also handles a file growing after stat.
-        const data = Buffer.alloc(info.size + 1)
-        let size = 0
-        while (size < data.length) {
-          const { bytesRead } = await handle.read(
-            data,
-            size,
-            data.length - size,
-            size
-          )
-          if (!bytesRead) break
-          size += bytesRead
-        }
-        if (size !== info.size) throw new Error('Torrent changed')
-        return reply
-          .type('application/x-bittorrent')
-          .send(data.subarray(0, size))
-      } finally {
-        await handle.close()
-      }
+      const data = await readNasTorrent(body.data.path, files, policy, user)
+      return reply.type('application/x-bittorrent').send(data)
     } catch {
       return reply.code(403).send({ error: 'torrent not authorized' })
     }

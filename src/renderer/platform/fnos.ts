@@ -5,8 +5,8 @@ import { z } from 'zod'
 
 export const isFnos = () =>
   useOperatorSession.getState().status?.mode === 'fnosGateway'
-export const hasHostFileActions = () =>
-  __MOTRIX_TARGET__ === 'electron' || isFnos()
+export { hasHostFileActions } from './nas'
+
 let instance: Promise<TrimApp> | undefined
 export function fnosSdk(): Promise<TrimApp> {
   instance ??=
