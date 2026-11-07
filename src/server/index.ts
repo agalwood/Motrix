@@ -185,7 +185,7 @@ import { NasTaskAccess } from './platform/nas/task-access'
 import { createNodePlatformServices } from './platform/services'
 import { SynologyAccounts } from './platform/synology/accounts'
 import { probeDsmApi } from './platform/synology/api'
-import { SynologyFiles, unavailableDsmRoots } from './platform/synology/files'
+import { SynologyFiles } from './platform/synology/files'
 import { synologyGateway } from './platform/synology/identity'
 import {
   dsmDefaultSaveDir,
@@ -328,7 +328,7 @@ async function main() {
       ? await synologySettingsHandlers(synology.variable, dsmAccounts)
       : undefined
   if (synology && dsmAccounts && nasSettings) {
-    const unavailable = await unavailableDsmRoots(nasSettings.activeRoots)
+    const unavailable = nasSettings.unavailableRoots
     if (unavailable.length) {
       // Keep the task database, finalize journals and engine session untouched
       // until every grant can be checked. A fresh start applies any repairs.

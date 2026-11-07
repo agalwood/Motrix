@@ -95,6 +95,13 @@ Downloads are restricted to existing, mounted, canonical configured roots and
 the permissions of both the account and the package user. The default root is
 resolved from DSM's `/var/packages/Motrix/shares/motrix` link. An unavailable
 volume is never created as a replacement directory on the system volume.
+Revision 10 records the filesystem device and inode of each authorized root.
+The package checks those identities when it starts and during file operations.
+A different directory at the same path cannot inherit the old grant, including
+when the directory changes between saving settings and restarting. Restore the
+original directory, or authorize a different path for the replacement.
+When upgrading a path-only configuration, the first startup with every root
+available records the directories present at that point.
 If a configured download folder is missing or inaccessible at startup, Motrix
 opens an administrator-only recovery page. Restore the affected folders or edit
 the list, then restart Motrix in Package Center. While that page is active, the

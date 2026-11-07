@@ -2269,7 +2269,7 @@
       "account": "当前 DSM 账号：{{username}}",
       "restartRequired": "设置已保存。请在 DSM 套件中心停止并重新启动 Motrix，任务、文件和配对记录都会保留。",
       "storageUnavailable": "下载目录不可用",
-      "storageRecoveryHint": "下载已暂停。请恢复以下目录或修改授权目录列表，然后在套件中心重新启动 Motrix。",
+      "storageRecoveryHint": "下载已暂停。请恢复原目录，或改为授权其他路径，然后在套件中心重新启动 Motrix。",
       "roots": "授权下载目录",
       "rootsHint": "每行填写一个已存在的 NAS 目录。当前账号和内部系统用户 motrix 都需要读写权限。若移除默认下载目录，将使用列表中的第一个目录作为默认目录。",
       "extensionEnabled": "启用浏览器扩展连接",

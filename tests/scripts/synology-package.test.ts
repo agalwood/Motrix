@@ -31,7 +31,7 @@ it.skipIf(process.platform === 'win32')(
       await expect(runtimeEnvironment(env)).rejects.toThrow(
         'Invalid DSM package configuration'
       )
-      await writeFile(config, Buffer.alloc(32769))
+      await writeFile(config, Buffer.alloc(36 * 1024 + 1))
       await expect(runtimeEnvironment(env)).rejects.toThrow(
         'Untrusted DSM package configuration'
       )
@@ -41,12 +41,15 @@ it.skipIf(process.platform === 'win32')(
   }
 )
 
-it.skipIf(process.platform === 'win32')(
-  'replays pending settings after an interrupted apply and preserves the journal on failure',
-  async () => {
+it
+  .skipIf(process.platform === 'win32')
+  .each([{}, { directoryIdentities: ['12:257', '12:258'] }])(
+  'replays pending settings after an interrupted apply and preserves the grant metadata %j',
+  async (grant) => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'motrix-spk-pending-'))
     try {
       const value = {
+        ...grant,
         roots: ['/volume1/motrix', '/volume1/downloads'],
         clientPort: 16812,
         extensionUrl: 'wss://nas.test:5001/motrix/bridge',
@@ -77,11 +80,46 @@ it.skipIf(process.platform === 'win32')(
       ).toMatchObject({ clientPort: 16812, extensionUrl: value.extensionUrl })
       expect(
         JSON.parse(await readFile(path.join(root, 'directories.json'), 'utf8'))
-      ).toEqual({ roots: value.roots })
+      ).toEqual({ roots: value.roots, ...grant })
       await expect(
         readFile(path.join(root, 'pending-settings.json'))
       ).rejects.toMatchObject({ code: 'ENOENT' })
       await applyPendingSettings({ SYNOPKG_PKGVAR: root })
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  }
+)
+
+it.skipIf(process.platform === 'win32')(
+  'keeps existing directory identities when replaying a path-only journal',
+  async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'motrix-spk-replay-'))
+    try {
+      const grant = {
+        roots: ['/volume1/motrix'],
+        directoryIdentities: ['7:256'],
+      }
+      const file = path.join(root, 'directories.json')
+      await writeFile(file, JSON.stringify(grant), { mode: 0o600 })
+      const pending = path.join(root, 'pending-settings.json')
+      const settings = {
+        roots: grant.roots,
+        clientPort: 16802,
+        allowHttp: false,
+        operatorUrl: '',
+        extensionUrl: '',
+      }
+      await writeFile(pending, JSON.stringify(settings), { mode: 0o600 })
+      await applyPendingSettings({ SYNOPKG_PKGVAR: root })
+      expect(JSON.parse(await readFile(file, 'utf8'))).toEqual(grant)
+      const invalid = { ...settings, directoryIdentities: [] }
+      await writeFile(pending, JSON.stringify(invalid), { mode: 0o600 })
+      await expect(
+        applyPendingSettings({ SYNOPKG_PKGVAR: root })
+      ).rejects.toThrow('Invalid pending directory identities')
+      expect(JSON.parse(await readFile(file, 'utf8'))).toEqual(grant)
+      expect(JSON.parse(await readFile(pending, 'utf8'))).toEqual(invalid)
     } finally {
       await rm(root, { recursive: true, force: true })
     }

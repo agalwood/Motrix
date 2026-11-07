@@ -1,3 +1,4 @@
+import path from 'node:path'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import {
@@ -13,7 +14,11 @@ import {
 import { currentNasUser } from '../nas/identity'
 import { NasSettingsStore } from '../nas/settings-store'
 import type { SynologyAccounts } from './accounts'
-import { dsmDirectoryConfig, unavailableDsmRoots } from './files'
+import {
+  dsmDirectoryConfig,
+  inspectDsmRoots,
+  readDsmDirectoryGrants,
+} from './files'
 
 function validConnections(value: NasPackageSettings): boolean {
   if (!value.operatorUrl && !value.extensionUrl) return true
@@ -49,7 +54,11 @@ export async function synologySettingsHandlers(
   accounts: SynologyAccounts
 ) {
   const store = new NasSettingsStore(directory, 'synology')
-  const initial = await store.view()
+  const active = await readDsmDirectoryGrants(
+    path.join(directory, 'directories.json'),
+    true
+  )
+  await store.view()
   const denied = (): NasSettingsResult => ({
     ok: false,
     error: { code: 'permissionDenied' },
@@ -61,7 +70,7 @@ export async function synologySettingsHandlers(
     return resolveNasAdministrator(accounts, user)
   }
   return {
-    activeRoots: initial.active.roots,
+    unavailableRoots: active.unavailable,
     queryHandlers: {
       [Queries.GetNasSettings]: async (): Promise<NasSettingsResult> => {
         try {
@@ -87,7 +96,8 @@ export async function synologySettingsHandlers(
         try {
           const user = await identity()
           return store.save(raw, async (settings, signal) => {
-            if ((await unavailableDsmRoots(settings.roots)).length)
+            const before = await inspectDsmRoots(settings.roots)
+            if (!before.every((id): id is string => id !== null))
               return 'folderUnavailable'
             for (const root of settings.roots) {
               signal.throwIfAborted()
@@ -103,7 +113,11 @@ export async function synologySettingsHandlers(
                 return false
             }
             const current = await accounts.resolve(user, signal)
-            return current !== null && sameNasAccount(user, current)
+            if (current === null || !sameNasAccount(user, current)) return false
+            const after = await inspectDsmRoots(settings.roots)
+            if (!after.every((id, index) => id === before[index]))
+              return 'folderUnavailable'
+            return { directoryIdentities: before }
           })
         } catch {
           return denied()

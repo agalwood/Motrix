@@ -12,6 +12,12 @@ import {
 import writeFileAtomic from 'write-file-atomic'
 
 const MAX_BYTES = 32 * 1024
+// Up to 64 package-generated device/inode pairs may accompany the public settings.
+const MAX_PRIVATE_BYTES = MAX_BYTES + 4 * 1024
+type GrantValidation =
+  | boolean
+  | 'folderUnavailable'
+  | { directoryIdentities: string[] }
 export async function readNasConfigurationText(
   file: string,
   optional = false
@@ -30,10 +36,10 @@ export async function readNasConfigurationText(
       !info.isFile() ||
       info.uid !== process.getuid?.() ||
       (info.mode & 0o077) !== 0 ||
-      info.size > MAX_BYTES
+      info.size > MAX_PRIVATE_BYTES
     )
       throw new Error('Untrusted NAS configuration')
-    const buffer = Buffer.alloc(MAX_BYTES + 1)
+    const buffer = Buffer.alloc(MAX_PRIVATE_BYTES + 1)
     let bytesRead = 0
     while (bytesRead < buffer.length) {
       const part = await handle.read(
@@ -45,7 +51,8 @@ export async function readNasConfigurationText(
       if (!part.bytesRead) break
       bytesRead += part.bytesRead
     }
-    if (bytesRead > MAX_BYTES) throw new Error('NAS configuration too large')
+    if (bytesRead > MAX_PRIVATE_BYTES)
+      throw new Error('NAS configuration too large')
     return buffer.subarray(0, bytesRead).toString('utf8')
   } finally {
     await handle.close()
@@ -74,19 +81,52 @@ export class NasSettingsStore {
         true
       ),
     ])
+    // DSM's directory fingerprints are package-private and must never be
+    // supplied by an operator's form or included in the public settings view.
+    const unpack = (text: string) => {
+      const raw = JSON.parse(text)
+      if (this.platform !== 'synology')
+        return { settings: raw, identities: undefined }
+      const { directoryIdentities, ...settings } = raw
+      return { settings, identities: directoryIdentities }
+    }
+    const grants = unpack(rootsText ?? '')
     const applied = nasPackageSettingsSchema.parse({
       ...JSON.parse(packageText ?? ''),
-      ...JSON.parse(rootsText ?? ''),
+      ...grants.settings,
     })
+    const pending = pendingText === null ? null : unpack(pendingText)
     const settings =
-      pendingText === null
+      pending === null
         ? applied
-        : nasPackageSettingsSchema.parse(JSON.parse(pendingText))
+        : nasPackageSettingsSchema.parse(pending.settings)
+    const pinnedRoots = new Map<string, string>()
+    for (const entry of [grants, pending]) {
+      if (!entry || entry.identities === undefined) continue
+      if (
+        !Array.isArray(entry.identities) ||
+        entry.identities.length !== entry.settings.roots.length
+      )
+        throw new Error('Invalid NAS directory identities')
+      for (const [i, root] of entry.settings.roots.entries()) {
+        const id = entry.identities[i]
+        if (
+          typeof id !== 'string' ||
+          !/^\d{1,20}:\d{1,20}$/.test(id) ||
+          (pinnedRoots.has(root) && pinnedRoots.get(root) !== id)
+        )
+          throw new Error('Inconsistent NAS directory identities')
+        pinnedRoots.set(root, id)
+      }
+    }
     const revision = createHash('sha256')
       .update(JSON.stringify([packageText, rootsText, pendingText]))
       .digest('hex')
     this.active ??= applied
-    return { applied, settings, revision }
+    const grantChange =
+      pending !== null &&
+      JSON.stringify(pending.identities) !== JSON.stringify(grants.identities)
+    return { applied, settings, revision, grantChange, pinnedRoots }
   }
 
   async view(): Promise<NasSettingsView> {
@@ -98,6 +138,7 @@ export class NasSettingsStore {
       settings: state.settings,
       active,
       restartRequired:
+        state.grantChange ||
         JSON.stringify(state.settings) !== JSON.stringify(active),
     }
   }
@@ -107,12 +148,11 @@ export class NasSettingsStore {
     validate: (
       settings: NasPackageSettings,
       signal: AbortSignal
-    ) => Promise<boolean | 'folderUnavailable'>
+    ) => Promise<GrantValidation>
   ): Promise<NasSettingsResult> {
     const parsed = saveNasSettingsSchema.safeParse(raw)
     if (!parsed.success) return { ok: false, error: { code: 'invalid' } }
-    const serialized = `${JSON.stringify(parsed.data.settings)}\n`
-    if (Buffer.byteLength(serialized) > MAX_BYTES)
+    if (Buffer.byteLength(JSON.stringify(parsed.data.settings)) + 1 > MAX_BYTES)
       return { ok: false, error: { code: 'invalid' } }
     let result: NasSettingsResult = {
       ok: false,
@@ -120,14 +160,15 @@ export class NasSettingsStore {
     }
     const operation = async () => {
       try {
-        if ((await this.snapshot()).revision !== parsed.data.revision) {
+        const previous = await this.snapshot()
+        if (previous.revision !== parsed.data.revision) {
           result = { ok: false, error: { code: 'conflict' } }
           return
         }
         const controller = new AbortController()
         let timedOut = false,
           timer: ReturnType<typeof setTimeout> | undefined
-        let valid: boolean | 'folderUnavailable'
+        let valid: GrantValidation
         try {
           valid = await Promise.race([
             validate(parsed.data.settings, controller.signal),
@@ -143,7 +184,7 @@ export class NasSettingsStore {
           clearTimeout(timer)
           controller.abort()
         }
-        if (valid !== true) {
+        if (valid === false || valid === 'folderUnavailable') {
           result = {
             ok: false,
             error: {
@@ -160,6 +201,19 @@ export class NasSettingsStore {
           result = { ok: false, error: { code: 'conflict' } }
           return
         }
+        if (
+          typeof valid === 'object' &&
+          parsed.data.settings.roots.some((root, index) => {
+            const pinned = previous.pinnedRoots.get(root)
+            return (
+              pinned !== undefined &&
+              pinned !== valid.directoryIdentities[index]
+            )
+          })
+        ) {
+          result = { ok: false, error: { code: 'folderUnavailable' } }
+          return
+        }
         const parent = await lstat(this.directory)
         if (
           !parent.isDirectory() ||
@@ -169,7 +223,10 @@ export class NasSettingsStore {
           throw new Error('Untrusted NAS configuration directory')
         await writeFileAtomic(
           path.join(this.directory, 'pending-settings.json'),
-          serialized,
+          `${JSON.stringify({
+            ...parsed.data.settings,
+            ...(typeof valid === 'object' ? valid : {}),
+          })}\n`,
           { mode: 0o600 }
         )
         const directory = await open(

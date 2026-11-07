@@ -2269,7 +2269,7 @@
       "account": "目前 DSM 帳號：{{username}}",
       "restartRequired": "設定已儲存。請在 DSM 套件中心停止並重新啟動 Motrix，任務、檔案和配對記錄都會保留。",
       "storageUnavailable": "下載資料夾無法使用",
-      "storageRecoveryHint": "下載已暫停。請還原下列資料夾或修改授權清單，然後在套件中心重新啟動 Motrix。",
+      "storageRecoveryHint": "下載已暫停。請還原原本的資料夾，或改為授權其他路徑，然後在套件中心重新啟動 Motrix。",
       "roots": "授權下載目錄",
       "rootsHint": "每行填寫一個已存在的 NAS 目錄。目前帳號和內部系統使用者 motrix 都需要讀寫權限。若移除預設下載目錄，將使用清單中的第一個目錄作為預設目錄。",
       "extensionEnabled": "啟用瀏覽器擴充功能連線",

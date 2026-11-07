@@ -19,8 +19,7 @@ import path from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { pathToFileURL } from 'node:url'
 
-async function readPackageDocument(file) {
-  const limit = 32 * 1024
+async function readPackageDocument(file, limit = 32 * 1024) {
   const handle = await open(
     file,
     constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK
@@ -68,7 +67,7 @@ export async function runtimeEnvironment(env) {
   const configFile = path.join(variable, 'directories.json')
   let directories
   try {
-    directories = await readPackageDocument(configFile)
+    directories = await readPackageDocument(configFile, 36 * 1024)
   } catch (error) {
     if (error.code !== 'ENOENT') throw error
     const share = await realpath('/var/packages/Motrix/shares/motrix')
@@ -132,15 +131,17 @@ export async function applyPendingSettings(env) {
   const pending = path.join(variable, 'pending-settings.json')
   let value
   try {
-    value = await readPackageDocument(pending)
+    value = await readPackageDocument(pending, 36 * 1024)
   } catch (error) {
     if (error.code === 'ENOENT') return
     throw error
   }
   if (
     !value ||
-    Object.keys(value).sort().join(',') !==
-      'allowHttp,clientPort,extensionUrl,operatorUrl,roots' ||
+    Object.keys(value)
+      .filter((key) => key !== 'directoryIdentities')
+      .sort()
+      .join(',') !== 'allowHttp,clientPort,extensionUrl,operatorUrl,roots' ||
     !Number.isInteger(value.clientPort) ||
     value.clientPort < 1024 ||
     value.clientPort > 65535 ||
@@ -167,10 +168,37 @@ export async function applyPendingSettings(env) {
     )
   )
     throw new Error('Invalid pending package settings')
-  const { roots, ...settings } = value
+  const { roots, directoryIdentities: pendingIdentities, ...settings } = value
+  let directoryIdentities = pendingIdentities
+  if (directoryIdentities === undefined) {
+    // A replay of an old path-only journal must not discard a grant that
+    // already has an identity. First upgrades from path-only grants still work.
+    const previous = await readPackageDocument(
+      path.join(variable, 'directories.json'),
+      36 * 1024
+    ).catch((error) => {
+      if (error.code === 'ENOENT') return undefined
+      throw error
+    })
+    if (previous?.directoryIdentities !== undefined) {
+      directoryIdentities = roots.map(
+        (root) => previous.directoryIdentities[previous.roots.indexOf(root)]
+      )
+    }
+  }
+  if (
+    directoryIdentities !== undefined &&
+    (!Array.isArray(directoryIdentities) ||
+      directoryIdentities.length !== roots.length ||
+      !directoryIdentities.every(
+        (id) => typeof id === 'string' && /^\d{1,20}:\d{1,20}$/.test(id)
+      ))
+  ) {
+    throw new Error('Invalid pending directory identities')
+  }
   for (const [name, data] of [
     ['package-settings.json', settings],
-    ['directories.json', { roots }],
+    ['directories.json', { roots, directoryIdentities }],
   ]) {
     const temporary = path.join(variable, `${name}.${randomUUID()}.next`)
     try {

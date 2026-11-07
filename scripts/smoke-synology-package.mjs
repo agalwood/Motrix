@@ -705,6 +705,46 @@ try {
   ).value
   assert.equal(appliedSettings.active.operatorUrl, 'http://nas.test/motrix/')
   assert.equal(appliedSettings.restartRequired, false)
+  // A regular directory at the old pathname can pass both account and package
+  // ACL checks. Existing tasks must not read or delete the replacement's files.
+  const heldDownloads = `${downloads}.original-directory`
+  await rename(downloads, heldDownloads)
+  await mkdir(downloads)
+  await chown(downloads, 1600, 1600)
+  await writeFile(`${downloads}/tiny.txt`, 'replacement payload')
+  await chown(`${downloads}/tiny.txt`, 1600, 1600)
+  const oldTaskFile = `/api/nas/tasks/${tiny.taskId}/file`
+  assert.equal((await web(oldTaskFile)).status, 403)
+  const refusedSaveDir = `${downloads}/refused-new-task`
+  assert.ok((await (await add(refusedSaveDir)).json()).error)
+  await assert.rejects(stat(refusedSaveDir), { code: 'ENOENT' })
+  assert.ok(
+    (
+      await (
+        await rpc(
+          Methods.TaskRemove,
+          { taskId: tiny.taskId, deleteFiles: true },
+          token
+        )
+      ).json()
+    ).error
+  )
+  assert.equal(
+    await readFile(`${downloads}/tiny.txt`, 'utf8'),
+    'replacement payload'
+  )
+  await life('stop')
+  await life('start', false)
+  assert.equal(
+    JSON.parse((await web('/healthz')).body).status,
+    'storage-recovery'
+  )
+  await life('stop')
+  await rename(downloads, `${downloads}.replacement-directory`)
+  await rename(heldDownloads, downloads)
+  await life('start')
+  assert.equal(JSON.parse((await web('/rpc/auth/status')).body).authed, true)
+  assert.equal((await web(oldTaskFile)).body, 'tiny native download')
   assert.equal(
     (
       await web('/api/nas/task-action', admin, {
@@ -826,9 +866,30 @@ try {
   assert.equal(await stat(downloads).catch(() => null), null)
   await mkdir(replacement)
   await chown(replacement, 1600, 1600)
-  assert.equal((await queue([replacement])).ok, true)
+  const queued = await queue([replacement])
+  assert.equal(queued.ok, true)
+  assert.equal(queued.value.settings.directoryIdentities, undefined)
+  // Substitution between Save and restart must not change the identity that
+  // passed the account's ACL check, even when the replacement is writable.
+  await rename(replacement, `${replacement}.authorized`)
+  await mkdir(replacement)
+  await chown(replacement, 1600, 1600)
+  const resave = await web('/rpc/command/command%3AsaveNasSettings', admin, {
+    args: [
+      { revision: queued.value.revision, settings: queued.value.settings },
+    ],
+  })
+  assert.equal(JSON.parse(resave.body).error.code, 'folderUnavailable')
   await life('stop')
   assert.deepEqual(await durableHashes(), beforeRecovery)
+  await life('start', false)
+  assert.equal(
+    JSON.parse((await web('/healthz')).body).status,
+    'storage-recovery'
+  )
+  await life('stop')
+  await rename(replacement, `${replacement}.substitute`)
+  await rename(`${replacement}.authorized`, replacement)
   await life('start')
   assert.equal(JSON.parse((await web('/healthz')).body).status, 'ready')
   assert.equal(JSON.parse((await web('/rpc/auth/status')).body).authed, true)
@@ -899,7 +960,7 @@ try {
     'tiny native download'
   )
   console.log(
-    'DSM Linux simulation passed: nonroot lifecycle and gateway socket isolation, cookie authentication, CLI pairing, account revocation, HTTP/BT download, ACL denial, symlink denial, file deletion, upgrade persistence, stale PID, retained-data reinstall and clean reinstall after purge'
+    'DSM Linux simulation passed: nonroot lifecycle and gateway socket isolation, cookie authentication, CLI pairing, account revocation, HTTP/BT download, ACL and symlink denial, replaced grant denied live and after restart, grant substitution before pending settings apply denied, file deletion, upgrade persistence, stale PID, retained-data reinstall and clean reinstall after purge'
   )
 } finally {
   await execute('start-stop-status', 'stop')

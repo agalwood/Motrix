@@ -1,7 +1,8 @@
 import { constants } from 'node:fs'
-import { access, lstat, readFile, realpath } from 'node:fs/promises'
+import { access, lstat, open, readFile, realpath } from 'node:fs/promises'
 import path from 'node:path'
 import { nasRootPathSchema } from '@shared/schemas/nas-settings'
+import writeFileAtomic from 'write-file-atomic'
 import { z } from 'zod'
 import {
   type NasFileAccess,
@@ -22,37 +23,97 @@ export const dsmDirectoryConfig = z
       )
       .min(1)
       .max(64),
+    directoryIdentities: z
+      .array(z.string().regex(/^\d{1,20}:\d{1,20}$/))
+      .optional(),
   })
   .strict()
+  .refine(
+    (value) =>
+      !value.directoryIdentities ||
+      value.directoryIdentities.length === value.roots.length
+  )
 
-/** Inspect existing grants without creating a directory or following a replaced
- * share onto another volume. A mount-table failure cannot grant any paths. */
-export async function unavailableDsmRoots(
-  roots: readonly string[]
-): Promise<string[]> {
-  const configured = dsmDirectoryConfig.parse({ roots }).roots
+/** Capture only canonical directories on mounted DSM volumes. A failed lookup
+ * cannot establish a new grant or satisfy a previously recorded identity. */
+export async function inspectDsmRoots(roots: string[]) {
+  dsmDirectoryConfig.parse({ roots })
   const mounts = new Set(
     (await readFile('/proc/self/mountinfo', 'utf8'))
       .split('\n')
       .map((line) => line.split(' ')[4])
   )
-  const checked = await Promise.all(
-    configured.map(async (root) => {
-      if (!mounts.has(root.split('/').slice(0, 2).join('/'))) return root
+  return Promise.all(
+    roots.map(async (root) => {
+      if (!mounts.has(root.split('/').slice(0, 2).join('/'))) return null
       try {
-        if (
-          (await realpath(root)) !== root ||
-          !(await lstat(root)).isDirectory()
+        const directory = await open(
+          root,
+          constants.O_RDONLY |
+            constants.O_DIRECTORY |
+            constants.O_NOFOLLOW |
+            constants.O_NONBLOCK
         )
-          return root
-        await access(root, constants.R_OK | constants.W_OK | constants.X_OK)
-        return null
+        try {
+          const held = await directory.stat({ bigint: true })
+          if ((await realpath(root)) !== root) return null
+          await access(root, constants.R_OK | constants.W_OK | constants.X_OK)
+          const named = await lstat(root, { bigint: true })
+          return held.dev === named.dev && held.ino === named.ino
+            ? `${held.dev}:${held.ino}`
+            : null
+        } finally {
+          await directory.close()
+        }
       } catch {
-        return root
+        return null
       }
     })
   )
-  return checked.filter((root): root is string => root !== null)
+}
+
+export async function readDsmDirectoryGrants(
+  configFile: string,
+  initializeLegacy = false
+) {
+  const text = await readNasConfigurationText(configFile)
+  let document: unknown
+  try {
+    document = JSON.parse(text ?? '')
+  } catch {
+    throw new Error('Invalid DSM directory configuration')
+  }
+  const config = dsmDirectoryConfig.parse(document)
+  const current = await inspectDsmRoots(config.roots)
+  // Only the serialized lifecycle's initial server startup may migrate a
+  // path-only configuration. Later requests never adopt a new directory.
+  if (
+    initializeLegacy &&
+    !config.directoryIdentities &&
+    current.every((id): id is string => id !== null)
+  ) {
+    config.directoryIdentities = current
+    await writeFileAtomic(configFile, `${JSON.stringify(config)}\n`, {
+      mode: 0o600,
+    })
+    const parent = await open(
+      path.dirname(configFile),
+      constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW
+    )
+    try {
+      await parent.sync()
+    } finally {
+      await parent.close()
+    }
+  }
+  const unavailable = config.roots.filter(
+    (_, i) =>
+      current[i] === null ||
+      (config.directoryIdentities
+        ? current[i] !== config.directoryIdentities[i]
+        : !initializeLegacy)
+  )
+  return { ...config, unavailable }
 }
 
 export function dsmPermission(
@@ -81,16 +142,8 @@ export class SynologyFileAccess implements NasFileAccess {
   ) {}
 
   async authorizedRoots(): Promise<string[]> {
-    const text = await readNasConfigurationText(this.configFile)
-    let document: unknown
-    try {
-      document = JSON.parse(text ?? '')
-    } catch {
-      throw new Error('Invalid DSM directory configuration')
-    }
-    const config = dsmDirectoryConfig.parse(document)
-    if ((await unavailableDsmRoots(config.roots)).length)
-      throw new Error('DSM share unavailable')
+    const config = await readDsmDirectoryGrants(this.configFile)
+    if (config.unavailable.length) throw new Error('DSM share unavailable')
     return config.roots
   }
 
