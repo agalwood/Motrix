@@ -42,6 +42,12 @@ import {
 } from './task-instance'
 
 export interface BtStorageServiceDeps extends ReAddTaskDeps {
+  authorizeRecheck?: (task: DownloadTask) => Promise<void>
+  prepareStorageBinding?: (
+    task: DownloadTask,
+    mode: 'locate' | 'recheck' | 'move',
+    members: readonly string[]
+  ) => Promise<{ bindVerified(): Promise<void>; bindMoved(): Promise<void> }>
   authorizeOutputWrite?: (output: string) => Promise<void>
   runtime: Pick<
     DurableFinalizeRuntime,
@@ -159,7 +165,10 @@ export class BtStorageService {
       throw new StorageFault('busy')
     if (original.finalPath !== expectedPath)
       throw new StorageFault('unavailable')
-    if (request.mode !== 'locate') await deps.authorizeTaskWrite?.(original)
+    if (request.mode === 'recheck' && deps.authorizeRecheck)
+      await deps.authorizeRecheck(original)
+    else if (request.mode !== 'locate')
+      await deps.authorizeTaskWrite?.(original)
     if (request.mode === 'move') await deps.authorizeTaskRemoval?.(original)
     if ((await deps.authorizeDirectory(directory)) !== directory)
       throw new StorageFault('destination')
@@ -360,6 +369,21 @@ export class BtStorageService {
     delete primary.payload.btOutputReservations
     let verification!: BtVerificationResult
     try {
+      const binding = await deps.prepareStorageBinding?.(
+        candidate,
+        request.mode,
+        layout.files
+          .filter(
+            (f) =>
+              !candidate.bt?.selectedFiles?.length ||
+              candidate.bt.selectedFiles.includes(f.fileIndex)
+          )
+          .map((file) =>
+            file.pathInsideRoot
+              ? path.join(target, file.pathInsideRoot)
+              : target
+          )
+      )
       if (request.mode === 'move') {
         await deps.runtime.commit({
           task: candidate,
@@ -372,6 +396,7 @@ export class BtStorageService {
           fileRebase: { sourceRoot: sourcePath, targetRoot: target },
           verifySource: async () => {
             verification = await verify(source)
+            await binding?.bindVerified()
             running.controller.signal.throwIfAborted()
             running.cancellable = false
             progress('moving')
@@ -379,11 +404,13 @@ export class BtStorageService {
           onCommitted: () =>
             deps.taskManager.set(candidate.id, structuredClone(candidate)),
         })
+        await binding?.bindMoved()
       } else {
         await deps.runtime.withArtifactLease(stopped.id, async () => {
           verification = await verify(target)
           running.controller.signal.throwIfAborted()
           running.cancellable = false
+          await binding?.bindVerified()
           await deps.persistStorage(candidate, sourcePath, target)
         })
       }

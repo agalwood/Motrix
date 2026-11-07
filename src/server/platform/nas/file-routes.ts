@@ -99,6 +99,10 @@ export function registerNasFileRoutes(
     getTask: (id: string) => DownloadTask | undefined
     webBasePath: string
     fileManagerUrl: (canonical: string) => string
+    outputIdentity?: (
+      task: DownloadTask,
+      path: string
+    ) => Promise<string | undefined>
   }
 ) {
   const { files, policy, getTask } = options
@@ -116,8 +120,29 @@ export function registerNasFileRoutes(
     const stored = task.finalPath || task.diskPath
     if (!stored) throw new Error('Task output unavailable')
     return {
+      task,
       stored,
       candidate: action === 'reveal' ? path.dirname(stored) : stored,
+    }
+  }
+  const openTaskFile = async (
+    task: DownloadTask,
+    stored: string,
+    canonical: string,
+    user: NasIdentity
+  ) => {
+    const expected = await options.outputIdentity?.(task, stored)
+    const handle = await openNasFile(canonical, (opened) =>
+      files.authorizeFile(opened, policy, user)
+    )
+    try {
+      const named = await handle.stat({ bigint: true })
+      if (expected && expected !== `${named.dev}:${named.ino}`)
+        throw Error('Task output changed')
+      return handle
+    } catch (error) {
+      await handle.close()
+      throw error
     }
   }
   app.post(`${NAS_FILE_API}/task-action`, async (req, reply) => {
@@ -127,7 +152,7 @@ export function registerNasFileRoutes(
       return reply.code(400).send({ error: 'Invalid task action' })
     try {
       const { taskId, action } = parsed.data
-      const { stored, candidate } = output(taskId, action)
+      const { task, stored, candidate } = output(taskId, action)
       const canonical =
         action === 'reveal'
           ? (await policy.authorizeDirectory(candidate)).canonicalPath
@@ -135,11 +160,11 @@ export function registerNasFileRoutes(
       await files.check(canonical, 'readable', user)
       if (output(taskId, action).stored !== stored)
         throw new Error('Task changed')
-      if (action === 'reveal')
+      if (action === 'reveal') {
+        await options.outputIdentity?.(task, stored)
         return { kind: 'file-manager', url: options.fileManagerUrl(canonical) }
-      const handle = await openNasFile(canonical, (opened) =>
-        files.authorizeFile(opened, policy, user)
-      )
+      }
+      const handle = await openTaskFile(task, stored, canonical, user)
       await handle.close()
       return {
         kind: 'download',
@@ -178,11 +203,9 @@ export function registerNasFileRoutes(
         return reply.code(403).send({ error: 'File is not authorized' })
       let handle: Awaited<ReturnType<typeof openNasFile>> | undefined
       try {
-        const { stored, candidate } = output(req.params.taskId, 'open')
+        const { task, stored, candidate } = output(req.params.taskId, 'open')
         const canonical = await files.authorizeFile(candidate, policy, user)
-        handle = await openNasFile(canonical, (opened) =>
-          files.authorizeFile(opened, policy, user)
-        )
+        handle = await openTaskFile(task, stored, canonical, user)
         const file = handle,
           original = await file.stat({ bigint: true })
         const range = nasFileRange(req.headers.range, Number(original.size))
@@ -199,6 +222,9 @@ export function registerNasFileRoutes(
             (await files.authorizeFile(canonical, policy, user)) !== canonical
           )
             throw new Error('File authorization changed')
+          const expected = await options.outputIdentity?.(task, stored)
+          if (expected && expected !== `${original.dev}:${original.ino}`)
+            throw Error('Task output changed')
           const current = await lstat(canonical, { bigint: true })
           if (
             current.dev !== original.dev ||

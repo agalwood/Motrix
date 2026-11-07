@@ -1,9 +1,17 @@
 import { constants } from 'node:fs'
-import { access, lstat, open, readFile, realpath } from 'node:fs/promises'
+import {
+  access,
+  lstat,
+  mkdir,
+  open,
+  readFile,
+  realpath,
+} from 'node:fs/promises'
 import path from 'node:path'
 import { nasRootPathSchema } from '@shared/schemas/nas-settings'
 import writeFileAtomic from 'write-file-atomic'
 import { z } from 'zod'
+import type { ServerDownloadPathPolicy } from '../../download-path-policy'
 import {
   type NasFileAccess,
   type NasFilePermission,
@@ -186,5 +194,75 @@ export class SynologyFileAccess implements NasFileAccess {
 export class SynologyFiles extends NasFiles {
   constructor(configFile: string, accounts: SynologyAccounts) {
     super(new SynologyFileAccess(configFile, accounts))
+  }
+
+  override async policy(
+    defaultSaveDir: string
+  ): Promise<ServerDownloadPathPolicy> {
+    const base = await super.policy(defaultSaveDir)
+    return {
+      get allowedSaveDirs() {
+        return base.allowedSaveDirs
+      },
+      authorizeDirectory: base.authorizeDirectory,
+      prepareSaveDir: async (requested) => {
+        const candidate = requested || defaultSaveDir
+        if (
+          !path.isAbsolute(candidate) ||
+          path.resolve(candidate) !== candidate ||
+          candidate.includes('\0')
+        )
+          throw Error('Invalid DSM save path')
+        const root = (await this.roots())
+          .filter((dir) => candidate === dir || candidate.startsWith(`${dir}/`))
+          .sort((a, b) => b.length - a.length)[0]
+        if (!root) throw Error('DSM directory is outside authorized shares')
+        const flags =
+          constants.O_RDONLY |
+          constants.O_DIRECTORY |
+          constants.O_NOFOLLOW |
+          constants.O_NONBLOCK
+        let name = root
+        let held = await open(root, flags)
+        try {
+          for (const part of [
+            ...path.relative(root, candidate).split(path.sep).filter(Boolean),
+            null,
+          ]) {
+            if ((await base.authorizeDirectory(name)).canonicalPath !== name)
+              throw Error('DSM directory changed')
+            const opened = await held.stat({ bigint: true }),
+              named = await lstat(name, { bigint: true })
+            if (named.dev !== opened.dev || named.ino !== opened.ino)
+              throw Error('DSM directory changed')
+            const fd = `/proc/self/fd/${held.fd}`
+            if (!part) {
+              await this.check(name, 'writable')
+              await access(fd, constants.W_OK | constants.X_OK)
+              return name
+            }
+            const child = path.join(fd, part)
+            let next: typeof held
+            try {
+              next = await open(child, flags)
+            } catch (error) {
+              if ((error as NodeJS.ErrnoException).code !== 'ENOENT')
+                throw error
+              await this.check(name, 'writable')
+              await mkdir(child).catch((cause: NodeJS.ErrnoException) => {
+                if (cause.code !== 'EEXIST') throw cause
+              })
+              next = await open(child, flags)
+            }
+            await held.close()
+            held = next
+            name = path.join(name, part)
+          }
+          throw Error('Invalid DSM save path')
+        } finally {
+          await held.close()
+        }
+      },
+    }
   }
 }

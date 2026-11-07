@@ -574,6 +574,84 @@ try {
   assert.equal(await stat(`${downloads}/denied`).catch(() => null), null)
   await writeFile('/tmp/dsm-acl-state', 'allow')
   assert.ok((await (await add('/tmp')).json()).error)
+  // Only the parent share is explicitly granted. A task must keep ownership
+  // of its own directory and published file across restart and name reuse.
+  const child = path.join(downloads, 'nested-task')
+  const childFile = path.join(child, 'nested.txt')
+  const created = JSON.parse(
+    (
+      await web('/rpc/command/command%3AcreateTask', admin, {
+        args: [
+          {
+            type: 'http',
+            uris: [`http://127.0.0.1:${fixture.address().port}/nested-proof`],
+            saveDir: child,
+            filename: 'nested.txt',
+            connections: 1,
+          },
+        ],
+      })
+    ).body
+  )
+  assert.ok(created.taskId)
+  for (let attempt = 0; attempt < 120; attempt++) {
+    const query = await (
+      await rpc(Methods.TaskGet, { taskId: created.taskId }, token)
+    ).json()
+    if (query.result?.task?.status === 'completed') break
+    await delay(100)
+  }
+  const childRoute = `/api/nas/tasks/${created.taskId}/file`
+  assert.equal((await web(childRoute)).status, 200)
+  assert.deepEqual(await readFile(childFile), payload)
+  const assertSubstituteProtected = async () => {
+    assert.equal((await web(childRoute)).status, 403)
+    const result = await (
+      await rpc(
+        Methods.TaskRemove,
+        { taskId: created.taskId, deleteFiles: true },
+        token
+      )
+    ).json()
+    assert.ok(result.error)
+    assert.equal(await readFile(childFile, 'utf8'), 'substitute')
+  }
+  await rename(childFile, `${childFile}.original`)
+  await writeFile(childFile, 'substitute')
+  await chown(childFile, 1600, 1600)
+  await assertSubstituteProtected()
+  await rm(childFile)
+  await rename(`${childFile}.original`, childFile)
+  await rename(child, `${child}.original`)
+  await mkdir(child)
+  await chown(child, 1600, 1600)
+  await writeFile(childFile, 'substitute')
+  await chown(childFile, 1600, 1600)
+  await assertSubstituteProtected()
+  await life('stop')
+  await life('start')
+  assert.equal(JSON.parse((await web('/rpc/auth/status')).body).authed, true)
+  await assertSubstituteProtected()
+  await rename(child, `${child}.substitute`)
+  await rename(`${child}.original`, child)
+  assert.equal((await web(childRoute)).status, 200)
+  assert.deepEqual(await readFile(childFile), payload)
+  const removed = await (
+    await rpc(
+      Methods.TaskRemove,
+      { taskId: created.taskId, deleteFiles: true },
+      token
+    )
+  ).json()
+  assert.equal(removed.error, undefined)
+  await assert.rejects(stat(childFile), { code: 'ENOENT' })
+  assert.equal(
+    await readFile(path.join(`${child}.substitute`, 'nested.txt'), 'utf8'),
+    'substitute'
+  )
+  console.log(
+    'Replacement file and nested task directory denied before and after restart; original restored and removed'
+  )
   const tiny = JSON.parse(
     (
       await web('/rpc/command/command%3AcreateTask', admin, {
@@ -723,7 +801,7 @@ try {
       .code,
     0
   )
-  // Model completed history written before file metadata polling was fixed.
+  // Model an earlier package with no per-task path claims and incomplete file counts.
   // Mutate only this synthetic row, while the package is stopped, as its user.
   execFileSync('runuser', [
     '-u',
@@ -731,7 +809,7 @@ try {
     '--',
     `${target}/runtime/bin/node`,
     '-e',
-    `const DB=require(process.argv[1]);const db=new DB(process.argv[2]);db.prepare('UPDATE tasks SET file_count=0 WHERE motrix_id=?').run(process.argv[3]);db.close()`,
+    `const DB=require(process.argv[1]);const db=new DB(process.argv[2]);db.prepare('UPDATE tasks SET file_count=0 WHERE motrix_id=?').run(process.argv[3]);db.exec('DROP TABLE synology_task_paths');db.close()`,
     `${target}/server/node_modules/better-sqlite3`,
     `${variable}/data/motrix.db`,
     tiny.taskId,

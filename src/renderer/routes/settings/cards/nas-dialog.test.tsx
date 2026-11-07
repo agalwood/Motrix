@@ -107,7 +107,7 @@ it('repairs an unavailable folder without changing saved client addresses or por
   expect(screen.queryByText('CLI endpoint')).toBeNull()
   fireEvent.change(folders, { target: { value: '/volume1/motrix' } })
   fireEvent.click(screen.getByRole('button', { name: 'Save' }))
-  await screen.findByText(/Settings saved\. Stop and start Motrix/)
+  await screen.findByText(i18n.t('settings.nas.restartRequired'))
   expect(transport.invoke).toHaveBeenCalledWith(Commands.SaveNasSettings, {
     revision: view.revision,
     settings: { ...applied, roots: ['/volume1/motrix'] },
@@ -125,7 +125,7 @@ it('saves explicit package settings with a revision and shows the restart requir
     screen.getByRole('switch', { name: 'Enable browser extension connections' })
   )
   fireEvent.click(screen.getByRole('button', { name: 'Save' }))
-  await screen.findByText(/Settings saved\. Stop and start Motrix/)
+  await screen.findByText(i18n.t('settings.nas.restartRequired'))
   expect(transport.invoke).toHaveBeenCalledWith(Commands.SaveNasSettings, {
     revision: 'a'.repeat(64),
     settings: {

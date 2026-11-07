@@ -65,6 +65,7 @@ export async function verifySynologyProject(root) {
     sha256(await readFile(path.join(app, 'runtime/bin/node'))),
     receipt.nodeSha256
   )
+  assert.equal(receipt.nodeSha256, nodeLock.node[arch].binarySha256)
   assert.deepEqual(await readJson('conf/privilege'), {
     defaults: { 'run-as': 'package' },
     username: 'motrix',

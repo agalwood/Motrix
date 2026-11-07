@@ -28,9 +28,8 @@ on:
       - 'pnpm-lock.yaml'
       - '.github/workflows/synology-publish.yml'
       - 'scripts/spk_archive.py'
-      - 'src/server/platform/synology/**'
-      - 'src/server/platform/nas/**'
-      - 'src/server/http/nas-auth*'
+      - 'src/server/**'
+      - 'src/core/task/**'
       - '.github/workflows/synology.yml'
 
 permissions:
@@ -80,6 +79,9 @@ jobs:
         env:
           MOTRIX_SKIP_ELECTRON_REBUILD: '1'
           MOTRIX_SKIP_ENGINE_FETCH: '1'
+      - name: Test SPK publication verifier
+        if: matrix.arch == 'x64'
+        run: python3 -B -m unittest discover -s tests/scripts -p test_synology_publication.py
       - name: Build and verify native package
         run: |
           pnpm run fetch:engine -- --platform linux --arch '${{ matrix.arch }}'

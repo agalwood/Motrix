@@ -36,6 +36,8 @@ Across 180 seconds of layout observation, the calendar stayed 597 × 186 CSS
 pixels with 12 visible month labels and three weekday labels. Their positions
 stayed fixed, no stale notice appeared, and the Engine title stayed Ready.
 
+![Activity calendar at the observed DSM width, with month and weekday labels](../../screenshots/motrix-dsm-dashboard-activity.png)
+
 On 2026-11-07, **2.3.0-10** passed a directory replacement test on a **DS718+
 (DSM 7.4.1)** after a manual upgrade from 2.3.0-9. A completed HTTP task had
 written 27,648 bytes to an explicitly authorized test directory. Substituting
@@ -156,6 +158,8 @@ Station** opens the task folder in DSM. Its launch URL was verified on DS718+
 with DSM 7.4.1; other DSM versions still require device acceptance. No File Station
 `.torrent` context-menu association is registered.
 
+Revision 13 binds each task to its physical download directory. Before serving a completed file or deleting its payload, Motrix checks the original publication record or a verified torrent. If an older task or partial download has no ownership record, you can remove the task while keeping its files. Use **Locate** or **Recheck** with the original torrent to verify an existing BT download. A multi-file torrent directory containing an unrelated file is preserved.
+
 Engine startup loads persisted work paused, verifies task ownership and actual
 output paths against current grants, then resumes authorized tasks that were
 previously running. Unknown or unauthorized engine rows remain paused. Automatic
@@ -268,7 +272,7 @@ pnpm run fetch:engine -- --platform linux --arch "$arch"
 pnpm run build:server
 pnpm run stage:server -- --platform linux --arch "$arch" --libc gnu --strict
 pnpm run build:synology -- --arch "$arch" --output-dir "release/synology-$arch/project"
-pnpm run verify:synology -- --spk "release/synology-$arch/Motrix-2.3.0-12-dsm-$arch.spk"
+pnpm run verify:synology -- --spk "release/synology-$arch/Motrix-2.3.0-13-dsm-$arch.spk"
 ```
 
 The `synology.yml` GitHub Actions workflow builds on native x64 and ARM64 runners and verifies each final archive. After a successful stable release, `synology-publish.yml` rebuilds the exact tagged commit for both architectures. The protected publication job checks the tag, source commit, complete SPKs, digests and per-platform ABI reports before attaching them to the existing GitHub Release. Retries preserve existing assets. Synology Package Center store publication is separate.

@@ -380,8 +380,16 @@ describe('server lifecycle production wiring', () => {
       'const discoveredTask: DownloadTask =',
       handler
     )
-    const parentBarrier = source.indexOf(
+    const createParent = source.indexOf('const createParent =')
+    const activityBarrier = source.indexOf(
       'taskInspectorActivityRuntime.parentTaskCreated(',
+      createParent
+    )
+    expect(createParent).toBeGreaterThan(-1)
+    expect(activityBarrier).toBeGreaterThan(createParent)
+    expect(activityBarrier).toBeLessThan(handler)
+    const parentBarrier = source.indexOf(
+      'await createParent(discoveredTask',
       discoveredTask
     )
     const persistParent = source.indexOf(

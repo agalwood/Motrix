@@ -127,6 +127,8 @@ export interface ServerCommandContext {
   authorizeTaskWrite?: (task: DownloadTask) => Promise<void>
   authorizeTaskRemoval?: (task: DownloadTask) => Promise<void>
   authorizeOutputWrite?: (output: string) => Promise<void>
+  authorizeRecheck?: (task: DownloadTask) => Promise<void>
+  prepareStorageBinding?: import('@core/task/bt-storage-service').BtStorageServiceDeps['prepareStorageBinding']
   btStorageRuntime?: Pick<
     DurableFinalizeRuntime,
     'commit' | 'withArtifactLease' | 'hasPendingFinalization'
@@ -165,6 +167,7 @@ export interface ServerCommandContext {
   torrentMetaStore: TorrentMetaStore
   taskManager: TaskManager
   fileCleanupService: FileCleanupService
+  fileCleanupForTask?: (task: DownloadTask) => FileCleanupService
   eventBus: EventBus
   proxyApplier: ReturnType<typeof createServerProxyApplier>
   appliedDownloadProxyPolicy: AppliedDownloadProxyPolicy
@@ -381,6 +384,8 @@ export function buildServerCommandHandlers(
     ctx.btStorageRuntime && ctx.persistBtStorage
       ? new BtStorageService({
           authorizeOutputWrite: ctx.authorizeOutputWrite,
+          prepareStorageBinding: ctx.prepareStorageBinding,
+          authorizeRecheck: ctx.authorizeRecheck,
           ...reAddDeps,
           runtime: ctx.btStorageRuntime,
           persistStorage: ctx.persistBtStorage,
@@ -416,6 +421,7 @@ export function buildServerCommandHandlers(
   bindTaskRetry?.((id) => reAddTask(id, reAddDeps))
   const removeDeps = {
     authorizeTaskRemoval: ctx.authorizeTaskRemoval,
+    fileCleanupForTask: ctx.fileCleanupForTask,
     cancelMedia: ctx.cancelMedia,
     taskManager,
     adapter,

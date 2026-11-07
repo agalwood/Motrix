@@ -194,6 +194,7 @@ import {
   synologyRuntime,
 } from './platform/synology/runtime'
 import { synologySettingsHandlers } from './platform/synology/settings'
+import { SynologyTaskFiles } from './platform/synology/task-files'
 import { createServerCapabilityHost } from './plugin/capability-host'
 import {
   createServerCommunityPluginPolicy,
@@ -507,9 +508,6 @@ async function main() {
         defaultSaveDir: effectiveDefaultSaveDir,
         allowedSaveDirsValue: process.env.MOTRIX_ALLOWED_SAVE_DIRS,
       })
-  const nasTaskAccess = nasFiles
-    ? new NasTaskAccess(nasFiles, downloadPathPolicy)
-    : undefined
   if (
     (hasDefaultSaveDirOverride || synology) &&
     settingsManager.getApp().defaultSaveDir !== effectiveDefaultSaveDir
@@ -599,6 +597,13 @@ async function main() {
   const db = new MotrixDatabase(path.join(platform.userDataDir, 'motrix.db'))
   shutdownActions.closeDatabase = () => db.close()
   db.init()
+  const dsmTaskFiles = synology
+    ? new SynologyTaskFiles(db, downloadPathPolicy)
+    : undefined
+  await dsmTaskFiles?.initialize()
+  const nasTaskAccess = nasFiles
+    ? new NasTaskAccess(nasFiles, downloadPathPolicy, dsmTaskFiles)
+    : undefined
 
   // Delivers durably-persisted terminal/diagnosis occurrences to in-process
   // consumers (timeline, failure log); see the "occurrence consumer
@@ -1084,13 +1089,21 @@ async function main() {
     proxyBridge
   )
 
+  const createParent = (
+    task: DownloadTask,
+    persist: () => void | Promise<void>
+  ) =>
+    taskInspectorActivityRuntime.parentTaskCreated(
+      task,
+      dsmTaskFiles ? () => dsmTaskFiles.create(task, persist) : persist
+    )
+
   const completedEngineTaskCleanup = new CompletedEngineTaskCleanup({
     taskManager,
     adapter,
     mintTaskId: newTaskId,
     persist: persistTaskWithOccurrence,
-    adopt: (task, persist) =>
-      taskInspectorActivityRuntime.parentTaskCreated(task, persist),
+    adopt: (task, persist) => createParent(task, persist),
     publish: publishTaskUpdateNow,
     dispatch: (occurrence) => occurrenceDispatcher.dispatch(occurrence),
     runTaskMutation: (ids, operation) =>
@@ -1166,10 +1179,7 @@ async function main() {
         const id = newTaskId()
         const discoveredTask: DownloadTask = { ...translated, id }
         try {
-          await taskInspectorActivityRuntime.parentTaskCreated(
-            discoveredTask,
-            () => persistTask(discoveredTask)
-          )
+          await createParent(discoveredTask, () => persistTask(discoveredTask))
         } catch (err) {
           // Persistence rejected before publication. The next poll can retry
           // adoption without exposing a task whose Activity parent is absent.
@@ -1248,6 +1258,16 @@ async function main() {
       else await fs.rm(absPath, { recursive: true, force: true })
     },
   })
+  const fileCleanupForTask =
+    dsmTaskFiles && nasFileRemover
+      ? (task: DownloadTask) =>
+          new FileCleanupServiceImpl({
+            removePathRecursive: (file) =>
+              nasFileRemover.remove(file, (selected) =>
+                dsmTaskFiles.removalIdentity(task, file, selected)
+              ),
+          })
+      : undefined
   const torrentParser = new TorrentParser()
   const magnetTracker = new MagnetTracker(
     rpcClient,
@@ -1261,7 +1281,7 @@ async function main() {
       publishTaskUpdate,
       publishTaskUpdateNow,
       parentTaskCreated: (task, persistParent) =>
-        taskInspectorActivityRuntime.parentTaskCreated(task, persistParent),
+        createParent(task, persistParent),
       recordTransition: (input) =>
         taskInspectorActivityRuntime.recordTransition(input),
       deleteParentTask: (taskId, deleteParent) =>
@@ -1356,6 +1376,9 @@ async function main() {
     authorizeTaskWrite: nasTaskAccess?.authorizeWrite,
     authorizeTaskRemoval: nasTaskAccess?.authorizeRemoval,
     btStorageRuntime: durableFinalizeRuntime,
+    authorizeRecheck: dsmTaskFiles?.checkDirectory.bind(dsmTaskFiles),
+    prepareStorageBinding:
+      dsmTaskFiles?.prepareStorageBinding.bind(dsmTaskFiles),
     persistBtStorage: (task, source, target) =>
       sessionManager.persistBtStorage(task, source, target),
     operationService: pluginRuntime.operations,
@@ -1389,6 +1412,7 @@ async function main() {
     finalNamePicker,
     torrentMetaStore,
     taskManager,
+    fileCleanupForTask,
     fileCleanupService,
     eventBus,
     proxyApplier,
@@ -1421,7 +1445,7 @@ async function main() {
     runTaskMutation: (taskIds, operation) =>
       taskInspectorActivityRuntime.runTaskMutation(taskIds, operation),
     parentTaskCreated: (task, persistParent) =>
-      taskInspectorActivityRuntime.parentTaskCreated(task, persistParent),
+      createParent(task, persistParent),
     publishTaskUpdate,
     publishTaskUpdateNow,
     downloadPathPolicy,
@@ -1559,6 +1583,7 @@ async function main() {
       getTask: (id) => taskManager.getById(id),
       webBasePath: '/motrix',
       fileManagerUrl: synologyFileStationUrl,
+      outputIdentity: dsmTaskFiles?.outputIdentity.bind(dsmTaskFiles),
     })
   if (fnos && nasFiles)
     registerFnosRoutes(app, nasFiles, downloadPathPolicy, (id) =>
@@ -1765,6 +1790,16 @@ async function main() {
         },
       },
       torrentMetaStore,
+      authorizeDirectoryForTask:
+        dsmTaskFiles?.checkDirectory.bind(dsmTaskFiles),
+      recordInPlaceOutput: dsmTaskFiles?.recordOutput.bind(dsmTaskFiles),
+      removeTaskOutput:
+        dsmTaskFiles && nasFileRemover
+          ? (task: DownloadTask, file: string) =>
+              nasFileRemover.remove(file, (selected) =>
+                dsmTaskFiles.removalIdentity(task, file, selected)
+              )
+          : undefined,
       settings: {
         get: () => {
           const engine = settingsManager.getEngine()
@@ -2113,6 +2148,7 @@ async function main() {
         taskManager,
         adapter,
         log,
+        fileCleanupForTask,
         fileCleanupService,
         mediaMetaStore,
         torrentMetaStore,
@@ -2152,8 +2188,7 @@ async function main() {
         parentTaskCreated: (
           task: DownloadTask,
           persistParent: () => void | Promise<void>
-        ) =>
-          taskInspectorActivityRuntime.parentTaskCreated(task, persistParent),
+        ) => createParent(task, persistParent),
         rollbackTaskCreation: (taskId: string) =>
           sessionManager.runExclusivePersistence(() =>
             taskInspectorActivityRuntime.deleteParentTask(taskId, () => {
@@ -2317,10 +2352,7 @@ async function main() {
             persistTaskWithOccurrence,
             occurrenceDispatcher,
             parentTaskCreated: (task, persistParent) =>
-              taskInspectorActivityRuntime.parentTaskCreated(
-                task,
-                persistParent
-              ),
+              createParent(task, persistParent),
             recordTransition: (input) =>
               taskInspectorActivityRuntime.recordTransition(input),
             runTaskMutation: (taskIds, operation) =>

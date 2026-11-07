@@ -31,6 +31,8 @@ Dashboard 只申请了 1 次建连票据。在同一条已打开的 WebSocket �
 连续 180 秒观测中，Activity 日历始终为 597 × 186 CSS 像素，12 个月份和 3 个星期标签
 均可见，位置稳定。没有出现过期提示，Engine 标题始终为 Ready。
 
+![DSM 实测宽度下的活动日历，含月份和星期标签](../../screenshots/motrix-dsm-dashboard-activity.png)
+
 2026-11-07，**DS718+（DSM 7.4.1）** 从 2.3.0-9 手动升级到 **2.3.0-10** 后，
 通过了同名目录替换测试。HTTP 任务向明确授权的测试目录写入 27,648 字节。
 把目录移走，在原路径放入另一个目录和同名文件后，Motrix 拒绝了旧任务的读取和删除，
@@ -115,6 +117,8 @@ UID 和当前是否属于管理员组 101。File Station `List.getinfo` 返回�
 Range 续传。**在 File Station 中显示** 会打开任务所在目录；该启动链接已在
 DS718+、DSM 7.4.1 验证，其他版本仍需实机验收。尚未注册 File Station 的
 `.torrent` 右键关联。
+
+第 13 版会记录每个任务实际使用的下载目录。打开已完成的文件或删除下载内容时，Motrix 会核对原始落盘记录或经过校验的种子文件。旧任务或未完成的下载如果缺少文件归属记录，可以选择仅移除任务并保留文件。已有的 BT 下载可以使用原始种子重新定位或校验。多文件种子目录内有其他文件时，Motrix 会保留整个目录。
 
 引擎启动时先暂停载入持久化任务，核对任务归属、实际落盘路径及当前目录授权，
 再恢复之前正在运行的合法任务。无法确认归属或已失去授权的引擎任务保持暂停。
@@ -202,7 +206,7 @@ pnpm run fetch:engine -- --platform linux --arch "$arch"
 pnpm run build:server
 pnpm run stage:server -- --platform linux --arch "$arch" --libc gnu --strict
 pnpm run build:synology -- --arch "$arch" --output-dir "release/synology-$arch/project"
-pnpm run verify:synology -- --spk "release/synology-$arch/Motrix-2.3.0-12-dsm-$arch.spk"
+pnpm run verify:synology -- --spk "release/synology-$arch/Motrix-2.3.0-13-dsm-$arch.spk"
 ```
 
 GitHub Actions 的 `synology.yml` 在原生 x64 和 ARM64 runner 上分别构建，再从最终 SPK 解包测试。稳定版发布成功后，`synology-publish.yml` 用该 tag 的确切提交重建两种架构。受保护的发布作业校验 tag、构建提交、两份安装包、校验和和逐平台 ABI 报告，再附加到已有 GitHub Release。失败重试不覆盖已有文件。输出不等同于群晖商店上架。
