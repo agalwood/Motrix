@@ -332,7 +332,7 @@
         "loading": "활동을 불러오는 중",
         "unavailable": "활동을 사용할 수 없음",
         "retry": "다시 시도",
-        "stale": "최신 활동 정보가 아닐 수 있습니다",
+        "refreshFailed": "새로고침 실패",
         "coverageDegraded": "{{time}} 이후의 활동 기록이 불완전할 수 있습니다",
         "rangeSummary": "{{start}}~{{end}}, {{weeks}}주간의 다운로드 활동",
         "completedIntensity": "색상의 진하기는 완료된 다운로드 수를 나타냅니다",

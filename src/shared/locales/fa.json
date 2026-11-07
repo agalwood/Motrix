@@ -432,7 +432,7 @@
         "more": "بیشتر",
         "rangeSummary": "{{weeks}} هفته فعالیت دانلود، از {{start}} تا {{end}}",
         "retry": "تلاش دوباره",
-        "stale": "ممکن است فعالیت به‌روز نباشد",
+        "refreshFailed": "تازه‌سازی ناموفق بود",
         "title": "فعالیت",
         "tooltip": {
           "completed": "{{count}} تکمیل‌شده",

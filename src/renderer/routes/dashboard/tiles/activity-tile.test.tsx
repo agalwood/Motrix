@@ -96,6 +96,8 @@ describe('ActivityTile', () => {
     }
 
     render(<ActivityTile viewport={detailedViewport} interactive={false} />)
+    expect(screen.queryByRole('status')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
 
     expect(
       screen
@@ -114,10 +116,10 @@ describe('ActivityTile', () => {
     ).toBe(true)
   })
 
-  it('keeps stale data, coverage disclosure, and Retry together', () => {
+  it('keeps cached data and offers Retry after a refresh failure', () => {
     const retry = vi.fn().mockResolvedValue(undefined)
     hookHarness.state = {
-      status: 'stale',
+      status: 'refreshFailed',
       snapshot: snapshot(new Date(2026, 6, 29, 10).getTime()),
       retry,
     }
@@ -126,7 +128,7 @@ describe('ActivityTile', () => {
 
     expect(screen.getByTestId('activity-calendar-stub')).not.toBeNull()
     const status = screen.getByRole('status')
-    expect(status.textContent).toContain('Activity may be out of date')
+    expect(status.textContent).toContain('Refresh failed')
     expect(status.textContent).toContain('Activity may be incomplete since')
     expect(status.closest('header')).not.toBeNull()
     expect(

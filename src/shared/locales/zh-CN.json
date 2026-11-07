@@ -332,7 +332,7 @@
         "loading": "正在加载活动数据",
         "unavailable": "无法获取活动数据",
         "retry": "重试",
-        "stale": "活动数据可能已过期",
+        "refreshFailed": "刷新失败",
         "coverageDegraded": "自 {{time}} 起活动记录可能不完整",
         "rangeSummary": "{{weeks}} 周下载活动，{{start}} 至 {{end}}",
         "completedIntensity": "颜色深度表示已完成的下载任务数",

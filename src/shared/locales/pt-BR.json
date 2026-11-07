@@ -334,7 +334,7 @@
         "loading": "Carregando atividade",
         "unavailable": "Atividade indisponível",
         "retry": "Tentar novamente",
-        "stale": "A atividade pode estar desatualizada",
+        "refreshFailed": "Falha ao atualizar",
         "coverageDegraded": "Os dados de atividade podem estar incompletos desde {{time}}",
         "rangeSummary": "{{weeks}} semanas de atividade de downloads, de {{start}} a {{end}}",
         "completedIntensity": "A intensidade da cor indica os downloads concluídos",

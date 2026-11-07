@@ -432,7 +432,7 @@
         "more": "Flere",
         "rangeSummary": "{{weeks}} uker med nedlastingsaktivitet, fra {{start}} til {{end}}",
         "retry": "Prøv igjen",
-        "stale": "Aktiviteten kan være utdatert",
+        "refreshFailed": "Oppdateringen mislyktes",
         "title": "Aktivitet",
         "tooltip": {
           "completed": "Fullført: {{count}}",

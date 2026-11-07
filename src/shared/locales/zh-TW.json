@@ -332,7 +332,7 @@
         "loading": "正在載入活動資料",
         "unavailable": "無法取得活動資料",
         "retry": "重試",
-        "stale": "活動資料可能不是最新的",
+        "refreshFailed": "重新整理失敗",
         "coverageDegraded": "自 {{time}} 起的活動資料可能不完整",
         "rangeSummary": "{{start}} 至 {{end}} 的 {{weeks}} 週下載活動",
         "completedIntensity": "色彩深淺表示已完成的下載數量",

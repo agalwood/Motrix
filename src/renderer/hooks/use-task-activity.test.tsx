@@ -285,7 +285,7 @@ describe('useTaskActivity external store', () => {
       vi.advanceTimersByTime(100)
       await Promise.resolve()
     })
-    expect(hook.result.current.status).toBe('stale')
+    expect(hook.result.current.status).toBe('refreshFailed')
     const sundayRange = paramsForCall(1)
     const currentSunday = sundayRange.days.at(-7)
     expect(currentSunday).toBeDefined()
@@ -297,8 +297,8 @@ describe('useTaskActivity external store', () => {
     )
 
     expect(transportMock.invoke).toHaveBeenCalledTimes(3)
-    expect(hook.result.current.status).toBe('stale')
-    if (hook.result.current.status !== 'stale') return
+    expect(hook.result.current.status).toBe('refreshFailed')
+    if (hook.result.current.status !== 'refreshFailed') return
     expect(hook.result.current.snapshot).toBe(oldSnapshot)
     expect(hook.result.current.snapshot.revision).toBe(1)
     expect(
@@ -308,7 +308,7 @@ describe('useTaskActivity external store', () => {
     ).toBe(true)
   })
 
-  it('publishes a fresh stale state when a same-week midnight refresh fails', async () => {
+  it('updates the calendar day even if a same-week midnight refresh fails', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(2026, 7, 3, 23, 59, 59, 900))
     __resetTaskActivityStoreForTests()
@@ -327,7 +327,7 @@ describe('useTaskActivity external store', () => {
     await act(async () => {
       await Promise.resolve()
     })
-    expect(hook.result.current.status).toBe('stale')
+    expect(hook.result.current.status).toBe('refreshFailed')
     const beforeMidnight = hook.result.current
 
     await act(async () => {
@@ -336,7 +336,7 @@ describe('useTaskActivity external store', () => {
     })
 
     expect(transportMock.invoke).toHaveBeenCalledTimes(3)
-    expect(hook.result.current.status).toBe('stale')
+    expect(hook.result.current.status).toBe('refreshFailed')
     expect(hook.result.current).not.toBe(beforeMidnight)
   })
 
@@ -370,26 +370,45 @@ describe('useTaskActivity external store', () => {
     expect(transportMock.invoke).toHaveBeenCalledTimes(2)
   })
 
-  it('keeps the calendar ready while a healthy reconnect refresh is pending', async () => {
-    const refresh = deferred<TaskActivitySnapshot>()
-    transportMock.invoke
-      .mockImplementationOnce(async (_query, params: GetTaskActivityParams) =>
-        makeSnapshot('generation-a', 1, params)
-      )
-      .mockReturnValueOnce(refresh.promise)
-    const hook = renderHook(() => useTaskActivity())
-    await waitFor(() => expect(hook.result.current.status).toBe('ready'))
-    const before = hook.result.current
-    act(() => emitConnection())
-    expect(transportMock.invoke).toHaveBeenCalledTimes(2)
-    expect(hook.result.current).toBe(before)
-    await act(async () => {
-      refresh.reject(new Error('refresh failed'))
-    })
-    expect(hook.result.current.status).toBe('stale')
-  })
+  it.each(['reconnect', 'revision gap'])(
+    'keeps the previous calendar quiet during %s, then recovers after a failed read',
+    async (cause) => {
+      const refresh = deferred<TaskActivitySnapshot>()
+      transportMock.invoke
+        .mockImplementationOnce(async (_query, params: GetTaskActivityParams) =>
+          makeSnapshot('generation-a', 1, params)
+        )
+        .mockReturnValueOnce(refresh.promise)
+        .mockImplementationOnce(async (_query, params: GetTaskActivityParams) =>
+          makeSnapshot('generation-a', 3, params)
+        )
+      const hook = renderHook(() => useTaskActivity())
+      await waitFor(() => expect(hook.result.current.status).toBe('ready'))
+      const before = hook.result.current
+      act(() => {
+        if (cause === 'reconnect') emitConnection()
+        else
+          emitActivity(
+            inserted('generation-a', 3, paramsForCall(0).days[0].fromMs + 1)
+          )
+      })
+      expect(transportMock.invoke).toHaveBeenCalledTimes(2)
+      expect(hook.result.current).toBe(before)
+      await act(async () => {
+        refresh.reject(new Error('refresh failed'))
+      })
+      expect(hook.result.current.status).toBe('refreshFailed')
+      await act(async () => {
+        await hook.result.current.retry()
+      })
+      expect(hook.result.current).toMatchObject({
+        status: 'ready',
+        snapshot: { revision: 3 },
+      })
+    }
+  )
 
-  it('distinguishes initial unavailable from cached stale and retries', async () => {
+  it('distinguishes an unavailable first load from a failed refresh with cached data', async () => {
     transportMock.invoke
       .mockRejectedValueOnce(new Error('offline'))
       .mockImplementationOnce(async (_query, params: GetTaskActivityParams) =>
@@ -411,8 +430,10 @@ describe('useTaskActivity external store', () => {
         : undefined
 
     act(() => window.dispatchEvent(new Event('focus')))
-    await waitFor(() => expect(hook.result.current.status).toBe('stale'))
-    if (hook.result.current.status !== 'stale') return
+    await waitFor(() =>
+      expect(hook.result.current.status).toBe('refreshFailed')
+    )
+    if (hook.result.current.status !== 'refreshFailed') return
     expect(hook.result.current.snapshot).toBe(readySnapshot)
     expect(hook.result.current.retry).toBe(retry)
   })

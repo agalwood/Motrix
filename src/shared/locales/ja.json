@@ -332,7 +332,7 @@
         "loading": "アクティビティを読み込み中",
         "unavailable": "アクティビティを取得できません",
         "retry": "再試行",
-        "stale": "アクティビティが古い可能性があります",
+        "refreshFailed": "更新できませんでした",
         "coverageDegraded": "{{time}} 以降のアクティビティに欠落がある可能性があります",
         "rangeSummary": "{{start}} から {{end}} までの {{weeks}} 週間のダウンロードアクティビティ",
         "completedIntensity": "色の濃さは完了したダウンロード数を表します",

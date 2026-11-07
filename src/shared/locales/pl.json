@@ -335,7 +335,7 @@
         "loading": "Wczytywanie aktywności",
         "unavailable": "Aktywność niedostępna",
         "retry": "Spróbuj ponownie",
-        "stale": "Aktywność może być nieaktualna",
+        "refreshFailed": "Odświeżenie nie powiodło się",
         "coverageDegraded": "Aktywność może być niekompletna od {{time}}",
         "rangeSummary": "Aktywność pobierania od {{start}} do {{end}} (tygodnie: {{weeks}})",
         "completedIntensity": "Intensywność koloru oznacza liczbę ukończonych pobrań",

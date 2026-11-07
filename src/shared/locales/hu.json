@@ -333,7 +333,7 @@
         "loading": "Aktivitási adatok betöltése",
         "unavailable": "Az aktivitási adatok nem érhetők el",
         "retry": "Újrapróbálás",
-        "stale": "Az aktivitási adatok elavultak lehetnek",
+        "refreshFailed": "A frissítés sikertelen",
         "coverageDegraded": "Az aktivitási adatok {{time}} óta hiányosak lehetnek",
         "rangeSummary": "{{weeks}} hét letöltési aktivitása, {{start}} – {{end}}",
         "completedIntensity": "A szín intenzitása a befejezett letöltések számát jelzi",

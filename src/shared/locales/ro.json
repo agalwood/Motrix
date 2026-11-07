@@ -433,7 +433,7 @@
         "more": "Mai multe",
         "rangeSummary": "Activitate de descărcare de la {{start}} la {{end}}; număr de săptămâni: {{weeks}}",
         "retry": "Încearcă din nou",
-        "stale": "Activitatea poate fi învechită",
+        "refreshFailed": "Reîmprospătarea a eșuat",
         "title": "Activitate",
         "tooltip": {
           "completed": "Finalizate: {{count}}",

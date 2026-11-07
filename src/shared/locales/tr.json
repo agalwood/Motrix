@@ -333,7 +333,7 @@
         "loading": "Etkinlik yükleniyor",
         "unavailable": "Etkinlik kullanılamıyor",
         "retry": "Yeniden dene",
-        "stale": "Etkinlik güncel olmayabilir",
+        "refreshFailed": "Yenileme başarısız",
         "coverageDegraded": "{{time}} itibarıyla etkinlik eksik olabilir",
         "rangeSummary": "{{start}} ile {{end}} arasında {{weeks}} haftalık indirme etkinliği",
         "completedIntensity": "Renk yoğunluğu tamamlanan indirmeleri gösterir",

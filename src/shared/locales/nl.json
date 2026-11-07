@@ -432,7 +432,7 @@
         "more": "Meer",
         "rangeSummary": "{{weeks}} weken downloadactiviteit, van {{start}} tot {{end}}",
         "retry": "Opnieuw proberen",
-        "stale": "Activiteit is mogelijk verouderd",
+        "refreshFailed": "Vernieuwen mislukt",
         "title": "Activiteit",
         "tooltip": {
           "completed": "{{count}} voltooid",

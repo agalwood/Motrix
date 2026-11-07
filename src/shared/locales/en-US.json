@@ -333,7 +333,7 @@
         "loading": "Loading activity",
         "unavailable": "Activity unavailable",
         "retry": "Retry",
-        "stale": "Activity may be out of date",
+        "refreshFailed": "Refresh failed",
         "coverageDegraded": "Activity may be incomplete since {{time}}",
         "rangeSummary": "{{weeks}} weeks of download activity, {{start}} to {{end}}",
         "completedIntensity": "Color intensity shows completed downloads",

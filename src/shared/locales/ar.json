@@ -436,7 +436,7 @@
         "more": "أكثر",
         "rangeSummary": "نشاط التنزيل من {{start}} إلى {{end}}؛ عدد الأسابيع: {{weeks}}",
         "retry": "إعادة المحاولة",
-        "stale": "قد تكون بيانات النشاط قديمة",
+        "refreshFailed": "تعذّر التحديث",
         "title": "النشاط",
         "tooltip": {
           "completed": "المكتمل: {{count}}",

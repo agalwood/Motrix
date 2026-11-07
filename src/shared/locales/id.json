@@ -332,7 +332,7 @@
         "loading": "Memuat aktivitas",
         "unavailable": "Aktivitas tidak tersedia",
         "retry": "Coba lagi",
-        "stale": "Aktivitas mungkin belum diperbarui",
+        "refreshFailed": "Gagal memuat ulang",
         "coverageDegraded": "Data aktivitas mungkin tidak lengkap sejak {{time}}",
         "rangeSummary": "{{weeks}} minggu aktivitas unduhan, {{start}} hingga {{end}}",
         "completedIntensity": "Intensitas warna menunjukkan unduhan selesai",

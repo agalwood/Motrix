@@ -56,7 +56,9 @@ export function ActivityTile({
   } else {
     const { snapshot } = activity
     const statusMessages = [
-      activity.status === 'stale' ? t(`${KEY_ROOT}.stale`) : null,
+      activity.status === 'refreshFailed'
+        ? t(`${KEY_ROOT}.refreshFailed`)
+        : null,
       snapshot.coverage.coverageGapAt !== null
         ? t(`${KEY_ROOT}.coverageDegraded`, {
             time: formatDateTime(
@@ -75,7 +77,7 @@ export function ActivityTile({
         <span className="min-w-0 truncate" title={statusMessages.join(' · ')}>
           {statusMessages.join(' · ')}
         </span>
-        {activity.status === 'stale' && (
+        {activity.status === 'refreshFailed' && (
           <Button
             type="button"
             size="sm"

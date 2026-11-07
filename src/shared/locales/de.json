@@ -333,7 +333,7 @@
         "loading": "Aktivität wird geladen",
         "unavailable": "Aktivität nicht verfügbar",
         "retry": "Erneut versuchen",
-        "stale": "Die Aktivitätsdaten sind möglicherweise veraltet",
+        "refreshFailed": "Aktualisierung fehlgeschlagen",
         "coverageDegraded": "Die Aktivitätsdaten sind seit {{time}} möglicherweise unvollständig",
         "rangeSummary": "Download-Aktivität über {{weeks}} Wochen, von {{start}} bis {{end}}",
         "completedIntensity": "Die Farbintensität zeigt die Anzahl abgeschlossener Downloads",

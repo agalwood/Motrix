@@ -332,7 +332,7 @@
         "loading": "Đang tải dữ liệu hoạt động",
         "unavailable": "Không thể tải dữ liệu hoạt động",
         "retry": "Thử lại",
-        "stale": "Dữ liệu hoạt động có thể đã cũ",
+        "refreshFailed": "Không thể làm mới",
         "coverageDegraded": "Dữ liệu hoạt động có thể không đầy đủ từ {{time}}",
         "rangeSummary": "{{weeks}} tuần hoạt động tải xuống, từ {{start}} đến {{end}}",
         "completedIntensity": "Độ đậm của màu thể hiện số lượt tải xuống hoàn tất",

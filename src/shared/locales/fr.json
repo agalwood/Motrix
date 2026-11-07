@@ -433,7 +433,7 @@
         "more": "Plus",
         "rangeSummary": "{{weeks}} semaines d’activité de téléchargement, du {{start}} au {{end}}",
         "retry": "Réessayer",
-        "stale": "Les données d’activité peuvent être obsolètes",
+        "refreshFailed": "Échec de l’actualisation",
         "title": "Activité",
         "tooltip": {
           "completed": "Terminés : {{count}}",

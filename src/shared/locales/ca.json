@@ -433,7 +433,7 @@
         "more": "Més",
         "rangeSummary": "{{weeks}} setmanes d'activitat de baixades, del {{start}} al {{end}}",
         "retry": "Tornar-ho a provar",
-        "stale": "L'activitat podria estar desactualitzada",
+        "refreshFailed": "No s’ha pogut actualitzar",
         "title": "Activitat",
         "tooltip": {
           "completed": "Completades: {{count}}",
