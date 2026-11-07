@@ -376,7 +376,7 @@ async function finalizeHttp(
   // `Size 0 / 0%`. Pull once here so syncCompletionMetrics has real
   // numbers to seal. Best-effort: any failure (race with another retire,
   // RPC error) is logged and we fall through with whatever we already had.
-  await refreshTaskBytesBeforeFinalize(task, deps)
+  await refreshHttpMetadataBeforeFinalize(task, deps)
 
   // removeDownloadResult before rename so aria2 releases the file
   // handle — on Windows an open handle causes a sharing violation.
@@ -563,10 +563,13 @@ function syncCompletionMetrics(task: DownloadTask): void {
  * swallowed: the caller's existing task state remains the source of
  * truth and syncCompletionMetrics will still do what it can.
  */
-async function refreshTaskBytesBeforeFinalize(
+async function refreshHttpMetadataBeforeFinalize(
   task: DownloadTask,
   deps: FinalizeTaskDeps
 ): Promise<void> {
+  // HTTP/FTP finalization publishes one file even when the metadata poll was
+  // missed. Preserve that cardinality before committing the rename journal.
+  if (task.fileCount === 0) task.fileCount = 1
   try {
     const refreshed = await deps.adapter.getTaskStatus(task.engineTaskId)
     if (!refreshed) return
