@@ -2268,6 +2268,8 @@
       "description": "所有 DSM 管理员共享这些套件设置。修改后需在套件中心重启 Motrix 才会生效。",
       "account": "当前 DSM 账号：{{username}}",
       "restartRequired": "设置已保存。请在 DSM 套件中心停止并重新启动 Motrix，任务、文件和配对记录都会保留。",
+      "storageUnavailable": "下载目录不可用",
+      "storageRecoveryHint": "下载已暂停。请恢复以下目录或修改授权目录列表，然后在套件中心重新启动 Motrix。",
       "roots": "授权下载目录",
       "rootsHint": "每行填写一个已存在的 NAS 目录。当前账号和内部系统用户 motrix 都需要读写权限。若移除默认下载目录，将使用列表中的第一个目录作为默认目录。",
       "extensionEnabled": "启用浏览器扩展连接",
@@ -2287,6 +2289,7 @@
       "openSettings": "配置 NAS 连接",
       "errors": {
         "invalid": "请检查目录、端口和连接地址。通过 HTTP 显示配对码需要明确许可。",
+        "folderUnavailable": "请确认目录位于已挂载的存储卷，并允许内部系统用户 motrix 读写。",
         "permissionDenied": "无法授权当前账号或目录。请在 DSM 共享文件夹权限中检查当前账号及内部系统用户 motrix 的权限。",
         "unavailable": "暂时无法读取或保存套件设置，请在服务恢复后重试。",
         "conflict": "已保存的配置发生变化，请重新加载后再编辑。重新加载会替换尚未保存的修改。"

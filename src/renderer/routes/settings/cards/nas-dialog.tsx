@@ -110,6 +110,9 @@ class NasSettingsBoundary extends Component<
 
 function NasDialogForm({ open, onClose, labelKey }: SettingsCardDialogProps) {
   const { t } = useTranslation()
+  const foldersOnly = useOperatorSession((session) =>
+    Boolean(session.status?.nasUnavailableDownloadRoots?.length)
+  )
   const username = useOperatorSession(
     (session) => session.status?.username ?? ''
   )
@@ -149,9 +152,10 @@ function NasDialogForm({ open, onClose, labelKey }: SettingsCardDialogProps) {
         setRootsText(result.value.settings.roots.join('\n'))
         reset({
           ...result.value.settings,
-          operatorUrl:
-            result.value.settings.operatorUrl ||
-            synologyConnectionUrls(location.origin).operatorUrl,
+          operatorUrl: foldersOnly
+            ? result.value.settings.operatorUrl
+            : result.value.settings.operatorUrl ||
+              synologyConnectionUrls(location.origin).operatorUrl,
         })
         setError(null)
         setLoad({ ready: true, error: false })
@@ -162,7 +166,7 @@ function NasDialogForm({ open, onClose, labelKey }: SettingsCardDialogProps) {
         }
       }
     },
-    [reset]
+    [reset, foldersOnly]
   )
   useEffect(() => {
     const unsubscribe = transport.onConnectionChange?.(({ state }) => {
@@ -309,145 +313,159 @@ function NasDialogForm({ open, onClose, labelKey }: SettingsCardDialogProps) {
                         )}
                       />
                     </section>
-                    <Separator />
-                    <FormField
-                      control={form.control}
-                      name="extensionUrl"
-                      render={({ field }) => (
-                        <FormItem className="flex items-start justify-between gap-4">
-                          <div className="space-y-1">
-                            <FormLabel>
-                              {t('settings.nas.extensionEnabled')}
-                            </FormLabel>
-                            <FormDescription className="text-xs">
-                              {t('settings.nas.extensionHint')}
-                            </FormDescription>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={Boolean(field.value)}
-                              onCheckedChange={(enabled) => {
-                                if (!enabled) {
-                                  field.onChange('')
-                                  return
-                                }
-                                let urls: ReturnType<
-                                  typeof synologyConnectionUrls
-                                >
-                                try {
-                                  const origin = new URL(
-                                    form.getValues('operatorUrl') ||
-                                      location.origin
-                                  ).origin
-                                  urls = synologyConnectionUrls(origin)
-                                } catch {
-                                  form.setError('operatorUrl', {
-                                    message: t('settings.nas.errors.invalid'),
-                                  })
-                                  return
-                                }
-                                if (!form.getValues('operatorUrl'))
-                                  form.setValue(
-                                    'operatorUrl',
-                                    urls.operatorUrl,
-                                    { shouldDirty: true }
-                                  )
-                                field.onChange(enabled ? urls.extensionUrl : '')
-                              }}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="operatorUrl"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{t('settings.nas.webAddress')}</FormLabel>
-                          <FormControl>
-                            <Input {...field} spellCheck={false} />
-                          </FormControl>
-                          <FormDescription className="text-xs">
-                            {t('settings.nas.webAddressHint')}
-                          </FormDescription>
-                          <FormMessage className="text-xs" />
-                        </FormItem>
-                      )}
-                    />
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={applyCurrentAddress}
-                    >
-                      {t('settings.nas.useCurrentAddress')}
-                    </Button>
-                    {extensionUrl && (
-                      <FormField
-                        control={form.control}
-                        name="extensionUrl"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>
-                              {t('settings.nas.extensionAddress')}
-                            </FormLabel>
-                            <FormControl>
-                              <Input {...field} spellCheck={false} />
-                            </FormControl>
-                            <FormMessage className="text-xs" />
-                          </FormItem>
+                    {!foldersOnly && (
+                      <>
+                        <Separator />
+                        <FormField
+                          control={form.control}
+                          name="extensionUrl"
+                          render={({ field }) => (
+                            <FormItem className="flex items-start justify-between gap-4">
+                              <div className="space-y-1">
+                                <FormLabel>
+                                  {t('settings.nas.extensionEnabled')}
+                                </FormLabel>
+                                <FormDescription className="text-xs">
+                                  {t('settings.nas.extensionHint')}
+                                </FormDescription>
+                              </div>
+                              <FormControl>
+                                <Switch
+                                  checked={Boolean(field.value)}
+                                  onCheckedChange={(enabled) => {
+                                    if (!enabled) {
+                                      field.onChange('')
+                                      return
+                                    }
+                                    let urls: ReturnType<
+                                      typeof synologyConnectionUrls
+                                    >
+                                    try {
+                                      const origin = new URL(
+                                        form.getValues('operatorUrl') ||
+                                          location.origin
+                                      ).origin
+                                      urls = synologyConnectionUrls(origin)
+                                    } catch {
+                                      form.setError('operatorUrl', {
+                                        message: t(
+                                          'settings.nas.errors.invalid'
+                                        ),
+                                      })
+                                      return
+                                    }
+                                    if (!form.getValues('operatorUrl'))
+                                      form.setValue(
+                                        'operatorUrl',
+                                        urls.operatorUrl,
+                                        { shouldDirty: true }
+                                      )
+                                    field.onChange(
+                                      enabled ? urls.extensionUrl : ''
+                                    )
+                                  }}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="operatorUrl"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>
+                                {t('settings.nas.webAddress')}
+                              </FormLabel>
+                              <FormControl>
+                                <Input {...field} spellCheck={false} />
+                              </FormControl>
+                              <FormDescription className="text-xs">
+                                {t('settings.nas.webAddressHint')}
+                              </FormDescription>
+                              <FormMessage className="text-xs" />
+                            </FormItem>
+                          )}
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={applyCurrentAddress}
+                        >
+                          {t('settings.nas.useCurrentAddress')}
+                        </Button>
+                        {extensionUrl && (
+                          <FormField
+                            control={form.control}
+                            name="extensionUrl"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>
+                                  {t('settings.nas.extensionAddress')}
+                                </FormLabel>
+                                <FormControl>
+                                  <Input {...field} spellCheck={false} />
+                                </FormControl>
+                                <FormMessage className="text-xs" />
+                              </FormItem>
+                            )}
+                          />
                         )}
-                      />
+                        <FormField
+                          control={form.control}
+                          name="allowHttp"
+                          render={({ field }) => (
+                            <FormItem className="flex items-start justify-between gap-4">
+                              <div className="space-y-1">
+                                <FormLabel>
+                                  {t('settings.nas.allowHttp')}
+                                </FormLabel>
+                                <FormDescription className="text-xs">
+                                  {t('settings.nas.allowHttpHint')}
+                                </FormDescription>
+                              </div>
+                              <FormControl>
+                                <Switch
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="clientPort"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>
+                                {t('settings.nas.clientPort')}
+                              </FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min={1024}
+                                  max={65535}
+                                  {...field}
+                                  onChange={(event) =>
+                                    field.onChange(Number(event.target.value))
+                                  }
+                                />
+                              </FormControl>
+                              <FormDescription className="text-xs">
+                                {t('settings.nas.clientPortHint')}
+                              </FormDescription>
+                              <FormMessage className="text-xs" />
+                            </FormItem>
+                          )}
+                        />
+                      </>
                     )}
-                    <FormField
-                      control={form.control}
-                      name="allowHttp"
-                      render={({ field }) => (
-                        <FormItem className="flex items-start justify-between gap-4">
-                          <div className="space-y-1">
-                            <FormLabel>{t('settings.nas.allowHttp')}</FormLabel>
-                            <FormDescription className="text-xs">
-                              {t('settings.nas.allowHttpHint')}
-                            </FormDescription>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="clientPort"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{t('settings.nas.clientPort')}</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min={1024}
-                              max={65535}
-                              {...field}
-                              onChange={(event) =>
-                                field.onChange(Number(event.target.value))
-                              }
-                            />
-                          </FormControl>
-                          <FormDescription className="text-xs">
-                            {t('settings.nas.clientPortHint')}
-                          </FormDescription>
-                          <FormMessage className="text-xs" />
-                        </FormItem>
-                      )}
-                    />
                   </fieldset>
                 </form>
               </Form>
-              {view && (
+              {view && !foldersOnly && (
                 <section
                   className="space-y-3 border-t pt-4"
                   aria-label={t('settings.nas.activeConnections')}

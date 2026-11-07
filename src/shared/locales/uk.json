@@ -2825,6 +2825,8 @@
       "description": "All DSM administrators share these package settings. Changes apply after Motrix is restarted from Package Center.",
       "account": "Current DSM account: {{username}}",
       "restartRequired": "Settings saved. Stop and start Motrix in DSM Package Center to apply them. Tasks, files and pairing records are kept.",
+      "storageUnavailable": "Download folders unavailable",
+      "storageRecoveryHint": "Downloads are paused. Restore these folders or edit the list, then restart Motrix in Package Center.",
       "roots": "Authorized download folders",
       "rootsHint": "Enter one existing NAS folder per line. Both your account and the internal system user motrix need read/write access. If the default download folder is removed, the first folder becomes the new default.",
       "extensionEnabled": "Enable browser extension connections",
@@ -2844,6 +2846,7 @@
       "openSettings": "Configure NAS connections",
       "errors": {
         "invalid": "Check the folder paths, port and connection addresses. HTTP code delivery requires explicit permission.",
+        "folderUnavailable": "Check that each folder is on a mounted volume and writable by the internal system user motrix.",
         "permissionDenied": "The account or folder cannot be authorized. Check DSM shared-folder permissions for your account and the internal system user motrix.",
         "unavailable": "Package settings are unavailable. Try again after the service has recovered.",
         "conflict": "The saved configuration changed. Reload before editing again; your unsaved changes will be replaced."

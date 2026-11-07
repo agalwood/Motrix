@@ -48,6 +48,7 @@ export const saveNasSettingsSchema = z
   .strict()
 export const nasSettingsErrorSchema = z.enum([
   'invalid',
+  'folderUnavailable',
   'permissionDenied',
   'unavailable',
   'conflict',

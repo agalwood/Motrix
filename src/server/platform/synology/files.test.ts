@@ -21,6 +21,8 @@ describe('DSM filesystem authority responses', () => {
       ['/tmp/downloads'],
       ['/volume0/downloads'],
       ['/volume1'],
+      ['/volume1/motrix/../other'],
+      ['/volume1/motrix:/volume2/other'],
     ])
       expect(dsmDirectoryConfig.safeParse({ roots }).success).toBe(false)
     expect(

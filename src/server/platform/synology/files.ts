@@ -1,6 +1,7 @@
 import { constants } from 'node:fs'
 import { access, lstat, readFile, realpath } from 'node:fs/promises'
 import path from 'node:path'
+import { nasRootPathSchema } from '@shared/schemas/nas-settings'
 import { z } from 'zod'
 import {
   type NasFileAccess,
@@ -14,15 +15,44 @@ export const dsmDirectoryConfig = z
   .object({
     roots: z
       .array(
-        z
-          .string()
-          .regex(/^\/volume[1-9]\d*\/[^/]+(?:\/.*)?$/)
-          .max(4096)
+        nasRootPathSchema.refine((root) =>
+          /^\/volume[1-9]\d*\/[^/]+(?:\/.*)?$/.test(root)
+        )
       )
       .min(1)
       .max(64),
   })
   .strict()
+
+/** Inspect existing grants without creating a directory or following a replaced
+ * share onto another volume. A mount-table failure cannot grant any paths. */
+export async function unavailableDsmRoots(
+  roots: readonly string[]
+): Promise<string[]> {
+  const configured = dsmDirectoryConfig.parse({ roots }).roots
+  const mounts = new Set(
+    (await readFile('/proc/self/mountinfo', 'utf8'))
+      .split('\n')
+      .map((line) => line.split(' ')[4])
+  )
+  const checked = await Promise.all(
+    configured.map(async (root) => {
+      if (!mounts.has(root.split('/').slice(0, 2).join('/'))) return root
+      try {
+        if (
+          (await realpath(root)) !== root ||
+          !(await lstat(root)).isDirectory()
+        )
+          return root
+        await access(root, constants.R_OK | constants.W_OK | constants.X_OK)
+        return null
+      } catch {
+        return root
+      }
+    })
+  )
+  return checked.filter((root): root is string => root !== null)
+}
 
 export function dsmPermission(
   acl: {
@@ -53,20 +83,9 @@ export class SynologyFileAccess implements NasFileAccess {
     const config = dsmDirectoryConfig.parse(
       JSON.parse(await readFile(this.configFile, 'utf8'))
     )
-    return Promise.all(
-      config.roots.map(async (root) => {
-        const canonical = await realpath(root)
-        if (canonical !== root || !(await lstat(root)).isDirectory())
-          throw new Error('DSM share unavailable')
-        // Pin the volume to an actual mount; never create a download root on the
-        // system volume after storage has gone offline.
-        const volume = root.split('/').slice(0, 2).join('/')
-        const mounts = await readFile('/proc/self/mountinfo', 'utf8')
-        if (!mounts.split('\n').some((line) => line.split(' ')[4] === volume))
-          throw new Error('DSM volume offline')
-        return canonical
-      })
-    )
+    if ((await unavailableDsmRoots(config.roots)).length)
+      throw new Error('DSM share unavailable')
+    return config.roots
   }
 
   async checkAccess(

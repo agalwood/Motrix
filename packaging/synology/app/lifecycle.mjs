@@ -1,10 +1,10 @@
 import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { once } from 'node:events'
+import { constants } from 'node:fs'
 import {
   access,
   chmod,
-  lstat,
   mkdir,
   open,
   readFile,
@@ -19,18 +19,56 @@ import path from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { pathToFileURL } from 'node:url'
 
+async function readPackageDocument(file) {
+  const limit = 32 * 1024
+  const handle = await open(
+    file,
+    constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK
+  )
+  try {
+    const info = await handle.stat()
+    if (
+      !info.isFile() ||
+      info.uid !== process.getuid() ||
+      (info.mode & 0o077) !== 0 ||
+      info.size > limit
+    )
+      throw new Error('Untrusted DSM package configuration')
+    const data = Buffer.alloc(limit + 1)
+    let offset = 0
+    while (offset < data.length) {
+      const { bytesRead } = await handle.read(
+        data,
+        offset,
+        data.length - offset,
+        offset
+      )
+      if (!bytesRead) break
+      offset += bytesRead
+    }
+    if (offset > limit) throw new Error('DSM package configuration too large')
+    try {
+      return JSON.parse(data.subarray(0, offset).toString('utf8'))
+    } catch {
+      throw new Error('Invalid DSM package configuration')
+    }
+  } finally {
+    await handle.close()
+  }
+}
+
 export async function runtimeEnvironment(env) {
   const target = env.SYNOPKG_PKGDEST
   const variable = env.SYNOPKG_PKGVAR
   if (![target, variable].every((p) => p && path.isAbsolute(p)))
     throw new Error('Missing DSM package paths')
-  const settings = JSON.parse(
-    await readFile(path.join(variable, 'package-settings.json'), 'utf8')
+  const settings = await readPackageDocument(
+    path.join(variable, 'package-settings.json')
   )
   const configFile = path.join(variable, 'directories.json')
   let directories
   try {
-    directories = JSON.parse(await readFile(configFile, 'utf8'))
+    directories = await readPackageDocument(configFile)
   } catch (error) {
     if (error.code !== 'ENOENT') throw error
     const share = await realpath('/var/packages/Motrix/shares/motrix')
@@ -92,19 +130,13 @@ export async function configure(env) {
 export async function applyPendingSettings(env) {
   const variable = env.SYNOPKG_PKGVAR
   const pending = path.join(variable, 'pending-settings.json')
-  const info = await lstat(pending).catch((error) => {
-    if (error.code === 'ENOENT') return undefined
+  let value
+  try {
+    value = await readPackageDocument(pending)
+  } catch (error) {
+    if (error.code === 'ENOENT') return
     throw error
-  })
-  if (!info) return
-  if (
-    !info.isFile() ||
-    info.uid !== process.getuid() ||
-    (info.mode & 0o077) !== 0 ||
-    info.size > 32768
-  )
-    throw new Error('Unsafe pending package settings')
-  const value = JSON.parse(await readFile(pending, 'utf8'))
+  }
   if (
     !value ||
     Object.keys(value).sort().join(',') !==
@@ -303,9 +335,8 @@ export async function lifecycle(action, env = process.env) {
   await configure(env)
   await applyPendingSettings(env)
   const runtime = await runtimeEnvironment(env)
-  // Missing shares are never recreated: that might write into an unmounted volume.
-  if (!(await stat(runtime.MOTRIX_DEFAULT_SAVE_DIR)).isDirectory())
-    throw new Error('Download share unavailable')
+  // The Server checks existing shares before opening its database or engine.
+  // Unavailable grants start the authenticated settings surface only.
   await access(executable)
   await mkdir(runtime.MOTRIX_DATA_DIR, { recursive: true, mode: 0o700 })
   await chmod(runtime.MOTRIX_DATA_DIR, 0o700)

@@ -185,7 +185,7 @@ import { NasTaskAccess } from './platform/nas/task-access'
 import { createNodePlatformServices } from './platform/services'
 import { SynologyAccounts } from './platform/synology/accounts'
 import { probeDsmApi } from './platform/synology/api'
-import { SynologyFiles } from './platform/synology/files'
+import { SynologyFiles, unavailableDsmRoots } from './platform/synology/files'
 import { synologyGateway } from './platform/synology/identity'
 import {
   dsmDefaultSaveDir,
@@ -319,6 +319,59 @@ async function main() {
     onListenerError: (channel, err) =>
       log.warn({ err, channel }, 'event listener threw'),
   })
+  const serverDir = path.dirname(fileURLToPath(import.meta.url))
+  const rendererDir =
+    process.env.MOTRIX_RENDERER_DIR ??
+    path.resolve(serverDir, '..', 'renderer-web')
+  const nasSettings =
+    synology && dsmAccounts
+      ? await synologySettingsHandlers(synology.variable, dsmAccounts)
+      : undefined
+  if (synology && dsmAccounts && nasSettings) {
+    const unavailable = await unavailableDsmRoots(nasSettings.activeRoots)
+    if (unavailable.length) {
+      // Keep the task database, finalize journals and engine session untouched
+      // until every grant can be checked. A fresh start applies any repairs.
+      const recoveryApp = await createApp({
+        basePath: process.env.MOTRIX_WEB_BASE_PATH,
+        rendererDir,
+        eventBus,
+        nasGateway: {
+          ...synologyGateway(synology.socketPath, dsmAccounts),
+          capabilities: {
+            settings: true,
+            fileActions: false,
+            torrentPicker: false,
+            clientGateway: false,
+          },
+          unavailableDownloadRoots: unavailable,
+        },
+        clientPairing: { cli: false, extension: false },
+        commandHandlers: nasSettings.commandHandlers,
+        queryHandlers: nasSettings.queryHandlers,
+        healthCheck: () => ({
+          ok: shellAsyncWork.isAccepting(),
+          status: 'storage-recovery',
+          engine: { state: EngineState.Stopped },
+        }),
+      })
+      shutdownActions.closeIngress = () => recoveryApp.close()
+      if (!shellAsyncWork.isAccepting()) {
+        await recoveryApp.close()
+        return
+      }
+      await listenSynology(recoveryApp, synology.socketPath)
+      if (!shellAsyncWork.isAccepting()) {
+        await recoveryApp.close()
+        return
+      }
+      log.warn(
+        { count: unavailable.length },
+        'DSM download folders unavailable; settings are available'
+      )
+      return
+    }
+  }
   const taskManager = new TaskManager()
   // Coalesces the per-commit TaskUpdated fan-out (see
   // docs/superpowers/specs/2026-08-07-task-updated-emit-coalescing-design.md).
@@ -649,7 +702,6 @@ async function main() {
   }
   await localeCoordinator.reconcile()
   if (!shellAsyncWork.isAccepting()) return
-  const serverDir = path.dirname(fileURLToPath(import.meta.url))
   const detectServerFfmpeg = makeServerFfmpegDetect({
     settingsManager,
     userDataDir: platform.userDataDir,
@@ -1424,10 +1476,6 @@ async function main() {
     environment: process.env,
   })
 
-  const rendererDir =
-    process.env.MOTRIX_RENDERER_DIR ??
-    path.resolve(serverDir, '..', 'renderer-web')
-
   // Operator (control-plane) secret — provisioned INDEPENDENTLY of the
   // (non-fatal) MDXP bridge so a bridge bootstrap failure can never lock the web
   // UI behind an unrecoverable in-memory token (Spec 9 / F1). Distinct from the
@@ -1449,10 +1497,6 @@ async function main() {
     (fnos?.accountSocketPath
       ? new FnosAccountAuthority(fnos.accountSocketPath)
       : undefined)
-  const nasSettings =
-    synology && dsmAccounts
-      ? await synologySettingsHandlers(synology.variable, dsmAccounts)
-      : undefined
   let nasClientGateway:
     | Awaited<ReturnType<typeof listenNasClientGateway>>
     | undefined

@@ -1,6 +1,7 @@
 import '@test-utils/dom-animations'
 import '@renderer/lib/i18n'
 import '@testing-library/jest-dom/vitest'
+import { NasStorageRecovery } from '@renderer/components/nas-storage-recovery'
 import { i18n } from '@renderer/lib/i18n'
 import { useOperatorSession } from '@renderer/lib/operator-auth'
 import { transport } from '@renderer/lib/transport'
@@ -83,6 +84,36 @@ function open() {
     />
   )
 }
+it('repairs an unavailable folder without changing saved client addresses or ports', async () => {
+  const missing = '/volume2/missing'
+  const applied = { ...settings, roots: [missing], operatorUrl: '' }
+  view = { ...view, settings: applied, active: applied }
+  useOperatorSession.setState({
+    status: {
+      ...useOperatorSession.getState().status!,
+      nasUnavailableDownloadRoots: [missing],
+    },
+  })
+  render(<NasStorageRecovery roots={[missing]} />)
+  expect(screen.getByText(missing)).toBeVisible()
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Authorized download folders' })
+  )
+  const folders = await screen.findByRole('textbox', {
+    name: 'Authorized download folders',
+  })
+  await waitFor(() => expect(folders).toBeEnabled())
+  expect(screen.queryByRole('spinbutton')).toBeNull()
+  expect(screen.queryByText('CLI endpoint')).toBeNull()
+  fireEvent.change(folders, { target: { value: '/volume1/motrix' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+  await screen.findByText(/Settings saved\. Stop and start Motrix/)
+  expect(transport.invoke).toHaveBeenCalledWith(Commands.SaveNasSettings, {
+    revision: view.revision,
+    settings: { ...applied, roots: ['/volume1/motrix'] },
+  })
+})
+
 it('saves explicit package settings with a revision and shows the restart requirement', async () => {
   open()
   const port = await screen.findByRole('spinbutton', {

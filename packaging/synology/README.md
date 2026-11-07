@@ -77,7 +77,11 @@ Downloads are restricted to existing, mounted, canonical configured roots and
 the permissions of both the account and the package user. The default root is
 resolved from DSM's `/var/packages/Motrix/shares/motrix` link. An unavailable
 volume is never created as a replacement directory on the system volume.
-Configured storage must be available before the package can start.
+If a configured download folder is missing or inaccessible at startup, Motrix
+opens an administrator-only recovery page. Restore the affected folders or edit
+the list, then restart Motrix in Package Center. While that page is active, the
+engine, plugins and client listeners stay stopped and task storage stays intact.
+The package volume and package data directory must still be available.
 
 Use **Settings → NAS** to manage authorized directories and client connections.
 First grant the internal system user `motrix` access in DSM's shared-folder
@@ -127,7 +131,9 @@ The configured origin must match the current page; an HTTPS address never
 permits code delivery to an HTTP page. Apply and restart the package for changes
 to take effect. Invalid configuration closes the extension entry.
 The existing CLI device-code protocol and Extension MBP1 protocol are unchanged.
-The pairing UI shows the current account and **Pair with current account**.
+Open **Settings → Integration → Browser pairing requests** to find a pending
+request while its code is valid. The pairing UI shows the current account and
+**Pair with current account**.
 Next, enter the code in the browser extension. The server checks the page's
 expected account against the current trusted account. Shared notifications
 contain no pairing code; only the claimant receives it.

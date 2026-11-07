@@ -1,5 +1,3 @@
-import { constants } from 'node:fs'
-import { access, lstat, readFile, realpath } from 'node:fs/promises'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import {
@@ -15,6 +13,7 @@ import {
 import { currentNasUser } from '../nas/identity'
 import { NasSettingsStore } from '../nas/settings-store'
 import type { SynologyAccounts } from './accounts'
+import { dsmDirectoryConfig, unavailableDsmRoots } from './files'
 
 function validConnections(value: NasPackageSettings): boolean {
   if (!value.operatorUrl && !value.extensionUrl) return true
@@ -50,7 +49,7 @@ export async function synologySettingsHandlers(
   accounts: SynologyAccounts
 ) {
   const store = new NasSettingsStore(directory, 'synology')
-  await store.view()
+  const initial = await store.view()
   const denied = (): NasSettingsResult => ({
     ok: false,
     error: { code: 'permissionDenied' },
@@ -62,6 +61,7 @@ export async function synologySettingsHandlers(
     return resolveNasAdministrator(accounts, user)
   }
   return {
+    activeRoots: initial.active.roots,
     queryHandlers: {
       [Queries.GetNasSettings]: async (): Promise<NasSettingsResult> => {
         try {
@@ -77,27 +77,20 @@ export async function synologySettingsHandlers(
         raw: unknown
       ): Promise<NasSettingsResult> => {
         const request = saveNasSettingsSchema.safeParse(raw)
-        if (!request.success || !validConnections(request.data.settings))
+        if (
+          !request.success ||
+          !validConnections(request.data.settings) ||
+          !dsmDirectoryConfig.safeParse({ roots: request.data.settings.roots })
+            .success
+        )
           return { ok: false, error: { code: 'invalid' } }
         try {
           const user = await identity()
           return store.save(raw, async (settings, signal) => {
-            const mounts = (await readFile('/proc/self/mountinfo', 'utf8'))
-              .split('\n')
-              .map((line) => line.split(' ')[4])
+            if ((await unavailableDsmRoots(settings.roots)).length)
+              return 'folderUnavailable'
             for (const root of settings.roots) {
               signal.throwIfAborted()
-              if (!/^\/volume[1-9]\d*\/[^/]+(?:\/.*)?$/.test(root)) return false
-              if (
-                !mounts.includes(root.split('/').slice(0, 2).join('/')) ||
-                (await realpath(root)) !== root ||
-                !(await lstat(root)).isDirectory()
-              )
-                return false
-              await access(
-                root,
-                constants.R_OK | constants.W_OK | constants.X_OK
-              )
               const info = await accounts.inspectFile(user, root, signal)
               const acl = info?.additional.perm.acl
               if (

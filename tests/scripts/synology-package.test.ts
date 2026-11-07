@@ -1,13 +1,45 @@
 import { execFileSync } from 'node:child_process'
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { expect, it } from 'vitest'
 import {
   applyPendingSettings,
   configure,
+  runtimeEnvironment,
 } from '../../packaging/synology/app/lifecycle.mjs'
 import { payloadInventory } from '../../scripts/verify-synology-package.mjs'
+
+it.skipIf(process.platform === 'win32')(
+  'rejects unsafe package settings before starting either runtime',
+  async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'motrix-spk-config-'))
+    try {
+      const env = { SYNOPKG_PKGDEST: root, SYNOPKG_PKGVAR: root }
+      await configure(env)
+      const config = path.join(root, 'directories.json'),
+        target = path.join(root, 'fixture')
+      await writeFile(target, JSON.stringify({ roots: ['/volume1/motrix'] }), {
+        mode: 0o600,
+      })
+      await symlink(target, config)
+      await expect(runtimeEnvironment(env)).rejects.toMatchObject({
+        code: 'ELOOP',
+      })
+      await rm(config)
+      await writeFile(config, 'private-test-content', { mode: 0o600 })
+      await expect(runtimeEnvironment(env)).rejects.toThrow(
+        'Invalid DSM package configuration'
+      )
+      await writeFile(config, Buffer.alloc(32769))
+      await expect(runtimeEnvironment(env)).rejects.toThrow(
+        'Untrusted DSM package configuration'
+      )
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  }
+)
 
 it.skipIf(process.platform === 'win32')(
   'replays pending settings after an interrupted apply and preserves the journal on failure',

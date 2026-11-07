@@ -25,6 +25,7 @@ export interface NasGatewayOptions {
   diagnostic?(req: FastifyRequest): object | undefined
   publicShell?: boolean
   capabilities?: NasCapabilities
+  unavailableDownloadRoots?: readonly string[]
 }
 interface EventTicket {
   principal: Principal
@@ -170,6 +171,9 @@ export function registerNasAuth(
       username: identities.get(req)?.username,
       clientPairing,
       ...(opts.capabilities ? { nasCapabilities: opts.capabilities } : {}),
+      ...(identities.has(req) && opts.unavailableDownloadRoots?.length
+        ? { nasUnavailableDownloadRoots: opts.unavailableDownloadRoots }
+        : {}),
       ...(diagnostic?.success ? { nasAuthDiagnostic: diagnostic.data } : {}),
     }
   })

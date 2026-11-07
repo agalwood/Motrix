@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { nasRootPathSchema } from './nas-settings'
 
 export const WEB_ORIGIN_HEADER = 'x-motrix-web-origin'
 export const FNOS_EVENT_PROTOCOL = 'motrix.fnos.events'
@@ -71,6 +72,11 @@ export const operatorStatusSchema = z.object({
   clientPairing: clientPairingCapabilitiesSchema.optional(),
   nasAuthDiagnostic: nasAuthDiagnosticSchema.optional(),
   nasCapabilities: nasCapabilitiesSchema.optional(),
+  nasUnavailableDownloadRoots: z
+    .array(nasRootPathSchema)
+    .min(1)
+    .max(64)
+    .optional(),
 })
 
 export function isNasAuthMode(mode: string | undefined): boolean {

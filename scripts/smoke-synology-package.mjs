@@ -8,6 +8,7 @@ import {
   cp,
   mkdir,
   readFile,
+  rename,
   rm,
   stat,
   symlink,
@@ -31,6 +32,7 @@ if (await stat(root).catch(() => null))
 const target = path.join(root, 'target')
 const variable = path.join(root, 'var')
 const downloads = '/volume1/motrix'
+const replacement = '/volume1/motrix-storage-recovery'
 execFileSync('groupadd', ['--gid', '1650', 'http'])
 execFileSync('useradd', [
   '--uid',
@@ -140,7 +142,11 @@ const authority = createSocketServer((socket) => {
     const names = JSON.parse(params.get('path'))
     assert.equal(names.length, 1)
     const file = `/volume1${names[0]}`
-    assert.ok(file === downloads || file.startsWith(`${downloads}/`))
+    assert.ok(
+      [downloads, replacement].some(
+        (root) => file === root || file.startsWith(`${root}/`)
+      )
+    )
     const info = await stat(file).catch(() => null)
     if (!info) return reply({ success: false, error: { code: 408 } })
     const writable = (await readFile('/tmp/dsm-acl-state', 'utf8')) === 'allow'
@@ -206,13 +212,13 @@ const execute = (script, action, extra = {}) =>
       resolve({ code, output })
     })
   })
-const life = async (action) => {
+const life = async (action, expectBridge = true) => {
   const result = await execute('start-stop-status', action)
   if (result.code !== 0)
     throw new Error(
       `${action}: ${result.output}\n${await readFile(path.join(variable, 'server.log'), 'utf8').catch(() => '')}`
     )
-  if (action === 'start')
+  if (action === 'start' && expectBridge)
     for (let i = 0; i < 150; i++) {
       try {
         await fetch('http://127.0.0.1:16812/discovery')
@@ -715,6 +721,101 @@ try {
   )
   await life('stop')
   await life('start')
+  // An unavailable share must leave all recovery journals and engine state
+  // untouched while an administrator can repair grants through the Web UI.
+  await life('stop')
+  const durableFiles = [
+    'motrix.db',
+    'motrix.db-wal',
+    'aria2.session',
+    'aria2.db',
+    'aria2.db-wal',
+  ]
+  const durableHashes = () =>
+    Promise.all(
+      durableFiles.map(async (name) => {
+        try {
+          return createHash('sha256')
+            .update(await readFile(path.join(variable, 'data', name)))
+            .digest('hex')
+        } catch (error) {
+          if (error.code === 'ENOENT') return null
+          throw error
+        }
+      })
+    )
+  const beforeRecovery = await durableHashes()
+  assert.ok(beforeRecovery[0])
+  const offline = `${downloads}.offline-fixture`
+  await rename(downloads, offline)
+  // A directory left behind on the system filesystem is not a mounted share,
+  // even when the package can traverse it and it has the old pathname.
+  const unmounted = '/volume2/motrix-offline-fixture'
+  await mkdir(unmounted, { recursive: true })
+  await chown(unmounted, 1600, 1600)
+  await writeFile(
+    `${variable}/directories.json`,
+    JSON.stringify({ roots: [downloads, unmounted] })
+  )
+  await life('start', false)
+  const recoveryHealth = JSON.parse((await web('/healthz')).body)
+  assert.equal(recoveryHealth.status, 'storage-recovery')
+  assert.equal(recoveryHealth.engine.state, 'stopped')
+  const recoveryStatus = JSON.parse((await web('/rpc/auth/status')).body)
+  assert.deepEqual(recoveryStatus.nasUnavailableDownloadRoots, [
+    downloads,
+    unmounted,
+  ])
+  assert.deepEqual(recoveryStatus.clientPairing, {
+    cli: false,
+    extension: false,
+  })
+  const anonymous = JSON.parse((await web('/rpc/auth/status', {})).body)
+  assert.equal(anonymous.authed, false)
+  assert.equal(anonymous.nasUnavailableDownloadRoots, undefined)
+  assert.equal(
+    (await web('/rpc/query/query%3AgetNasSettings', {}, { args: [] })).status,
+    401
+  )
+  assert.equal(
+    (await web('/rpc/query/query%3AlistTasks', admin, { args: [] })).status,
+    404
+  )
+  assert.equal(
+    (await web('/rpc/command/command%3AcreateTask', admin, { args: [] }))
+      .status,
+    404
+  )
+  await assert.rejects(fetch('http://127.0.0.1:16812/discovery'))
+  const view = JSON.parse(
+    (await web('/rpc/query/query%3AgetNasSettings', admin, { args: [] })).body
+  ).value
+  const queue = async (roots) =>
+    JSON.parse(
+      (
+        await web('/rpc/command/command%3AsaveNasSettings', admin, {
+          args: [
+            { revision: view.revision, settings: { ...view.settings, roots } },
+          ],
+        })
+      ).body
+    )
+  assert.equal((await queue([downloads])).error.code, 'folderUnavailable')
+  assert.equal((await queue([unmounted])).error.code, 'folderUnavailable')
+  assert.equal(await stat(downloads).catch(() => null), null)
+  await mkdir(replacement)
+  await chown(replacement, 1600, 1600)
+  assert.equal((await queue([replacement])).ok, true)
+  await life('stop')
+  assert.deepEqual(await durableHashes(), beforeRecovery)
+  await life('start')
+  assert.equal(JSON.parse((await web('/healthz')).body).status, 'ready')
+  assert.equal(JSON.parse((await web('/rpc/auth/status')).body).authed, true)
+  assert.equal((await rpc(Methods.TaskList, {}, token)).status, 200)
+  assert.equal(await stat(downloads).catch(() => null), null)
+  assert.deepEqual(await readFile(`${offline}/bt-fixture.bin`), payload)
+  await life('stop')
+  await rename(offline, downloads)
   assert.equal(
     (await execute('preuninst', undefined, { SYNOPKG_PKG_STATUS: 'UNINSTALL' }))
       .code,

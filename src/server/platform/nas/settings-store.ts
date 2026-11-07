@@ -18,7 +18,7 @@ async function readDocument(
 ): Promise<string | null> {
   const handle = await open(
     file,
-    constants.O_RDONLY | constants.O_NOFOLLOW
+    constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK
   ).catch((error: NodeJS.ErrnoException) => {
     if (optional && error.code === 'ENOENT') return null
     throw error
@@ -102,7 +102,7 @@ export class NasSettingsStore {
     validate: (
       settings: NasPackageSettings,
       signal: AbortSignal
-    ) => Promise<boolean>
+    ) => Promise<boolean | 'folderUnavailable'>
   ): Promise<NasSettingsResult> {
     const parsed = saveNasSettingsSchema.safeParse(raw)
     if (!parsed.success) return { ok: false, error: { code: 'invalid' } }
@@ -122,7 +122,7 @@ export class NasSettingsStore {
         const controller = new AbortController()
         let timedOut = false,
           timer: ReturnType<typeof setTimeout> | undefined
-        let valid: boolean
+        let valid: boolean | 'folderUnavailable'
         try {
           valid = await Promise.race([
             validate(parsed.data.settings, controller.signal),
@@ -138,10 +138,16 @@ export class NasSettingsStore {
           clearTimeout(timer)
           controller.abort()
         }
-        if (!valid) {
+        if (valid !== true) {
           result = {
             ok: false,
-            error: { code: timedOut ? 'unavailable' : 'permissionDenied' },
+            error: {
+              code: timedOut
+                ? 'unavailable'
+                : valid === 'folderUnavailable'
+                  ? valid
+                  : 'permissionDenied',
+            },
           }
           return
         }

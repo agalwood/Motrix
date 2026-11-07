@@ -7,8 +7,24 @@ import {
 } from '@renderer/lib/operator-auth'
 import { transport } from '@renderer/lib/transport'
 import { isNasAuthMode } from '@shared/schemas/operator-auth'
-import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
+import {
+  type FormEvent,
+  lazy,
+  type ReactNode,
+  Suspense,
+  useEffect,
+  useState,
+} from 'react'
 import { useTranslation } from 'react-i18next'
+
+const StorageRecovery =
+  __MOTRIX_TARGET__ === 'web'
+    ? lazy(() =>
+        import('./nas-storage-recovery').then((module) => ({
+          default: module.NasStorageRecovery,
+        }))
+      )
+    : () => null
 
 /**
  * Gates the app on the server (web) build behind operator authentication
@@ -26,6 +42,9 @@ function WebGate({ children }: { children: ReactNode }) {
   const fnos = useOperatorSession((s) => isNasAuthMode(s.status?.mode))
   const synology = useOperatorSession((s) => s.status?.mode === 'synologyDsm')
   const diagnostic = useOperatorSession((s) => s.status?.nasAuthDiagnostic)
+  const unavailableRoots = useOperatorSession(
+    (s) => s.status?.nasUnavailableDownloadRoots
+  )
   const [token, setToken] = useState('')
   const [error, setError] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -44,6 +63,12 @@ function WebGate({ children }: { children: ReactNode }) {
           {t('applicationMenu.retry')}
         </Button>
       </div>
+    )
+  if (state === 'authenticated' && synology && unavailableRoots?.length)
+    return (
+      <Suspense fallback={null}>
+        <StorageRecovery roots={unavailableRoots} />
+      </Suspense>
     )
   if (state === 'authenticated' || state === 'logging-out')
     return <>{children}</>
