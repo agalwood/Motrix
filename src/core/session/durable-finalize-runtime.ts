@@ -8,12 +8,17 @@ import {
   artifactIdentityEquals,
 } from '@core/plugin/finalize/artifact-identity'
 import { ArtifactMutationLeaseCoordinator } from '@core/plugin/finalize/artifact-mutation-lease'
-import type { FinalizeArtifactOperations } from '@core/plugin/finalize/finalize-committer'
+import type {
+  FinalizeArtifactOperations,
+  FinalizeJournalRecord,
+  PreparedFileRename,
+} from '@core/plugin/finalize/finalize-committer'
 import {
   type FinalizeCommitResult,
   FinalizeCommitter,
 } from '@core/plugin/finalize/finalize-committer'
 import { FinalizeRecovery } from '@core/plugin/finalize/finalize-recovery'
+import { FinalizeSourceVerificationError } from '@core/plugin/finalize/finalize-recovery-errors'
 import {
   assertFinalizePaths,
   freezeHookPlan,
@@ -32,6 +37,7 @@ export interface DurableFinalizeArtifactInput {
   occurrence: TaskOccurrence | null
   sourcePath: string
   targetPath: string
+  recoverySha256?: string
   replacement?: { pluginId: string; stagedPath: string }
   metadataOps: readonly StagedMetadataOp[]
   contributors: readonly string[]
@@ -111,12 +117,32 @@ export class DurableFinalizeRuntime {
       throw err
     }
     const lease = await this.leases.acquire(input.task.id)
+    let held: PreparedFileRename | null | undefined
     try {
-      await this.createRecovery().recoverTask(input.task.id, lease)
+      // A supplied digest authorizes only the old source quarantine. Avoid
+      // replaying an unrelated journal before proving this retry applies.
+      if (!input.recoverySha256)
+        await this.createRecovery().recoverTask(input.task.id, lease)
       await input.verifySource?.()
-      const pending = (
-        await this.createRepository().listRecoverable(input.task.id)
-      ).find((record) => record.publicationIntent?.method === 'reserved_rename')
+      const journals = this.createRepository()
+      const quarantined = journals.quarantinedSource(input.task.id)
+      if (input.recoverySha256 && !quarantined)
+        throw new Error('no quarantined source is awaiting verification')
+      if (
+        quarantined &&
+        (quarantined.plan.sourcePath !== input.sourcePath ||
+          quarantined.plan.targetPath !== targetPath ||
+          quarantined.plan.saveDir !== input.task.saveDir ||
+          input.replacement ||
+          input.contributors.length ||
+          input.metadataOps.length)
+      )
+        throw new Error(
+          'source quarantine does not match the current finalize plan'
+        )
+      const pending = (await journals.listRecoverable(input.task.id)).find(
+        (record) => record.publicationIntent?.method === 'reserved_rename'
+      )
       if (
         pending &&
         (!isOrdinarySuffixRemoval(pending.plan) ||
@@ -129,15 +155,32 @@ export class DurableFinalizeRuntime {
         throw new Error('pending reserved publication does not match the retry')
       // H8: identity capture is inside the mutation lease, after every
       // engine/Host writer has successfully quiesced.
-      const sourceIdentity =
-        pending?.plan.sourceIdentity ??
-        (!input.replacement &&
+      if (
+        !pending &&
+        !input.replacement &&
         input.contributors.length === 0 &&
         input.metadataOps.length === 0 &&
         input.sourcePath === `${targetPath}.motrix` &&
         path.dirname(input.sourcePath) === path.dirname(targetPath)
-          ? await this.options.fs.renameIdentity?.(input.sourcePath)
-          : undefined) ??
+      ) {
+        held = await this.options.fs.prepareFileRename?.(
+          input.sourcePath,
+          targetPath
+        )
+      }
+      const verifiedSource = quarantined
+        ? await this.verifyQuarantinedSource(quarantined, input.recoverySha256)
+        : undefined
+      if (quarantined && held) {
+        // Content authority survives closing the guard and is rechecked under
+        // the native publication handle. Keep its digest in the new journal.
+        await held.close()
+        held = null
+      }
+      const sourceIdentity =
+        verifiedSource ??
+        pending?.plan.sourceIdentity ??
+        held?.sourceIdentity ??
         (await this.captureIdentity(input.sourcePath))
       const replacement = input.replacement
         ? {
@@ -180,6 +223,7 @@ export class DurableFinalizeRuntime {
             this.options.db,
             {
               now: this.now,
+              verifiedQuarantine: quarantined ?? undefined,
               commitTerminalBoundary: (record) => {
                 if (!record.targetIdentity) {
                   throw new Error('finalize target identity is missing')
@@ -241,7 +285,7 @@ export class DurableFinalizeRuntime {
             sameContent: artifactContentEquals,
           })
           input.beforeCommit?.()
-          const result = await committer.commit(plan, lease)
+          const result = await committer.commit(plan, lease, held ?? undefined)
           // SQLite's outer durable transaction has committed, but the session
           // persistence lane is still held. Publish before queued autosaves.
           input.onCommitted?.()
@@ -249,8 +293,53 @@ export class DurableFinalizeRuntime {
         }
       )
     } finally {
-      await lease.release()
+      try {
+        await held?.close()
+      } finally {
+        await lease.release()
+      }
     }
+  }
+
+  private async verifyQuarantinedSource(
+    record: FinalizeJournalRecord,
+    sha256?: string
+  ) {
+    const { sourceIdentity: original, sourcePath, targetPath } = record.plan
+    if (original.kind !== 'rename-file')
+      throw new Error('invalid quarantined source')
+    if (await this.options.fs.identity(targetPath, original))
+      throw new Error('final name already exists; inspect it before retrying')
+    const checkStamp = async () => {
+      const current = await this.options.fs.identity(sourcePath, original)
+      if (
+        current?.kind !== 'rename-file' ||
+        current.platformFileId !== original.platformFileId ||
+        current.size !== original.size ||
+        current.birthtimeNs !== original.birthtimeNs
+      )
+        throw new Error(
+          'the original temporary file is missing or was replaced; inspect both names'
+        )
+      if (!sha256 && !artifactIdentityEquals(current, original))
+        throw new FinalizeSourceVerificationError(
+          'temporary file preserved; verify against the publisher’s SHA-256 or download to a new path'
+        )
+    }
+    await checkStamp()
+    const verified = await this.captureIdentity(sourcePath)
+    if (
+      verified.kind !== 'file' ||
+      verified.platformFileId !== original.platformFileId ||
+      verified.size !== original.size
+    )
+      throw new Error('source changed during quarantine verification')
+    if (sha256 && verified.sha256 !== sha256)
+      throw new FinalizeSourceVerificationError(
+        'SHA-256 mismatch; temporary file preserved'
+      )
+    await checkStamp()
+    return verified
   }
 
   private async captureIdentity(artifactPath: string) {

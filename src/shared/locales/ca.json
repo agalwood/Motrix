@@ -2921,6 +2921,7 @@
         "recoveryFailed": "No s'ha pogut recuperar la baixada: {{cause}}",
         "recoveryOutputConflict": "Existeixen tant el fitxer temporal com el final; s'han conservat tots dos per revisar-los manualment",
         "renameDirFailed": "No s'ha pogut canviar el nom de la carpeta: {{cause}}",
+        "sourceHash": "SHA-256 de l’editor",
         "renameFileFailed": "No s'ha pogut canviar el nom del fitxer: {{cause}}"
       },
       "hint": {

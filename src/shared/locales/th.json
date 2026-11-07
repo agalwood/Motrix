@@ -2879,6 +2879,7 @@
         "recoveryFailed": "กู้คืนการดาวน์โหลดไม่ได้: {{cause}}",
         "recoveryOutputConflict": "มีทั้งไฟล์ชั่วคราวและไฟล์สุดท้าย เก็บทั้งสองไฟล์ไว้เพื่อตรวจสอบด้วยตนเอง",
         "renameDirFailed": "เปลี่ยนชื่อโฟลเดอร์ไม่ได้: {{cause}}",
+        "sourceHash": "SHA-256 จากผู้เผยแพร่",
         "renameFileFailed": "เปลี่ยนชื่อไฟล์ไม่ได้: {{cause}}"
       },
       "hint": {

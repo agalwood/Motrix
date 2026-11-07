@@ -1203,6 +1203,7 @@
         "recoveryFailed": "Impossibile recuperare il download: {{cause}}",
         "recoveryOutputConflict": "Sono presenti sia il file temporaneo sia quello finale; entrambi sono stati conservati per la verifica manuale",
         "filesMissing": "Mancano dei file dopo il riavvio dell’app",
+        "sourceHash": "SHA-256 dell’editore",
         "renameFileFailed": "Impossibile rinominare il file: {{cause}}",
         "renameDirFailed": "Impossibile rinominare la cartella: {{cause}}",
         "pluginChainAborted": "Catena di plugin interrotta: {{cause}}",

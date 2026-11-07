@@ -164,6 +164,25 @@ pub(super) fn open_selected(parent: &OwnedHandle, name: &[u16]) -> io::Result<Ow
     )
 }
 
+fn open_regular(parent: &OwnedHandle, name: &[u16], access: u32) -> io::Result<OwnedHandle> {
+    nt_create(
+        parent,
+        name,
+        access | FILE_READ_ATTRIBUTES | SYNCHRONIZE,
+        SHARE_HELD_ARTIFACT,
+        FILE_OPEN,
+        OPEN_COMMON | FILE_NON_DIRECTORY_FILE,
+    )
+}
+
+pub(super) fn open_flush_file(parent: &OwnedHandle, name: &[u16]) -> io::Result<OwnedHandle> {
+    open_regular(parent, name, FILE_WRITE_DATA)
+}
+
+pub(super) fn open_rename_file(parent: &OwnedHandle, name: &[u16]) -> io::Result<OwnedHandle> {
+    open_regular(parent, name, FILE_READ_DATA | DELETE)
+}
+
 pub(super) fn open_existing(parent: &OwnedHandle, name: &[u16]) -> io::Result<OwnedHandle> {
     match nt_create(
         parent,

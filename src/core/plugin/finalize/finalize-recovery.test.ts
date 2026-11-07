@@ -123,6 +123,30 @@ describe('rename-only finalize recovery', () => {
     return pending
   }
 
+  it.each([true, false])(
+    'rechecks a committed target before reopening a legacy source quarantine (match=%s)',
+    async (matches) => {
+      const pending = pendingRecord('db_committed')
+      pending.quarantineReason = 'renamed source stamp changed'
+      const actual = matches ? installed : { ...installed, ctimeNs: '999' }
+      const state = fixture({ [pending.plan.targetPath]: actual })
+      const resume = vi.fn()
+      state.repository.resumeQuarantined = resume
+      if (matches) {
+        await state.recovery.recover(pending)
+        expect(resume).toHaveBeenCalledOnce()
+        expect(state.phases).toEqual(['cleaned'])
+      } else {
+        await expect(state.recovery.recover(pending)).rejects.toThrow(
+          'quarantined'
+        )
+        expect(resume).not.toHaveBeenCalled()
+        expect(state.phases).toEqual([])
+      }
+      expect(state.artifacts.get(pending.plan.targetPath)).toEqual(actual)
+    }
+  )
+
   it('preserves an installed target whose post-rename stamp was never checkpointed', async () => {
     const pending = pendingRecord('prepared')
     const state = fixture(

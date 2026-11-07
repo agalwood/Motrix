@@ -1203,6 +1203,7 @@
         "recoveryFailed": "No se pudo recuperar la descarga: {{cause}}",
         "recoveryOutputConflict": "Existen tanto el archivo temporal como el final; ambos se conservaron para su revisión manual",
         "filesMissing": "Faltan archivos tras reiniciar la aplicación",
+        "sourceHash": "SHA-256 del editor",
         "renameFileFailed": "No se pudo cambiar el nombre del archivo: {{cause}}",
         "renameDirFailed": "No se pudo cambiar el nombre de la carpeta: {{cause}}",
         "pluginChainAborted": "Cadena de plugins interrumpida: {{cause}}",

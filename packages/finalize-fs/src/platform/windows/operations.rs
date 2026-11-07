@@ -52,6 +52,7 @@ pub(crate) fn open_selected_file(root: &RootHandle, relative: &str) -> io::Resul
         snapshot: None,
         stamp,
         rename_budget: Default::default(),
+        rename_guard: false,
     };
     if file.stamp.directory || File::from(file.handle.try_clone()?).metadata()?.len() == 0 {
         return Err(io::Error::new(

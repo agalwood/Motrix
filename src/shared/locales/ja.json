@@ -1175,6 +1175,7 @@
         "recoveryFailed": "ダウンロードを復元できませんでした: {{cause}}",
         "recoveryOutputConflict": "一時ファイルと最終ファイルの両方が存在します。手動で確認できるよう、両方を保持しました",
         "filesMissing": "アプリの再起動後にファイルが見つかりません",
+        "sourceHash": "配布元の SHA-256",
         "renameFileFailed": "ファイル名を変更できませんでした: {{cause}}",
         "renameDirFailed": "フォルダー名を変更できませんでした: {{cause}}",
         "pluginChainAborted": "プラグインの処理チェーンが中止されました: {{cause}}",

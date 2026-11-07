@@ -2900,6 +2900,7 @@
         "recoveryFailed": "De download kon niet worden hersteld: {{cause}}",
         "recoveryOutputConflict": "Zowel het tijdelijke als het definitieve bestand bestaat; beide zijn bewaard voor handmatige controle",
         "renameDirFailed": "De map kon niet worden hernoemd: {{cause}}",
+        "sourceHash": "SHA-256 van de uitgever",
         "renameFileFailed": "Het bestand kon niet worden hernoemd: {{cause}}"
       },
       "hint": {

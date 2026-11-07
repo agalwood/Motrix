@@ -6,6 +6,7 @@ import {
   isInactiveLegacyTask,
 } from '@core/legacy-import/legacy-task-policy'
 import { newEngineTaskId } from '@core/lib/ids'
+import { FinalizeSourceVerificationError } from '@core/plugin/finalize/finalize-recovery-errors'
 import type { HookAuditLog } from '@core/plugin/hooks/audit-log'
 import type { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
 import type { StagedMetadataOp } from '@core/plugin/hooks/staged-effects'
@@ -165,6 +166,7 @@ export interface FinalizeTaskDeps {
    * that never publish an unsafe name can omit it.
    */
   finalNamePicker?: Pick<FinalNamePicker, 'pick'>
+  recoverySha256?: string
   commitFinalizedArtifact?: (
     input: FinalizeArtifactCommitRequest
   ) => Promise<void>
@@ -175,6 +177,7 @@ export interface FinalizeArtifactCommitRequest {
   occurrence: TaskOccurrence | null
   sourcePath: string
   targetPath: string
+  recoverySha256?: string
   replacement?: { pluginId: string; stagedPath: string }
   metadataOps: readonly StagedMetadataOp[]
   contributors: readonly string[]
@@ -394,7 +397,10 @@ async function finalizeHttp(
       const errorMessage = `Failed to commit finalized file: ${cause}`
       await failFinalize(task, deps, {
         errorMessage,
-        errorDetailKey: 'task.error.detail.renameFileFailed',
+        errorDetailKey:
+          e instanceof FinalizeSourceVerificationError
+            ? 'task.error.detail.sourceHash'
+            : 'task.error.detail.renameFileFailed',
         errorDetailParams: { cause },
         hookCode: 'TASK_FINALIZE_RENAME_FAILED',
       })
@@ -487,6 +493,7 @@ async function commitHttpArtifactDurably(
     occurrence,
     sourcePath: renameSource,
     targetPath: desiredFinalPath,
+    ...(deps.recoverySha256 ? { recoverySha256: deps.recoverySha256 } : {}),
     replacement: finalizeOutcome.replacement,
     metadataOps: finalizeOutcome.metadataOps,
     contributors: finalizeOutcome.contributors,

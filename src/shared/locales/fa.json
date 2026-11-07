@@ -2900,6 +2900,7 @@
         "recoveryFailed": "بازیابی دانلود ممکن نشد: {{cause}}",
         "recoveryOutputConflict": "هم فایل موقت و هم فایل نهایی وجود دارند؛ هر دو برای بررسی دستی حفظ شدند",
         "renameDirFailed": "تغییر نام پوشه ناموفق بود: {{cause}}",
+        "sourceHash": "SHA-256 ناشر",
         "renameFileFailed": "تغییر نام فایل ناموفق بود: {{cause}}"
       },
       "hint": {

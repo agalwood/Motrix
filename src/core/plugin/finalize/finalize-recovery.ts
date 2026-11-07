@@ -17,6 +17,7 @@ import {
 import {
   FinalizeRecoveryDeferredError,
   isUnavailableArtifactError,
+  RENAMED_SOURCE_CHANGED,
 } from './finalize-recovery-errors'
 import {
   linkPublicationConfirmed,
@@ -86,7 +87,12 @@ export class FinalizeRecovery {
     try {
       assertRenameFileJournal(record)
       if (record.plan.sourceIdentity.kind === 'rename-file') {
-        if (record.quarantineReason) return
+        if (
+          record.quarantineReason &&
+          (record.quarantineReason !== RENAMED_SOURCE_CHANGED ||
+            !record.targetIdentity)
+        )
+          return
         await this.recoverRenameFile(record)
         return
       }
@@ -334,6 +340,24 @@ export class FinalizeRecovery {
       throw new FinalizeRecoveryDeferredError(
         'rename artifacts are unavailable; retry recovery'
       )
+    if (record.quarantineReason) {
+      if (!this.options.repository.resumeQuarantined) return
+      const owned =
+        source && !target
+          ? record.phase !== 'db_committed' &&
+            this.options.exactIdentity(source, expectedSource)
+          : !source &&
+            target &&
+            record.targetIdentity &&
+            this.options.exactIdentity(target, record.targetIdentity)
+      if (!owned)
+        throw new FinalizeQuarantinedError(
+          record.journalId,
+          'surviving files do not match the durable rename checkpoint'
+        )
+      await this.options.repository.resumeQuarantined(record)
+      record.quarantineReason = undefined
+    }
     if (source && target)
       return this.quarantine(
         record,
@@ -343,8 +367,21 @@ export class FinalizeRecovery {
       if (
         record.phase === 'db_committed' ||
         !this.options.exactIdentity(source, expectedSource)
-      )
-        return this.quarantine(record, 'renamed source stamp changed')
+      ) {
+        getLogger('finalize').warn(
+          {
+            taskId: record.plan.taskId,
+            journalId: record.journalId,
+            phase: record.phase,
+            changedFields: Object.keys(expectedSource).filter(
+              (key) =>
+                Reflect.get(source, key) !== Reflect.get(expectedSource, key)
+            ),
+          },
+          'finalize_source_stamp_mismatch'
+        )
+        return this.quarantine(record, RENAMED_SOURCE_CHANGED)
+      }
       await this.options.fs.makeDurable(record.plan.sourcePath)
       await this.options.repository.advance(record.journalId, 'cleaned')
       return
@@ -372,25 +409,46 @@ export class FinalizeRecovery {
       await this.options.repository.advance(record.journalId, 'cleaned')
       return
     }
-    const restored = await this.options.fs.moveNoReplace(
+    const held = await this.options.fs.prepareFileRename?.(
       record.plan.targetPath,
-      expectedTarget,
       record.plan.sourcePath
     )
-    if (restored?.kind !== 'rename-file')
-      return this.quarantine(record, 'rollback omitted the restored file stamp')
-    await this.options.repository.checkpoint(record.journalId, {
-      restoredSourceIdentity: restored,
-    })
-    record.restoredSourceIdentity = restored
-    await this.options.fs.makeDurable(record.plan.sourcePath)
-    const current = await this.options.fs.identity(
-      record.plan.sourcePath,
-      restored
-    )
-    if (!current || !this.options.exactIdentity(current, restored))
-      return this.quarantine(record, 'restored source stamp changed')
-    await this.options.repository.advance(record.journalId, 'cleaned')
+    try {
+      if (
+        held &&
+        !this.options.exactIdentity(held.sourceIdentity, expectedTarget)
+      )
+        return await this.quarantine(
+          record,
+          'rollback target changed before rename'
+        )
+      const restored = held
+        ? await held.publish()
+        : await this.options.fs.moveNoReplace(
+            record.plan.targetPath,
+            expectedTarget,
+            record.plan.sourcePath
+          )
+      if (restored?.kind !== 'rename-file')
+        return await this.quarantine(
+          record,
+          'rollback omitted the restored file stamp'
+        )
+      await this.options.repository.checkpoint(record.journalId, {
+        restoredSourceIdentity: restored,
+      })
+      record.restoredSourceIdentity = restored
+      if (!held) await this.options.fs.makeDurable(record.plan.sourcePath)
+      const current = await this.options.fs.identity(
+        record.plan.sourcePath,
+        restored
+      )
+      if (!current || !this.options.exactIdentity(current, restored))
+        return await this.quarantine(record, 'restored source stamp changed')
+      await this.options.repository.advance(record.journalId, 'cleaned')
+    } finally {
+      await held?.close()
+    }
   }
 
   private async recoverReserved(record: FinalizeJournalRecord): Promise<void> {

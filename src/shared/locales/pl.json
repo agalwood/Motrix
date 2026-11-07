@@ -1217,6 +1217,7 @@
         "recoveryFailed": "Nie udało się przywrócić pobierania: {{cause}}",
         "recoveryOutputConflict": "Istnieją zarówno plik tymczasowy, jak i końcowy; oba zachowano do ręcznego sprawdzenia",
         "filesMissing": "Brakuje plików po ponownym uruchomieniu aplikacji",
+        "sourceHash": "SHA-256 od wydawcy",
         "renameFileFailed": "Nie udało się zmienić nazwy pliku: {{cause}}",
         "renameDirFailed": "Nie udało się zmienić nazwy folderu: {{cause}}",
         "pluginChainAborted": "Przerwano łańcuch wtyczek: {{cause}}",

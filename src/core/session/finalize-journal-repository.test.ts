@@ -32,6 +32,40 @@ describe('SqliteFinalizeJournalRepository', () => {
     return record
   }
 
+  it('exposes a quarantined rename to normal recovery only when it has a target checkpoint', async () => {
+    const repository = new SqliteFinalizeJournalRepository(db, {
+      commitTerminalBoundary: vi.fn(),
+    })
+    const record = renameRecord()
+    await repository.prepare(record)
+    await repository.quarantine(
+      record.journalId,
+      'renamed source stamp changed'
+    )
+    expect(await repository.listRecoverable()).toEqual([])
+    expect(repository.quarantinedSource(record.plan.taskId)).toEqual(record)
+    db.prepare(
+      "UPDATE plugin_finalize_journals SET phase='prepared', quarantine_reason=NULL WHERE plan_id=?"
+    ).run(record.journalId)
+    const targetIdentity = {
+      ...(record.plan.sourceIdentity as RenameFileArtifactIdentity),
+      ctimeNs: '999',
+    }
+    await repository.advance(record.journalId, 'target_installed', {
+      targetIdentity,
+    })
+    await repository.quarantine(
+      record.journalId,
+      'renamed source stamp changed'
+    )
+    const [candidate] = await repository.listRecoverable()
+    expect(candidate.targetIdentity).toEqual(targetIdentity)
+    await repository.resumeQuarantined(candidate)
+    expect((await repository.listRecoverable())[0].phase).toBe(
+      'target_installed'
+    )
+  })
+
   it('round-trips metadata-only identities and the changed stamp after rename', async () => {
     const repository = new SqliteFinalizeJournalRepository(db, {
       commitTerminalBoundary: vi.fn(),
