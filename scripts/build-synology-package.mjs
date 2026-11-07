@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto'
 import {
   chmod,
-  cp,
   lstat,
   mkdir,
   readdir,
@@ -18,7 +17,7 @@ import {
   sha256,
 } from './prepare-fnos-project.mjs'
 import { prepareSynologyProject } from './prepare-synology-project.mjs'
-import lock from './synology-runtime.lock.json' with { type: 'json' }
+import { synologyTarget } from './synology-target.mjs'
 import {
   payloadInventory,
   verifySynologyPackage,
@@ -28,6 +27,7 @@ import {
 const { values } = parseArgs({
   args: process.argv.slice(2).filter((arg) => arg !== '--'),
   options: {
+    arch: { type: 'string' },
     'app-dir': { type: 'string' },
     'output-dir': { type: 'string' },
     revision: { type: 'string' },
@@ -35,6 +35,7 @@ const { values } = parseArgs({
 })
 const project = await prepareSynologyProject({
   appDir: values['app-dir'],
+  arch: values.arch,
   outputDir: values['output-dir'],
   revision: values.revision,
 })
@@ -46,10 +47,8 @@ await writeFile(
 )
 const receipt = await verifySynologyProject(project)
 const output = path.dirname(project)
-const sdkArchive = await lockedDownload(
-  lock.toolchain,
-  path.join(repositoryRoot, 'node_modules/.cache/synology')
-)
+const arch = receipt.architecture
+const target = synologyTarget(arch)
 const sdk = path.join(output, 'sdk')
 async function writableDirectories(directory) {
   if (!(await lstat(directory)).isDirectory()) return
@@ -59,112 +58,144 @@ async function writableDirectories(directory) {
     if ((await lstat(file)).isDirectory()) await writableDirectories(file)
   }
 }
-await mkdir(sdk) // A fresh build owns its SDK extraction.
-try {
-  run('tar', ['-xJf', sdkArchive, '-C', sdk])
-  await writableDirectories(sdk)
-  const abiReport = path.join(output, 'synology-abi.json')
-  const invoke = (root) => {
-    const lifecycleSmoke = () =>
-      run('docker', [
-        'run',
-        '--rm',
-        '--platform',
-        'linux/amd64',
-        '--network=none',
-        '--tmpfs',
-        '/volume1:rw,nosuid,nodev',
-        '--mount',
-        `type=bind,source=${root},target=/spk,readonly`,
-        '--mount',
-        `type=bind,source=${path.join(repositoryRoot, 'scripts')},target=/scripts,readonly`,
-        'rust:1.94.1',
-        '/spk/app/runtime/bin/node',
-        '/scripts/smoke-synology-package.mjs',
-        '--project-dir',
-        '/spk',
-      ])
-    if (process.platform === 'linux' && process.arch === 'x64') {
-      run('python3', [
-        path.join(repositoryRoot, 'scripts/verify_synology_abi.py'),
-        path.join(root, 'app'),
-        path.join(sdk, 'x86_64-pc-linux-gnu'),
-        abiReport,
-      ])
-      run(path.join(root, 'app/runtime/bin/node'), [
-        path.join(repositoryRoot, 'scripts/smoke-server-package.mjs'),
-        '--app-dir',
-        path.join(root, 'app/server'),
-        '--timeout-ms',
-        '120000',
-      ])
-    } else {
-      run('docker', [
-        'run',
-        '--rm',
-        '--platform',
-        'linux/amd64',
-        '--network=none',
-        '--mount',
-        `type=bind,source=${root},target=/spk,readonly`,
-        '--mount',
-        `type=bind,source=${sdk},target=/sdk,readonly`,
-        '--mount',
-        `type=bind,source=${path.join(repositoryRoot, 'scripts')},target=/scripts,readonly`,
-        '--mount',
-        `type=bind,source=${output},target=/reports`,
-        'rust:1.94.1',
-        'sh',
-        '-c',
-        'python3 /scripts/verify_synology_abi.py /spk/app /sdk/x86_64-pc-linux-gnu /reports/synology-abi.json && /spk/app/runtime/bin/node /scripts/smoke-server-package.mjs --app-dir /spk/app/server --timeout-ms 120000',
-      ])
-    }
-    lifecycleSmoke()
+const invoke = async (root) => {
+  const mounts = [
+    'run',
+    '--rm',
+    '--platform',
+    target.dockerPlatform,
+    '--network=none',
+    '--mount',
+    `type=bind,source=${root},target=/spk,readonly`,
+    '--mount',
+    `type=bind,source=${path.join(repositoryRoot, 'scripts')},target=/scripts,readonly`,
+  ]
+  const native = process.platform === 'linux' && process.arch === arch
+  const image = arch === 'arm64' ? 'motrix-dsm-abi:arm64' : 'rust:1.94.1'
+  if (!native && arch === 'arm64') {
+    run('docker', [
+      'build',
+      '--platform',
+      target.dockerPlatform,
+      '--tag',
+      image,
+      '--file',
+      path.join(repositoryRoot, 'packaging/synology-abi.Dockerfile'),
+      path.join(repositoryRoot, 'packaging/synology'),
+    ])
   }
-  const payload = path.join(project, 'package.tgz')
-  run('tar', ['-czf', payload, '-C', app, '.'], {
-    env: { ...process.env, COPYFILE_DISABLE: '1' },
-  })
-  const infoPath = path.join(project, 'INFO')
-  await writeFile(
-    infoPath,
-    (await readFile(infoPath, 'utf8')).replace(
-      '@CHECKSUM@',
-      createHash('md5')
-        .update(await readFile(payload))
-        .digest('hex')
+  const reports = {}
+  for (const [platform, profile] of Object.entries(target.platforms)) {
+    const sdkArchive = await lockedDownload(
+      profile.toolchain,
+      path.join(repositoryRoot, 'node_modules/.cache/synology')
     )
-  )
-  const file = path.join(
-    output,
-    `Motrix-${receipt.version}-${receipt.revision}-dsm-x64.spk`
-  )
-  run(
-    'tar',
-    [
-      '-cf',
-      file,
-      '-C',
-      project,
-      'INFO',
-      'package.tgz',
-      'scripts',
-      'conf',
-      'WIZARD_UIFILES',
-      'LICENSE',
-      'PACKAGE_ICON.PNG',
-      'PACKAGE_ICON_256.PNG',
-    ],
-    { env: { ...process.env, COPYFILE_DISABLE: '1' } }
-  )
-  // Execute ABI and HTTP/BT smoke checks against bytes extracted from the SPK.
-  await verifySynologyPackage(file, invoke)
-  await cp(abiReport, `${file}.abi.json`)
-  await writeFile(
-    `${file}.sha256`,
-    `${sha256(await readFile(file))}  ${path.basename(file)}\n`
-  )
-  console.log(`Built and verified ${file}`)
-} finally {
-  await rm(sdk, { recursive: true, force: true })
+    await mkdir(sdk)
+    try {
+      run('tar', ['-xJf', sdkArchive, '-C', sdk])
+      await writableDirectories(sdk)
+      const reportName = `synology-${platform}-abi.json`
+      if (native) {
+        run('python3', [
+          path.join(repositoryRoot, 'scripts/verify_synology_abi.py'),
+          path.join(root, 'app'),
+          sdk,
+          path.join(output, reportName),
+          arch,
+          platform,
+        ])
+      } else {
+        run('docker', [
+          ...mounts,
+          '--mount',
+          `type=bind,source=${sdk},target=/sdk,readonly`,
+          '--mount',
+          `type=bind,source=${output},target=/reports`,
+          image,
+          'python3',
+          '/scripts/verify_synology_abi.py',
+          '/spk/app',
+          '/sdk',
+          `/reports/${reportName}`,
+          arch,
+          platform,
+        ])
+      }
+      reports[platform] = JSON.parse(
+        await readFile(path.join(output, reportName), 'utf8')
+      )
+    } finally {
+      await rm(sdk, { recursive: true, force: true })
+    }
+  }
+  run('docker', [
+    ...mounts,
+    'rust:1.94.1',
+    '/spk/app/runtime/bin/node',
+    '/scripts/smoke-server-package.mjs',
+    '--app-dir',
+    '/spk/app/server',
+    '--timeout-ms',
+    '120000',
+  ])
+  run('docker', [
+    ...mounts,
+    '--tmpfs',
+    '/volume1:rw,nosuid,nodev',
+    'rust:1.94.1',
+    '/spk/app/runtime/bin/node',
+    '/scripts/smoke-synology-package.mjs',
+    '--project-dir',
+    '/spk',
+  ])
+  return reports
 }
+const payload = path.join(project, 'package.tgz')
+run('tar', ['-czf', payload, '-C', app, '.'], {
+  env: { ...process.env, COPYFILE_DISABLE: '1' },
+})
+const infoPath = path.join(project, 'INFO')
+await writeFile(
+  infoPath,
+  (await readFile(infoPath, 'utf8')).replace(
+    '@CHECKSUM@',
+    createHash('md5')
+      .update(await readFile(payload))
+      .digest('hex')
+  )
+)
+const file = path.join(
+  output,
+  `Motrix-${receipt.version}-${receipt.revision}-dsm-${arch}.spk`
+)
+run(
+  'tar',
+  [
+    '-cf',
+    file,
+    '-C',
+    project,
+    'INFO',
+    'package.tgz',
+    'scripts',
+    'conf',
+    'WIZARD_UIFILES',
+    'LICENSE',
+    'PACKAGE_ICON.PNG',
+    'PACKAGE_ICON_256.PNG',
+  ],
+  { env: { ...process.env, COPYFILE_DISABLE: '1' } }
+)
+// Execute every profile against this single extracted SPK before writing its
+// checksum and release ABI receipt.
+let platforms
+await verifySynologyPackage(file, async (root) => {
+  platforms = await invoke(root)
+})
+const digest = sha256(await readFile(file))
+await writeFile(
+  `${file}.abi.json`,
+  `${JSON.stringify({ schemaVersion: 3, architecture: arch, spkSha256: digest, platforms }, null, 2)}\n`
+)
+await writeFile(`${file}.sha256`, `${digest}  ${path.basename(file)}\n`)
+console.log(`Built and verified ${file}`)

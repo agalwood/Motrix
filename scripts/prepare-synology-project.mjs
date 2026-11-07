@@ -21,13 +21,16 @@ import {
   verifyFnosBinary,
 } from './prepare-fnos-project.mjs'
 import dsmLock from './synology-runtime.lock.json' with { type: 'json' }
+import { synologyTarget } from './synology-target.mjs'
 import { verifyServerPackage } from './verify-server-package.mjs'
 
 export async function prepareSynologyProject({
   appDir = 'dist/server-app',
   outputDir = 'release/synology/project',
-  revision = '1',
+  revision = String(dsmLock.revision),
+  arch = 'x64',
 } = {}) {
+  const target = synologyTarget(arch)
   const source = path.resolve(appDir)
   const output = path.resolve(outputDir)
   if (!/^[1-9]\d{0,7}$/.test(revision)) throw new Error('Invalid SPK revision')
@@ -41,7 +44,7 @@ export async function prepareSynologyProject({
   await verifyServerPackage({
     appDir: source,
     platform: 'linux',
-    arch: 'x64',
+    arch,
     libc: 'gnu',
   })
   const manifest = JSON.parse(
@@ -72,12 +75,12 @@ export async function prepareSynologyProject({
       path.join(temporary, 'LICENSE')
     )
     const archive = await lockedDownload(
-      nodeLock.node.x64,
+      nodeLock.node[arch],
       path.join(repositoryRoot, 'node_modules/.cache/fnos')
     )
     const runtime = path.join(temporary, 'app/runtime')
     await mkdir(runtime, { recursive: true })
-    const prefix = `node-v${nodeLock.nodeVersion}-linux-x64`
+    const prefix = `node-v${nodeLock.nodeVersion}-linux-${arch}`
     run('tar', [
       '-xJf',
       archive,
@@ -87,7 +90,7 @@ export async function prepareSynologyProject({
       `${prefix}/bin/node`,
       `${prefix}/LICENSE`,
     ])
-    await verifyFnosBinary(path.join(runtime, 'bin/node'), 'x64')
+    await verifyFnosBinary(path.join(runtime, 'bin/node'), arch)
     const git = (args) =>
       execFileSync('git', args, {
         cwd: repositoryRoot,
@@ -97,15 +100,16 @@ export async function prepareSynologyProject({
       sourceCommit: git(['rev-parse', 'HEAD']),
       sourceDirty:
         git(['status', '--porcelain', '--untracked-files=normal']) !== '',
-      schemaVersion: 1,
+      schemaVersion: 2,
       version: project.version,
       revision: Number(revision),
-      architecture: 'x64',
+      architecture: arch,
+      platforms: Object.keys(target.platforms),
       minimumDsm: dsmLock.dsmVersion,
       nodeVersion: nodeLock.nodeVersion,
-      nodeArchiveSha256: nodeLock.node.x64.sha256,
+      nodeArchiveSha256: nodeLock.node[arch].sha256,
       nodeSha256: sha256(await readFile(path.join(runtime, 'bin/node'))),
-      toolchainSha256: dsmLock.toolchain.sha256,
+      toolchainDigests: target.toolchainDigests,
       deviceAcceptance: 'not-run',
     }
     await writeFile(
@@ -116,6 +120,7 @@ export async function prepareSynologyProject({
     await writeFile(
       info,
       (await readFile(info, 'utf8'))
+        .replaceAll('@ARCH@', target.infoArch)
         .replaceAll('@VERSION@', project.version)
         .replaceAll('@REVISION@', revision)
     )
@@ -133,6 +138,7 @@ if (
   const { values } = parseArgs({
     args: process.argv.slice(2).filter((arg) => arg !== '--'),
     options: {
+      arch: { type: 'string' },
       'app-dir': { type: 'string' },
       'output-dir': { type: 'string' },
       revision: { type: 'string' },
@@ -141,6 +147,7 @@ if (
   console.log(
     await prepareSynologyProject({
       appDir: values['app-dir'],
+      arch: values.arch,
       outputDir: values['output-dir'],
       revision: values.revision,
     })

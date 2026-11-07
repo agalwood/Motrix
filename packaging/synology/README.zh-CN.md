@@ -9,9 +9,19 @@ Motrix Server/Web UI、aria2 和文件系统辅助程序。运行时不依赖 Do
 
 ## 支持范围
 
-首个目标是 **DSM 7.2.2-72806 及以上、x86_64**。第一版采用**管理员共享实例**：
+提供 **DSM 7.2.2-72806 及以上**的 x86_64 和 ARM64 手动安装包。第一版采用**管理员共享实例**：
 所有获授权的本地 DSM 管理员共同管理同一组任务、设置和插件。普通账号、已停用
 账号、域账号和 LDAP 账号不能访问。目前没有按用户隔离任务或分别计算配额。
+
+同一个 ARM64 SPK 包含一套 AArch64 程序，套件中心按下表中的三个 Package Arch 识别兼容平台。机型来自[群晖 DSM 固件归档](https://archive.synology.com/download/Os/DSM/7.2.2-72806-9)。
+
+| Package Arch | 机型 |
+| --- | --- |
+| rtd1296 | DS118、DS218、DS218play、DS220j、DS418、DS418j、DS420j、RS819 |
+| rtd1619b | DS124、DS223、DS223j、DS423 |
+| armada37xx | DS119j、DS120j |
+
+这三个官方 sysroot 分别验证同一个包，CPU 指令测试使用 Cortex-A53 模拟。低内存机型还需要实测内存压力。单独的 `rtd1619` 在锁定的 DSM SDK 目录中缺少对应工具链。ARMv7/32 位不在本包范围内。DS718+ 和 DS423+ 使用 x86_64 包。[工具链目录](https://archive.synology.com/download/ToolChain/toolchain/7.2-72806) · [群晖平台映射](https://help.synology.com/developer-guide/appendix/platarchs.html)
 
 2026-11-07，**DS718+（DSM 7.4.1）** 从 2.3.0-9 手动升级到 **2.3.0-10** 后，
 通过了同名目录替换测试。HTTP 任务向明确授权的测试目录写入 27,648 字节。
@@ -53,7 +63,7 @@ Linux 模拟和固定校验和的 Gemini Lake/Apollo Lake DSM 7.2.2 用户态 AB
 Chrome 扩展 0.1.23 已通过 WSS 配对。管理员认领配对码后在扩展中输入。套件重启并
 重新验证 DSM 会话后，扩展使用原凭据重连，成功查询任务和统计，通过弹窗添加并删除
 了 51 字节测试下载，文件 SHA-256 与源文件一致。撤销后连接断开，任务查询被拒绝。
-尚无 ARM 构建及实机验收。
+ARM64 的验证范围见下方机型表，尚无 ARM 群晖实机验收。
 
 ## 使用与权限
 
@@ -157,19 +167,38 @@ passwd/group 数据库发生任何变化时，会保守地让全部既有绑定�
 BT 下载文件。DSM 负责实际的生命周期顺序和资源清理，全新安装、修复及卸载后的
 数据保留仍需实机验收。
 
+## 受控 DSM 实机验收
+
+使用备用 DSM 或隔离的 Virtual DSM。准备一个独立测试管理员和测试共享文件夹，创建一个已完成的小任务，记录文件 SHA-256、任务标识、目录设置和测试客户端的查询结果。保留另一名可登录的管理员。测试凭据只存于临时客户端配置中。
+
+| 场景 | 操作与通过条件 | 对数据的影响 |
+| --- | --- | --- |
+| 账号降权或停用 | 用测试管理员登录并配对 CLI/扩展，先确认能查询合成任务。从另一个管理员会话将测试账号移出 administrators，再用原网页及原客户端查询，应拒绝；另行重复停用场景。恢复组成员身份并重新登录，按需要重新配对。核对任务及文件哈希。 | 不删除下载文件。账号数据库版本变化可能使其他已有配对也需要重新授权。 |
+| 卷离线与恢复 | 套件及应用数据位于测试卷 A，唯一测试下载根目录位于独立测试卷 B。停止套件，关机，在测试环境中安全分离仅承载 B 的磁盘，再启动 DSM 和套件。确认修复页可访问、引擎停止、客户端端口关闭、原路径未被重建。关机接回原盘，再次验证卷和根目录身份、任务和哈希。若设备号已变化，按修复页提示明确授权其他路径。 | B 上所有服务和共享文件夹在离线期间均不可用。删除卷或存储池会擦除数据。生产卷、系统盘和 RAID 成员不得用作试验盘。[群晖存储池说明](https://kb.synology.com/en-id/DSM/help/DSM/StorageManager/storage_pool_create_storage_pool?version=7) |
+| 卸载并重装 | 在测试实例先做可恢复的套件状态及下载文件备份。保留数据卸载，再装回相同架构和版本的 SPK。重新打开 Motrix 后检查原任务、设置、旧凭据和文件哈希。再在可丢弃的实例勾选删除应用数据卸载重装，验证任务列表为空、旧凭据被拒绝、共享目录内合成文件的哈希不变。 | 两种方式均停止服务。清除选项会删除整个实例的任务、设置和配对信息。 |
+
 ## 构建与验证
 
 使用 Node 24.18.0、仓库锁定的 pnpm 和 Rust 版本、Python 3.12+
 （或支持 tar extraction filter 的 Python 3.11），以及用于隔离验收的 Docker。
-在具备 `x86_64-unknown-linux-musl` Rust target 的 Linux x86_64 构建机上运行：
+在对应架构的 Linux 构建机安装 Rust musl target（x64 或 aarch64）和 GNU binutils。ARM64 还需安装 qemu-user。示例构建 ARM64，x86_64 使用 `arch=x64`。
 
 ```sh
+arch=arm64
 MOTRIX_SKIP_ELECTRON_REBUILD=1 MOTRIX_SKIP_ENGINE_FETCH=1 pnpm install --frozen-lockfile
-pnpm run fetch:engine -- --platform linux --arch x64
+pnpm run fetch:engine -- --platform linux --arch "$arch"
 pnpm run build:server
-pnpm run stage:server -- --platform linux --arch x64 --libc gnu --strict
-pnpm run build:synology -- --output-dir release/synology/project --revision 1
-pnpm run verify:synology -- --spk release/synology/Motrix-2.3.0-1-dsm-x64.spk
+pnpm run stage:server -- --platform linux --arch "$arch" --libc gnu --strict
+pnpm run build:synology -- --arch "$arch" --output-dir "release/synology-$arch/project"
+pnpm run verify:synology -- --spk "release/synology-$arch/Motrix-2.3.0-11-dsm-$arch.spk"
+```
+
+GitHub Actions 的 `synology.yml` 在原生 x64 和 ARM64 runner 上分别构建，再从最终 SPK 解包测试。稳定版发布成功后，`synology-publish.yml` 用该 tag 的确切提交重建两种架构。受保护的发布作业校验 tag、构建提交、两份安装包、校验和和逐平台 ABI 报告，再附加到已有 GitHub Release。失败重试不覆盖已有文件。输出不等同于群晖商店上架。
+
+本地可将两种架构各自的 `.spk`、`.spk.sha256` 和 `.spk.abi.json` 放入同一个目录，用只读命令复核。传入 SPK 收据中记录的版本和完整源码提交。
+
+```sh
+python3 scripts/synology_publication.py verify "$asset_dir" "$version" "$source_sha"
 ```
 
 每次构建使用新的输出目录。增加数字 revision 可生成支持原位升级的 SPK，同时
@@ -180,7 +209,7 @@ runtime lock 校验。NAS 上不安装 Electron、npm、编译器或工具链。
 
 SPK 构建器会解包实际外层归档和 `package.tgz`，拒绝目录穿越、链接、重复成员
 及 macOS 元数据，检查文件哈希和执行权限，并重新执行 Server 包验证。
-每个 ELF 的架构、动态依赖和符号版本都与固定校验和的官方 Gemini Lake sysroot
+每个 ELF 的架构、动态依赖和符号版本都与该包声明平台对应的官方 sysroot
 比对；包内 Node 和 SQLite 还会经 DSM loader 加载并执行 SQLite 读写。
 aria2 和文件系统辅助程序为静态程序。SDK 仅用于构建，不包含在分发 SPK 中。
 
@@ -205,9 +234,3 @@ aria2 和文件系统辅助程序为静态程序。SDK 仅用于构建，不包�
 | 架构 | [官方架构映射](https://help.synology.com/developer-guide/appendix/platarchs.html)、[机型 CPU 列表](https://kb.synology.com/en-global/DSM/tutorial/What_kind_of_CPU_does_my_NAS_have)。DS920+/DS220+ 属于 Gemini Lake；DS220j 是 RTD1296（ARMv8），不能安装 x86_64 包。 |
 | 工具链 | [官方选择说明](https://help.synology.com/developer-guide/compile_applications/download_dsm_tool_chain.html)、[环境准备](https://help.synology.com/developer-guide/getting_started/prepare_environment.html)、[spksrc Gemini Lake 输入](https://github.com/SynoCommunity/spksrc/tree/master/toolchain/syno-geminilake-7.2)。准确归档 SHA-256 记录在 `scripts/synology-runtime.lock.json`。 |
 | 成熟开源参考 | [SynoCommunity/spksrc](https://github.com/SynoCommunity/spksrc) 及其 [Transmission 生命周期](https://github.com/SynoCommunity/spksrc/blob/master/spk/transmission/src/service-setup.sh)，用于核对 FHS 保留和套件账号运行；没有照搬安装时下载依赖的做法。 |
-
-ARM64 有可行基础：[RTD1296 7.2 工具链](https://github.com/SynoCommunity/spksrc/blob/master/toolchain/syno-rtd1296-7.2/Makefile)
-采用 GCC 12.2、glibc 2.36 和 AArch64 target，但仍需单独锁定 sysroot，验证
-ELF/SQLite/Node、指令集和真实 ARM 硬件。ARMv7 还需要当前 Server staging 矩阵
-没有提供的运行时和原生模块支持。因此构建器只输出 x86_64，不交付 ARM 包，
-也不宣称完成 ARM 验收。

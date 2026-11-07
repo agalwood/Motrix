@@ -11,10 +11,20 @@ store listing. Verify its adjacent `.sha256` file before installation.
 
 ## Supported scope
 
-The first target is **DSM 7.2.2-72806 or later, x86_64**. It is an
+Native x86_64 and ARM64 SPKs target **DSM 7.2.2-72806 or later**. It is an
 **administrator-shared instance**: all authorized local DSM administrators can
 manage the same tasks, settings and plugins. Ordinary, disabled, domain and LDAP
 accounts are denied. There is no per-user task isolation or quota accounting.
+
+One ARM64 SPK contains one AArch64 payload. Its INFO lists the three Package Arch values below, based on the [official DSM firmware archive](https://archive.synology.com/download/Os/DSM/7.2.2-72806-9).
+
+| Package Arch | Models |
+| --- | --- |
+| rtd1296 | DS118, DS218, DS218play, DS220j, DS418, DS418j, DS420j, RS819 |
+| rtd1619b | DS124, DS223, DS223j, DS423 |
+| armada37xx | DS119j, DS120j |
+
+The builder checks the same archive against all three official sysroots and exercises its binaries under Cortex-A53 CPU emulation. Low-memory models need hardware memory-pressure testing. The separate `rtd1619` platform lacks a matching toolchain in the pinned SDK directory. ARMv7/32-bit is outside this package. DS718+ and DS423+ take the x86_64 build. [Toolchain directory](https://archive.synology.com/download/ToolChain/toolchain/7.2-72806) · [Synology platform mapping](https://help.synology.com/developer-guide/appendix/platarchs.html)
 
 On 2026-11-07, **2.3.0-10** passed a directory replacement test on a **DS718+
 (DSM 7.4.1)** after a manual upgrade from 2.3.0-9. A completed HTTP task had
@@ -76,7 +86,7 @@ and entered it in the extension. The extension reconnected after a package
 restart and fresh Web authentication, ran task and stats queries, and added
 and deleted a 51-byte test download. Its SHA-256 matched the source. Revocation
 disconnected the extension and denied subsequent task queries.
-ARM builds and device acceptance are not available.
+ARM64 userspace coverage is listed above. Physical ARM NAS acceptance remains open.
 
 ## Use and permissions
 
@@ -218,19 +228,38 @@ reinstall paths preserved the HTTP and BitTorrent downloads. DSM controls the
 lifecycle sequence and resource cleanup. Fresh install, repair and uninstall
 retention still need acceptance on a physical NAS.
 
+## Controlled DSM device acceptance
+
+Use a spare DSM or isolated Virtual DSM. Create a test administrator, disposable shared folder and completed synthetic download. Record the task ID, file SHA-256, settings and a successful test client query. Keep a separate administrator session. Use temporary client profiles for credentials.
+
+| Scenario | Procedure and pass criteria | Effect on data |
+| --- | --- | --- |
+| Account demotion or disablement | Pair the test CLI and extension. Remove the test account from administrators using the other administrator session. Requests from its existing Web session and clients must be denied. Repeat with account disablement. Restore membership, sign in again and pair again as needed. Check the task and file hash. | Downloads remain on disk. Changes to the account database may invalidate other existing pairings. |
+| Volume loss and recovery | Install the package and its data on test volume A. Put the test download root on a separate disposable volume B. Stop Motrix, power down and safely detach only the disk for B. Boot DSM and start Motrix. Expect the recovery page, a stopped engine, a closed client port and no recreated folder. Power down, restore B, then verify the folder identity, task and file hash. If device identity changes, explicitly authorize another path in recovery. | All services and shares on B lose access while offline. Removing a pool or volume erases data. Use a test disk independent of production, system and RAID-member disks. [Synology storage pool guide](https://kb.synology.com/en-id/DSM/help/DSM/StorageManager/storage_pool_create_storage_pool?version=7) |
+| Uninstall and reinstall | Back up the disposable instance's package state and download. Uninstall keeping application data and reinstall the same version and architecture. Reopen Motrix and verify the task, settings, old credential and file hash. On a disposable instance repeat with explicit data deletion. Expect an empty task list and a rejected old credential, with the shared file unchanged. | Both paths stop the service. Explicit data deletion clears all tasks, settings and pairings for that instance. |
+
 ## Build and verification
 
 Use Node 24.18.0, the repository's pinned pnpm and Rust versions, Python 3.12+
 (or Python 3.11 with tar extraction filters), and Docker for isolated acceptance.
-On a Linux x86_64 builder with the `x86_64-unknown-linux-musl` Rust target:
+Use a native Linux runner with its Rust musl target and GNU binutils. ARM64 also requires qemu-user. To build x86_64, set `arch=x64` in this example.
 
 ```sh
+arch=arm64
 MOTRIX_SKIP_ELECTRON_REBUILD=1 MOTRIX_SKIP_ENGINE_FETCH=1 pnpm install --frozen-lockfile
-pnpm run fetch:engine -- --platform linux --arch x64
+pnpm run fetch:engine -- --platform linux --arch "$arch"
 pnpm run build:server
-pnpm run stage:server -- --platform linux --arch x64 --libc gnu --strict
-pnpm run build:synology -- --output-dir release/synology/project --revision 1
-pnpm run verify:synology -- --spk release/synology/Motrix-2.3.0-1-dsm-x64.spk
+pnpm run stage:server -- --platform linux --arch "$arch" --libc gnu --strict
+pnpm run build:synology -- --arch "$arch" --output-dir "release/synology-$arch/project"
+pnpm run verify:synology -- --spk "release/synology-$arch/Motrix-2.3.0-11-dsm-$arch.spk"
+```
+
+The `synology.yml` GitHub Actions workflow builds on native x64 and ARM64 runners and verifies each final archive. After a successful stable release, `synology-publish.yml` rebuilds the exact tagged commit for both architectures. The protected publication job checks the tag, source commit, complete SPKs, digests and per-platform ABI reports before attaching them to the existing GitHub Release. Retries preserve existing assets. Synology Package Center store publication is separate.
+
+For local read-only verification, place the `.spk`, `.spk.sha256` and `.spk.abi.json` files for both architectures in one directory. Use the application version and full source commit from the SPK receipt.
+
+```sh
+python3 scripts/synology_publication.py verify "$asset_dir" "$version" "$source_sha"
 ```
 
 Use a fresh output directory for every build. A higher numeric revision creates
@@ -245,7 +274,7 @@ The SPK builder unpacks the actual outer archive and nested `package.tgz`, rejec
 traversal/links/duplicate names/macOS metadata, verifies payload hashes and
 executable modes, then reruns Server package verification. It checks every ELF's
 architecture, dynamic dependencies and symbol versions against the checksum-pinned
-Synology Gemini Lake sysroot. It also loads bundled Node and SQLite through the
+Synology sysroots for the package targets. It also loads bundled Node and SQLite through the
 DSM loader and exercises SQLite read/write. aria2 and the filesystem helper are
 static. The SDK is a build input and is not redistributed inside the SPK.
 
@@ -272,10 +301,3 @@ Sources reviewed for DSM 7.2.2 and DSM 7.4.1; device checks updated 2026-11-07:
 | Architecture | [Official architecture mapping](https://help.synology.com/developer-guide/appendix/platarchs.html) and [model/CPU list](https://kb.synology.com/en-global/DSM/tutorial/What_kind_of_CPU_does_my_NAS_have). DS920+/DS220+ are Gemini Lake; DS220j is RTD1296 (ARMv8), not x86_64. |
 | Toolchain | [Official toolchain selection](https://help.synology.com/developer-guide/compile_applications/download_dsm_tool_chain.html), [environment preparation](https://help.synology.com/developer-guide/getting_started/prepare_environment.html), and [spksrc Gemini Lake inputs](https://github.com/SynoCommunity/spksrc/tree/master/toolchain/syno-geminilake-7.2). The exact archive SHA-256 is recorded in `scripts/synology-runtime.lock.json`. |
 | Mature packaging reference | [SynoCommunity/spksrc](https://github.com/SynoCommunity/spksrc) and its [Transmission lifecycle](https://github.com/SynoCommunity/spksrc/blob/master/spk/transmission/src/service-setup.sh) informed FHS persistence and isolated package-user execution. No install-time dependency fetching is copied. |
-
-ARM64 is technically plausible: spksrc's [RTD1296 7.2 toolchain](https://github.com/SynoCommunity/spksrc/blob/master/toolchain/syno-rtd1296-7.2/Makefile)
-uses GCC 12.2/glibc 2.36 and an AArch64 target. It still needs a separately pinned
-sysroot, ELF/SQLite/Node tests, instruction-set checks and real ARM hardware.
-ARMv7 needs separate runtime/native module support absent from the current Server
-staging matrix. This builder intentionally emits only x86_64; no ARM package or
-ARM acceptance is claimed.

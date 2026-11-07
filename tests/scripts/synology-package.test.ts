@@ -191,3 +191,12 @@ it('refuses traversal, symlinks, macOS metadata and duplicate names in an SPK', 
     await rm(root, { recursive: true, force: true })
   }
 })
+
+it.skipIf(process.platform === 'win32')(
+  'verifies release architecture, source and payload before publication',
+  () => {
+    execFileSync('python3', ['tests/scripts/test_synology_publication.py'], {
+      env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' },
+    })
+  }
+)

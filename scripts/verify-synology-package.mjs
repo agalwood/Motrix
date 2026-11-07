@@ -13,6 +13,7 @@ import {
   verifyFnosBinary,
 } from './prepare-fnos-project.mjs'
 import dsmLock from './synology-runtime.lock.json' with { type: 'json' }
+import { synologyTarget } from './synology-target.mjs'
 import { verifyServerPackage } from './verify-server-package.mjs'
 
 export async function payloadInventory(root) {
@@ -44,10 +45,22 @@ export async function verifySynologyProject(root) {
   const receipt = await readJson('app/synology-build.json')
   assert.match(receipt.sourceCommit, /^[a-f0-9]{40}$/)
   assert.equal(typeof receipt.sourceDirty, 'boolean')
-  assert.equal(receipt.architecture, 'x64')
+  const arch = receipt.architecture
+  const target = synologyTarget(arch)
+  if (receipt.schemaVersion === 1) {
+    // Previously shipped x64 archives recorded only the Gemini Lake build SDK.
+    assert.equal(arch, 'x64')
+    assert.equal(
+      receipt.toolchainSha256,
+      target.platforms.geminilake.toolchain.sha256
+    )
+  } else {
+    assert.equal(receipt.schemaVersion, 2)
+    assert.deepEqual(receipt.platforms, Object.keys(target.platforms))
+    assert.deepEqual(receipt.toolchainDigests, target.toolchainDigests)
+  }
   assert.equal(receipt.minimumDsm, dsmLock.dsmVersion)
-  assert.equal(receipt.nodeArchiveSha256, nodeLock.node.x64.sha256)
-  assert.equal(receipt.toolchainSha256, dsmLock.toolchain.sha256)
+  assert.equal(receipt.nodeArchiveSha256, nodeLock.node[arch].sha256)
   assert.equal(
     sha256(await readFile(path.join(app, 'runtime/bin/node'))),
     receipt.nodeSha256
@@ -61,7 +74,7 @@ export async function verifySynologyProject(root) {
   const info = await readFile(path.join(root, 'INFO'), 'utf8')
   for (const field of [
     `version="${receipt.version}-${receipt.revision}"`,
-    'arch="x86_64"',
+    `arch="${target.infoArch}"`,
     `os_min_ver="${dsmLock.dsmVersion}"`,
     'maintainer="Dr_rOot"',
     'maintainer_url="https://github.com/agalwood"',
@@ -72,7 +85,7 @@ export async function verifySynologyProject(root) {
     'server/bin/aria2c',
     'server/bin/motrix-finalize-fs',
   ])
-    await verifyFnosBinary(path.join(app, file), 'x64')
+    await verifyFnosBinary(path.join(app, file), arch)
   for (const file of [
     'LICENSE',
     'runtime/LICENSE',
@@ -108,7 +121,7 @@ export async function verifySynologyProject(root) {
   await verifyServerPackage({
     appDir: path.join(app, 'server'),
     platform: 'linux',
-    arch: 'x64',
+    arch,
     libc: 'gnu',
   })
   assert.deepEqual(

@@ -2,11 +2,31 @@ name: DSM native SPK
 
 on:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      source_sha:
+        description: Exact commit of a verified stable release
+        required: true
+        type: string
   pull_request:
     branches: [main]
     paths:
       - 'packaging/synology/**'
+      - 'packaging/synology-abi.Dockerfile'
       - 'scripts/*synology*'
+      - 'scripts/nas_release.py'
+      - 'scripts/*server-app.mjs'
+      - 'scripts/*server-package*'
+      - 'scripts/server-runtime-dependencies.json'
+      - 'scripts/fnos-runtime.lock.json'
+      - 'scripts/engine.lock.json'
+      - 'scripts/prepare-fnos-project.mjs'
+      - 'packages/finalize-fs/**'
+      - 'src/renderer/routes/dashboard/**'
+      - 'tests/scripts/*synology*'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/synology-publish.yml'
       - 'scripts/spk_archive.py'
       - 'src/server/platform/synology/**'
       - 'src/server/platform/nas/**'
@@ -17,8 +37,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: synology-${{ github.ref }}
-  cancel-in-progress: true
+  group: synology-build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -32,9 +52,13 @@ jobs:
           - arch: x64
             os: ubuntu-24.04
             rust_target: x86_64-unknown-linux-musl
+          - arch: arm64
+            os: ubuntu-24.04-arm
+            rust_target: aarch64-unknown-linux-musl
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ inputs.source_sha || github.sha }}
           persist-credentials: false
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
@@ -48,6 +72,9 @@ jobs:
         with:
           toolchain: 1.94.1
           targets: ${{ matrix.rust_target }}
+      - name: Install ARM instruction-set verifier
+        if: matrix.arch == 'arm64'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends qemu-user
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
         env:
@@ -59,8 +86,8 @@ jobs:
           pnpm run build:server
           pnpm run check:third-party-notices
           pnpm run stage:server -- --platform linux --arch '${{ matrix.arch }}' --libc gnu --strict
-          pnpm run build:synology -- --output-dir release/synology/project
-      - name: Upload verified test packages
+          pnpm run build:synology -- --arch '${{ matrix.arch }}' --output-dir release/synology/project
+      - name: Upload verified packages
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: motrix-synology-${{ matrix.arch }}
@@ -68,6 +95,6 @@ jobs:
             release/synology/*.spk
             release/synology/*.sha256
             release/synology/*.abi.json
-            release/size-reports/server-linux-${{ matrix.arch }}-gnu.json
           if-no-files-found: error
           retention-days: 14
+          overwrite: true

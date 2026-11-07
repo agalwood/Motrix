@@ -14,6 +14,7 @@ on:
       - '.github/workflows/fnos.yml'
       - '.github/workflows/fnos-publish.yml'
       - 'scripts/fnos_publication.py'
+      - 'scripts/nas_release.py'
 
 permissions:
   contents: read

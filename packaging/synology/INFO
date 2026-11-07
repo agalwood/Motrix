@@ -1,6 +1,6 @@
 package="Motrix"
 version="@VERSION@-@REVISION@"
-arch="x86_64"
+arch="@ARCH@"
 os_min_ver="7.2.2-72806"
 description="Download files and torrents with Motrix. All DSM administrators share one download list."
 description_chs="使用 Motrix 下载文件和种子。所有 DSM 管理员共同管理同一组下载任务。"
