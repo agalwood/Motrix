@@ -173,8 +173,14 @@ Uninstall defaults to keeping application data. The explicit **Delete tasks,
 settings and paired clients** option deletes only package-owned state after a
 successful stop. Downloaded files are always retained. Reinstalling with retained
 data restores the same shared instance, subject to current account and directory
-permissions. DSM itself owns lifecycle ordering and resource cleanup; real
-fresh install, repair and uninstall-retention acceptance remains required.
+permissions. In a Linux simulation using the final revision 9 SPK, reinstalling
+with retained data preserved database and engine files byte for byte and
+restored the existing task and settings. The old CLI credential could query the
+task after the administrator reopened Motrix. Reinstalling after explicit data
+deletion started with an empty task list and rejected the old credential. Both
+reinstall paths preserved the HTTP and BitTorrent downloads. DSM controls the
+lifecycle sequence and resource cleanup. Fresh install, repair and uninstall
+retention still need acceptance on a physical NAS.
 
 ## Build and verification
 

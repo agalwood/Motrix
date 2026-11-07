@@ -369,6 +369,29 @@ const pair = async () => {
   assert.equal(result.status, 'approved')
   return result.token
 }
+const replacePayload = async () => {
+  await rm(target, { recursive: true, force: true })
+  await cp(path.join(project, 'app'), target, { recursive: true })
+  execFileSync('chown', ['-R', '1600:1600', target])
+}
+
+const reinstall = async (wizardPort) => {
+  assert.equal(
+    (
+      await execute('postuninst', undefined, {
+        SYNOPKG_PKG_STATUS: 'UNINSTALL',
+      })
+    ).code,
+    0
+  )
+  assert.equal((await execute('preinst')).code, 0)
+  await replacePayload()
+  assert.equal(
+    (await execute('postinst', undefined, { wizard_client_port: wizardPort }))
+      .code,
+    0
+  )
+}
 try {
   assert.equal((await execute('postinst')).code, 0)
   await life('start')
@@ -666,9 +689,7 @@ try {
     `${variable}/data/motrix.db`,
     tiny.taskId,
   ])
-  await rm(target, { recursive: true, force: true })
-  await cp(path.join(project, 'app'), target, { recursive: true })
-  execFileSync('chown', ['-R', '1600:1600', target])
+  await replacePayload()
   assert.equal(
     (await execute('postupgrade', undefined, { SYNOPKG_PKG_STATUS: 'UPGRADE' }))
       .code,
@@ -816,12 +837,36 @@ try {
   assert.deepEqual(await readFile(`${offline}/bt-fixture.bin`), payload)
   await life('stop')
   await rename(offline, downloads)
+  const beforeUninstall = await durableHashes()
+  const readConfig = () =>
+    Promise.all(
+      ['package-settings.json', 'directories.json'].map((name) =>
+        readFile(path.join(variable, name), 'utf8')
+      )
+    )
+  const retainedConfig = await readConfig()
   assert.equal(
     (await execute('preuninst', undefined, { SYNOPKG_PKG_STATUS: 'UNINSTALL' }))
       .code,
     0
   )
-  assert.ok(await stat(`${variable}/data`))
+  // DSM replaces target and retains var. An install wizard default must not
+  // override the retained instance. Check the actual task and its credential.
+  await reinstall('16814')
+  assert.deepEqual(await durableHashes(), beforeUninstall)
+  assert.deepEqual(await readConfig(), retainedConfig)
+  await life('start')
+  assert.equal((await rpc(Methods.TaskList, {}, token)).status, 403)
+  assert.equal(JSON.parse((await web('/rpc/auth/status')).body).authed, true)
+  const retainedTask = await (
+    await rpc(Methods.TaskGet, { taskId: tiny.taskId }, token)
+  ).json()
+  assert.equal(retainedTask.result?.task?.id, tiny.taskId)
+  assert.equal(retainedTask.result.task.status, 'completed')
+  assert.equal(
+    await readFile(`${downloads}/tiny.txt`, 'utf8'),
+    'tiny native download'
+  )
   assert.equal(
     (
       await execute('preuninst', undefined, {
@@ -831,10 +876,30 @@ try {
     ).code,
     0
   )
-  assert.equal(await stat(`${variable}/data`).catch(() => null), null)
-  assert.ok(await stat(downloads))
+  for (const name of [
+    'data',
+    'package-settings.json',
+    'directories.json',
+    'pending-settings.json',
+  ]) {
+    await assert.rejects(stat(path.join(variable, name)), { code: 'ENOENT' })
+  }
+  await reinstall('16812')
+  await life('start')
+  assert.equal(JSON.parse((await web('/rpc/auth/status')).body).authed, true)
+  assert.equal((await rpc(Methods.TaskList, {}, token)).status, 401)
+  const freshTasks = await web('/rpc/query/query%3AlistTasks', admin, {
+    args: [],
+  })
+  assert.equal(freshTasks.status, 200)
+  assert.deepEqual(JSON.parse(freshTasks.body), [])
+  assert.deepEqual(await readFile(`${downloads}/bt-fixture.bin`), payload)
+  assert.equal(
+    await readFile(`${downloads}/tiny.txt`, 'utf8'),
+    'tiny native download'
+  )
   console.log(
-    'DSM Linux simulation passed: nonroot lifecycle and gateway socket isolation, cookie authentication, CLI pairing, account revocation, HTTP/BT download, ACL denial, symlink denial, file deletion, upgrade persistence, stale PID, uninstall retention'
+    'DSM Linux simulation passed: nonroot lifecycle and gateway socket isolation, cookie authentication, CLI pairing, account revocation, HTTP/BT download, ACL denial, symlink denial, file deletion, upgrade persistence, stale PID, retained-data reinstall and clean reinstall after purge'
   )
 } finally {
   await execute('start-stop-status', 'stop')
