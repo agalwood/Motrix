@@ -198,6 +198,28 @@ fn rename_only_file_excludes_writers_until_the_published_handle_closes() {
 }
 
 #[test]
+fn synced_guard_preserves_the_post_close_stamp_and_excludes_late_writers() {
+    let scratch = Scratch::new("synced-guard");
+    let source = scratch.path().join("app.zip.motrix");
+    let target = scratch.path().join("app.zip");
+    fs::write(&source, b"download").unwrap();
+    let root = open_root(scratch.path().to_str().unwrap()).unwrap();
+    let (guard, _) = super::open_rename_guard(&root, "app.zip.motrix")
+        .unwrap()
+        .expect("NTFS guard");
+    assert!(fs::OpenOptions::new().write(true).open(&source).is_err());
+    rename_opened_no_replace(&guard, &root, "app.zip").unwrap();
+    assert!(fs::OpenOptions::new().write(true).open(&target).is_err());
+    let installed = super::metadata::change_time(&guard.handle).unwrap();
+    drop(guard);
+    let reopened =
+        super::nt::open_selected(&root.handle, &super::nt::wide_name("app.zip").unwrap()).unwrap();
+    assert_eq!(super::metadata::change_time(&reopened).unwrap(), installed);
+    assert_eq!(fs::read(target).unwrap(), b"download");
+    assert!(!source.exists());
+}
+
+#[test]
 fn rename_admission_rejects_an_existing_writer_even_when_it_shares_delete() {
     use std::os::windows::fs::OpenOptionsExt;
     use windows_sys::Win32::Storage::FileSystem::{

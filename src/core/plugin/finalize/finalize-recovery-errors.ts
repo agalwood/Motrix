@@ -2,6 +2,10 @@ import { constants } from 'node:os'
 import { ArtifactIdentityError } from './artifact-identity'
 import { FinalizeFsError } from './filesystem-adapter'
 
+export const RENAMED_SOURCE_CHANGED = 'renamed source stamp changed'
+
+export class FinalizeSourceVerificationError extends Error {}
+
 /** Storage absence must block this task's retry without blocking app startup. */
 export class FinalizeRecoveryDeferredError extends Error {
   constructor(message: string) {

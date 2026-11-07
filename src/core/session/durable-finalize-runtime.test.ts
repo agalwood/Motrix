@@ -185,9 +185,20 @@ describe('DurableFinalizeRuntime', () => {
     ])
     const events: string[] = []
     const fs = {
-      renameIdentity: vi.fn(async () => {
+      prepareFileRename: vi.fn(async () => {
         events.push('capture')
-        return renameIdentity
+        return {
+          sourceIdentity: renameIdentity,
+          publish: async () => {
+            artifacts.delete(sourcePath)
+            artifacts.set(targetPath, installedIdentity)
+            events.push('publish')
+            return installedIdentity
+          },
+          close: async () => {
+            events.push('close')
+          },
+        }
       }),
       identity: vi.fn(
         async (artifactPath: string, expected?: ArtifactIdentity) => {
@@ -197,17 +208,8 @@ describe('DurableFinalizeRuntime', () => {
       ),
       sameFilesystem: async () => true,
       materializePrivate: vi.fn(),
-      moveNoReplace: vi.fn(
-        async (
-          _source: string,
-          _expected: ArtifactIdentity,
-          target: string
-        ) => {
-          artifacts.delete(sourcePath)
-          artifacts.set(target, installedIdentity)
-          return installedIdentity
-        }
-      ),
+      moveNoReplace: vi.fn(),
+      preflight: vi.fn(),
       makeDurable: vi.fn(async () => undefined),
       removeKnown: vi.fn(),
     } satisfies FinalizeArtifactOperations
@@ -246,8 +248,20 @@ describe('DurableFinalizeRuntime', () => {
         postDeliveries: [],
       })
       expect(result.targetIdentity).toEqual(installedIdentity)
-      expect(events).toEqual(['quiesce', 'capture', 'release'])
-      expect(fs.renameIdentity).toHaveBeenCalledExactlyOnceWith(sourcePath)
+      expect(events).toEqual([
+        'quiesce',
+        'capture',
+        'publish',
+        'close',
+        'release',
+      ])
+      expect(fs.prepareFileRename).toHaveBeenCalledExactlyOnceWith(
+        sourcePath,
+        targetPath
+      )
+      expect(fs.preflight).not.toHaveBeenCalled()
+      expect(fs.makeDurable).not.toHaveBeenCalled()
+      expect(fs.moveNoReplace).not.toHaveBeenCalled()
       expect(fs.materializePrivate).not.toHaveBeenCalled()
       expect(fs.removeKnown).not.toHaveBeenCalled()
       expect(
@@ -288,9 +302,7 @@ describe('DurableFinalizeRuntime', () => {
         sha256: 'a'.repeat(64),
       }
       const fs = {
-        renameIdentity: vi.fn(async () =>
-          scenario === 'unsupported' ? null : renameIdentity
-        ),
+        prepareFileRename: vi.fn(async () => null),
         identity: vi.fn(async () => fullIdentity),
         sameFilesystem: vi.fn(),
         materializePrivate: vi.fn(),
@@ -338,7 +350,7 @@ describe('DurableFinalizeRuntime', () => {
             postDeliveries: [],
           })
         ).rejects.toThrow('captured content identity')
-        expect(fs.renameIdentity).toHaveBeenCalledTimes(
+        expect(fs.prepareFileRename).toHaveBeenCalledTimes(
           scenario === 'unsupported' ? 1 : 0
         )
         expect(fs.identity).toHaveBeenCalledWith(sourcePath)

@@ -1468,7 +1468,8 @@ async function startEngineAndRestore(
         listActiveAndWaiting: () => adapter.listActiveAndWaiting(),
       },
       fs: defaultRecoveryFs,
-      finalizeTask: (taskId) => finalizeTask(taskId, finalizeDepsFactory()),
+      finalizeTask: (taskId, recoverySha256) =>
+        finalizeTask(taskId, { ...finalizeDepsFactory(), recoverySha256 }),
       activityRecorder: requireTaskActivityService(),
       recordTransition: (input: RuntimeTransitionInput) =>
         taskInspectorActivityRuntime?.recordTransition(input),
@@ -3052,10 +3053,10 @@ async function initializeMainProcess(): Promise<void> {
     bindTaskRetry: (fn) => {
       dnsFallbackRetry = fn
     },
-    recoverFinalization: async (taskId) => {
+    recoverFinalization: async (taskId, sha256) => {
       if (!recoveryService) throw new Error('Task recovery is not ready')
       try {
-        const report = await recoveryService.recoverTaskById(taskId)
+        const report = await recoveryService.recoverTaskById(taskId, sha256)
         if (report.errors.length > 0) throw new Error(report.errors[0].issue)
       } finally {
         publishTaskUpdateNow()

@@ -2,6 +2,7 @@ import { constants } from 'node:fs'
 import { lstat, mkdtemp, open, readdir, rmdir, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { ensureDirectory } from '@core/fs/ensure-directory'
+import { getLogger } from '@core/logger'
 import {
   type ArtifactIdentity,
   ArtifactIdentityCache,
@@ -23,6 +24,7 @@ import type {
   FinalizeIsolation,
   FinalizeRemovalIntent,
   FinalizeRemovalSurvivor,
+  PreparedFileRename,
 } from './finalize-committer'
 import {
   reservationMatches,
@@ -186,6 +188,92 @@ export class NativeFinalizeArtifactOperations
       )
         return null
       throw error
+    }
+  }
+
+  async prepareFileRename(
+    sourcePath: string,
+    targetPath: string
+  ): Promise<PreparedFileRename | null> {
+    const caps = await this.adapter.capabilities()
+    if (
+      caps.platform !== 'windows' ||
+      !caps.heldFileWriteExclusion ||
+      !caps.syncedRenameGuard ||
+      !this.adapter.openRenameGuard
+    )
+      return null
+    if (
+      sourcePath !== `${targetPath}.motrix` ||
+      path.dirname(sourcePath) !== path.dirname(targetPath)
+    )
+      throw new Error('expected a same-directory suffix rename')
+    const entry = await lstat(sourcePath).catch((err) => {
+      if (err.code === 'ENOENT') return null
+      throw err
+    })
+    if (!entry?.isFile() || entry.isSymbolicLink()) return null
+    await this.assertSupported()
+    const root = await this.adapter.openRoot(path.dirname(sourcePath))
+    let guard: Awaited<
+      ReturnType<NonNullable<FinalizeFilesystemAdapter['openRenameGuard']>>
+    > = null
+    let transferred = false
+    let closed = false
+    const close = async () => {
+      if (closed) return
+      closed = true
+      // A dead sidecar releases its handles. A transport error closing a
+      // handle must not demote an already committed task or hide the cause.
+      for (const handle of [guard?.handle, root]) {
+        if (handle)
+          await this.adapter.close(handle).catch((err) => {
+            getLogger('finalize').warn({ err }, 'finalize_guard_close_failed')
+          })
+      }
+    }
+    try {
+      guard = await this.adapter
+        .openRenameGuard(root, path.basename(sourcePath))
+        .catch((error) => {
+          if (error instanceof FinalizeFsError && error.code === 'unsupported')
+            return null
+          throw error
+        })
+      if (!guard) return null
+      const sourceIdentity = await this.renameIdentity(sourcePath)
+      if (!sourceIdentity) return null
+      if (guard.platformFileId !== sourceIdentity.platformFileId)
+        throw new ArtifactIdentityError(
+          'artifact_mutated',
+          'source path does not identify the held file'
+        )
+      await this.adapter.syncRoot(root)
+      const artifact = guard.handle
+      transferred = true
+      return {
+        sourceIdentity,
+        close,
+        publish: async () => {
+          await this.requireIdentity(sourcePath, sourceIdentity)
+          const result = await this.adapter.renameOpenedNoReplace(
+            artifact,
+            root,
+            path.basename(targetPath)
+          )
+          if (!result)
+            throw new Error('held rename omitted directory durability')
+          const installed = await readRenameFileIdentity(targetPath)
+          if (!renameFileIdentityMatches(installed, sourceIdentity))
+            throw new ArtifactIdentityError(
+              'artifact_mutated',
+              'published name does not identify the held file'
+            )
+          return installed
+        },
+      }
+    } finally {
+      if (!transferred) await close()
     }
   }
 

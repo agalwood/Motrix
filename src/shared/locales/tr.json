@@ -1189,6 +1189,7 @@
         "recoveryFailed": "İndirme kurtarılamadı: {{cause}}",
         "recoveryOutputConflict": "Hem geçici hem de son dosya mevcut; elle incelenmeleri için ikisi de korundu",
         "filesMissing": "Uygulama yeniden başlatıldıktan sonra dosyalar bulunamadı",
+        "verifyFinalizeSource": "Geçici dosya korundu. Dosyayı doğrulamak ve indirmeyi tamamlamak için yayıncının SHA-256 değerini girin.",
         "renameFileFailed": "Dosya yeniden adlandırılamadı: {{cause}}",
         "renameDirFailed": "Klasör yeniden adlandırılamadı: {{cause}}",
         "pluginChainAborted": "Eklenti zinciri durduruldu: {{cause}}",

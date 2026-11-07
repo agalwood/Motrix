@@ -1189,6 +1189,7 @@
         "recoveryFailed": "Could not recover the download: {{cause}}",
         "recoveryOutputConflict": "Both the temporary and final files exist; both were preserved for manual review",
         "filesMissing": "Files are missing after the app restarted",
+        "verifyFinalizeSource": "The temporary file was preserved. Enter the publisher’s SHA-256 to verify the file and finish the download.",
         "renameFileFailed": "Failed to rename the file: {{cause}}",
         "renameDirFailed": "Failed to rename the directory: {{cause}}",
         "pluginChainAborted": "Plugin chain aborted: {{cause}}",

@@ -169,7 +169,7 @@ export interface TaskActionsState {
   onResume: () => Promise<void>
   onStopSeeding: () => Promise<void>
   onReseed: (modifier?: { alt: boolean }) => Promise<void>
-  onRetry: (modifier?: { alt: boolean }) => Promise<void>
+  onRetry: (modifier?: { alt: boolean; sha256?: string }) => Promise<void>
   onRedownload: (modifier?: { alt: boolean }) => Promise<void>
   closeRedownloadOverwriteDialog: () => void
   confirmRedownloadOverwrite: () => Promise<void>
@@ -370,10 +370,24 @@ export function useTaskActions(
   )
 
   const onRetry = useCallback(
-    async (modifier?: { alt: boolean }) => {
+    async (modifier?: { alt: boolean; sha256?: string }) => {
       if (!readyToWrite()) return
       const sessionEpoch = useOperatorSession.getState().epoch
       let targets = resolveLatest(selected)
+      if (modifier?.sha256) {
+        const [task] = targets
+        if (targets.length !== 1 || !task || !canOfferRetry(task)) return
+        try {
+          await transport.invoke(Commands.ReAddTask, {
+            taskId: task.id,
+            sha256: modifier.sha256,
+          })
+          invalidateTaskList()
+        } catch (error) {
+          reportPartial([{ ok: false, task, reason: errMsg(error) }])
+        }
+        return
+      }
       const candidates = modifier?.alt
         ? []
         : targets.filter(

@@ -1189,6 +1189,7 @@
         "recoveryFailed": "Der Download konnte nicht wiederhergestellt werden: {{cause}}",
         "recoveryOutputConflict": "Sowohl die temporäre als auch die endgültige Datei sind vorhanden; beide wurden zur manuellen Prüfung beibehalten",
         "filesMissing": "Nach dem Neustart der Anwendung fehlen Dateien",
+        "verifyFinalizeSource": "Die temporäre Datei wurde beibehalten. Geben Sie den SHA-256-Prüfwert des Herausgebers ein, um die Datei zu prüfen und den Download abzuschließen.",
         "renameFileFailed": "Die Datei konnte nicht umbenannt werden: {{cause}}",
         "renameDirFailed": "Der Ordner konnte nicht umbenannt werden: {{cause}}",
         "pluginChainAborted": "Plugin-Kette abgebrochen: {{cause}}",

@@ -17,6 +17,7 @@ import {
 import {
   FinalizeRecoveryDeferredError,
   isUnavailableArtifactError,
+  RENAMED_SOURCE_CHANGED,
 } from './finalize-recovery-errors'
 import {
   linkPublicationConfirmed,
@@ -343,8 +344,21 @@ export class FinalizeRecovery {
       if (
         record.phase === 'db_committed' ||
         !this.options.exactIdentity(source, expectedSource)
-      )
-        return this.quarantine(record, 'renamed source stamp changed')
+      ) {
+        getLogger('finalize').warn(
+          {
+            taskId: record.plan.taskId,
+            journalId: record.journalId,
+            phase: record.phase,
+            changedFields: Object.keys(expectedSource).filter(
+              (key) =>
+                Reflect.get(source, key) !== Reflect.get(expectedSource, key)
+            ),
+          },
+          'finalize_source_stamp_mismatch'
+        )
+        return this.quarantine(record, RENAMED_SOURCE_CHANGED)
+      }
       await this.options.fs.makeDurable(record.plan.sourcePath)
       await this.options.repository.advance(record.journalId, 'cleaned')
       return

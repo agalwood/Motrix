@@ -2900,6 +2900,7 @@
         "recoveryFailed": "Kunne ikke gjenopprette nedlastingen: {{cause}}",
         "recoveryOutputConflict": "Både den midlertidige og den endelige filen finnes; begge er beholdt for manuell gjennomgang",
         "renameDirFailed": "Kunne ikke endre mappenavnet: {{cause}}",
+        "verifyFinalizeSource": "Den midlertidige filen er bevart. Skriv inn utgiverens SHA-256 for å kontrollere filen og fullføre nedlastingen.",
         "renameFileFailed": "Kunne ikke endre filnavnet: {{cause}}"
       },
       "hint": {

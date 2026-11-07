@@ -7,6 +7,7 @@ import {
   AlertTitle,
 } from '@renderer/components/ui/alert'
 import { Button } from '@renderer/components/ui/button'
+import { Input } from '@renderer/components/ui/input'
 import {
   Tooltip,
   TooltipContent,
@@ -26,6 +27,7 @@ import {
   isMediaTask,
   mediaProgressPercent,
 } from '@shared/utils/media-progress'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { StatusPill } from '../status-pill'
 import { getTaskEta, getTaskSpeed } from '../task-column-values'
@@ -74,6 +76,10 @@ function Row({
 function ErrorPanel({ task }: { task: DownloadTask }) {
   const { t, i18n } = useTranslation()
   const { onRetry } = useTaskActions([task])
+  const [sha256, setSha256] = useState('')
+  const [verifying, setVerifying] = useState(false)
+  const needsDigest =
+    task.errorDetailKey === 'task.error.detail.verifyFinalizeSource'
   const failure = resolveFailureReason(
     {
       errorCode: task.errorCode,
@@ -100,7 +106,38 @@ function ErrorPanel({ task }: { task: DownloadTask }) {
             )}
           </AlertDescription>
         )}
-        {showRetry && (
+        {needsDigest && showRetry && (
+          <form
+            className="col-start-2 flex items-center gap-2"
+            onSubmit={async (event) => {
+              event.preventDefault()
+              if (verifying || !/^[0-9a-f]{64}$/i.test(sha256.trim())) return
+              setVerifying(true)
+              try {
+                await onRetry({ alt: false, sha256: sha256.trim() })
+              } finally {
+                setVerifying(false)
+              }
+            }}
+          >
+            <Input
+              aria-label={t('task.error.detail.verifyFinalizeSource')}
+              placeholder="SHA-256"
+              value={sha256}
+              onChange={(event) => setSha256(event.target.value)}
+              autoComplete="off"
+              spellCheck={false}
+            />
+            <Button
+              size="xs"
+              type="submit"
+              disabled={verifying || !/^[0-9a-f]{64}$/i.test(sha256.trim())}
+            >
+              {t('panel.downloads.action.retry')}
+            </Button>
+          </form>
+        )}
+        {showRetry && !needsDigest && (
           <AlertAction>
             <Button
               size="xs"
@@ -138,7 +175,9 @@ export function OverviewTab({
   const isBt = task.type === TaskType.Bt || task.type === TaskType.Magnet
   return (
     <div className="flex flex-col gap-3">
-      {task.status === TaskStatus.Error && <ErrorPanel task={task} />}
+      {task.status === TaskStatus.Error && (
+        <ErrorPanel key={task.id} task={task} />
+      )}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card title={t('panel.downloads.inspector.overview.transfer')}>
           <Row

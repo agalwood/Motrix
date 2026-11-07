@@ -1,7 +1,9 @@
 import { createHash, randomBytes } from 'node:crypto'
 import path from 'node:path'
+import { getLogger } from '@core/logger'
 import {
   type ArtifactIdentity,
+  ArtifactIdentityError,
   type FileArtifactIdentity,
   type RenameFileArtifactIdentity,
   renameFileArtifactIdentitySchema,
@@ -131,6 +133,12 @@ export interface FinalizeJournalRepository {
   resumeQuarantined?(record: FinalizeJournalRecord): Promise<void>
 }
 
+export interface PreparedFileRename {
+  sourceIdentity: RenameFileArtifactIdentity
+  publish(): Promise<RenameFileArtifactIdentity>
+  close(): Promise<void>
+}
+
 export interface FinalizeArtifactOperations {
   reservedRenameSupported?(): Promise<boolean>
   reservedVolumeIdentity?(directoryPath: string): Promise<string | null>
@@ -144,9 +152,10 @@ export interface FinalizeArtifactOperations {
   ): Promise<FileArtifactIdentity>
   /** Validate the actual roots and flush source data before journaled mutation. */
   preflight?(sourcePath: string, targetPath: string): Promise<void>
-  renameIdentity?(
-    artifactPath: string
-  ): Promise<RenameFileArtifactIdentity | null>
+  prepareFileRename?(
+    sourcePath: string,
+    targetPath: string
+  ): Promise<PreparedFileRename | null>
   identity(
     artifactPath: string,
     expected?: ArtifactIdentity
@@ -216,7 +225,8 @@ export class FinalizeCommitter {
 
   async commit(
     plan: HookPlan,
-    existingLease?: ArtifactMutationLease
+    existingLease?: ArtifactMutationLease,
+    held?: PreparedFileRename
   ): Promise<FinalizeCommitResult> {
     assertValidHookPlan(plan)
     const lease =
@@ -230,27 +240,31 @@ export class FinalizeCommitter {
     }
     let prepared = false
     try {
-      await this.requireExactIdentity(
-        plan.sourcePath,
-        plan.sourceIdentity,
-        record
-      )
+      await this.requireExactIdentity(plan.sourcePath, plan.sourceIdentity)
       if (plan.replacement) {
         await this.requireExactIdentity(
           plan.replacement.stagedPath,
-          plan.replacement.identity,
-          record
+          plan.replacement.identity
         )
       }
       record.publicationMode = await this.selectPublicationMode(plan)
-      await this.options.fs.preflight?.(
-        plan.replacement?.stagedPath ?? plan.sourcePath,
-        plan.targetPath
+      if (
+        held &&
+        (record.publicationMode !== 'move' ||
+          !isOrdinarySuffixRemoval(plan) ||
+          !this.options.exactIdentity(held.sourceIdentity, plan.sourceIdentity))
       )
+        throw new Error('held rename does not match its journal plan')
+      if (!held)
+        await this.options.fs.preflight?.(
+          plan.replacement?.stagedPath ?? plan.sourcePath,
+          plan.targetPath
+        )
       await this.options.repository.prepare(record)
       prepared = true
-      return await this.commitPrepared(record, lease)
+      return await this.commitPrepared(record, lease, held)
     } catch (error) {
+      await held?.close()
       if (error instanceof FinalizeQuarantinedError) throw error
       if (prepared) await this.compensate(record, lease, error)
       throw error
@@ -261,7 +275,8 @@ export class FinalizeCommitter {
 
   private async commitPrepared(
     record: FinalizeJournalRecord,
-    _lease: ArtifactMutationLease
+    _lease: ArtifactMutationLease,
+    held?: PreparedFileRename
   ): Promise<FinalizeCommitResult> {
     const { plan } = record
     const selectedPath = plan.replacement?.stagedPath ?? plan.sourcePath
@@ -281,12 +296,14 @@ export class FinalizeCommitter {
       // moveNoReplace validates the expected source identity while holding the
       // artifact and both roots. Avoid hashing large artifacts once more here.
       try {
-        publishedIdentity = await this.publish(
-          record,
-          plan.sourcePath,
-          plan.sourceIdentity,
-          plan.targetPath
-        )
+        publishedIdentity = held
+          ? await held.publish()
+          : await this.publish(
+              record,
+              plan.sourcePath,
+              plan.sourceIdentity,
+              plan.targetPath
+            )
       } catch (error) {
         // st_dev is only a hint: bind mounts and OverlayFS can return EXDEV
         // even when both paths report the same device. Reconcile the names
@@ -321,7 +338,9 @@ export class FinalizeCommitter {
         })
         record.targetIdentity = publishedIdentity
       }
-      await this.options.fs.makeDurable(plan.targetPath)
+      // The guard already flushed this file and its rename synced the parent.
+      // Reopening the target for writing here conflicts with the guard itself.
+      if (!held) await this.options.fs.makeDurable(plan.targetPath)
     } else {
       if (samePath) {
         record.rollbackPath = this.options.rollbackPathFor(plan)
@@ -548,6 +567,17 @@ export class FinalizeCommitter {
         rollForwardTargetInstalled: false,
       }).recover(record, lease)
     } catch (compensationError) {
+      getLogger('finalize').error(
+        {
+          taskId: record.plan.taskId,
+          journalId: record.journalId,
+          phase: record.phase,
+          err: cause,
+          rollbackError: compensationError,
+          ...(cause instanceof FinalizeFsError ? cause.details : {}),
+        },
+        'finalize_commit_and_recovery_failed'
+      )
       const failures = new AggregateError(
         [cause, compensationError],
         'finalize failed and rollback needs recovery'
@@ -590,11 +620,16 @@ export class FinalizeCommitter {
   private async requireExactIdentity(
     artifactPath: string,
     expected: ArtifactIdentity,
-    record: FinalizeJournalRecord
+    record?: FinalizeJournalRecord
   ): Promise<ArtifactIdentity> {
     const actual = await this.options.fs.identity(artifactPath, expected)
     if (!actual || !this.options.exactIdentity(actual, expected)) {
-      await this.quarantine(record, `identity mismatch at ${artifactPath}`)
+      if (record)
+        await this.quarantine(record, `identity mismatch at ${artifactPath}`)
+      throw new ArtifactIdentityError(
+        'artifact_mutated',
+        'source identity changed before finalize journal preparation'
+      )
     }
     return actual as ArtifactIdentity
   }

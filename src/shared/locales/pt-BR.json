@@ -1203,6 +1203,7 @@
         "recoveryFailed": "Não foi possível recuperar o download: {{cause}}",
         "recoveryOutputConflict": "Os arquivos temporário e final existem; ambos foram preservados para revisão manual",
         "filesMissing": "Há arquivos ausentes após a reinicialização do aplicativo",
+        "verifyFinalizeSource": "O arquivo temporário foi preservado. Insira o SHA-256 fornecido pelo distribuidor para verificar o arquivo e concluir o download.",
         "renameFileFailed": "Não foi possível renomear o arquivo: {{cause}}",
         "renameDirFailed": "Não foi possível renomear a pasta: {{cause}}",
         "pluginChainAborted": "Cadeia de plugins interrompida: {{cause}}",

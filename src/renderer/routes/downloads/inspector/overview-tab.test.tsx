@@ -249,6 +249,30 @@ describe('OverviewTab', () => {
       ])
     })
 
+    it('submits the publisher digest only with the quarantined task retry', async () => {
+      renderOverviewTab({
+        ...task,
+        id: 'quarantined',
+        status: TaskStatus.Error,
+        type: TaskType.Http,
+        kind: TaskKind.Direct,
+        transitionPhase: TransitionPhase.Renaming,
+        errorDetailKey: 'task.error.detail.verifyFinalizeSource',
+      })
+      const input = screen.getByRole('textbox')
+      const retry = screen.getByRole('button', { name: 'Retry' })
+      expect(retry).toBeDisabled()
+      fireEvent.change(input, { target: { value: 'abc' } })
+      expect(retry).toBeDisabled()
+      const digest = 'ac'.repeat(32)
+      fireEvent.change(input, { target: { value: digest } })
+      await userEvent.click(retry)
+      expect(transport.invoke).toHaveBeenCalledWith(Commands.ReAddTask, {
+        taskId: 'quarantined',
+        sha256: digest,
+      })
+    })
+
     it('adds Retry to the timeout Alert for unresolved magnet metadata', () => {
       renderOverviewTab({
         ...task,

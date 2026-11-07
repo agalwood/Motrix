@@ -9,6 +9,7 @@ import type { DownloadTask } from '@shared/types/task'
 import {
   TaskInstancePhase,
   TaskStatus,
+  TaskType,
   TransitionPhase,
 } from '@shared/types/task'
 import {
@@ -50,7 +51,7 @@ import type { TorrentMetaStore } from '../torrent-meta-store'
 import { commitTaskUpdate, getTaskOrWarn, type TaskActionDeps } from './shared'
 
 export interface ReAddTaskDeps extends TaskActionDeps {
-  recoverFinalization?: (taskId: string) => Promise<void>
+  recoverFinalization?: (taskId: string, sha256?: string) => Promise<void>
   runTaskMutation: NonNullable<TaskActionDeps['runTaskMutation']>
   persistTask: NonNullable<TaskActionDeps['persistTask']>
   torrentMetaStore: TorrentMetaStore
@@ -500,10 +501,20 @@ async function handleFailedEngineAdd(
  */
 export async function reAddTask(
   taskId: string,
-  deps: ReAddTaskDeps
+  deps: ReAddTaskDeps,
+  sha256?: string
 ): Promise<void> {
   const task = deps.taskManager.getById(taskId)
   if (task) assertLegacyTaskNotRecreated(task)
+  if (
+    sha256 &&
+    (task?.type !== TaskType.Http ||
+      task.transitionPhase !== TransitionPhase.Renaming)
+  )
+    throw new AppError(
+      ErrorCode.TaskNotRetryable,
+      'no HTTP source is awaiting verification'
+    )
   if (
     task &&
     (task.transitionPhase === TransitionPhase.Renaming ||
@@ -516,7 +527,8 @@ export async function reAddTask(
       )
     }
     await deps.authorizeTaskWrite?.(task)
-    await deps.recoverFinalization(taskId)
+    if (sha256) await deps.recoverFinalization(taskId, sha256)
+    else await deps.recoverFinalization(taskId)
     return
   }
   const run = (

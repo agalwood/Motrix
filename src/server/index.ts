@@ -1252,10 +1252,10 @@ async function main() {
     bindTaskRetry: (fn) => {
       dnsFallbackRetry = fn
     },
-    recoverFinalization: async (taskId) => {
+    recoverFinalization: async (taskId, sha256) => {
       if (!recoveryService) throw new Error('Task recovery is not ready')
       try {
-        const report = await recoveryService.recoverTaskById(taskId)
+        const report = await recoveryService.recoverTaskById(taskId, sha256)
         if (report.errors.length > 0) throw new Error(report.errors[0].issue)
       } finally {
         publishTaskUpdateNow()
@@ -1742,7 +1742,8 @@ async function main() {
           listActiveAndWaiting: () => adapter.listActiveAndWaiting(),
         },
         fs: defaultRecoveryFs,
-        finalizeTask: (taskId) => finalizeTask(taskId, buildFinalizeDeps()),
+        finalizeTask: (taskId, recoverySha256) =>
+          finalizeTask(taskId, { ...buildFinalizeDeps(), recoverySha256 }),
         activityRecorder: taskActivityService,
         recordTransition: (input: RuntimeTransitionInput) =>
           taskInspectorActivityRuntime.recordTransition(input),

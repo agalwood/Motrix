@@ -173,6 +173,25 @@ impl State {
                     }
                 }
             }
+            Request::OpenRenameGuard {
+                request_id,
+                root,
+                relative,
+            } => {
+                let Some(root) = self.roots.get(&root) else {
+                    return Response::error(Some(request_id), "invalid_handle", "unknown root");
+                };
+                match crate::platform::open_rename_guard(root, &relative) {
+                    Ok(Some((artifact, file_id))) => {
+                        let mut response = Response::ok(Some(request_id));
+                        response.handle = Some(self.insert_artifact(artifact));
+                        response.platform_file_id = Some(file_id);
+                        response
+                    }
+                    Ok(None) => Response::ok(Some(request_id)),
+                    Err(error) => Response::filesystem_error(request_id, error),
+                }
+            }
             Request::OpenRemoval {
                 request_id,
                 root,
@@ -542,6 +561,7 @@ impl State {
         response.directory_sync = Some(cfg!(any(unix, windows)));
         response.held_artifacts = Some(cfg!(any(unix, windows)));
         response.held_file_write_exclusion = Some(cfg!(windows));
+        response.synced_rename_guard = Some(cfg!(windows));
         response.reserved_exfat_rename = Some(cfg!(target_os = "macos"));
         response.token_exfat_reservation = Some(cfg!(target_os = "macos"));
         response

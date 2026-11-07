@@ -23,6 +23,17 @@ mod windows;
 #[cfg(any(windows, test))]
 mod windows_policy;
 
+#[cfg(windows)]
+pub(crate) use windows::open_rename_guard;
+
+#[cfg(not(windows))]
+pub(crate) fn open_rename_guard(
+    _: &RootHandle,
+    _: &str,
+) -> std::io::Result<Option<(ArtifactHandle, String)>> {
+    Ok(None)
+}
+
 #[cfg(unix)]
 pub(crate) use unix::{
     ArtifactHandle, RootHandle, copy_opened, copy_selected_file, create_private_root,

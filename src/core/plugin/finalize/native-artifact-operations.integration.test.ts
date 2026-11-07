@@ -1,3 +1,5 @@
+import { execFile } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import {
   chmod,
@@ -14,8 +16,15 @@ import {
   utimes,
   writeFile,
 } from 'node:fs/promises'
+import { createServer } from 'node:http'
 import os from 'node:os'
 import path from 'node:path'
+import { promisify } from 'node:util'
+import { DurableFinalizeRuntime } from '@core/session/durable-finalize-runtime'
+import { SqliteFinalizeJournalRepository } from '@core/session/finalize-journal-repository'
+import { migrate } from '@core/session/migrations'
+import { makeDownloadTask } from '@test-utils/task'
+import Database from 'better-sqlite3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   artifactContentEquals,
@@ -281,6 +290,280 @@ describe.runIf(existsSync(binary))(
         await adapter.dispose()
       }
     })
+
+    it.runIf(process.env.MOTRIX_ARIA2_TEST_BIN)(
+      'publishes completed aria2 HTTP downloads through the journal',
+      async () => {
+        const { root, adapter, operations } = await setup()
+        const bytes = Buffer.alloc(512 * 1024, 0x51)
+        const server = createServer((_request, response) => {
+          response.writeHead(200, {
+            'Content-Length': bytes.length,
+            'Last-Modified': new Date(100000).toUTCString(),
+          })
+          response.end(bytes)
+        })
+        try {
+          await new Promise<void>((resolve, reject) => {
+            server.once('error', reject)
+            server.listen(0, '127.0.0.1', resolve)
+          })
+          const address = server.address()
+          if (!address || typeof address === 'string')
+            throw new Error('expected listener port')
+          for (const name of ['installer.exe', 'archive.zip']) {
+            const target = path.join(root, name)
+            const source = `${target}.motrix`
+            await promisify(execFile)(
+              process.env.MOTRIX_ARIA2_TEST_BIN!,
+              [
+                '--no-conf',
+                '--file-allocation=none',
+                '--remote-time=true',
+                '--dir',
+                root,
+                '--out',
+                `${name}.motrix`,
+                `http://127.0.0.1:${address.port}/${name}`,
+              ],
+              { timeout: 15000 }
+            )
+            const held = await operations.prepareFileRename(source, target)
+            try {
+              const sourceIdentity =
+                held?.sourceIdentity ?? (await operations.identity(source))
+              if (!sourceIdentity) throw new Error('missing download')
+              const commitTerminal = vi.fn()
+              const committer = new FinalizeCommitter({
+                fs: operations,
+                leases: new ArtifactMutationLeaseCoordinator([]),
+                repository: {
+                  prepare: vi.fn(),
+                  checkpoint: vi.fn(),
+                  advance: vi.fn(),
+                  commitTerminal,
+                  quarantine: vi.fn(),
+                  listRecoverable: async () => [],
+                },
+                privatePathFor: () => '',
+                rollbackPathFor: () => '',
+                exactIdentity: artifactIdentityEquals,
+                sameContent: artifactContentEquals,
+              })
+              await committer.commit(
+                {
+                  planId: name,
+                  taskId: name,
+                  saveDir: root,
+                  sourcePath: source,
+                  targetPath: target,
+                  sourceIdentity,
+                  contributors: [],
+                  metadataOps: [],
+                },
+                undefined,
+                held ?? undefined
+              )
+              expect(commitTerminal).toHaveBeenCalledOnce()
+              expect(existsSync(source)).toBe(false)
+              expect(await readFile(target)).toEqual(bytes)
+            } finally {
+              await held?.close()
+            }
+          }
+        } finally {
+          if (server.listening)
+            await new Promise<void>((resolve) => server.close(() => resolve()))
+          await adapter.dispose()
+        }
+      },
+      45000
+    )
+
+    it('publishes a synced suffix rename with no payload reads or writable reopen', async () => {
+      const { root, adapter, operations } = await setup()
+      const source = path.join(root, 'archive.zip.motrix')
+      const target = path.join(root, 'archive.zip')
+      await writeFile(source, 'payload')
+      if (process.platform !== 'win32') {
+        const caps = await adapter.capabilities()
+        vi.spyOn(adapter, 'capabilities').mockResolvedValue({
+          ...caps,
+          platform: 'windows',
+          syncedRenameGuard: true,
+          heldFileWriteExclusion: true,
+        })
+        vi.spyOn(adapter, 'openRenameGuard').mockImplementation(
+          async (heldRoot, name) => {
+            // Model a settled write time becoming visible when the flush handle closes.
+            await utimes(source, 100, 100)
+            const identity = await readRenameFileIdentity(source)
+            const artifact = await adapter.openArtifact(
+              heldRoot,
+              name,
+              'rename'
+            )
+            return { handle: artifact, platformFileId: identity.platformFileId }
+          }
+        )
+      }
+      const hash = vi.spyOn(hashing, 'hashOpenedFile')
+      const writableSync = vi.spyOn(operations, 'makeDurable')
+      try {
+        const held = await operations.prepareFileRename(source, target)
+        if (!held) throw new Error('missing synced rename guard')
+        try {
+          const committer = new FinalizeCommitter({
+            fs: operations,
+            leases: new ArtifactMutationLeaseCoordinator([]),
+            repository: {
+              prepare: vi.fn(),
+              checkpoint: vi.fn(),
+              advance: vi.fn(),
+              commitTerminal: vi.fn(),
+              quarantine: vi.fn(),
+              listRecoverable: async () => [],
+            },
+            privatePathFor: () => '',
+            rollbackPathFor: () => '',
+            exactIdentity: artifactIdentityEquals,
+            sameContent: artifactContentEquals,
+          })
+          const result = await committer.commit(
+            {
+              planId: 'guarded',
+              taskId: 'guarded',
+              saveDir: root,
+              sourcePath: source,
+              targetPath: target,
+              sourceIdentity: held.sourceIdentity,
+              contributors: [],
+              metadataOps: [],
+            },
+            undefined,
+            held
+          )
+          await held.close()
+          expect(result.targetIdentity).toEqual(
+            await readRenameFileIdentity(target)
+          )
+          expect(await readFile(target, 'utf8')).toBe('payload')
+          expect(existsSync(source)).toBe(false)
+          expect(hash).not.toHaveBeenCalled()
+          expect(writableSync).not.toHaveBeenCalled()
+        } finally {
+          await held.close()
+        }
+      } finally {
+        await adapter.dispose()
+      }
+    })
+
+    it.each([
+      'exact',
+      'digest',
+      'missing-digest',
+      'wrong-digest',
+      'both-names',
+    ] as const)(
+      'retries an actual v2.3.0 SQLite source quarantine (%s)',
+      async (scenario) => {
+        const { root, adapter, operations } = await setup()
+        const db = new Database(':memory:')
+        migrate(db)
+        const source = path.join(root, 'download.zip.motrix')
+        const target = path.join(root, 'download.zip')
+        const payload = 'complete payload'
+        await writeFile(source, payload)
+        const original = await readRenameFileIdentity(source)
+        const repository = new SqliteFinalizeJournalRepository(db, {
+          commitTerminalBoundary: vi.fn(),
+        })
+        await repository.prepare({
+          journalId: 'old',
+          phase: 'prepared',
+          publicationMode: 'move',
+          plan: {
+            planId: 'old',
+            taskId: 'task',
+            saveDir: root,
+            sourcePath: source,
+            targetPath: target,
+            sourceIdentity: original,
+            contributors: [],
+            metadataOps: [],
+          },
+        })
+        await repository.quarantine('old', 'renamed source stamp changed')
+        if (scenario !== 'exact') {
+          const later = new Date(Date.now() + 10000)
+          await utimes(source, later, later)
+        }
+        if (scenario === 'both-names') await writeFile(target, 'other download')
+        const terminal = vi.fn((mutation: { journalId: string }) => {
+          db.prepare(
+            "UPDATE plugin_finalize_journals SET phase='db_committed', plan_json=json_set(plan_json, '$.phase', 'db_committed') WHERE plan_id=?"
+          ).run(mutation.journalId)
+        })
+        const runtime = new DurableFinalizeRuntime({
+          db,
+          fs: operations,
+          session: {
+            persistFinalizedArtifact: async (
+              _task,
+              _occurrence,
+              _input,
+              commit
+            ) => commit(terminal),
+          },
+        })
+        try {
+          const digest = createHash('sha256').update(payload).digest('hex')
+          const output = runtime.commit({
+            task: makeDownloadTask({ id: 'task', saveDir: root }),
+            occurrence: null,
+            sourcePath: source,
+            targetPath: target,
+            contributors: [],
+            metadataOps: [],
+            postDeliveries: [],
+            recoverySha256:
+              scenario === 'digest'
+                ? digest
+                : scenario === 'wrong-digest'
+                  ? '0'.repeat(64)
+                  : undefined,
+          })
+          if (scenario === 'exact' || scenario === 'digest') {
+            await expect(output).resolves.toMatchObject({
+              targetIdentity: { kind: 'file', sha256: digest },
+            })
+            expect(existsSync(source)).toBe(false)
+            expect(await readFile(target, 'utf8')).toBe(payload)
+            expect(terminal).toHaveBeenCalledOnce()
+            expect(await runtime.hasPendingFinalization('task')).toBe(false)
+          } else {
+            await expect(output).rejects.toThrow(
+              scenario === 'both-names'
+                ? 'final name already exists'
+                : 'SHA-256'
+            )
+            expect(await readFile(source, 'utf8')).toBe(payload)
+            expect(terminal).not.toHaveBeenCalled()
+            expect(
+              db
+                .prepare('SELECT plan_id,phase FROM plugin_finalize_journals')
+                .all()
+            ).toEqual([{ plan_id: 'old', phase: 'quarantined' }])
+            if (scenario === 'both-names')
+              expect(await readFile(target, 'utf8')).toBe('other download')
+          }
+        } finally {
+          db.close()
+          await adapter.dispose()
+        }
+      }
+    )
 
     it.each([
       { platform: 'windows', heldFileWriteExclusion: undefined },

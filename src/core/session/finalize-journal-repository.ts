@@ -10,6 +10,7 @@ import {
   finalizePathsEquivalent,
 } from '@core/plugin/finalize/finalize-committer'
 import { isRetryableMoveQuarantine } from '@core/plugin/finalize/finalize-recovery'
+import { RENAMED_SOURCE_CHANGED } from '@core/plugin/finalize/finalize-recovery-errors'
 import {
   assertValidHookPlan,
   isOrdinarySuffixRemoval,
@@ -35,6 +36,7 @@ interface RawFinalizeJournal {
 
 export interface SqliteFinalizeJournalRepositoryOptions {
   now?: () => number
+  verifiedQuarantine?: FinalizeJournalRecord
   /**
    * Must execute the complete task terminal transaction and move this journal
    * from target_installed to db_committed within that same transaction.
@@ -74,7 +76,20 @@ export class SqliteFinalizeJournalRepository
         | { plan_id: string; phase: RawFinalizeJournal['phase'] }
         | undefined
       if (prior) {
-        if (prior.phase !== 'cleaned') {
+        const expected = this.options.verifiedQuarantine
+        if (expected) {
+          const current = this.quarantinedSource(record.plan.taskId)
+          if (
+            !current ||
+            JSON.stringify(current) !== JSON.stringify(expected) ||
+            current.plan.sourcePath !== record.plan.sourcePath ||
+            current.plan.targetPath !== record.plan.targetPath ||
+            record.plan.sourceIdentity.kind !== 'file' ||
+            !isOrdinarySuffixRemoval(record.plan) ||
+            record.publicationMode !== 'move'
+          )
+            throw new Error('verified source quarantine changed before retry')
+        } else if (prior.phase !== 'cleaned') {
           throw new Error(
             `task already has an unfinished finalize journal: ${prior.plan_id}`
           )
@@ -82,10 +97,11 @@ export class SqliteFinalizeJournalRepository
         this.db
           .prepare(
             `DELETE FROM plugin_finalize_journals
-             WHERE task_id=? AND phase='cleaned'`
+             WHERE task_id=? AND plan_id=? AND phase=?`
           )
-          .run(record.plan.taskId)
-      }
+          .run(record.plan.taskId, prior.plan_id, prior.phase)
+      } else if (this.options.verifiedQuarantine)
+        throw new Error('verified source quarantine disappeared before retry')
       this.db
         .prepare(
           `INSERT INTO plugin_finalize_journals (
@@ -260,6 +276,25 @@ export class SqliteFinalizeJournalRepository
       }
     }
     return records
+  }
+
+  /** This legacy row still owns the task until prepare atomically replaces it. */
+  quarantinedSource(taskId: string): FinalizeJournalRecord | null {
+    const raw = this.db
+      .prepare(
+        "SELECT * FROM plugin_finalize_journals WHERE task_id=? AND phase='quarantined' AND quarantine_reason=?"
+      )
+      .get(taskId, RENAMED_SOURCE_CHANGED) as RawFinalizeJournal | undefined
+    if (!raw) return null
+    const record = parseRecord({ ...raw, phase: 'prepared' })
+    if (
+      record.plan.sourceIdentity.kind !== 'rename-file' ||
+      record.targetIdentity ||
+      raw.target_identity_json !== null ||
+      record.restoredSourceIdentity
+    )
+      throw new Error('source quarantine has a conflicting target checkpoint')
+    return record
   }
 
   async resumeQuarantined(record: FinalizeJournalRecord): Promise<void> {

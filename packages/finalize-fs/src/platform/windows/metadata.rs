@@ -33,6 +33,12 @@ pub(super) struct FileStamp {
     pub(super) directory: bool,
 }
 
+impl FileStamp {
+    pub(super) fn same_file_and_size(&self, other: &Self) -> bool {
+        self.volume == other.volume && self.file_id == other.file_id && self.size == other.size
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(super) struct EntrySnapshot {
     pub(super) name: Vec<u16>,
@@ -117,6 +123,21 @@ pub(super) fn query_stamp(handle: &OwnedHandle) -> io::Result<FileStamp> {
         attributes: basic.FileAttributes,
         directory: standard.Directory,
     })
+}
+
+pub(super) fn change_time(handle: &OwnedHandle) -> io::Result<i64> {
+    Ok(query::<FILE_BASIC_INFO>(handle, FileBasicInfo)?.ChangeTime)
+}
+
+/// The journal uses Node's decimal volume serial and 64-bit file index.
+pub(super) fn journal_file_id(handle: &OwnedHandle) -> io::Result<Option<String>> {
+    let mut info = BY_HANDLE_FILE_INFORMATION::default();
+    if unsafe { GetFileInformationByHandle(handle.as_raw_handle(), &mut info) } == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    let index = u64::from(info.nFileIndexHigh) << 32 | u64::from(info.nFileIndexLow);
+    Ok((info.dwVolumeSerialNumber != 0 && index != 0)
+        .then(|| format!("{}:{index}", info.dwVolumeSerialNumber)))
 }
 
 pub(super) fn query_identity(handle: &OwnedHandle) -> io::Result<(u64, FileIdentity)> {
