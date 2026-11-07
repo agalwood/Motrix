@@ -16,22 +16,30 @@ The first target is **DSM 7.2.2-72806 or later, x86_64**. It is an
 manage the same tasks, settings and plugins. Ordinary, disabled, domain and LDAP
 accounts are denied. There is no per-user task isolation or quota accounting.
 
-Revision **2.3.0-5** passed a core device smoke on **DS718+ (Apollo Lake),
-DSM 7.4.1**, on 2026-11-06. Manual upgrade, administrator login, nonroot service
-startup, HTTP/BT downloads with SHA-256 verification, redownload, file deletion,
-directory/symlink rejection, stop/start recovery, and CLI protocol pairing and
-revocation were exercised. Synthetic tasks and fixtures were removed after testing, and temporary client
-credentials were revoked. This does not establish support for every DSM release or model.
+Revision **2.3.0-8** passed the following native workflow checks on **DS718+ (Apollo
+Lake), DSM 7.4.1**, on 2026-11-07. Administrator login, package settings,
+configurable client port, NAS torrent selection, File Station navigation, file
+streaming with HEAD/Range, selected-file deletion and retained historical tasks
+were exercised. A 4 MiB HTTP download resumed across the 2.3.0-6 → 2.3.0-7
+upgrade with the expected SHA-256, followed by an upgrade to 2.3.0-8. The final
+revision also restores the single-file metadata missing from older HTTP history.
+
+Earlier revision 2.3.0-5 passed real HTTP/BT downloads, redownload, directory and
+symlink denial, nonroot process checks, and CLI protocol pairing/revocation.
+Synthetic tasks/files and temporary servers were removed after acceptance. The
+direct client port was restored to 16802, and the extension entry remains off.
+This does not establish support for every DSM release or model.
 
 Linux simulation and checksum-pinned Gemini Lake/Apollo Lake DSM 7.2.2 userspace
 ABI checks also passed. The minimum version records the toolchain/resource
 contract. The actual device uses Linux 4.4.302; [Node 24's upstream supported
 Linux kernel baseline](https://github.com/nodejs/node/blob/v24.x/BUILDING.md) is
 newer. Basic device operations passed, but long-running downloads, live account
-disable/recreation, ACL revocation, offline/replaced storage, interrupted
-finalization and upgrade with active tasks still need controlled device tests.
-Real extension pairing has not been exercised; its entry remains disabled by
-default. ARM builds and device acceptance are not available.
+disable/recreation, ACL revocation, offline/replaced storage and interrupted
+finalization still need controlled device tests. Real extension pairing and
+paired CLI operation through the new DSM HTTPS gateway have not been exercised;
+anonymous gateway requests are rejected. ARM builds and device acceptance are
+not available.
 
 ## Use and permissions
 
@@ -61,6 +69,7 @@ Downloads are restricted to existing, mounted, canonical configured roots and
 the permissions of both the account and the package user. The default root is
 resolved from DSM's `/var/packages/Motrix/shares/motrix` link. An unavailable
 volume is never created as a replacement directory on the system volume.
+Configured storage must be available before the package can start.
 
 Use **Settings → NAS** to manage authorized directories and client connections.
 First grant the internal system user `motrix` access in DSM's shared-folder
@@ -147,7 +156,7 @@ settings and paired clients** option deletes only package-owned state after a
 successful stop. Downloaded files are always retained. Reinstalling with retained
 data restores the same shared instance, subject to current account and directory
 permissions. DSM itself owns lifecycle ordering and resource cleanup; real
-install, repair, upgrade and uninstall acceptance remains required.
+fresh install, repair and uninstall-retention acceptance remains required.
 
 ## Build and verification
 
@@ -190,7 +199,7 @@ compatibility based on those reports alone.
 
 ## Implementation evidence and limits
 
-Sources reviewed for DSM 7.2.2 and DSM 7.4.1 on 2026-11-06:
+Sources reviewed for DSM 7.2.2 and DSM 7.4.1; device checks updated 2026-11-07:
 
 | Area | Basis and implementation boundary |
 | --- | --- |
