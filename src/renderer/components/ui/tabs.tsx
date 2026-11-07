@@ -67,6 +67,26 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
   )
 }
 
+function TabsIndicator({
+  animated = true,
+  className,
+  ...props
+}: TabsPrimitive.Indicator.Props & { animated?: boolean }) {
+  return (
+    <TabsPrimitive.Indicator
+      data-slot="tabs-indicator"
+      className={cn(
+        'absolute top-[var(--active-tab-top)] left-0 -z-10 h-[var(--active-tab-height)] w-[var(--active-tab-width)] translate-x-[var(--active-tab-left)] rounded-md bg-background shadow-sm',
+        animated
+          ? 'transition-[translate,width,height] duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none'
+          : 'transition-none',
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
 function TabsContent({ className, ...props }: TabsPrimitive.Panel.Props) {
   return (
     <TabsPrimitive.Panel
@@ -77,4 +97,11 @@ function TabsContent({ className, ...props }: TabsPrimitive.Panel.Props) {
   )
 }
 
-export { Tabs, TabsContent, TabsList, TabsTrigger, tabsListVariants }
+export {
+  Tabs,
+  TabsContent,
+  TabsIndicator,
+  TabsList,
+  TabsTrigger,
+  tabsListVariants,
+}
