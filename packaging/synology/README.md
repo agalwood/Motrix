@@ -26,6 +26,8 @@ One ARM64 SPK contains one AArch64 payload. Its INFO lists the three Package Arc
 
 The builder checks the same archive against all three official sysroots and exercises its binaries under Cortex-A53 CPU emulation. Low-memory models need hardware memory-pressure testing. The separate `rtd1619` platform lacks a matching toolchain in the pinned SDK directory. ARMv7/32-bit is outside this package. DS718+ and DS423+ take the x86_64 build. [Toolchain directory](https://archive.synology.com/download/ToolChain/toolchain/7.2-72806) · [Synology platform mapping](https://help.synology.com/developer-guide/appendix/platarchs.html)
 
+**Dashboard in 2.3.0-11.** On a DS718+ running revision 10, a healthy activity refresh showed a stale notice and shrank the calendar from 186 to 162 pixels high. In isolated Chromium, the final revision 11 ARM64 SPK completed a ticket renewal through a simulated DSM gateway. At 597 pixels wide the calendar showed 12 month labels and three weekday labels, and the engine title stayed Ready. When the snapshot request failed, the notice and Retry appeared in the header without moving or resizing the grid. This test ran in a Linux container. Revision 11 hardware acceptance remains open.
+
 On 2026-11-07, **2.3.0-10** passed a directory replacement test on a **DS718+
 (DSM 7.4.1)** after a manual upgrade from 2.3.0-9. A completed HTTP task had
 written 27,648 bytes to an explicitly authorized test directory. Substituting
