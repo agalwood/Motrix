@@ -9,6 +9,7 @@ import {
   NasFiles,
 } from '../nas/files'
 import type { NasIdentity } from '../nas/identity'
+import { readNasConfigurationText } from '../nas/settings-store'
 import type { SynologyAccounts } from './accounts'
 
 export const dsmDirectoryConfig = z
@@ -80,9 +81,14 @@ export class SynologyFileAccess implements NasFileAccess {
   ) {}
 
   async authorizedRoots(): Promise<string[]> {
-    const config = dsmDirectoryConfig.parse(
-      JSON.parse(await readFile(this.configFile, 'utf8'))
-    )
+    const text = await readNasConfigurationText(this.configFile)
+    let document: unknown
+    try {
+      document = JSON.parse(text ?? '')
+    } catch {
+      throw new Error('Invalid DSM directory configuration')
+    }
+    const config = dsmDirectoryConfig.parse(document)
     if ((await unavailableDsmRoots(config.roots)).length)
       throw new Error('DSM share unavailable')
     return config.roots

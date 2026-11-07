@@ -12,7 +12,7 @@ import {
 import writeFileAtomic from 'write-file-atomic'
 
 const MAX_BYTES = 32 * 1024
-async function readDocument(
+export async function readNasConfigurationText(
   file: string,
   optional = false
 ): Promise<string | null> {
@@ -65,9 +65,14 @@ export class NasSettingsStore {
 
   private async snapshot() {
     const [packageText, rootsText, pendingText] = await Promise.all([
-      readDocument(path.join(this.directory, 'package-settings.json')),
-      readDocument(path.join(this.directory, 'directories.json')),
-      readDocument(path.join(this.directory, 'pending-settings.json'), true),
+      readNasConfigurationText(
+        path.join(this.directory, 'package-settings.json')
+      ),
+      readNasConfigurationText(path.join(this.directory, 'directories.json')),
+      readNasConfigurationText(
+        path.join(this.directory, 'pending-settings.json'),
+        true
+      ),
     ])
     const applied = nasPackageSettingsSchema.parse({
       ...JSON.parse(packageText ?? ''),

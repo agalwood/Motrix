@@ -272,9 +272,11 @@ function NasDialogForm({ open, onClose, labelKey }: SettingsCardDialogProps) {
                       className="space-y-3"
                       aria-label={t('settings.nas.roots')}
                     >
-                      <h3 className="text-sm font-semibold">
-                        {t('settings.nas.roots')}
-                      </h3>
+                      {!foldersOnly && (
+                        <h3 className="text-sm font-semibold">
+                          {t('settings.nas.roots')}
+                        </h3>
+                      )}
                       <p className="text-xs text-muted-foreground">
                         {t('settings.nas.rootsHint')}
                       </p>
