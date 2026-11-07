@@ -85,7 +85,10 @@ import { restoreMediaProgress } from '../task/media-task-progress'
 import { isTempPath } from '../task/paths'
 import { setTaskTransitionPhase } from '../task/task-instance'
 import type { TaskManager } from '../task/task-manager'
-import { taskRowToDownloadTask } from '../task/task-row-to-download-task'
+import {
+  restoredTaskFileCount,
+  taskRowToDownloadTask,
+} from '../task/task-row-to-download-task'
 import { restoreTaskSaveDirectory } from '../task/task-save-directory'
 import { isMagnetCleanupTombstoneHidden } from '../torrent/magnet-cleanup-quarantine'
 import { computeUriHash, deriveInfoHash } from './content-key'
@@ -1653,7 +1656,7 @@ export class SessionManager {
       uris: primary?.uris ?? [],
       uploadedBytes,
       uploadedBytesBaseline,
-      fileCount: taskPart.fileCount,
+      fileCount: restoredTaskFileCount(taskPart),
       connections: 0,
       pieceLength: taskPart.pieceLength,
       infoHash: taskPart.infoHash,

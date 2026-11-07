@@ -14,6 +14,16 @@ import { unsettledBtUpload } from './bt-upload-settlement'
 import { restoreMediaProgress } from './media-task-progress'
 import { restoreTaskSaveDirectory } from './task-save-directory'
 
+/** Older HTTP/FTP history can predate the first file metadata poll. */
+export function restoredTaskFileCount(task: TaskRow): number {
+  return task.fileCount === 0 &&
+    task.kind === TaskKind.Direct &&
+    task.aggStatus === TaskStatus.Completed &&
+    (task.taskType === TaskType.Http || task.taskType === TaskType.Ftp)
+    ? 1
+    : task.fileCount
+}
+
 /** Build a generic DownloadTask domain object from canonical TaskRow data.
  *
  * Runtime-only speed, ETA, and connection values start at zero until the next
@@ -73,13 +83,7 @@ export function taskRowToDownloadTask(
     uris: primary?.uris ?? [],
     uploadedBytes,
     uploadedBytesBaseline: task.uploadedBytesBaseline,
-    fileCount:
-      task.fileCount === 0 &&
-      task.kind === TaskKind.Direct &&
-      task.aggStatus === TaskStatus.Completed &&
-      (task.taskType === TaskType.Http || task.taskType === TaskType.Ftp)
-        ? 1
-        : task.fileCount,
+    fileCount: restoredTaskFileCount(task),
     connections: 0,
     pieceLength: task.pieceLength,
     infoHash: task.infoHash,

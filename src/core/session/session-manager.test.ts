@@ -3130,6 +3130,7 @@ describe('SessionManager', () => {
         .find((t) => t.id === 'm-legacy-completed')
       expect(restored?.diskPath).toBe('/dl/movie-final.mkv')
       expect(restored?.saveDir).toBe('/dl')
+      expect(restored?.fileCount).toBe(1)
       // Instances heal too, so the next save() rewrites the DB row and
       // the stale placeholder is gone for good.
       expect(restored?.instances[0]?.diskPath).toBe('/dl/movie-final.mkv')

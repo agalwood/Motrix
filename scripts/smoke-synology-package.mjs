@@ -647,6 +647,19 @@ try {
       .code,
     0
   )
+  // Model completed history written before file metadata polling was fixed.
+  // Mutate only this synthetic row, while the package is stopped, as its user.
+  execFileSync('runuser', [
+    '-u',
+    'motrix',
+    '--',
+    `${target}/runtime/bin/node`,
+    '-e',
+    `const DB=require(process.argv[1]);const db=new DB(process.argv[2]);db.prepare('UPDATE tasks SET file_count=0 WHERE motrix_id=?').run(process.argv[3]);db.close()`,
+    `${target}/server/node_modules/better-sqlite3`,
+    `${variable}/data/motrix.db`,
+    tiny.taskId,
+  ])
   await rm(target, { recursive: true, force: true })
   await cp(path.join(project, 'app'), target, { recursive: true })
   execFileSync('chown', ['-R', '1600:1600', target])
@@ -665,6 +678,15 @@ try {
   ).value
   assert.equal(appliedSettings.active.operatorUrl, 'http://nas.test/motrix/')
   assert.equal(appliedSettings.restartRequired, false)
+  assert.equal(
+    (
+      await web('/api/nas/task-action', admin, {
+        taskId: tiny.taskId,
+        action: 'open',
+      })
+    ).status,
+    200
+  )
   assert.ok(
     !(
       await (
