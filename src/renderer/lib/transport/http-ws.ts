@@ -24,8 +24,10 @@ import {
 import {
   WEB_EVENT_CONNECT_TIMEOUT_MS,
   WEB_EVENT_STALE_MS,
+  type WebEventRenewal,
   webEventFrameSchema,
   webEventHeartbeatSchema,
+  webEventRenewalSchema,
 } from '@shared/schemas/web-event-stream'
 import { webOriginHeaders } from '../web-base-url'
 import type {
@@ -292,6 +294,37 @@ export class HttpWsTransport implements Transport {
     )
     this.publishConnectionState('connecting')
 
+    const lifetime = new AbortController()
+    let renewing = false
+    const renew = async (frame: WebEventRenewal) => {
+      if (renewing) return
+      renewing = true
+      const session = useOperatorSession.getState()
+      try {
+        const res = await this.fetchFn(`${this.baseUrl}/rpc/auth/event-renew`, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            ...webOriginHeaders(),
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify(frame),
+          signal: AbortSignal.any([
+            lifetime.signal,
+            AbortSignal.timeout(12_000),
+          ]),
+        })
+        if (!this.isCurrentSocket(socket, epoch)) return
+        if (res.status === 401 || res.status === 403)
+          void refreshOperatorSession(session.epoch)
+        if (!res.ok) this.retireSocket(socket, epoch)
+      } catch {
+        this.retireSocket(socket, epoch)
+      } finally {
+        renewing = false
+      }
+    }
+
     socket.addEventListener('open', () => {
       if (!this.isCurrentSocket(socket, epoch)) return
       this.clearDeadline()
@@ -306,6 +339,14 @@ export class HttpWsTransport implements Transport {
           this.supportsHeartbeat = true
           this.receivedMessage(socket, epoch)
           return
+        }
+        if (useOperatorSession.getState().status?.mode === 'synologyDsm') {
+          const renewal = webEventRenewalSchema.safeParse(data)
+          if (renewal.success) {
+            this.receivedMessage(socket, epoch)
+            void renew(renewal.data)
+            return
+          }
         }
         const parsed = webEventFrameSchema.safeParse(data)
         if (!parsed.success) return
@@ -325,6 +366,7 @@ export class HttpWsTransport implements Transport {
       }
     })
     socket.addEventListener('close', () => {
+      lifetime.abort()
       if (!this.isCurrentSocket(socket, epoch)) return
       this.clearDeadline()
       this.socket = null

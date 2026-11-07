@@ -25,6 +25,10 @@ class Socket {
     for (const listener of this.listeners.get('close') ?? [])
       listener(new Event('close'))
   }
+  receive(data: unknown) {
+    for (const listener of this.listeners.get('message') ?? [])
+      listener(new MessageEvent('message', { data: JSON.stringify(data) }))
+  }
 }
 describe.each(['fnosGateway', 'synologyDsm'] as const)(
   '%s transport',
@@ -99,6 +103,49 @@ describe.each(['fnosGateway', 'synologyDsm'] as const)(
       complete(new Response(JSON.stringify({ ticket: 'b'.repeat(32) })))
       await new Promise((resolve) => setTimeout(resolve, 0))
       expect(Socket.opened).toHaveLength(0)
+    })
+    it('renews DSM authority on the existing connection and still delivers events', async () => {
+      const fetch = vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ ticket: 'a'.repeat(32) }))
+        )
+        .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      const transport = new HttpWsTransport(base, {
+        fetch,
+        WebSocketCtor: Socket as unknown as typeof WebSocket,
+      })
+      const task = vi.fn()
+      transport.on(Events.TaskUpdated, task)
+      await vi.waitFor(() => expect(Socket.opened).toHaveLength(1))
+      const socket = Socket.opened[0]
+      for (const listener of socket.listeners.get('open') ?? [])
+        listener(new Event('open'))
+      const renewal = {
+        type: 'session-renewal',
+        version: 1,
+        challenge: 'b'.repeat(32),
+      }
+      socket.receive(renewal)
+      if (mode === 'synologyDsm') {
+        await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2))
+        expect(fetch.mock.calls[1]).toEqual([
+          `${base}/rpc/auth/event-renew`,
+          expect.objectContaining({
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: expect.objectContaining({
+              [WEB_ORIGIN_HEADER]: location.origin,
+            }),
+            body: JSON.stringify(renewal),
+          }),
+        ])
+      } else expect(fetch).toHaveBeenCalledTimes(1)
+      socket.receive({ channel: Events.TaskUpdated, args: ['after renewal'] })
+      expect(task).toHaveBeenCalledWith('after renewal')
+      expect(transport.getConnectionState()).toBe('connected')
+      expect(Socket.opened).toEqual([socket])
+      transport.off(Events.TaskUpdated, task)
     })
   }
 )

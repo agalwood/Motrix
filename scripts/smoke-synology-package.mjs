@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { execFileSync, spawn } from 'node:child_process'
 import { createHash, randomBytes } from 'node:crypto'
+import { on, once } from 'node:events'
 import {
   access,
   chmod,
@@ -15,6 +16,7 @@ import {
   writeFile,
 } from 'node:fs/promises'
 import { createServer, request } from 'node:http'
+import { createRequire } from 'node:module'
 import { createServer as createSocketServer } from 'node:net'
 import path from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -257,6 +259,50 @@ const web = (route, headers = admin, body, client = false) =>
     )
     req.on('error', reject).end(body ? JSON.stringify(body) : undefined)
   })
+
+async function verifyEventSessionRenewal() {
+  const WebSocket = createRequire(path.join(target, 'server/package.json'))(
+    'ws'
+  )
+  const issued = await web('/rpc/auth/event-ticket', admin, {})
+  assert.equal(issued.status, 200)
+  const ws = new WebSocket(
+    `ws+unix://${variable}/web.sock:/motrix/rpc/events`,
+    [
+      'motrix.fnos.events',
+      `motrix.fnos.ticket.${JSON.parse(issued.body).ticket}`,
+    ],
+    { headers: admin }
+  )
+  const signal = AbortSignal.timeout(110_000)
+  const closed = once(ws, 'close', { signal })
+  // Socket errors can reject this promise before the iterator reaches it.
+  void closed.catch(() => {})
+  let renewed = false
+  try {
+    for await (const [raw] of on(ws, 'message', { signal, close: ['close'] })) {
+      const frame = JSON.parse(raw.toString())
+      if (frame.type !== 'session-renewal') continue
+      if (renewed) await writeFile('/tmp/dsm-session-state', 'expired')
+      const response = await web('/rpc/auth/event-renew', admin, frame)
+      if (!renewed) {
+        assert.equal(response.status, 204)
+        renewed = true
+        continue
+      }
+      assert.equal(response.status, 401)
+      assert.equal((await closed)[0], 4401)
+      console.log(
+        'DSM event stream renewed on one socket beyond its initial authorization and closed on revoked session'
+      )
+      return
+    }
+    throw Error('DSM event stream closed before reauthentication')
+  } finally {
+    ws.terminate()
+    await writeFile('/tmp/dsm-session-state', 'active')
+  }
+}
 const post = (route, body, token) =>
   fetch(`http://127.0.0.1:16812${route}`, {
     method: 'POST',
@@ -444,6 +490,7 @@ try {
   await writeFile('/tmp/dsm-session-state', 'active')
   assert.equal(status.username, 'alice')
   assert.deepEqual(status.clientPairing, { cli: true, extension: false })
+  await verifyEventSessionRenewal()
   assert.equal(
     (
       await web(

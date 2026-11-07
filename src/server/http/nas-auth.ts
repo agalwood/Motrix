@@ -8,9 +8,11 @@ import {
   nasAuthDiagnosticSchema,
   WEB_ORIGIN_HEADER,
 } from '@shared/schemas/operator-auth'
+import { webEventRenewalSchema } from '@shared/schemas/web-event-stream'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { NasIdentity } from '../platform/nas/identity'
 import { runAsNasGatewayUser } from '../platform/nas/identity'
+import { NAS_EVENT_AUTH_MS, NasEventSessions } from './nas-event-sessions'
 import type { OperatorSessionPolicy } from './operator-auth'
 
 type Principal = NasIdentity
@@ -73,6 +75,7 @@ export function registerNasAuth(
 ): OperatorSessionPolicy {
   const log = getLogger('nas:auth')
   const now = opts.now ?? Date.now
+  const sessions = new NasEventSessions(now)
   let lastRejectionAt = -Infinity
   const tickets = new Map<string, EventTicket>()
   const identities = new WeakMap<FastifyRequest, Principal>()
@@ -125,6 +128,17 @@ export function registerNasAuth(
     )
       reason = 'origin-mismatch'
     if (reason || !principal) {
+      // A rejected DSM session can only consume its own origin-bound renewal
+      // challenge and close the stream. All data routes still require identity.
+      if (
+        opts.mode === 'synologyDsm' &&
+        reason === 'identity-rejected' &&
+        !upgrade &&
+        req.method === 'POST' &&
+        pathname === '/rpc/auth/event-renew' &&
+        requestOrigin(req)
+      )
+        return
       // An unauthenticated browser may load the shell and its status message;
       // all data and command endpoints remain behind the same gate.
       if (
@@ -193,10 +207,24 @@ export function registerNasAuth(
       principal,
       origin,
       expiresAt: now() + 30_000,
-      sessionExpiresAt: now() + 60_000,
+      sessionExpiresAt: now() + NAS_EVENT_AUTH_MS,
     })
     return { ticket: token }
   })
+  if (opts.mode === 'synologyDsm') {
+    app.post('/rpc/auth/event-renew', { bodyLimit: 512 }, (req, reply) => {
+      const owner = identities.get(req)
+      const origin = requestOrigin(req)
+      const frame = webEventRenewalSchema.safeParse(req.body)
+      if (!frame.success)
+        return reply.code(400).send({ error: 'Invalid event renewal' })
+      if (!origin || !sessions.renew(frame.data.challenge, origin, owner))
+        return reply
+          .code(owner ? 403 : 401)
+          .send({ error: 'Event renewal denied' })
+      return reply.code(204).send()
+    })
+  }
   app.addHook('preHandler', (req, _reply, done) => {
     const principal = identities.get(req)
     if (!principal) done()
@@ -210,23 +238,14 @@ export function registerNasAuth(
         : undefined
     },
     bindSocket(req, socket) {
-      const expiration = socketExpirations.get(req) ?? now()
-      let eligible = identities.has(req) && expiration > now()
-      const timer = setTimeout(
-        () => {
-          eligible = false
-          socket.close(4401, 'Gateway reauthentication required')
-        },
-        Math.max(0, expiration - now())
+      return sessions.bind(
+        socket,
+        socketExpirations.get(req) ?? now(),
+        identities.get(req),
+        opts.mode === 'synologyDsm'
+          ? browserOrigin(req.headers.origin)
+          : undefined
       )
-      timer.unref()
-      return {
-        eligible: () => eligible && expiration > now(),
-        dispose: () => {
-          clearTimeout(timer)
-          eligible = false
-        },
-      }
     },
   }
 }

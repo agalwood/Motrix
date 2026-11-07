@@ -145,7 +145,11 @@ passwd/group 数据库发生任何变化时，会保守地让全部既有绑定�
 达到上限时淘汰最久未使用的上下文；每次客户端操作都会实时核对 DSM 会话和账号。
 退出 DSM、会话过期、上下文被淘汰或 Motrix 重启后，对应管理员需重新打开 Motrix。
 升级保留配对凭据和任务，但账号提供新的已验证会话前，客户端操作均被拒绝。Web 事件票据只能使用一次，绑定
-当前 Origin 并短期有效；连接至少每分钟重新认证。
+当前 Origin 并短期有效。从第 12 版起，DSM 仪表盘可以在同一条 WebSocket 上持续接收事件。
+每个授权窗口最长 60 秒。约 45 秒时，服务器只向该连接发送一次性随机值，浏览器通过
+同源 HTTPS 携带当前 DSM 会话应答。账号、账号版本和 Origin 均匹配后续期。
+错过期限、会话失效或账号变化会关闭事件流。网络断开或套件重启后仍需重新连接。
+旧版页面缺少续期支持，会在原期限到达时重连。
 
 无法验证账号时，页面会显示有限的诊断，例如
 `account / rejected` 或 `account / commandFailed / accessDenied`。
@@ -192,7 +196,7 @@ pnpm run fetch:engine -- --platform linux --arch "$arch"
 pnpm run build:server
 pnpm run stage:server -- --platform linux --arch "$arch" --libc gnu --strict
 pnpm run build:synology -- --arch "$arch" --output-dir "release/synology-$arch/project"
-pnpm run verify:synology -- --spk "release/synology-$arch/Motrix-2.3.0-11-dsm-$arch.spk"
+pnpm run verify:synology -- --spk "release/synology-$arch/Motrix-2.3.0-12-dsm-$arch.spk"
 ```
 
 GitHub Actions 的 `synology.yml` 在原生 x64 和 ARM64 runner 上分别构建，再从最终 SPK 解包测试。稳定版发布成功后，`synology-publish.yml` 用该 tag 的确切提交重建两种架构。受保护的发布作业校验 tag、构建提交、两份安装包、校验和和逐平台 ABI 报告，再附加到已有 GitHub Release。失败重试不覆盖已有文件。输出不等同于群晖商店上架。

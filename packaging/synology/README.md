@@ -198,7 +198,14 @@ revalidates the actual DSM session and account. A DSM logout, session expiry,
 evicted context or Motrix restart requires the corresponding administrator to reopen
 Motrix. Paired credentials and tasks survive an upgrade, but no client is allowed
 to act until its account has supplied a fresh verified session. Web event tickets are one-use,
-origin-bound and short-lived; connections reauthenticate at least every minute.
+origin-bound and short-lived. Starting with revision 12, the DSM Dashboard keeps its
+event WebSocket open across successful account checks. About 45 seconds into a
+60-second authorization window, the server sends a one-use challenge to that
+socket. The browser answers via same-origin HTTPS using its current DSM session.
+Only the same verified administrator, account revision and origin can extend
+the window. A missed deadline, rejected session or changed account closes the
+stream. A lost network connection or package restart still requires reconnecting.
+Clients without renewal support reconnect when the window expires.
 
 If the account cannot be verified, the page shows a bounded diagnostic such as
 `account / rejected` or `account / commandFailed / accessDenied`.
@@ -253,7 +260,7 @@ pnpm run fetch:engine -- --platform linux --arch "$arch"
 pnpm run build:server
 pnpm run stage:server -- --platform linux --arch "$arch" --libc gnu --strict
 pnpm run build:synology -- --arch "$arch" --output-dir "release/synology-$arch/project"
-pnpm run verify:synology -- --spk "release/synology-$arch/Motrix-2.3.0-11-dsm-$arch.spk"
+pnpm run verify:synology -- --spk "release/synology-$arch/Motrix-2.3.0-12-dsm-$arch.spk"
 ```
 
 The `synology.yml` GitHub Actions workflow builds on native x64 and ARM64 runners and verifies each final archive. After a successful stable release, `synology-publish.yml` rebuilds the exact tagged commit for both architectures. The protected publication job checks the tag, source commit, complete SPKs, digests and per-platform ABI reports before attaching them to the existing GitHub Release. Retries preserve existing assets. Synology Package Center store publication is separate.
