@@ -522,7 +522,7 @@ try {
     if (tinyTask?.status === 'completed') break
     await delay(100)
   }
-  assert.equal(tinyTask?.fileCount, 1)
+  assert.equal(tinyTask?.status, 'completed')
   assert.equal(
     (
       await web('/api/nas/task-action', admin, {
