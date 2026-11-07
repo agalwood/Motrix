@@ -84,14 +84,6 @@ export function AppLayout() {
   const pageIndex = sidebarPageIndex(location.pathname)
   const previousPageIndex = useRef(pageIndex)
   const pageSurfaceRef = useRef<HTMLDivElement>(null)
-  const transitionDirection =
-    pageIndex === null || previousPageIndex.current === null
-      ? null
-      : pageIndex === previousPageIndex.current
-        ? null
-        : pageIndex > previousPageIndex.current
-          ? 'down'
-          : 'up'
   useLayoutEffect(() => {
     const surface = pageSurfaceRef.current
     const previousIndex = previousPageIndex.current
@@ -155,8 +147,6 @@ export function AppLayout() {
     <div
       ref={pageSurfaceRef}
       data-slot="page-transition"
-      data-page-index={pageIndex ?? 'none'}
-      data-transition-direction={transitionDirection ?? 'none'}
       className="min-h-0 flex-1 overflow-hidden"
     >
       <div hidden={!migrationActive} className="h-full min-h-0">

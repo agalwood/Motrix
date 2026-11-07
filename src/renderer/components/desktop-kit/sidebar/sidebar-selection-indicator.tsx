@@ -8,12 +8,13 @@ export function SidebarSelectionIndicator({
   containerRef: RefObject<HTMLElement | null>
 }) {
   const location = useLocation()
+  const pathname = location.pathname
   const indicatorRef = useRef<HTMLSpanElement>(null)
-  const previousPath = useRef(location.pathname)
   const positioned = useRef(false)
   const animationDeadline = useRef(0)
 
   useEffect(() => {
+    if (!pathname) return
     const container = containerRef.current
     const indicator = indicatorRef.current
     if (!container || !indicator) return
@@ -43,58 +44,22 @@ export function SidebarSelectionIndicator({
       positioned.current = true
     }
 
-    const pathChanged = previousPath.current !== location.pathname
-    previousPath.current = location.pathname
-    update(pathChanged)
-    const readyPoll =
-      positioned.current || typeof window === 'undefined'
-        ? null
-        : window.setInterval(() => {
-            update(false)
-            if (positioned.current && readyPoll !== null) {
-              window.clearInterval(readyPoll)
-            }
-          }, 50)
-    const readyTimeout =
-      readyPoll === null
-        ? null
-        : window.setTimeout(() => {
-            window.clearInterval(readyPoll)
-          }, 2_000)
-
-    const updateWithoutAnimation = () => {
+    update(positioned.current)
+    const updateSettledPosition = () => {
       if (performance.now() < animationDeadline.current) return
-      if (
-        typeof indicator.getAnimations === 'function' &&
-        indicator.getAnimations().length > 0
-      )
-        return
       update(false)
     }
     const observer =
       typeof ResizeObserver === 'undefined'
         ? null
-        : new ResizeObserver(updateWithoutAnimation)
+        : new ResizeObserver(updateSettledPosition)
     observer?.observe(container)
-    const mutations =
-      typeof MutationObserver === 'undefined'
-        ? null
-        : new MutationObserver(updateWithoutAnimation)
-    mutations?.observe(container, {
-      attributeFilter: ['data-active'],
-      attributes: true,
-      childList: true,
-      subtree: true,
-    })
-    container.addEventListener('scroll', updateWithoutAnimation, true)
+    container.addEventListener('scroll', updateSettledPosition, true)
     return () => {
-      if (readyPoll !== null) window.clearInterval(readyPoll)
-      if (readyTimeout !== null) window.clearTimeout(readyTimeout)
       observer?.disconnect()
-      mutations?.disconnect()
-      container.removeEventListener('scroll', updateWithoutAnimation, true)
+      container.removeEventListener('scroll', updateSettledPosition, true)
     }
-  }, [containerRef, location.pathname])
+  }, [containerRef, pathname])
 
   return (
     <span
