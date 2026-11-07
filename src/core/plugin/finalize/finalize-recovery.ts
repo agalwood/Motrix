@@ -87,7 +87,12 @@ export class FinalizeRecovery {
     try {
       assertRenameFileJournal(record)
       if (record.plan.sourceIdentity.kind === 'rename-file') {
-        if (record.quarantineReason) return
+        if (
+          record.quarantineReason &&
+          (record.quarantineReason !== RENAMED_SOURCE_CHANGED ||
+            !record.targetIdentity)
+        )
+          return
         await this.recoverRenameFile(record)
         return
       }
@@ -335,6 +340,24 @@ export class FinalizeRecovery {
       throw new FinalizeRecoveryDeferredError(
         'rename artifacts are unavailable; retry recovery'
       )
+    if (record.quarantineReason) {
+      if (!this.options.repository.resumeQuarantined) return
+      const owned =
+        source && !target
+          ? record.phase !== 'db_committed' &&
+            this.options.exactIdentity(source, expectedSource)
+          : !source &&
+            target &&
+            record.targetIdentity &&
+            this.options.exactIdentity(target, record.targetIdentity)
+      if (!owned)
+        throw new FinalizeQuarantinedError(
+          record.journalId,
+          'surviving files do not match the durable rename checkpoint'
+        )
+      await this.options.repository.resumeQuarantined(record)
+      record.quarantineReason = undefined
+    }
     if (source && target)
       return this.quarantine(
         record,

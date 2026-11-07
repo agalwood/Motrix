@@ -1,4 +1,3 @@
-import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import {
@@ -16,10 +15,8 @@ import {
   utimes,
   writeFile,
 } from 'node:fs/promises'
-import { createServer } from 'node:http'
 import os from 'node:os'
 import path from 'node:path'
-import { promisify } from 'node:util'
 import { DurableFinalizeRuntime } from '@core/session/durable-finalize-runtime'
 import { SqliteFinalizeJournalRepository } from '@core/session/finalize-journal-repository'
 import { migrate } from '@core/session/migrations'
@@ -290,95 +287,6 @@ describe.runIf(existsSync(binary))(
         await adapter.dispose()
       }
     })
-
-    it.runIf(process.env.MOTRIX_ARIA2_TEST_BIN)(
-      'publishes completed aria2 HTTP downloads through the journal',
-      async () => {
-        const { root, adapter, operations } = await setup()
-        const bytes = Buffer.alloc(512 * 1024, 0x51)
-        const server = createServer((_request, response) => {
-          response.writeHead(200, {
-            'Content-Length': bytes.length,
-            'Last-Modified': new Date(100000).toUTCString(),
-          })
-          response.end(bytes)
-        })
-        try {
-          await new Promise<void>((resolve, reject) => {
-            server.once('error', reject)
-            server.listen(0, '127.0.0.1', resolve)
-          })
-          const address = server.address()
-          if (!address || typeof address === 'string')
-            throw new Error('expected listener port')
-          for (const name of ['installer.exe', 'archive.zip']) {
-            const target = path.join(root, name)
-            const source = `${target}.motrix`
-            await promisify(execFile)(
-              process.env.MOTRIX_ARIA2_TEST_BIN!,
-              [
-                '--no-conf',
-                '--file-allocation=none',
-                '--remote-time=true',
-                '--dir',
-                root,
-                '--out',
-                `${name}.motrix`,
-                `http://127.0.0.1:${address.port}/${name}`,
-              ],
-              { timeout: 15000 }
-            )
-            const held = await operations.prepareFileRename(source, target)
-            try {
-              const sourceIdentity =
-                held?.sourceIdentity ?? (await operations.identity(source))
-              if (!sourceIdentity) throw new Error('missing download')
-              const commitTerminal = vi.fn()
-              const committer = new FinalizeCommitter({
-                fs: operations,
-                leases: new ArtifactMutationLeaseCoordinator([]),
-                repository: {
-                  prepare: vi.fn(),
-                  checkpoint: vi.fn(),
-                  advance: vi.fn(),
-                  commitTerminal,
-                  quarantine: vi.fn(),
-                  listRecoverable: async () => [],
-                },
-                privatePathFor: () => '',
-                rollbackPathFor: () => '',
-                exactIdentity: artifactIdentityEquals,
-                sameContent: artifactContentEquals,
-              })
-              await committer.commit(
-                {
-                  planId: name,
-                  taskId: name,
-                  saveDir: root,
-                  sourcePath: source,
-                  targetPath: target,
-                  sourceIdentity,
-                  contributors: [],
-                  metadataOps: [],
-                },
-                undefined,
-                held ?? undefined
-              )
-              expect(commitTerminal).toHaveBeenCalledOnce()
-              expect(existsSync(source)).toBe(false)
-              expect(await readFile(target)).toEqual(bytes)
-            } finally {
-              await held?.close()
-            }
-          }
-        } finally {
-          if (server.listening)
-            await new Promise<void>((resolve) => server.close(() => resolve()))
-          await adapter.dispose()
-        }
-      },
-      45000
-    )
 
     it('publishes a synced suffix rename with no payload reads or writable reopen', async () => {
       const { root, adapter, operations } = await setup()

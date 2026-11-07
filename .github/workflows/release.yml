@@ -263,6 +263,7 @@ jobs:
         run: >-
           pnpm exec vitest run
           src/core/task/direct-task-retry.integration.test.ts
+          src/core/task/http-finalize.integration.test.ts
           src/core/engine/aria2/aria2-session-identity-recovery.integration.test.ts
           src/core/legacy-import/http-activation.integration.test.ts
           src/core/plugin/finalize/native-artifact-operations.integration.test.ts

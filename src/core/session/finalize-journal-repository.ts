@@ -355,9 +355,12 @@ export class SqliteFinalizeJournalRepository
 function parseQuarantinedMove(
   raw: RawFinalizeJournal
 ): FinalizeJournalRecord | null {
+  const sourceChanged = raw.quarantine_reason === RENAMED_SOURCE_CHANGED
   if (
     raw.phase !== 'quarantined' ||
-    !raw.quarantine_reason?.startsWith('compensation failed after ')
+    !raw.quarantine_reason ||
+    (!sourceChanged &&
+      !raw.quarantine_reason.startsWith('compensation failed after '))
   )
     return null
   const value: unknown = JSON.parse(raw.plan_json)
@@ -365,13 +368,20 @@ function parseQuarantinedMove(
     !value ||
     typeof value !== 'object' ||
     !('phase' in value) ||
-    (value.phase !== 'prepared' && value.phase !== 'target_installed')
+    (value.phase !== 'prepared' &&
+      value.phase !== 'target_installed' &&
+      value.phase !== 'db_committed')
   )
     return null
   const record = {
     ...parseRecord({ ...raw, phase: value.phase }),
     quarantineReason: raw.quarantine_reason,
   }
+  if (sourceChanged)
+    return record.plan.sourceIdentity.kind === 'rename-file' &&
+      record.targetIdentity
+      ? record
+      : null
   return isRetryableMoveQuarantine(record) ? record : null
 }
 

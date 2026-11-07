@@ -119,11 +119,13 @@ export class DurableFinalizeRuntime {
     const lease = await this.leases.acquire(input.task.id)
     let held: PreparedFileRename | null | undefined
     try {
-      await this.createRecovery().recoverTask(input.task.id, lease)
+      // A supplied digest authorizes only the old source quarantine. Avoid
+      // replaying an unrelated journal before proving this retry applies.
+      if (!input.recoverySha256)
+        await this.createRecovery().recoverTask(input.task.id, lease)
       await input.verifySource?.()
-      const quarantined = this.createRepository().quarantinedSource(
-        input.task.id
-      )
+      const journals = this.createRepository()
+      const quarantined = journals.quarantinedSource(input.task.id)
       if (input.recoverySha256 && !quarantined)
         throw new Error('no quarantined source is awaiting verification')
       if (
@@ -138,9 +140,9 @@ export class DurableFinalizeRuntime {
         throw new Error(
           'source quarantine does not match the current finalize plan'
         )
-      const pending = (
-        await this.createRepository().listRecoverable(input.task.id)
-      ).find((record) => record.publicationIntent?.method === 'reserved_rename')
+      const pending = (await journals.listRecoverable(input.task.id)).find(
+        (record) => record.publicationIntent?.method === 'reserved_rename'
+      )
       if (
         pending &&
         (!isOrdinarySuffixRemoval(pending.plan) ||
@@ -307,9 +309,7 @@ export class DurableFinalizeRuntime {
     if (original.kind !== 'rename-file')
       throw new Error('invalid quarantined source')
     if (await this.options.fs.identity(targetPath, original))
-      throw new Error(
-        'final name already exists; both names have been preserved'
-      )
+      throw new Error('final name already exists; inspect it before retrying')
     const checkStamp = async () => {
       const current = await this.options.fs.identity(sourcePath, original)
       if (
