@@ -16,13 +16,31 @@ The first target is **DSM 7.2.2-72806 or later, x86_64**. It is an
 manage the same tasks, settings and plugins. Ordinary, disabled, domain and LDAP
 accounts are denied. There is no per-user task isolation or quota accounting.
 
-Revision **2.3.0-8** passed the following native workflow checks on **DS718+ (Apollo
-Lake), DSM 7.4.1**, on 2026-11-07. Administrator login, package settings,
+On 2026-11-07, Package Center upgraded **2.3.0-8 to 2.3.0-9** on a **DS718+
+(Apollo Lake) running DSM 7.4.1**. The installed build matched the verified SPK.
+Opening Motrix from DSM loaded the administrator dashboard. Renaming an empty
+authorized test directory put Motrix into folder recovery on the next start.
+The engine stopped, the direct client port closed and anonymous requests could
+not see the path. The administrator restored the original folder list in the
+recovery page. Restarting Motrix returned the server and engine to ready.
+The Web UI downloaded a 33,280-byte HTTP file into the restored directory.
+Its owner was `motrix`, its SHA-256 matched the source, and removing the task
+with its file cleared both.
+
+With the installed Chrome extension 0.1.23, two tabs signed in as the same administrator saw the
+same pairing request in Integration settings. Only the page that claimed the
+request received the code. The extension submitted it 99 seconds after starting
+the request, connected over WSS and read the active task list. Revoking the test
+credential disconnected the extension. After acceptance, the extension used
+its original backend, Motrix had no test tasks, HTTP pairing codes and the WSS
+entry were off, and the direct client port was 16802.
+
+Earlier revision **2.3.0-8** passed native checks for administrator login, package settings,
 configurable client port, NAS torrent selection, File Station navigation, file
-streaming with HEAD/Range, selected-file deletion and retained historical tasks
-were exercised. A 4 MiB HTTP download resumed across the 2.3.0-6 → 2.3.0-7
-upgrade with the expected SHA-256, followed by an upgrade to 2.3.0-8. The final
-revision also restores the single-file metadata missing from older HTTP history.
+streaming with HEAD/Range, selected-file deletion and retained historical tasks.
+A 4 MiB HTTP download resumed across the 2.3.0-6 → 2.3.0-7 upgrade with the
+expected SHA-256. Revision 8 also restored the single-file metadata missing
+from older HTTP history.
 
 Earlier revision 2.3.0-5 passed real HTTP/BT downloads, redownload, directory and
 symlink denial, nonroot process checks, and CLI protocol pairing/revocation.
@@ -35,7 +53,7 @@ ABI checks also passed. The minimum version records the toolchain/resource
 contract. The actual device uses Linux 4.4.302; [Node 24's upstream supported
 Linux kernel baseline](https://github.com/nodejs/node/blob/v24.x/BUILDING.md) is
 newer. Basic device operations passed, but long-running downloads, live account
-disable/recreation, ACL revocation, offline/replaced storage and interrupted
+disable/recreation, ACL revocation, physical volume removal or replacement and interrupted
 finalization still need controlled device tests. The published Motrix CLI 0.5.0
 paired through the DSM HTTPS gateway and ran `list` and `stats`. Across a package
 restart the same credential received HTTP 403 until the administrator reopened
