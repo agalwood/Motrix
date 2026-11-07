@@ -36,10 +36,15 @@ contract. The actual device uses Linux 4.4.302; [Node 24's upstream supported
 Linux kernel baseline](https://github.com/nodejs/node/blob/v24.x/BUILDING.md) is
 newer. Basic device operations passed, but long-running downloads, live account
 disable/recreation, ACL revocation, offline/replaced storage and interrupted
-finalization still need controlled device tests. Real extension pairing and
-paired CLI operation through the new DSM HTTPS gateway have not been exercised;
-anonymous gateway requests are rejected. ARM builds and device acceptance are
-not available.
+finalization still need controlled device tests. The published Motrix CLI 0.5.0
+paired through the DSM HTTPS gateway and ran `list` and `stats`. Across a package
+restart the same credential received HTTP 403 until the administrator reopened
+Motrix, then HTTP 200. Revocation returned HTTP 401. The test container resolved
+the certificate hostname to the NAS LAN IP and verified the TLS chain and name.
+The installed Chrome extension stopped before pairing because the certificate
+did not cover the IP in its WSS address. Its settings page fetched discovery,
+obtained a nonce and opened a WebSocket with the `motrix-bridge.v1` subprotocol.
+ARM builds and device acceptance are not available.
 
 ## Use and permissions
 
@@ -110,6 +115,10 @@ Browser extension access is disabled by default. Enable it in **Settings → NAS
 the suggested address uses the current DSM origin and `/motrix/bridge` with WSS
 for HTTPS. Advanced connection fields support a separately configured public
 origin. Set the full Motrix Web address including `/motrix/`.
+Use a hostname covered by DSM’s HTTPS certificate for both client addresses.
+On a LAN, configure DNS so that hostname resolves to the NAS LAN IP. An IP-based
+address requires that exact IP in the certificate. Chrome’s extension background
+process validates its own TLS connection even when a DSM tab is already open.
 Displaying pairing codes over HTTP requires explicit trusted-network consent.
 The configured origin must match the current page; an HTTPS address never
 permits code delivery to an HTTP page. Apply and restart the package for changes

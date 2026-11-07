@@ -27,8 +27,12 @@ Linux 模拟和固定校验和的 Gemini Lake/Apollo Lake DSM 7.2.2 用户态 AB
 通过。最低版本表示工具链与资源接口范围。实机内核为 Linux 4.4.302，
 [Node 24 官方支持的 Linux 内核基线](https://github.com/nodejs/node/blob/v24.x/BUILDING.md)
 更高；基础操作已通过，但长时间下载、真实账号停用/重建、ACL 撤销、存储离线/替换、
-文件提交中断等仍需受控实机测试。真实浏览器扩展配对及经新 DSM HTTPS 网关的已配对
-CLI 操作尚未验收；网关已验证会拒绝未认证请求。尚无 ARM 构建及实机验收。
+文件提交中断等仍需受控实机测试。官方 Motrix CLI 0.5.0 已通过 DSM HTTPS 网关
+完成配对并执行 `list` 和 `stats`。重启套件后，同一凭据先收到 HTTP 403，管理员
+重新打开 Motrix 后恢复为 HTTP 200。撤销凭据后收到 HTTP 401。测试容器将证书域名
+解析到 NAS 内网 IP，并验证了 TLS 证书链和名称。已安装的 Chrome 扩展在配对前因
+证书未覆盖 WSS 地址中的 IP 而停止。扩展设置页可发现服务、获取 nonce，并以
+`motrix-bridge.v1` 子协议建立 WebSocket 连接。尚无 ARM 构建及实机验收。
 
 ## 使用与权限
 
@@ -82,7 +86,10 @@ DS718+、DSM 7.4.1 验证，其他版本仍需实机验收。尚未注册 File S
 
 浏览器扩展入口默认关闭。可在 **设置 → NAS** 中启用，建议地址沿用当前 DSM
 地址和 `/motrix/bridge` 路径，HTTPS 对应 WSS。高级连接设置支持另行配置的公网
-地址；Motrix Web 地址必须包含 `/motrix/`。通过 HTTP 显示配对码需要明确许可。
+地址，Motrix Web 地址必须包含 `/motrix/`。两个客户端地址应使用 DSM HTTPS 证书
+覆盖的域名，并在局域网 DNS 中将该域名解析到 NAS 内网 IP。直接填写 IP 时，证书
+必须包含该 IP。即使浏览器已打开 DSM 页面，Chrome 扩展后台也会独立校验 TLS 连接。
+通过 HTTP 显示配对码需要明确许可。
 配置的 Origin 必须与当前页面一致，填写 HTTPS 地址不代表可在 HTTP 页面显示码。
 应用设置后需停止并重新启动套件。无效配置会关闭扩展入口。
 沿用现有 CLI device-code 和扩展 MBP1 协议。配对界面显示当前账号，按钮为
