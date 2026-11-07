@@ -587,6 +587,17 @@ describe('finalizeTask failure-path publication routing', () => {
 // and persists Completed with Size 0 / 0%. The fix is a pre-finalize
 // tellStatus refresh before removeDownloadResult retires the gid.
 describe('finalizeTask HTTP pre-refresh transfer metadata', () => {
+  it('keeps a known single-file output when the final metadata probe fails', async () => {
+    const deps = makeDeps()
+    const task = makeTask({ fileCount: 0 })
+    vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+    vi.mocked(deps.adapter.getTaskStatus).mockRejectedValue(
+      new Error('engine row retired')
+    )
+    await finalizeTask('t1', deps)
+    expect(task.status).toBe(TaskStatus.Completed)
+    expect(task.fileCount).toBe(1)
+  })
   it('fills byte counters and piece length when polling never observed them', async () => {
     const deps = makeDeps()
     const task = makeTask({

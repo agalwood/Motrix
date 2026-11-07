@@ -5,7 +5,8 @@
     "placeholder": "Operator Token",
     "error": "Operator Token 無效。請確認主機上的 MOTRIX_OPERATOR_TOKEN 或 <dataDir>/operator-token，然後再試一次。",
     "submit": "解鎖",
-    "fnosSessionExpired": "飛牛管理員工作階段已失效，請從飛牛桌面重新開啟 Motrix。"
+    "nasSessionExpired": "無法驗證 NAS 管理員工作階段，請從 NAS 桌面重新開啟 Motrix。",
+    "openDsm": "開啟 DSM 登入"
   },
   "operatorAdmin": {
     "help": "用法：\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\n此命令只會透過容器 loopback 與正在執行的 Motrix 伺服器通訊。",
@@ -331,7 +332,7 @@
         "loading": "正在載入活動資料",
         "unavailable": "無法取得活動資料",
         "retry": "重試",
-        "stale": "活動資料可能不是最新的",
+        "refreshFailed": "重新整理失敗",
         "coverageDegraded": "自 {{time}} 起的活動資料可能不完整",
         "rangeSummary": "{{start}} 至 {{end}} 的 {{weeks}} 週下載活動",
         "completedIntensity": "色彩深淺表示已完成的下載數量",
@@ -933,7 +934,11 @@
         "redownloadStarted": "已重新發起下載",
         "retryDialogTitle": "重試下載",
         "retryDialogDescription": "修改 {{name}} 的請求參數以開始新下載。原失敗任務和部分檔案將保留。",
-        "retryDialogProgress": "第 {{current}} 項，共 {{total}} 項"
+        "retryDialogProgress": "第 {{current}} 項，共 {{total}} 項",
+        "downloadToDevice": "下載到此裝置",
+        "revealInFileStation": "在 File Station 中顯示",
+        "nasFileUnavailable": "無法授權存取檔案，請檢查目前帳號和目錄權限。",
+        "fileStationWindowBlocked": "瀏覽器封鎖了 File Station 視窗，請允許此網站開啟彈出式視窗後重試。"
       },
       "titleCount": "顯示 {{shown}} 項 · 共 {{total}} 項",
       "type": {
@@ -1122,7 +1127,8 @@
         "failed": "無法自動開始下載 {{name}}，請開啟任務詳細資料，選擇檔案後重試。"
       },
       "undoCorrection": "復原 URL 修正",
-      "submissionUnconfirmed": "結果尚未確認。再次提交時會先核對原請求，避免重複建立任務。"
+      "submissionUnconfirmed": "結果尚未確認。再次提交時會先核對原請求，避免重複建立任務。",
+      "selectNasTorrent": "從 NAS 選擇種子檔案"
     },
     "detail": {
       "peers": "對等節點：{{count}}",
@@ -1277,6 +1283,10 @@
       "integration": {
         "title": "整合",
         "desc": "瀏覽器擴充功能、CLI、系統整合"
+      },
+      "nas": {
+        "title": "群暉套件",
+        "desc": "授權目錄與用戶端連線"
       }
     },
     "general": {
@@ -1925,6 +1935,8 @@
           "store": "安裝擴充功能",
           "development": "開發版"
         },
+        "pendingTitle": "瀏覽器擴充功能配對請求",
+        "pendingEmpty": "在擴充功能中點選「配對」，請求就會顯示在這裡。",
         "pairedTitle": "已連線的擴充功能",
         "pairedEmpty": "尚未連線任何擴充功能。",
         "profile": "瀏覽器設定檔 {{number}}",
@@ -2251,6 +2263,37 @@
       "updateDescription": "請下載 Windows ZIP，結束 Motrix 後將完整的 data 資料夾移至新版本目錄。可攜模式不會執行安裝程式。",
       "recoveryError": "無法安全復原可攜資料。請保留 data 資料夾，檢查記錄和目錄權限後重試。Motrix 已停止啟動，未使用系統使用者資料目錄。",
       "enginePathDescription": "可攜模式將引擎狀態儲存於 data 資料夾內，隨應用程式位置自動管理。"
+    },
+    "nas": {
+      "description": "所有 DSM 管理員共用這些設定。請在套件中心重新啟動 Motrix 以套用變更。",
+      "account": "目前 DSM 帳號：{{username}}",
+      "restartRequired": "設定已儲存。請在套件中心停止並重新啟動 Motrix。",
+      "storageUnavailable": "下載資料夾無法使用",
+      "storageRecoveryHint": "下載已暫停。請還原原本的資料夾，或改為授權其他路徑，然後在套件中心重新啟動 Motrix。",
+      "roots": "授權下載目錄",
+      "rootsHint": "每行一個現有資料夾。必須允許目前帳號及內部系統使用者 motrix 讀寫。移除預設資料夾後，第一個資料夾會成為新預設。",
+      "extensionEnabled": "啟用瀏覽器擴充功能連線",
+      "extensionHint": "使用 DSM HTTPS 憑證涵蓋的網域名稱，並將它解析到 NAS 內部位址。",
+      "webAddress": "Motrix Web 位址",
+      "webAddressHint": "填寫平時開啟的位址，包含 /motrix/。可直接使用目前瀏覽器的位址。",
+      "useCurrentAddress": "使用目前 DSM 位址",
+      "extensionAddress": "擴充功能連線位址",
+      "allowHttp": "允許透過 HTTP 顯示配對碼",
+      "allowHttpHint": "僅在可信任網路中啟用。使用 HTTPS 時無需開啟此選項。",
+      "clientPort": "用戶端直連連接埠",
+      "clientPortHint": "直連用戶端使用此連接埠（1024–65535）。DSM HTTPS 位址使用 DSM 連接埠。",
+      "activeConnections": "目前連線位址",
+      "cliAddress": "CLI 連線位址",
+      "sessionHint": "用戶端沿用配對帳號的目前權限。登出 DSM、工作階段過期或套件重新啟動後，請用對應帳號重新開啟 Motrix，無需重新配對。",
+      "copy": "複製位址",
+      "openSettings": "設定 NAS 連線",
+      "errors": {
+        "invalid": "請檢查目錄、連接埠和連線位址。透過 HTTP 顯示配對碼需要明確許可。",
+        "folderUnavailable": "請確認資料夾位於已掛載的儲存空間，並允許內部系統使用者 motrix 讀寫。",
+        "permissionDenied": "無法授權目前帳號或目錄。請在 DSM 共用資料夾權限中檢查目前帳號及內部系統使用者 motrix 的權限。",
+        "unavailable": "暫時無法讀取或儲存套件設定，請在服務恢復後重試。",
+        "conflict": "已儲存的設定發生變更，請重新載入後再編輯。重新載入會取代尚未儲存的修改。"
+      }
     }
   },
   "errors": {

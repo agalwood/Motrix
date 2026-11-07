@@ -1,7 +1,9 @@
 import { toast } from '@renderer/components/ui/toast'
 import { i18n } from '@renderer/lib/i18n'
+import { useOperatorSession } from '@renderer/lib/operator-auth'
 import { webBaseUrl, webOriginHeaders } from '@renderer/lib/web-base-url'
 import type { FilePickerOptions } from '@shared/schemas/file-picker'
+import { isNasAuthMode } from '@shared/schemas/operator-auth'
 import { isFnos, pickFnosDirectory } from './fnos'
 import type { PlatformServices } from './services'
 
@@ -96,7 +98,9 @@ export function createWebServices(
           method: 'POST',
           credentials: 'same-origin',
           headers: {
-            ...(isFnos() ? webOriginHeaders() : {}),
+            ...(isNasAuthMode(useOperatorSession.getState().status?.mode)
+              ? webOriginHeaders()
+              : {}),
             'content-type': 'application/vnd.motrix.moext',
             'x-motrix-file-name': encodeURIComponent(file.name),
           },

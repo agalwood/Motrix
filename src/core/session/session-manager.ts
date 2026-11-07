@@ -85,7 +85,10 @@ import { restoreMediaProgress } from '../task/media-task-progress'
 import { isTempPath } from '../task/paths'
 import { setTaskTransitionPhase } from '../task/task-instance'
 import type { TaskManager } from '../task/task-manager'
-import { taskRowToDownloadTask } from '../task/task-row-to-download-task'
+import {
+  restoredTaskFileCount,
+  taskRowToDownloadTask,
+} from '../task/task-row-to-download-task'
 import { restoreTaskSaveDirectory } from '../task/task-save-directory'
 import { isMagnetCleanupTombstoneHidden } from '../torrent/magnet-cleanup-quarantine'
 import { computeUriHash, deriveInfoHash } from './content-key'
@@ -301,6 +304,26 @@ export class SessionManager {
     private getDirectResourceProxyOptions: DirectResourceProxyOptionsProvider = () =>
       null
   ) {}
+
+  private authorizeRecoveryWrite?: (task: DownloadTask) => Promise<void>
+
+  /** Host grants apply to automatic reconstruction as well as explicit resume. */
+  setRecoveryWriteAuthorization(
+    authorize: (task: DownloadTask) => Promise<void>
+  ): void {
+    this.authorizeRecoveryWrite = authorize
+  }
+
+  private async canRecoverWrite(pair: TaskWithInstances): Promise<boolean> {
+    try {
+      await this.authorizeRecoveryWrite?.(
+        taskRowToDownloadTask(pair.task, pair.instances)
+      )
+      return true
+    } catch {
+      return false
+    }
+  }
 
   /**
    * Binds the shared plugin terminal boundary after the Hook runtime is built.
@@ -1633,7 +1656,7 @@ export class SessionManager {
       uris: primary?.uris ?? [],
       uploadedBytes,
       uploadedBytesBaseline,
-      fileCount: taskPart.fileCount,
+      fileCount: restoredTaskFileCount(taskPart),
       connections: 0,
       pieceLength: taskPart.pieceLength,
       infoHash: taskPart.infoHash,
@@ -1670,6 +1693,11 @@ export class SessionManager {
     pair: TaskWithInstances,
     assertProxyCurrent?: () => void
   ): Promise<DownloadTask> {
+    if (!(await this.canRecoverWrite(pair)))
+      return this.markRecoverErrorFromPair(
+        pair,
+        'task.recovery.startup.resumePathInvalid'
+      )
     const taskPart = pair.task
     const primary = pair.instances[0]
 
@@ -2090,6 +2118,11 @@ export class SessionManager {
   private async recoverMagnetMetadata(
     pair: TaskWithInstances
   ): Promise<DownloadTask> {
+    if (!(await this.canRecoverWrite(pair)))
+      return this.markRecoverErrorFromPair(
+        pair,
+        'task.recovery.startup.resumePathInvalid'
+      )
     const now = Date.now()
     const taskPart = pair.task
     const primary = pair.instances[0]

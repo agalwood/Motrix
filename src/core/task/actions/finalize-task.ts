@@ -63,6 +63,12 @@ import {
 const finalizationsInFlight = new Set<string>()
 
 export interface FinalizeTaskDeps {
+  authorizeDirectoryForTask?: (task: DownloadTask) => Promise<void>
+  removeTaskOutput?: (task: DownloadTask, file: string) => Promise<void>
+  recordInPlaceOutput?: (
+    task: DownloadTask,
+    metadata: Uint8Array
+  ) => Promise<void>
   taskManager: {
     getById(id: string): DownloadTask | undefined
     getAll(): DownloadTask[]
@@ -202,6 +208,7 @@ async function finalizeTaskSerialized(
   const publishedTask = getTaskOrWarn(deps, taskId, 'finalizeTask')
   if (!publishedTask) return
   const task = structuredClone(publishedTask)
+  await deps.authorizeDirectoryForTask?.(task)
   if (hasLegacyImport(task)) {
     if (isInactiveLegacyTask(task)) return
     // An authorized in-place task never renames, deletes unselected files, or
@@ -376,7 +383,7 @@ async function finalizeHttp(
   // `Size 0 / 0%`. Pull once here so syncCompletionMetrics has real
   // numbers to seal. Best-effort: any failure (race with another retire,
   // RPC error) is logged and we fall through with whatever we already had.
-  await refreshTaskBytesBeforeFinalize(task, deps)
+  await refreshHttpMetadataBeforeFinalize(task, deps)
 
   // removeDownloadResult before rename so aria2 releases the file
   // handle — on Windows an open handle causes a sharing violation.
@@ -563,10 +570,13 @@ function syncCompletionMetrics(task: DownloadTask): void {
  * swallowed: the caller's existing task state remains the source of
  * truth and syncCompletionMetrics will still do what it can.
  */
-async function refreshTaskBytesBeforeFinalize(
+async function refreshHttpMetadataBeforeFinalize(
   task: DownloadTask,
   deps: FinalizeTaskDeps
 ): Promise<void> {
+  // HTTP/FTP finalization publishes one file even when the metadata poll was
+  // missed. Preserve that cardinality before committing the rename journal.
+  if (task.fileCount === 0) task.fileCount = 1
   try {
     const refreshed = await deps.adapter.getTaskStatus(task.engineTaskId)
     if (!refreshed) return
@@ -774,7 +784,9 @@ async function finalizeBt(
     !isSameOrDescendant(publishedFinalPath, storageLayout.workspacePath)
   ) {
     try {
-      await deps.fs.removePathRecursive(storageLayout.workspacePath)
+      if (deps.removeTaskOutput)
+        await deps.removeTaskOutput(task, storageLayout.workspacePath)
+      else await deps.fs.removePathRecursive(storageLayout.workspacePath)
     } catch (err) {
       deps.log.warn(
         { err, taskId: task.id, workspacePath: storageLayout.workspacePath },
@@ -1087,6 +1099,11 @@ async function finalizeBtInPlace(
       false
     )
   }
+  if (deps.recordInPlaceOutput && task.torrentMetaPath)
+    await deps.recordInPlaceOutput(
+      task,
+      await deps.torrentMetaStore.read(task.torrentMetaPath)
+    )
   const unselected = live ? await snapshotUnselectedRelPaths(task, deps) : []
   await cleanupUnselectedAfterRename(task, unselected, deps)
   const completedAt = Date.now()
@@ -1344,7 +1361,8 @@ async function cleanupUnselectedAfterRename(
     if (rel === '' || rel === '.') continue
     const target = path.join(task.finalPath, rel)
     try {
-      await deps.fs.removePathRecursive(target)
+      if (deps.removeTaskOutput) await deps.removeTaskOutput(task, target)
+      else await deps.fs.removePathRecursive(target)
       removed += 1
     } catch (err) {
       deps.log.warn(

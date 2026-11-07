@@ -1,6 +1,6 @@
 import copy
 import hashlib
-import importlib.util
+import sys
 import io
 import json
 from pathlib import Path
@@ -9,9 +9,10 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-spec = importlib.util.spec_from_file_location('fnos_publication', Path(__file__).resolve().parents[2] / 'scripts/fnos_publication.py')
-pub = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(pub)
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'scripts'))
+import fnos_publication as pub
+import nas_release
+
 VERSION = '2.3.0'
 TAG = 'v' + VERSION
 SHA = 'a' * 40
@@ -135,19 +136,19 @@ class PublicationTests(unittest.TestCase):
     def test_existing_different_asset_never_overwritten(self):
         existing = assets(self.root)
         existing[0]['digest'] = 'sha256:' + '0' * 64
-        with patch.object(pub, 'source', return_value=SOURCE), patch.object(pub, 'api', return_value={'assets': existing}), patch.object(pub.subprocess, 'run') as mutation:
+        with patch.object(pub, 'source', return_value=SOURCE), patch.object(nas_release, 'api', return_value={'assets': existing}), patch.object(pub.subprocess, 'run') as mutation:
             with self.assertRaisesRegex(ValueError, 'immutable'):
                 pub.publish(self.root, TAG, SHA, '123')
             mutation.assert_not_called()
 
     def test_retry_reuses_identical_assets(self):
-        with patch.object(pub, 'source', return_value=SOURCE), patch.object(pub, 'api', return_value={'assets': assets(self.root)}), patch.object(pub.subprocess, 'run') as mutation:
+        with patch.object(pub, 'source', return_value=SOURCE), patch.object(nas_release, 'api', return_value={'assets': assets(self.root)}), patch.object(pub.subprocess, 'run') as mutation:
             pub.publish(self.root, TAG, SHA, '123')
             mutation.assert_not_called()
 
     def test_publish_adds_only_missing_verified_assets(self):
         existing = assets(self.root)
-        with patch.object(pub, 'source', return_value=SOURCE), patch.object(pub, 'api', side_effect=[{'assets': existing[:1]}, {'assets': existing}]), patch.object(pub.subprocess, 'run') as mutation:
+        with patch.object(pub, 'source', return_value=SOURCE), patch.object(nas_release, 'api', side_effect=[{'assets': existing[:1]}, {'assets': existing}]), patch.object(pub.subprocess, 'run') as mutation:
             pub.publish(self.root, TAG, SHA, '123')
             command = mutation.call_args.args[0]
             self.assertNotIn('--clobber', command)

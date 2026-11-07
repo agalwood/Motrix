@@ -44,6 +44,7 @@ export interface RemoveTaskDeps extends TaskActionDeps {
   runTaskMutation: NonNullable<TaskActionDeps['runTaskMutation']>
   taskPersistence: Pick<SessionManager, 'runExclusivePersistence'>
   fileCleanupService: FileCleanupService
+  fileCleanupForTask?: (task: DownloadTask) => FileCleanupService
   torrentMetaStore: TorrentMetaStore
   mediaMetaStore?: Pick<MediaMetaStore, 'remove'>
   // Structural slice of MotrixDatabase. Removal needs `deleteTask` for
@@ -110,7 +111,11 @@ async function removeTaskUnderMutation(
       'Cannot remove task while it is being finalized'
     )
   }
-  if (options.deleteWithFiles) await deps.authorizeTaskRemoval?.(task)
+  if (options.deleteWithFiles) {
+    await deps.authorizeTaskRemoval?.(task)
+    if (deps.fileCleanupForTask)
+      deps = { ...deps, fileCleanupService: deps.fileCleanupForTask(task) }
+  }
 
   // Both removal paths delete the durable parent row under one
   // exclusive-persistence window, with the Inspector Activity deletion

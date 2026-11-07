@@ -74,6 +74,47 @@ afterEach(async () => {
 
 describe('CompletedTaskStartupGuard', () => {
   it.each([false, true])(
+    'checks host grants even without completed tasks (sqlite=%s)',
+    async (sqlite) => {
+      const h = await setup(sqlite)
+      const authorizeResume = vi.fn(async (gid: string) => gid === RUN)
+      const guard = new CompletedTaskStartupGuard({
+        completedGids: () => new Set(),
+        rpc: h.rpc,
+        removeResult: h.removeResult,
+        authorizeResume,
+      })
+      const prepared = await guard.prepare(h.args)
+      expect(prepared?.args).toContain('--pause=true')
+      expect(prepared?.args).toContain('--pause-metadata=true')
+      await prepared?.reconcile(() => false)
+      expect(authorizeResume.mock.calls.flat()).toEqual([DONE, RUN])
+      expect(h.rpc.unpause).toHaveBeenCalledExactlyOnceWith(RUN)
+      expect(h.rpc.forceRemove).not.toHaveBeenCalled()
+      await expect(readFile(h.journal)).rejects.toMatchObject({
+        code: 'ENOENT',
+      })
+    }
+  )
+
+  it('keeps the recovery journal if host authorization fails unexpectedly', async () => {
+    const h = await setup()
+    const guard = new CompletedTaskStartupGuard({
+      completedGids: () => new Set(),
+      rpc: h.rpc,
+      removeResult: h.removeResult,
+      authorizeResume: async () => {
+        throw new Error('authority unavailable')
+      },
+    })
+    const prepared = await guard.prepare(h.args)
+    await expect(prepared?.reconcile(() => false)).rejects.toThrow(
+      'authority unavailable'
+    )
+    expect(h.rpc.unpause).not.toHaveBeenCalled()
+    expect(await readFile(h.journal, 'utf8')).toContain(RUN)
+  })
+  it.each([false, true])(
     'purges completed rows before resuming only originally running tasks (sqlite=%s)',
     async (sqlite) => {
       const h = await setup(sqlite)

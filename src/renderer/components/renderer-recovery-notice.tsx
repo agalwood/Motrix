@@ -6,7 +6,7 @@ import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
 import { Commands } from '@shared/protocol/commands'
 import type { RendererSession } from '@shared/schemas/renderer-health'
-import { useEffect, useState } from 'react'
+import { type ReactNode, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 // A session belongs to this document. Remounts and locale changes must not
@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next'
 const notifiedSessions = new WeakSet<RendererSession>()
 
 /** Mount the host before publishing recovery feedback to its toast manager. */
-export function RendererToaster() {
+export function RendererToaster({ children }: { children?: ReactNode }) {
   const { t } = useTranslation()
 
   useEffect(() => {
@@ -35,7 +35,7 @@ export function RendererToaster() {
     return () => document.removeEventListener('visibilitychange', notify)
   }, [t])
 
-  return <Toaster />
+  return <Toaster>{children}</Toaster>
 }
 
 /** Submission uncertainty stays beside the form until explicitly dismissed. */

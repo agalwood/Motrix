@@ -295,6 +295,7 @@ function seedAsPair(
     errorMessage?: string | null
     errorCode?: DownloadErrorCode | null
     payload?: Record<string, unknown>
+    phase?: TaskInstancePhase
   }
 ): void {
   const isBtLike =
@@ -303,9 +304,9 @@ function seedAsPair(
     opts.kind === TaskKind.Bt ||
     !!opts.infoHash ||
     !!opts.torrentMetaPath
-  const phase = isBtLike
-    ? TaskInstancePhase.BtDownload
-    : TaskInstancePhase.HttpDownload
+  const phase =
+    opts.phase ??
+    (isBtLike ? TaskInstancePhase.BtDownload : TaskInstancePhase.HttpDownload)
   const kind = opts.kind ?? (isBtLike ? TaskKind.Bt : TaskKind.Direct)
   const status = opts.status ?? TaskStatus.Queued
   db.saveTaskWithInstances({
@@ -2336,6 +2337,42 @@ describe('SessionManager', () => {
       }
     })
 
+    it.each([
+      TaskInstancePhase.HttpDownload,
+      TaskInstancePhase.MagnetMetadataResolution,
+    ])(
+      'does not reconstruct lost work when host grants are revoked (%s)',
+      async (phase) => {
+        seedAsPair(db, {
+          motrixId: 'revoked',
+          gid: 'lost-revoked',
+          diskPath: '/tmp/revoked.bin.motrix',
+          finalPath: '/tmp/revoked.bin',
+          uris: ['http://example.com/revoked.bin'],
+          status: TaskStatus.Downloading,
+          phase,
+          payload: { metadataDir: '/tmp/motrix-magnet-metadata-test' },
+        })
+        rpc.tellActive = vi.fn(async () => [])
+        rpc.tellWaiting = vi.fn(async () => [])
+        rpc.tellStopped = vi.fn(async () => [])
+        rpc.addUri = vi.fn()
+        const authorize = vi.fn(async () => {
+          throw new Error('revoked')
+        })
+        sessionManager.setRecoveryWriteAuthorization(authorize)
+        await sessionManager.restore()
+        expect(authorize).toHaveBeenCalled()
+        expect(adapter.createDownload).not.toHaveBeenCalled()
+        expect(adapter.addTorrent).not.toHaveBeenCalled()
+        expect(rpc.addUri).not.toHaveBeenCalled()
+        expect(taskManager.getById('revoked')).toMatchObject({
+          status: TaskStatus.Error,
+          errorDetailKey: 'task.recovery.startup.resumePathInvalid',
+        })
+      }
+    )
+
     it('re-adds HTTP task via adapter.createDownload when aria2 has lost it', async () => {
       seedAsPair(db, {
         motrixId: 'm-http-004',
@@ -3093,6 +3130,7 @@ describe('SessionManager', () => {
         .find((t) => t.id === 'm-legacy-completed')
       expect(restored?.diskPath).toBe('/dl/movie-final.mkv')
       expect(restored?.saveDir).toBe('/dl')
+      expect(restored?.fileCount).toBe(1)
       // Instances heal too, so the next save() rewrites the DB row and
       // the stale placeholder is gone for good.
       expect(restored?.instances[0]?.diskPath).toBe('/dl/movie-final.mkv')

@@ -28,7 +28,7 @@ import {
 import { LegacyFreshDownload } from '@renderer/features/legacy-import/legacy-fresh-download'
 import { createTaskInspectorActivitySnapshotCache } from '@renderer/hooks/use-task-inspector-activity'
 import { transport } from '@renderer/lib/transport'
-import { hasHostFileActions } from '@renderer/platform/fnos'
+import { hasHostFileActions } from '@renderer/platform/nas'
 import { formatNativePath } from '@shared/lib/path-display'
 import { Commands } from '@shared/protocol/commands'
 import type { DownloadTask } from '@shared/types/task'

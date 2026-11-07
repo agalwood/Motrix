@@ -19,7 +19,11 @@ import { openTaskFile } from '@renderer/lib/open-task-file'
 import { rtlMirror } from '@renderer/lib/task-status-ui'
 import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
-import { hasHostFileActions } from '@renderer/platform/fnos'
+import {
+  hasHostFileActions,
+  hostOpenFileLabelKey,
+  hostRevealFolderLabelKey,
+} from '@renderer/platform/nas'
 import { Commands } from '@shared/protocol/commands'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
@@ -118,7 +122,7 @@ function OpenTaskFileButton({ task }: { task: DownloadTask }) {
       onClick={() => void open()}
     >
       <OpenFileIcon />
-      {t('panel.downloads.action.openFile')}
+      {t(hostOpenFileLabelKey())}
     </Button>
   )
 }
@@ -149,7 +153,7 @@ function FinalizingActionBar({
           }
         >
           <RevealFolderIcon />
-          {t('panel.downloads.action.openFolder')}
+          {t(hostRevealFolderLabelKey())}
         </Button>
       )}
       <CopyButton
@@ -326,7 +330,7 @@ export function TaskInspectorActionBar({
           }
         >
           <RevealFolderIcon />
-          {t('panel.downloads.action.openFolder')}
+          {t(hostRevealFolderLabelKey())}
         </Button>
       )}
       {single && (
