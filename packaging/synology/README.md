@@ -28,6 +28,14 @@ The builder checks the same archive against all three official sysroots and exer
 
 **Dashboard in 2.3.0-11.** On a DS718+ running revision 10, a healthy activity refresh showed a stale notice and shrank the calendar from 186 to 162 pixels high. In isolated Chromium, the final revision 11 ARM64 SPK completed a ticket renewal through a simulated DSM gateway. At 597 pixels wide the calendar showed 12 month labels and three weekday labels, and the engine title stayed Ready. When the snapshot request failed, the notice and Retry appeared in the header without moving or resizing the grid. This test ran in a Linux container. Revision 11 hardware acceptance remains open.
 
+**Dashboard in 2.3.0-12 on DSM 7.4.1.** After upgrading the DS718+ from
+revision 10, a fresh Dashboard requested one opening ticket. A listener attached
+to the same open WebSocket observed three renewal challenges over 110 seconds.
+Each received HTTP 204, with no socket closure or additional opening ticket.
+Across 180 seconds of layout observation, the calendar stayed 597 × 186 CSS
+pixels with 12 visible month labels and three weekday labels. Their positions
+stayed fixed, no stale notice appeared, and the Engine title stayed Ready.
+
 On 2026-11-07, **2.3.0-10** passed a directory replacement test on a **DS718+
 (DSM 7.4.1)** after a manual upgrade from 2.3.0-9. A completed HTTP task had
 written 27,648 bytes to an explicitly authorized test directory. Substituting
