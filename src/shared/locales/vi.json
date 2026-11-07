@@ -1175,7 +1175,7 @@
         "recoveryFailed": "Không thể khôi phục lượt tải xuống: {{cause}}",
         "recoveryOutputConflict": "Cả tệp tạm và tệp cuối cùng đều tồn tại; cả hai được giữ lại để kiểm tra thủ công",
         "filesMissing": "Thiếu tệp sau khi ứng dụng khởi động lại",
-        "verifyFinalizeSource": "Tệp tạm đã được giữ lại. Nhập mã SHA-256 của nhà phát hành để xác minh tệp và hoàn tất tải xuống.",
+        "sourceHash": "SHA-256 của nhà phát hành",
         "renameFileFailed": "Không thể đổi tên tệp: {{cause}}",
         "renameDirFailed": "Không thể đổi tên thư mục: {{cause}}",
         "pluginChainAborted": "Chuỗi tiện ích đã bị hủy: {{cause}}",

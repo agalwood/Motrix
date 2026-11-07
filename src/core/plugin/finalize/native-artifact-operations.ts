@@ -204,7 +204,8 @@ export class NativeFinalizeArtifactOperations
     )
       return null
     if (
-      sourcePath !== `${targetPath}.motrix` ||
+      (sourcePath !== `${targetPath}.motrix` &&
+        targetPath !== `${sourcePath}.motrix`) ||
       path.dirname(sourcePath) !== path.dirname(targetPath)
     )
       throw new Error('expected a same-directory suffix rename')

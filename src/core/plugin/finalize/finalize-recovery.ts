@@ -386,25 +386,46 @@ export class FinalizeRecovery {
       await this.options.repository.advance(record.journalId, 'cleaned')
       return
     }
-    const restored = await this.options.fs.moveNoReplace(
+    const held = await this.options.fs.prepareFileRename?.(
       record.plan.targetPath,
-      expectedTarget,
       record.plan.sourcePath
     )
-    if (restored?.kind !== 'rename-file')
-      return this.quarantine(record, 'rollback omitted the restored file stamp')
-    await this.options.repository.checkpoint(record.journalId, {
-      restoredSourceIdentity: restored,
-    })
-    record.restoredSourceIdentity = restored
-    await this.options.fs.makeDurable(record.plan.sourcePath)
-    const current = await this.options.fs.identity(
-      record.plan.sourcePath,
-      restored
-    )
-    if (!current || !this.options.exactIdentity(current, restored))
-      return this.quarantine(record, 'restored source stamp changed')
-    await this.options.repository.advance(record.journalId, 'cleaned')
+    try {
+      if (
+        held &&
+        !this.options.exactIdentity(held.sourceIdentity, expectedTarget)
+      )
+        return await this.quarantine(
+          record,
+          'rollback target changed before rename'
+        )
+      const restored = held
+        ? await held.publish()
+        : await this.options.fs.moveNoReplace(
+            record.plan.targetPath,
+            expectedTarget,
+            record.plan.sourcePath
+          )
+      if (restored?.kind !== 'rename-file')
+        return await this.quarantine(
+          record,
+          'rollback omitted the restored file stamp'
+        )
+      await this.options.repository.checkpoint(record.journalId, {
+        restoredSourceIdentity: restored,
+      })
+      record.restoredSourceIdentity = restored
+      if (!held) await this.options.fs.makeDurable(record.plan.sourcePath)
+      const current = await this.options.fs.identity(
+        record.plan.sourcePath,
+        restored
+      )
+      if (!current || !this.options.exactIdentity(current, restored))
+        return await this.quarantine(record, 'restored source stamp changed')
+      await this.options.repository.advance(record.journalId, 'cleaned')
+    } finally {
+      await held?.close()
+    }
   }
 
   private async recoverReserved(record: FinalizeJournalRecord): Promise<void> {

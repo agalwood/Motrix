@@ -1175,7 +1175,7 @@
         "recoveryFailed": "다운로드를 복구하지 못했습니다: {{cause}}",
         "recoveryOutputConflict": "임시 파일과 최종 파일이 모두 존재하여 직접 확인할 수 있도록 둘 다 보존했습니다",
         "filesMissing": "앱 재시작 후 파일을 찾을 수 없습니다",
-        "verifyFinalizeSource": "임시 파일이 보존되었습니다. 배포자가 제공한 SHA-256을 입력하여 파일을 검증하고 다운로드를 완료하세요.",
+        "sourceHash": "배포자의 SHA-256",
         "renameFileFailed": "파일 이름을 변경하지 못했습니다: {{cause}}",
         "renameDirFailed": "폴더 이름을 변경하지 못했습니다: {{cause}}",
         "pluginChainAborted": "플러그인 처리 체인이 중단되었습니다: {{cause}}",

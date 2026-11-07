@@ -399,7 +399,7 @@ async function finalizeHttp(
         errorMessage,
         errorDetailKey:
           e instanceof FinalizeSourceVerificationError
-            ? 'task.error.detail.verifyFinalizeSource'
+            ? 'task.error.detail.sourceHash'
             : 'task.error.detail.renameFileFailed',
         errorDetailParams: { cause },
         hookCode: 'TASK_FINALIZE_RENAME_FAILED',

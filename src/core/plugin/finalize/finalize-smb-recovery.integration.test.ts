@@ -155,8 +155,10 @@ describe.runIf(existsSync(binary))('SMB finalize failure recovery', () => {
     expect(await readFile(s.input.sourcePath, 'utf8')).toBe('complete download')
   })
 
-  it('retains both I/O errors and retries a failed rollback without restarting', async () => {
+  it('recovers a failed content-verified directory flush without restarting', async () => {
     const s = await setup()
+    // This protocol uses caller-owned directory syncs on older helpers.
+    vi.spyOn(s.fs, 'prepareFileRename').mockResolvedValue(null)
     const realSync = s.adapter.syncRoot.bind(s.adapter)
     let calls = 0
     const injected = vi
@@ -182,6 +184,39 @@ describe.runIf(existsSync(binary))('SMB finalize failure recovery', () => {
     })
     expect(await readFile(s.input.sourcePath, 'utf8')).toBe('complete download')
     injected.mockRestore()
+    await s.runtime.commit(s.input)
+    expect(s.row()).toMatchObject({ phase: 'cleaned' })
+    expect(await readFile(s.input.targetPath, 'utf8')).toBe('complete download')
+    expect(existsSync(s.input.sourcePath)).toBe(false)
+  })
+
+  it('recovers a lost install checkpoint and a failed rollback checkpoint', async () => {
+    const s = await setup()
+    const prototype = SqliteFinalizeJournalRepository.prototype
+    const advance = prototype.advance
+    const fault = vi
+      .spyOn(prototype, 'advance')
+      .mockImplementation(async function (
+        this: SqliteFinalizeJournalRepository,
+        ...args: Parameters<typeof advance>
+      ) {
+        if (args[1] === 'target_installed' || args[1] === 'cleaned')
+          throw new Error(`checkpoint unavailable: ${args[1]}`)
+        return advance.apply(this, args)
+      })
+    const failure = await s.runtime.commit(s.input).catch((e: unknown) => e)
+    expect(failure).toBeInstanceOf(AggregateError)
+    expect((failure as AggregateError).errors.map(String)).toEqual([
+      'Error: checkpoint unavailable: target_installed',
+      'Error: checkpoint unavailable: cleaned',
+    ])
+    expect(s.row()).toMatchObject({
+      phase: 'prepared',
+      quarantine_reason: null,
+    })
+    expect(await readFile(s.input.sourcePath, 'utf8')).toBe('complete download')
+    expect(existsSync(s.input.targetPath)).toBe(false)
+    fault.mockRestore()
     await s.runtime.commit(s.input)
     expect(s.row()).toMatchObject({ phase: 'cleaned' })
     expect(await readFile(s.input.targetPath, 'utf8')).toBe('complete download')

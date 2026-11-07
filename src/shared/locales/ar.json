@@ -2984,7 +2984,7 @@
         "recoveryFailed": "تعذّرت استعادة التنزيل: {{cause}}",
         "recoveryOutputConflict": "يوجد الملف المؤقت والنهائي معًا؛ حُفظ كلاهما للمراجعة اليدوية",
         "renameDirFailed": "تعذّرت إعادة تسمية المجلد: {{cause}}",
-        "verifyFinalizeSource": "تم الاحتفاظ بالملف المؤقت. أدخل قيمة SHA-256 التي نشرها الناشر للتحقق منه وإكمال التنزيل.",
+        "sourceHash": "SHA-256 من الناشر",
         "renameFileFailed": "تعذّرت إعادة تسمية الملف: {{cause}}"
       },
       "hint": {

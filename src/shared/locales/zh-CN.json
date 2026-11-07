@@ -1175,7 +1175,7 @@
         "recoveryFailed": "无法恢复下载：{{cause}}",
         "recoveryOutputConflict": "临时文件和最终文件同时存在，已保留两者以供人工检查",
         "filesMissing": "应用重启后文件缺失",
-        "verifyFinalizeSource": "临时文件已保留。输入发布方提供的 SHA-256，校验文件并完成下载。",
+        "sourceHash": "发布方的 SHA-256",
         "renameFileFailed": "重命名文件失败：{{cause}}",
         "renameDirFailed": "重命名目录失败：{{cause}}",
         "pluginChainAborted": "插件链已中止：{{cause}}",

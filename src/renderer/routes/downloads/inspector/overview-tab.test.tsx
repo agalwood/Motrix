@@ -257,7 +257,7 @@ describe('OverviewTab', () => {
         type: TaskType.Http,
         kind: TaskKind.Direct,
         transitionPhase: TransitionPhase.Renaming,
-        errorDetailKey: 'task.error.detail.verifyFinalizeSource',
+        errorDetailKey: 'task.error.detail.sourceHash',
       })
       const input = screen.getByRole('textbox')
       const retry = screen.getByRole('button', { name: 'Retry' })

@@ -2921,7 +2921,7 @@
         "recoveryFailed": "Impossible de récupérer le téléchargement : {{cause}}",
         "recoveryOutputConflict": "Le fichier temporaire et le fichier final existent tous deux ; ils ont été conservés pour vérification manuelle",
         "renameDirFailed": "Impossible de renommer le dossier : {{cause}}",
-        "verifyFinalizeSource": "Le fichier temporaire a été conservé. Saisissez l’empreinte SHA-256 fournie par l’éditeur pour vérifier le fichier et terminer le téléchargement.",
+        "sourceHash": "SHA-256 de l’éditeur",
         "renameFileFailed": "Impossible de renommer le fichier : {{cause}}"
       },
       "hint": {

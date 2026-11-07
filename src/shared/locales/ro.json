@@ -2921,7 +2921,7 @@
         "recoveryFailed": "Descărcarea nu a putut fi recuperată: {{cause}}",
         "recoveryOutputConflict": "Există atât fișierul temporar, cât și cel final; ambele au fost păstrate pentru verificare manuală",
         "renameDirFailed": "Dosarul nu a putut fi redenumit: {{cause}}",
-        "verifyFinalizeSource": "Fișierul temporar a fost păstrat. Introduceți valoarea SHA-256 furnizată de editor pentru a verifica fișierul și a finaliza descărcarea.",
+        "sourceHash": "SHA-256 de la editor",
         "renameFileFailed": "Fișierul nu a putut fi redenumit: {{cause}}"
       },
       "hint": {

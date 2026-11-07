@@ -1175,7 +1175,7 @@
         "recoveryFailed": "無法恢復下載：{{cause}}",
         "recoveryOutputConflict": "暫存檔與最終檔案皆存在，兩者均已保留以供手動檢查",
         "filesMissing": "應用程式重新啟動後找不到檔案",
-        "verifyFinalizeSource": "已保留暫存檔。請輸入發行者提供的 SHA-256，驗證檔案並完成下載。",
+        "sourceHash": "發行者的 SHA-256",
         "renameFileFailed": "無法重新命名檔案：{{cause}}",
         "renameDirFailed": "無法重新命名目錄：{{cause}}",
         "pluginChainAborted": "外掛程式鏈已中止：{{cause}}",

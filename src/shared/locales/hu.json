@@ -1189,7 +1189,7 @@
         "recoveryFailed": "Nem sikerült helyreállítani a letöltést: {{cause}}",
         "recoveryOutputConflict": "Az ideiglenes és a végleges fájl is létezik; mindkettő megmaradt kézi ellenőrzésre",
         "filesMissing": "Az alkalmazás újraindítása után egyes fájlok hiányoznak",
-        "verifyFinalizeSource": "Az ideiglenes fájl megmaradt. Adja meg a kiadó SHA-256 ellenőrzőösszegét a fájl ellenőrzéséhez és a letöltés befejezéséhez.",
+        "sourceHash": "A kiadó SHA-256 értéke",
         "renameFileFailed": "Nem sikerült átnevezni a fájlt: {{cause}}",
         "renameDirFailed": "Nem sikerült átnevezni a mappát: {{cause}}",
         "pluginChainAborted": "A bővítménylánc megszakadt: {{cause}}",

@@ -1175,7 +1175,7 @@
         "recoveryFailed": "Unduhan tidak dapat dipulihkan: {{cause}}",
         "recoveryOutputConflict": "Berkas sementara dan berkas akhir sama-sama ada; keduanya tetap disimpan untuk diperiksa secara manual",
         "filesMissing": "Berkas tidak ditemukan setelah aplikasi dimulai ulang",
-        "verifyFinalizeSource": "Berkas sementara dipertahankan. Masukkan SHA-256 dari penerbit untuk memverifikasi berkas dan menyelesaikan unduhan.",
+        "sourceHash": "SHA-256 dari penerbit",
         "renameFileFailed": "Gagal mengganti nama berkas: {{cause}}",
         "renameDirFailed": "Gagal mengganti nama direktori: {{cause}}",
         "pluginChainAborted": "Rangkaian plugin dihentikan: {{cause}}",

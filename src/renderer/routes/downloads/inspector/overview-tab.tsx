@@ -78,8 +78,7 @@ function ErrorPanel({ task }: { task: DownloadTask }) {
   const { onRetry } = useTaskActions([task])
   const [sha256, setSha256] = useState('')
   const [verifying, setVerifying] = useState(false)
-  const needsDigest =
-    task.errorDetailKey === 'task.error.detail.verifyFinalizeSource'
+  const needsDigest = task.errorDetailKey === 'task.error.detail.sourceHash'
   const failure = resolveFailureReason(
     {
       errorCode: task.errorCode,
@@ -121,7 +120,7 @@ function ErrorPanel({ task }: { task: DownloadTask }) {
             }}
           >
             <Input
-              aria-label={t('task.error.detail.verifyFinalizeSource')}
+              aria-label={t('task.error.detail.sourceHash')}
               placeholder="SHA-256"
               value={sha256}
               onChange={(event) => setSha256(event.target.value)}
