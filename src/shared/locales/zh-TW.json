@@ -1935,6 +1935,8 @@
           "store": "安裝擴充功能",
           "development": "開發版"
         },
+        "pendingTitle": "瀏覽器擴充功能配對請求",
+        "pendingEmpty": "在擴充功能中點選「配對」，請求就會顯示在這裡。",
         "pairedTitle": "已連線的擴充功能",
         "pairedEmpty": "尚未連線任何擴充功能。",
         "profile": "瀏覽器設定檔 {{number}}",
@@ -2269,7 +2271,7 @@
       "roots": "授權下載目錄",
       "rootsHint": "每行填寫一個已存在的 NAS 目錄。目前帳號和內部系統使用者 motrix 都需要讀寫權限。若移除預設下載目錄，將使用清單中的第一個目錄作為預設目錄。",
       "extensionEnabled": "啟用瀏覽器擴充功能連線",
-      "extensionHint": "使用 DSM 的 HTTPS 位址安全連線，配對時仍需使用目前帳號授權。",
+      "extensionHint": "使用 DSM HTTPS 憑證涵蓋的網域名稱，並將它解析到 NAS 內部位址。",
       "webAddress": "Motrix Web 位址",
       "webAddressHint": "填寫平時開啟的位址，包含 /motrix/。可直接使用目前瀏覽器的位址。",
       "useCurrentAddress": "使用目前 DSM 位址",

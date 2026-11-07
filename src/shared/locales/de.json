@@ -1949,6 +1949,8 @@
           "store": "Installieren",
           "development": "Entwicklung"
         },
+        "pendingTitle": "Browser pairing requests",
+        "pendingEmpty": "Start pairing in your extension.",
         "pairedTitle": "Verbundene Erweiterungen",
         "pairedEmpty": "Noch keine Erweiterungen verbunden.",
         "profile": "Browserprofil {{number}}",
@@ -2284,7 +2286,7 @@
       "roots": "Authorized download folders",
       "rootsHint": "Enter one existing NAS folder per line. Both your account and the internal system user motrix need read/write access. If the default download folder is removed, the first folder becomes the new default.",
       "extensionEnabled": "Enable browser extension connections",
-      "extensionHint": "Use DSM’s HTTPS address for secure remote connections. Pairing still requires approval with your current account.",
+      "extensionHint": "Use a DSM certificate hostname that resolves to the NAS LAN address.",
       "webAddress": "Motrix Web address",
       "webAddressHint": "Use the address you normally open, including /motrix/. You can fill it from this browser.",
       "useCurrentAddress": "Use this DSM address",

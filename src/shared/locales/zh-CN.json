@@ -1935,6 +1935,8 @@
           "store": "安装扩展",
           "development": "开发版"
         },
+        "pendingTitle": "浏览器扩展配对请求",
+        "pendingEmpty": "在扩展中点击“配对”，请求将显示在这里。",
         "pairedTitle": "已连接的扩展",
         "pairedEmpty": "还没有扩展连接到 Motrix。",
         "profile": "浏览器配置 {{number}}",
@@ -2269,7 +2271,7 @@
       "roots": "授权下载目录",
       "rootsHint": "每行填写一个已存在的 NAS 目录。当前账号和内部系统用户 motrix 都需要读写权限。若移除默认下载目录，将使用列表中的第一个目录作为默认目录。",
       "extensionEnabled": "启用浏览器扩展连接",
-      "extensionHint": "复用 DSM 的 HTTPS 地址进行安全连接，配对时仍需使用当前账号授权。",
+      "extensionHint": "使用 DSM HTTPS 证书覆盖的域名，并将它解析到 NAS 内网地址。",
       "webAddress": "Motrix Web 地址",
       "webAddressHint": "填写平时打开的地址，包含 /motrix/。可直接使用当前浏览器的地址。",
       "useCurrentAddress": "使用当前 DSM 地址",

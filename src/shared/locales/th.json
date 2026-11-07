@@ -2404,6 +2404,8 @@
         "connected": "เชื่อมต่อแล้ว",
         "disconnected": "ไม่ได้เชื่อมต่อ",
         "revokeAll": "ยกเลิกการเชื่อมต่อทั้งหมด",
+        "pendingTitle": "Browser pairing requests",
+        "pendingEmpty": "Start pairing in your extension.",
         "pairedTitle": "ส่วนขยายที่เชื่อมต่อ",
         "pairingStateDegraded": {
           "description": "Motrix ไม่สามารถอัปเดตระเบียนส่วนขยายที่จับคู่แล้วได้อย่างปลอดภัย เซสชันส่วนขยายที่มีอยู่ถูกปิด และการเข้าถึงใหม่ถูกบล็อกสำหรับการเปิดแอปครั้งนี้ เริ่ม Motrix ใหม่เพื่อลองซ่อมอีกครั้ง อย่าอ้างอิงรายการด้านล่างจนกว่าข้อความนี้จะหายไป",
@@ -2766,7 +2768,7 @@
       "roots": "Authorized download folders",
       "rootsHint": "Enter one existing NAS folder per line. Both your account and the internal system user motrix need read/write access. If the default download folder is removed, the first folder becomes the new default.",
       "extensionEnabled": "Enable browser extension connections",
-      "extensionHint": "Use DSM’s HTTPS address for secure remote connections. Pairing still requires approval with your current account.",
+      "extensionHint": "Use a DSM certificate hostname that resolves to the NAS LAN address.",
       "webAddress": "Motrix Web address",
       "webAddressHint": "Use the address you normally open, including /motrix/. You can fill it from this browser.",
       "useCurrentAddress": "Use this DSM address",

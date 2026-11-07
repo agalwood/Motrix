@@ -125,7 +125,8 @@ export async function listenNasClientGateway(options: {
     })
     upstream.setTimeout(10_000, () => upstream.destroy())
     upstream.on('upgrade', (response, socket, upstreamHead) => {
-      upstream.setTimeout(0)
+      // The upstream handshake deadline ends when ownership passes to the WS.
+      socket.setTimeout(0)
       if (downstream.destroyed) {
         socket.destroy()
         return

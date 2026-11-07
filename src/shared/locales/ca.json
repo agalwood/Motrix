@@ -2442,6 +2442,8 @@
         "connected": "Connectat",
         "disconnected": "No connectat",
         "revokeAll": "Desconnecta’ls tots",
+        "pendingTitle": "Browser pairing requests",
+        "pendingEmpty": "Start pairing in your extension.",
         "pairedTitle": "Extensions connectades",
         "pairingStateDegraded": {
           "description": "El Motrix no ha pogut actualitzar de manera segura els registres d'extensions aparellades. S'han tancat les sessions d'extensions existents i s'ha bloquejat l'accés nou durant aquesta execució. Reinicieu el Motrix per tornar a provar la reparació; no us refieu de la llista següent fins que desaparegui aquest missatge.",
@@ -2806,7 +2808,7 @@
       "roots": "Authorized download folders",
       "rootsHint": "Enter one existing NAS folder per line. Both your account and the internal system user motrix need read/write access. If the default download folder is removed, the first folder becomes the new default.",
       "extensionEnabled": "Enable browser extension connections",
-      "extensionHint": "Use DSM’s HTTPS address for secure remote connections. Pairing still requires approval with your current account.",
+      "extensionHint": "Use a DSM certificate hostname that resolves to the NAS LAN address.",
       "webAddress": "Motrix Web address",
       "webAddressHint": "Use the address you normally open, including /motrix/. You can fill it from this browser.",
       "useCurrentAddress": "Use this DSM address",
