@@ -24,14 +24,25 @@ import {
   type ClientIdentity,
   clientKey,
   EXTENSION_ORIGIN_SCHEMES,
+  type ExtensionInstallationInfo,
   isBridgeBrowser,
   isSafariExtensionOrigin,
   makeSessionKey,
   type PairRequestPayload,
 } from '@shared/protocol/bridge'
 import { type RawData, type WebSocket, WebSocketServer } from 'ws'
+import { AuthorizedEnvelopeStream } from './authorized-envelope-stream'
 import { BridgeConnection } from './bridge-connection'
-import type { Mbp1CredentialStore } from './credential-store'
+import {
+  type AuthenticatedBridgeClient,
+  type BridgeClientAuthorization,
+  cliCredentialFingerprint,
+} from './client-authorization'
+import {
+  type Mbp1CredentialStore,
+  principalKey,
+  transportIdentityForPrincipal,
+} from './credential-store'
 import type { DeviceCodeService } from './device-code-service'
 import { createInitializeHandler } from './handlers/initialize-handler'
 import {
@@ -51,7 +62,11 @@ import {
 } from './mbp1/envelope-message-stream'
 import { PairFloodControl } from './mbp1/flood-control'
 import { NonceService } from './mbp1/nonce-service'
-import { type PairDialogRequest, PairSession } from './mbp1/pair-session'
+import {
+  type PairCredentialIssuer,
+  type PairDialogRequest,
+  PairSession,
+} from './mbp1/pair-session'
 import { PreAuthTable } from './mbp1/pre-auth-table'
 import { ReconnectRateLimit } from './mbp1/reconnect-rate-limit'
 import { ReconnectSession } from './mbp1/reconnect-session'
@@ -85,6 +100,17 @@ export interface BridgeServerOptions {
    * here so the unary handler can authenticate same-host CLI/agent requests.
    */
   localToken: string
+  /** Shell-owned account gate for paired CLI requests and every SSE frame. */
+  cliAuthorization?: BridgeClientAuthorization
+  /** Account checks for both directions and every handler of an MBP1 session. */
+  extensionAuthorization?: BridgeClientAuthorization
+  /** Per-handshake host binding. Constructing it does not grant approval. */
+  createPairCredentialIssuer?: (
+    audience: Pick<
+      PairDialogRequest,
+      'browser' | 'verifiedOrigin' | 'pairingNonce'
+    >
+  ) => { issuer: PairCredentialIssuer; release: () => void }
   /**
    * Device-code pairing for cli/agent clients (Spec 7b). When present, the
    * `POST /mdxp/pair/request` + `POST /mdxp/pair/poll` HTTP routes are enabled;
@@ -174,6 +200,8 @@ export interface BridgeServerOptions {
     /** The exact credential that authenticated this transport. */
     credentialId: string
   ) => void
+  /** Invalidate installation connection status after readiness or disconnect. */
+  onExtensionSessionsChanged?: () => void
 }
 
 export interface ExtensionMbp1RouteRequest {
@@ -564,7 +592,13 @@ export class WebSocketBridgeServer {
   // life of the connection.
   private sseClients = new Map<
     ServerResponse,
-    { heartbeat: NodeJS.Timeout; identity: ClientIdentity }
+    {
+      heartbeat: NodeJS.Timeout
+      identity: ClientIdentity
+      client: AuthenticatedBridgeClient
+      pending: Promise<void>
+      queued: number
+    }
   >()
   private readonly dispatcher = new MdxpDispatcher()
   private readonly requestWork = new AsyncWorkTracker()
@@ -699,7 +733,6 @@ export class WebSocketBridgeServer {
           socket,
           head,
           peer,
-          identity,
           mbp1,
           route.releaseAdmission ?? (() => undefined)
         )
@@ -729,6 +762,11 @@ export class WebSocketBridgeServer {
           res.end()
           return
         }
+        res.setHeader('X-Motrix-Safari-Continuity', '1')
+        res.setHeader(
+          'Access-Control-Expose-Headers',
+          'X-Motrix-Safari-Continuity'
+        )
         writeJson(res, 200, {
           app: 'motrix-bridge',
           apiVersion: 1,
@@ -785,7 +823,12 @@ export class WebSocketBridgeServer {
       }
       // GET /mdxp/events — Server-Sent Events firehose for CLI/agents (watch).
       if (req.method === 'GET' && pathname === '/mdxp/events') {
-        this.handleSseConnect(req, res)
+        void this.requestWork
+          .run(() => this.handleSseConnect(req, res))
+          .catch(() => {
+            if (!res.headersSent) res.writeHead(503)
+            res.end()
+          })
         return
       }
       // POST /mdxp — stateless unary JSON-RPC for same-machine CLI/agents.
@@ -1029,6 +1072,7 @@ export class WebSocketBridgeServer {
       session.conn.dispose()
     }
     this.sessions.clear()
+    this.notifyExtensionSessionsChanged()
     // End open SSE streams first — otherwise http.close() hangs waiting for the
     // keep-alive connections to drain.
     for (const [res, { heartbeat }] of this.sseClients) {
@@ -1149,13 +1193,53 @@ export class WebSocketBridgeServer {
   broadcastStreamEvent(event: string, data: unknown): void {
     if (this.sseClients.size === 0) return
     const frame = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
-    for (const res of this.sseClients.keys()) {
+    for (const res of this.sseClients.keys()) this.writeStreamFrame(res, frame)
+  }
+
+  private closeStream(res: ServerResponse): void {
+    const state = this.sseClients.get(res)
+    if (state) clearInterval(state.heartbeat)
+    this.sseClients.delete(res)
+    if (!res.destroyed && !res.writableEnded) res.end()
+  }
+
+  private writeStreamFrame(res: ServerResponse, frame: string): void {
+    const state = this.sseClients.get(res)
+    if (!state || res.destroyed || res.writableEnded) return
+    const authorization = this.opts.cliAuthorization
+    if (!authorization) {
       try {
         res.write(frame)
       } catch {
-        // Drop a broken stream; req 'close' will clean it up.
+        this.closeStream(res)
       }
+      return
     }
+    // Account checks can involve platform IO. Preserve frame order and bound
+    // memory if that authority stalls; an overloaded stream reconnects.
+    if (state.queued >= 32) {
+      this.closeStream(res)
+      return
+    }
+    state.queued += 1
+    state.pending = state.pending
+      .then(() =>
+        this.requestWork.run(async () => {
+          if (this.sseClients.get(res) !== state) return
+          await authorization.run(state.client, async () => {
+            if (
+              this.sseClients.get(res) === state &&
+              !res.destroyed &&
+              !res.writableEnded
+            )
+              res.write(frame)
+          })
+        })
+      )
+      .catch(() => this.closeStream(res))
+      .finally(() => {
+        state.queued -= 1
+      })
   }
 
   /**
@@ -1166,56 +1250,87 @@ export class WebSocketBridgeServer {
    * and any unknown/non-cli token is rejected (fail closed). Returns the calling
    * identity, or null when unauthenticated.
    */
-  private resolveBearer(authHeader: string | undefined): ClientIdentity | null {
+  private resolveBearer(
+    authHeader: string | undefined
+  ): AuthenticatedBridgeClient | null {
     const raw = authHeader ?? ''
     const token = raw.startsWith('Bearer ') ? raw.slice(7) : ''
     if (!token) return null
     if (token === this.opts.localToken) {
-      return { kind: 'cli', id: 'local' }
+      return {
+        identity: { kind: 'cli', id: 'local' },
+        credential: { kind: 'local' },
+      }
     }
     const paired = this.opts.pairing.findByToken(token)
     if (paired && paired.identity.kind === 'cli') {
-      this.opts.pairing.markActive(paired.identity)
-      return paired.identity
+      return {
+        identity: paired.identity,
+        credential: {
+          kind: 'paired-cli',
+          fingerprint: cliCredentialFingerprint(token),
+        },
+      }
     }
     return null
   }
 
-  private handleSseConnect(req: IncomingMessage, res: ServerResponse): void {
-    const identity = this.resolveBearer(req.headers.authorization)
-    if (!identity) {
-      res.writeHead(401, { 'content-type': 'application/json' })
-      res.end(
-        JSON.stringify({
-          error: { code: ErrorCodes.PermissionDenied, message: 'unauthorized' },
-        })
+  private async handleSseConnect(
+    req: IncomingMessage,
+    res: ServerResponse
+  ): Promise<void> {
+    const client = this.resolveBearer(req.headers.authorization)
+    try {
+      if (!client) throw new Error('unauthorized')
+      await this.opts.cliAuthorization?.run(client, async () => undefined)
+      // Rotation/revoke during account lookup must not admit a stale token.
+      if (
+        !this.resolveBearer(req.headers.authorization) ||
+        !this.requestWork.isAccepting() ||
+        res.destroyed
       )
+        throw new Error('unauthorized')
+    } catch {
+      if (!res.destroyed) {
+        res.writeHead(401, { 'content-type': 'application/json' })
+        res.end(
+          JSON.stringify({
+            error: {
+              code: ErrorCodes.PermissionDenied,
+              message: 'unauthorized',
+            },
+          })
+        )
+      }
       return
     }
+    if (!client) return
+    if (client.credential.kind === 'paired-cli')
+      this.opts.pairing.markActive(client.identity)
     res.writeHead(200, {
       'content-type': 'text/event-stream',
       'cache-control': 'no-cache',
       connection: 'keep-alive',
     })
     res.write(': connected\n\n')
-    // Heartbeat keeps intermediaries from closing an idle stream. unref() so a
-    // lingering stream never keeps the process alive.
-    const heartbeat = setInterval(() => {
-      try {
-        res.write(': ping\n\n')
-      } catch {
-        // ignore; close handler removes it
-      }
-    }, SSE_HEARTBEAT_MS)
+    // Heartbeats also recheck the account when there are no task events.
+    const heartbeat = setInterval(
+      () => this.writeStreamFrame(res, ': ping\n\n'),
+      SSE_HEARTBEAT_MS
+    )
     heartbeat.unref()
-    this.sseClients.set(res, { heartbeat, identity })
+    this.sseClients.set(res, {
+      heartbeat,
+      identity: client.identity,
+      client,
+      pending: Promise.resolve(),
+      queued: 0,
+    })
     const cleanup = () => {
       clearInterval(heartbeat)
       this.sseClients.delete(res)
     }
     req.on('close', cleanup)
-    // Defensive: a socket error on a long-lived stream must not crash the
-    // process as an unhandled 'error' event.
     res.on('error', cleanup)
   }
 
@@ -1240,9 +1355,59 @@ export class WebSocketBridgeServer {
     }
   }
 
-  /** Find an active session by `${browser}:${extensionId}` key. */
+  /** Exact installation routing key; legacy extension-wide keys never select a peer. */
   getSession(sessionKey: string): BridgeSession | undefined {
     return this.sessions.get(sessionKey)
+  }
+
+  /** Older task metadata identifies an extension, but not its installation.
+   * Deliver those notifications to all ready profiles of that extension. A
+   * modern installation key remains exact even when its peer is offline. */
+  getTaskNotificationSessions(sessionKey: string): BridgeSession[] {
+    const exact = this.sessions.get(sessionKey)
+    const candidates = exact ? [exact] : this.sessionsForExtension(sessionKey)
+    return candidates.filter(
+      ({ conn }) => conn.isAuthorized() && conn.isReady()
+    )
+  }
+
+  /** Public installation summaries contain no credential IDs or key material. */
+  getExtensionInstallations(
+    identity: ClientIdentity & { kind: 'extension' }
+  ): ExtensionInstallationInfo[] {
+    return (this.mbp1?.credentials.listCommitted() ?? [])
+      .filter((credential) => {
+        const transport = transportIdentityForPrincipal(credential.principal)
+        return (
+          transport?.browser === identity.browser &&
+          transport.extensionId === identity.extensionId
+        )
+      })
+      .map((credential) => {
+        const id = principalKey(credential.principal)
+        const conn = this.sessions.get(id)?.conn
+        return {
+          id,
+          pairedAt: credential.createdAt,
+          connected: conn?.isAuthorized() === true && conn.isReady(),
+        }
+      })
+      .sort((a, b) => a.id.localeCompare(b.id))
+  }
+
+  private notifyExtensionSessionsChanged(): void {
+    try {
+      this.opts.onExtensionSessionsChanged?.()
+    } catch {
+      // Presentation invalidation must never interrupt transport teardown.
+    }
+  }
+
+  private sessionsForExtension(extensionKey: string): BridgeSession[] {
+    return [...this.sessions.values()].filter(
+      (session) =>
+        makeSessionKey(session.browser, session.extensionId) === extensionKey
+    )
   }
 
   /**
@@ -1268,8 +1433,11 @@ export class WebSocketBridgeServer {
 
     // Repeat the cutoff even for a resumed attempt: a test double or future
     // transport must not be able to attach work between retry calls.
-    this.sessions.get(sessionKey)?.conn.revokeAuthorization()
+    for (const session of this.sessionsForExtension(sessionKey)) {
+      session.conn.revokeAuthorization()
+    }
     this.cancelPreAuthForSessionKey(sessionKey)
+    this.notifyExtensionSessionsChanged()
     if (existing !== undefined) return existing
 
     const lease = { identity: normalized } as ExtensionRevocationLease
@@ -1452,41 +1620,40 @@ export class WebSocketBridgeServer {
     reason: string
   ): Promise<void> {
     const sessionKey = makeSessionKey(identity.browser, identity.extensionId)
-    const notified = this.sessions.get(sessionKey)
-    if (!notified) return
+    const notified = this.sessionsForExtension(sessionKey)
+    if (notified.length === 0) return
 
-    notified.conn.revokeAuthorization()
-
-    try {
-      notified.conn.sendNotification(Notifications.PairRevoked, { reason })
-    } catch {
-      // A broken writer is already equivalent to a disconnected peer; the
-      // authorization cutoff below must still run.
+    for (const session of notified) {
+      session.conn.revokeAuthorization()
+      try {
+        session.conn.sendNotification(Notifications.PairRevoked, { reason })
+      } catch {
+        // A broken writer must not prevent revoking its sibling installations.
+      }
     }
     await new Promise((resolve) =>
       setTimeout(resolve, REVOKE_NOTIFICATION_GRACE_MS)
     )
 
-    // Authentication can replace a map entry while the final notification is
-    // draining. Close both the notified record and whichever matching record
-    // is current so revocation cannot lose that race.
-    const current = this.sessions.get(sessionKey)
-    const targets =
-      current && current !== notified ? [notified, current] : [notified]
+    // Include any current records as well as the notification recipients.
+    const targets = new Set([
+      ...notified,
+      ...this.sessionsForExtension(sessionKey),
+    ])
     for (const target of targets) {
-      if (this.sessions.get(sessionKey) === target) {
-        this.sessions.delete(sessionKey)
+      if (this.sessions.get(target.conn.sessionKey) === target) {
+        this.sessions.delete(target.conn.sessionKey)
       }
       this.closeSessionTransport(target)
     }
   }
 
-  private closeExtensionSessionNow(sessionKey: string): void {
-    const session = this.sessions.get(sessionKey)
-    if (!session) return
-    session.conn.revokeAuthorization()
-    this.sessions.delete(sessionKey)
-    this.closeSessionTransport(session)
+  private closeExtensionSessionNow(extensionKey: string): void {
+    for (const session of this.sessionsForExtension(extensionKey)) {
+      session.conn.revokeAuthorization()
+      this.sessions.delete(session.conn.sessionKey)
+      this.closeSessionTransport(session)
+    }
   }
 
   private closeSessionTransport(session: BridgeSession): void {
@@ -1521,8 +1688,8 @@ export class WebSocketBridgeServer {
     // Auth: a Bearer token that is EITHER the machine-owner localToken OR a
     // paired cli token (device-code). The caller identity is synthesized from
     // whichever matched.
-    const identity = this.resolveBearer(req.headers.authorization)
-    if (!identity) {
+    const client = this.resolveBearer(req.headers.authorization)
+    if (!client) {
       writeJsonRpc(res, 401, {
         jsonrpc: '2.0',
         id: null,
@@ -1594,7 +1761,7 @@ export class WebSocketBridgeServer {
 
     try {
       const ctx: MdxpSessionContext = {
-        identity,
+        identity: client.identity,
         startedAt: Date.now(),
         isReady: () => true,
         markReady: () => {},
@@ -1606,7 +1773,16 @@ export class WebSocketBridgeServer {
       // The HTTP request wrapper already admitted/tracks this whole handler.
       // Dispatch directly so a shutdown that starts while the body is being
       // read does not re-gate an already-accepted request.
-      const result = await this.dispatcher.dispatch(method, msg.params, ctx)
+      const dispatch = async () => {
+        if (!this.resolveBearer(req.headers.authorization))
+          throw makeMdxpError(ErrorCodes.PermissionDenied, 'unauthorized')
+        if (client.credential.kind === 'paired-cli')
+          this.opts.pairing.markActive(client.identity)
+        return this.dispatcher.dispatch(method, msg.params, ctx)
+      }
+      const result = this.opts.cliAuthorization
+        ? await this.opts.cliAuthorization.run(client, dispatch)
+        : await dispatch()
       writeJsonRpc(res, 200, { jsonrpc: '2.0', id, result })
     } catch (err) {
       const error = normalizeUnaryError(err)
@@ -1873,6 +2049,25 @@ export class WebSocketBridgeServer {
       // unhandled event and takes the process down.
       ws.on('error', () => {})
 
+      let credentialIssuer: PairCredentialIssuer = mbp1.credentials
+      let releaseCredentialIssuer = () => {}
+      try {
+        const scope = this.opts.createPairCredentialIssuer?.({
+          browser: peer.browser,
+          verifiedOrigin: peer.origin,
+          pairingNonce: pairNonce,
+        })
+        if (scope) {
+          credentialIssuer = scope.issuer
+          releaseCredentialIssuer = scope.release
+          ws.once('close', releaseCredentialIssuer)
+        }
+      } catch {
+        this.preAuthPair.settle(entry)
+        entry.releaseAdmission()
+        ws.close()
+        return
+      }
       const session = new PairSession({
         nonceValid: true,
         pairNonce,
@@ -1884,7 +2079,7 @@ export class WebSocketBridgeServer {
         serverGeneration: mbp1.serverGeneration,
         localToken: this.opts.localToken,
         isOfficialId: mbp1.isOfficialId,
-        credentials: mbp1.credentials,
+        credentials: credentialIssuer,
         replay: this.replay,
         // §7.3 admission is core's and runs before ticket validation, so a
         // session refused `busy` never burns a legitimate ticket's one-shot
@@ -1920,6 +2115,8 @@ export class WebSocketBridgeServer {
           this.preAuthPair.settle(entry)
           entry.releaseAdmission()
           entry.confirmed = true
+          releaseCredentialIssuer()
+          ws.off('close', releaseCredentialIssuer)
           this.recordPairOutcome(entry)
           this.adoptAuthenticatedSession(ws, identity, channel, credentialId)
         },
@@ -1967,7 +2164,6 @@ export class WebSocketBridgeServer {
     socket: Duplex,
     head: Buffer,
     peer: ExtensionPeer,
-    identity: ClientIdentity & { kind: 'extension' },
     mbp1: Mbp1Wiring,
     releaseAdmission: () => void
   ): void {
@@ -2014,22 +2210,63 @@ export class WebSocketBridgeServer {
       }
       ws.on('error', () => {})
 
+      const extensionAuthorization = this.opts.extensionAuthorization
       const session = new ReconnectSession({
+        safariTicketContext: {
+          localToken: this.opts.localToken,
+          serverGeneration: mbp1.serverGeneration,
+          replay: this.replay,
+        },
         verifiedOrigin: peer.origin,
         // Derived from the Origin scheme, never from a stored or claimed
         // field: §8 binds the live connection's values into the MAC.
         browser: peer.browser,
         instanceId: mbp1.instanceId,
         credentials: mbp1.credentials,
+        authorizeCredential: extensionAuthorization
+          ? async (credential) => {
+              const transport = transportIdentityForPrincipal(
+                credential.principal
+              )
+              if (!transport || !credential.authorizationEpoch)
+                throw new Error('Extension account unavailable')
+              await extensionAuthorization.run(
+                {
+                  identity: { kind: 'extension', ...transport },
+                  credential: {
+                    kind: 'extension',
+                    credentialId: credential.credentialId,
+                    authorizationEpoch: credential.authorizationEpoch,
+                  },
+                },
+                async () => undefined
+              )
+            }
+          : undefined,
         sendText: (json) => sendText(ws, json),
         close: () => ws.close(),
         onAuthenticated: (channel, credential) => {
           detachPreAuth()
           this.preAuthReconnect.settle(entry)
           entry.releaseAdmission()
+          const authenticatedTransport = transportIdentityForPrincipal(
+            credential.principal
+          )
+          if (!authenticatedTransport) {
+            ws.close()
+            return
+          }
+          const authenticatedIdentity = {
+            kind: 'extension' as const,
+            ...authenticatedTransport,
+          }
+          if (!this.canAdmitExtensionIdentity(authenticatedIdentity)) {
+            ws.close()
+            return
+          }
           this.adoptAuthenticatedSession(
             ws,
-            identity,
+            authenticatedIdentity,
             channel,
             credential.credentialId
           )
@@ -2083,14 +2320,28 @@ export class WebSocketBridgeServer {
     channel: EnvelopeChannel,
     credentialId: string
   ): void {
-    // Byte-identical to `clientKey(identity)`, which the SSE revoke matcher
-    // and `getSession` both rely on.
-    const sessionKey = makeSessionKey(identity.browser, identity.extensionId)
+    // Only the authenticated, committed credential can supply the installation
+    // identity. A client-provided initialize field must never select a session.
+    const credential = this.mbp1?.credentials.findForAuth(credentialId)
+    const transport =
+      credential && transportIdentityForPrincipal(credential.principal)
+    if (
+      credential?.state !== 'committed' ||
+      (this.opts.extensionAuthorization !== undefined &&
+        !credential.authorizationEpoch) ||
+      transport?.browser !== identity.browser ||
+      transport.extensionId !== identity.extensionId
+    ) {
+      ws.close()
+      return
+    }
+    const sessionKey = principalKey(credential.principal)
+    const extensionKey = makeSessionKey(identity.browser, identity.extensionId)
     const startedAt = Date.now()
     // The handed-over endpoints, never fresh ones: their sequence counters
     // continue from the handshake (`/pair` has already sealed
     // `credentialCommitted`).
-    const envelope = wrapWithEnvelope(ws, channel, (fault) => {
+    const rawEnvelope = wrapWithEnvelope(ws, channel, (fault) => {
       // §10: any gap, repeat, tampered frame, post-activation text frame, or
       // usage-bound reached (inbound or outbound) closes immediately. The
       // close code separates "the peer broke the protocol", "this process
@@ -2099,7 +2350,42 @@ export class WebSocketBridgeServer {
       // same code (§11).
       ws.close(closeCodeForEnvelopeFault(fault.kind))
     })
-    const conn = new BridgeConnection(envelope, {
+    let conn: BridgeConnection
+    const client: AuthenticatedBridgeClient = {
+      identity,
+      credential: {
+        kind: 'extension',
+        credentialId,
+        authorizationEpoch: credential.authorizationEpoch ?? '',
+      },
+    }
+    const authorization = this.opts.extensionAuthorization
+      ? new AuthorizedEnvelopeStream(
+          rawEnvelope,
+          client,
+          this.opts.extensionAuthorization,
+          () => {
+            const current = this.mbp1?.credentials.findForAuth(credentialId)
+            return (
+              conn.isAuthorized() &&
+              current?.state === 'committed' &&
+              current.authorizationEpoch === credential.authorizationEpoch &&
+              principalKey(current.principal) === sessionKey &&
+              this.canAdmitExtensionIdentity(identity)
+            )
+          },
+          () => {
+            conn.revokeAuthorization()
+            if (this.sessions.get(sessionKey)?.conn === conn) {
+              this.sessions.delete(sessionKey)
+              this.notifyExtensionSessionsChanged()
+            }
+            conn.dispose()
+          }
+        )
+      : undefined
+    const envelope = authorization ?? rawEnvelope
+    conn = new BridgeConnection(envelope, {
       sessionKey,
       extensionId: identity.extensionId,
       browser: identity.browser,
@@ -2108,7 +2394,7 @@ export class WebSocketBridgeServer {
     // MBP1 authenticated the transport below MDXP, so the session is
     // authorized on arrival. No handler grants this any more.
     conn.markAuthorized()
-    if (this.revokingExtensionKeys.has(sessionKey)) {
+    if (this.revokingExtensionKeys.has(extensionKey)) {
       conn.revokeAuthorization()
       this.closeSessionTransport({
         conn,
@@ -2119,7 +2405,7 @@ export class WebSocketBridgeServer {
       })
       return
     }
-    this.applyHandlers(conn, null)
+    this.applyHandlers(conn, null, authorization)
 
     const session: BridgeSession = {
       conn,
@@ -2134,18 +2420,24 @@ export class WebSocketBridgeServer {
     // just by opening a socket (§4).
     const existing = this.sessions.get(sessionKey)
     this.sessions.set(sessionKey, session)
-    existing?.conn.dispose()
+    if (existing) {
+      existing.conn.revokeAuthorization()
+      this.closeSessionTransport(existing)
+    }
 
     ws.on('close', () => {
       // Only ever remove OUR OWN entry: the replaced socket's imminent close
       // must not delete the replacement that just took its key.
       if (this.sessions.get(sessionKey) === session) {
         this.sessions.delete(sessionKey)
+        this.notifyExtensionSessionsChanged()
       }
+      conn.revokeAuthorization()
       conn.dispose()
     })
 
     conn.listen()
+    authorization?.start()
     // Deliberately synchronous and un-awaited: the session handover and the
     // exact credential evidence are published in this adoption tick. The
     // shell may schedule follow-up work, but cannot block the live transport.
@@ -2197,7 +2489,8 @@ export class WebSocketBridgeServer {
 
   private applyHandlers(
     conn: BridgeConnection,
-    pairArgs: PairRequestArgs | null
+    pairArgs: PairRequestArgs | null,
+    authorization?: AuthorizedEnvelopeStream
   ): void {
     const ctx = contextFromConnection(conn, pairArgs)
     // Every method EXCEPT the handshake pair (motrix/initialize, system/ping)
@@ -2222,7 +2515,7 @@ export class WebSocketBridgeServer {
           new ResponseError(error.code, error.message, error.data)
         )
       }
-      return this.dispatchTracked(method, params, ctx)
+      return this.dispatchTracked(method, params, ctx, authorization)
     }
     // motrix/initialize is always registered on the dispatcher; download/* are
     // present only after the shell calls setHandlers(). Each onRequest routes
@@ -2231,7 +2524,12 @@ export class WebSocketBridgeServer {
     conn.onRequest(
       'motrix/initialize',
       (params) =>
-        this.dispatchTracked('motrix/initialize', params, ctx) as never
+        this.dispatchTracked(
+          'motrix/initialize',
+          params,
+          ctx,
+          authorization
+        ) as never
     )
     if (this.dispatcher.has('download/submit')) {
       conn.onRequest(
@@ -2264,17 +2562,26 @@ export class WebSocketBridgeServer {
       recvAt: Date.now(),
     }))
     conn.onNotification('motrix/initialized', () => {
+      if (!conn.isAuthorized()) return
       conn.markReady()
+      this.notifyExtensionSessionsChanged()
     })
   }
 
   private dispatchTracked(
     method: string,
     params: unknown,
-    ctx: MdxpSessionContext
+    ctx: MdxpSessionContext,
+    authorization?: AuthorizedEnvelopeStream
   ): Promise<unknown> {
     return this.requestWork
-      .run(() => this.dispatcher.dispatch(method, params, ctx))
+      .run(() =>
+        authorization
+          ? authorization.run(() =>
+              this.dispatcher.dispatch(method, params, ctx)
+            )
+          : this.dispatcher.dispatch(method, params, ctx)
+      )
       .catch((error) => {
         // Plain MDXP errors otherwise become InternalError in vscode-jsonrpc,
         // making a pre-dispatch directory rejection look like an unknown submit.

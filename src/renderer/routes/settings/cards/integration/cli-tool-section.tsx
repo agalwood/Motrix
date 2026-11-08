@@ -1,4 +1,5 @@
 import { CopyButton } from '@renderer/components/desktop-kit/copy-button'
+import { MiddleEllipsis } from '@renderer/components/desktop-kit/middle-ellipsis'
 import { ChevronRightIcon, StatusErrorIcon } from '@renderer/components/icons'
 import {
   Alert,
@@ -87,6 +88,8 @@ function reasonKey(reason: CliToolReason | null): string {
       return 'settings.integration.cli.tool.reason.nodeTooOld'
     case CliToolReason.ManagerMissing:
       return 'settings.integration.cli.tool.reason.managerMissing'
+    case CliToolReason.Portable:
+      return 'settings.portable.integrationUnavailable'
     case CliToolReason.Sandboxed:
       return 'settings.integration.cli.tool.reason.sandboxed'
     case CliToolReason.UnsupportedWeb:
@@ -293,11 +296,8 @@ export function CliToolSection() {
                 <dt className="text-muted-foreground">
                   {t('settings.integration.cli.tool.metadata.path')}
                 </dt>
-                <dd
-                  className="min-w-0 break-all font-mono"
-                  title={status.executablePath}
-                >
-                  {status.executablePath}
+                <dd className="min-w-0">
+                  <MiddleEllipsis text={status.executablePath} maxChars={64} />
                 </dd>
               </>
             )}

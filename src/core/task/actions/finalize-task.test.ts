@@ -1,3 +1,4 @@
+import { StagedEffectStore } from '@core/plugin/hooks/staged-effects'
 import { Events } from '@shared/protocol/events'
 import type { DownloadTask, TaskInstance } from '@shared/types/task'
 import {
@@ -7,6 +8,7 @@ import {
   TaskType,
   TransitionPhase,
 } from '@shared/types/task'
+import { makeLegacyHttpTask } from '@test-utils/legacy-http-activation'
 import { makeDownloadTask } from '@test-utils/task'
 import { directTaskUpdatePublication } from '@test-utils/task-update'
 import { describe, expect, it, vi } from 'vitest'
@@ -110,6 +112,90 @@ function buildSingleFileTorrent(name: string): Uint8Array {
     Buffer.concat([prefix, Buffer.alloc(20), Buffer.from('ee')])
   )
 }
+
+describe('finalizeTask legacy HTTP binding', () => {
+  it('completes the original file only after exact live progress and binding proof', async () => {
+    const task = makeLegacyHttpTask({ status: TaskStatus.Downloading })
+    const deps = makeDeps({ persistTaskWithOccurrence: vi.fn() })
+    deps.adapter.verifyLegacyHttpBinding = vi.fn().mockResolvedValue(true)
+    vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+    vi.mocked(deps.adapter.getTaskStatus).mockResolvedValue({
+      ...task,
+      status: TaskStatus.Completed,
+      downloadedBytes: task.totalBytes,
+    })
+
+    await finalizeTask(task.id, deps)
+
+    expect(deps.adapter.verifyLegacyHttpBinding).toHaveBeenCalledWith({
+      engineTaskId: task.engineTaskId,
+      saveDir: '/original',
+      targetPath: '/original/file.bin',
+      uri: task.uris[0],
+      expected: { totalBytes: 1024, pieceBytes: 512 },
+      entityTag: '"original"',
+      fileIdentity: { device: '1', inode: '2' },
+    })
+    expect(task.status).toBe(TaskStatus.Completed)
+    expect(task.downloadedBytes).toBe(1024)
+    expect(task.diskPath).toBe('/original/file.bin')
+    expect(task.instances[0]).toMatchObject({
+      status: TaskStatus.Completed,
+      diskPath: '/original/file.bin',
+      downloadedBytes: 1024,
+      progress: 100,
+    })
+    expect(deps.persistTaskWithOccurrence).toHaveBeenCalledOnce()
+    expect(deps.fs.renameAtomic).not.toHaveBeenCalled()
+    expect(deps.fs.removePathRecursive).not.toHaveBeenCalled()
+    expect(deps.adapter.removeDownloadResult).not.toHaveBeenCalled()
+    expect(deps.adapter.forceRemoveTask).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    { status: TaskStatus.Downloading, totalBytes: 1024, downloadedBytes: 1024 },
+    { status: TaskStatus.Completed, totalBytes: 1024, downloadedBytes: 512 },
+    { status: TaskStatus.Completed, totalBytes: 2048, downloadedBytes: 2048 },
+    { status: TaskStatus.Completed, totalBytes: 1024, downloadedBytes: 2048 },
+  ])('does not finalize a mismatched engine completion %j', async (live) => {
+    const task = makeLegacyHttpTask({ status: TaskStatus.Downloading })
+    const deps = makeDeps({ persistTaskWithOccurrence: vi.fn() })
+    deps.adapter.verifyLegacyHttpBinding = vi.fn().mockResolvedValue(true)
+    vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+    vi.mocked(deps.adapter.getTaskStatus).mockResolvedValue({
+      ...task,
+      ...live,
+    })
+    await finalizeTask(task.id, deps)
+    expect(task.status).toBe(TaskStatus.Downloading)
+    expect(deps.persistTaskWithOccurrence).not.toHaveBeenCalled()
+    expect(deps.fs.renameAtomic).not.toHaveBeenCalled()
+  })
+
+  it.each(['binding', 'uri', 'path'])(
+    'does not finalize when the original %s cannot be proved',
+    async (failure) => {
+      const task = makeLegacyHttpTask({ status: TaskStatus.Downloading })
+      if (failure === 'uri')
+        task.instances[0].uris = ['https://changed.example/file']
+      if (failure === 'path') task.finalPath = '/original/another.bin'
+      const deps = makeDeps({ persistTaskWithOccurrence: vi.fn() })
+      deps.adapter.verifyLegacyHttpBinding = vi.fn().mockResolvedValue(false)
+      vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+      vi.mocked(deps.adapter.getTaskStatus).mockResolvedValue({
+        ...task,
+        status: TaskStatus.Completed,
+        downloadedBytes: task.totalBytes,
+      })
+      await finalizeTask(task.id, deps)
+      expect(task.status).toBe(TaskStatus.Downloading)
+      expect(deps.persistTaskWithOccurrence).not.toHaveBeenCalled()
+      expect(deps.fs.renameAtomic).not.toHaveBeenCalled()
+      if (failure !== 'binding')
+        expect(deps.adapter.verifyLegacyHttpBinding).not.toHaveBeenCalled()
+    }
+  )
+})
 
 describe('finalizeTask HTTP/FTP branch', () => {
   it.each([TaskType.Http, TaskType.Ftp])(
@@ -501,6 +587,17 @@ describe('finalizeTask failure-path publication routing', () => {
 // and persists Completed with Size 0 / 0%. The fix is a pre-finalize
 // tellStatus refresh before removeDownloadResult retires the gid.
 describe('finalizeTask HTTP pre-refresh transfer metadata', () => {
+  it('keeps a known single-file output when the final metadata probe fails', async () => {
+    const deps = makeDeps()
+    const task = makeTask({ fileCount: 0 })
+    vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+    vi.mocked(deps.adapter.getTaskStatus).mockRejectedValue(
+      new Error('engine row retired')
+    )
+    await finalizeTask('t1', deps)
+    expect(task.status).toBe(TaskStatus.Completed)
+    expect(task.fileCount).toBe(1)
+  })
   it('fills byte counters and piece length when polling never observed them', async () => {
     const deps = makeDeps()
     const task = makeTask({
@@ -1939,9 +2036,7 @@ describe('finalizeTask plugin-hook chain (Plan C / T15)', () => {
   function makeBeforeFinalizeCommit(
     overrides: {
       finalFilePath?: string
-      staged?: {
-        commitMetadata: ReturnType<typeof vi.fn>
-      }
+      staged?: StagedEffectStore | { commitMetadata: ReturnType<typeof vi.fn> }
     } = {}
   ) {
     return {
@@ -1976,6 +2071,85 @@ describe('finalizeTask plugin-hook chain (Plan C / T15)', () => {
       log: vi.fn(async () => {}),
     } as unknown as FinalizeTaskDeps['auditLog']
   }
+
+  function makeDirectBtFinalize(policyCheck: () => void) {
+    const task = makeBtTask({
+      diskPath: '/d/movie.iso',
+      finalPath: '/d/movie.iso',
+      instances: [
+        makePrimaryInstance({
+          phase: TaskInstancePhase.BtDownload,
+          diskPath: '/d/movie.iso',
+          payload: {
+            btStorageLayout: {
+              version: 2,
+              strategy: 'direct',
+              torrentRootName: 'original.iso',
+              multiFile: false,
+              finalized: false,
+            },
+          },
+        }),
+      ],
+    })
+    const staged = new StagedEffectStore()
+    staged.bindPolicyCheck('test.before-finalize', policyCheck)
+    const deps = makeDeps({
+      orchestrator: makeOrchestrator(makeBeforeFinalizeCommit({ staged })),
+      commitFinalizedArtifact: vi.fn(async () => {
+        throw new Error('engine writer is still active')
+      }),
+    })
+    vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+    return { task, deps }
+  }
+
+  it.each([TaskStatus.Seeding, TaskStatus.Completed])(
+    'BT: policy checks alone finalize direct output in place with status %s',
+    async (status) => {
+      const policyCheck = vi.fn()
+      const { task, deps } = makeDirectBtFinalize(policyCheck)
+      vi.mocked(deps.adapter.getTaskStatus).mockResolvedValue(
+        makeBtTask({ status })
+      )
+      const gid = task.engineTaskId
+
+      await expect(finalizeTask(task.id, deps)).resolves.toBeUndefined()
+
+      expect(policyCheck).toHaveBeenCalled()
+      expect(task.status).toBe(status)
+      expect(task.engineTaskId).toBe(gid)
+      expect(task.instances[0].payload.btStorageLayout).toMatchObject({
+        finalized: true,
+      })
+      expect(deps.commitFinalizedArtifact).not.toHaveBeenCalled()
+      expect(deps.fs.renameAtomic).not.toHaveBeenCalled()
+      expect(deps.adapter.forceRemoveTask).not.toHaveBeenCalled()
+      expect(deps.adapter.addTorrent).not.toHaveBeenCalled()
+    }
+  )
+
+  it('BT: rejects a revoked policy after refreshing direct output state', async () => {
+    let revoked = false
+    const { task, deps } = makeDirectBtFinalize(() => {
+      if (revoked) throw new Error('plugin security policy changed')
+    })
+    vi.mocked(deps.adapter.getTaskStatus).mockResolvedValue(
+      makeBtTask({ status: TaskStatus.Seeding })
+    )
+    vi.mocked(deps.adapter.getTaskFiles).mockImplementation(async () => {
+      revoked = true
+      return []
+    })
+
+    await expect(finalizeTask(task.id, deps)).rejects.toThrow(
+      'plugin security policy changed'
+    )
+
+    expect(task.status).toBe(TaskStatus.Error)
+    expect(deps.commitFinalizedArtifact).not.toHaveBeenCalled()
+    expect(deps.activityRecorder.recordDownloadCompleted).not.toHaveBeenCalled()
+  })
 
   it('HTTP: chain commit leaves afterComplete to durable delivery', async () => {
     const orchestrator = makeOrchestrator(makeBeforeFinalizeCommit())

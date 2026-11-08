@@ -10,7 +10,9 @@ import {
   type FfmpegService,
   muxerForOutputName,
 } from '@core/ffmpeg/ffmpeg-service'
+import { ensureDirectory } from '@core/fs/ensure-directory'
 import { pathExists } from '@core/fs/path-exists'
+import { newTaskId } from '@core/lib/ids'
 import { getLogger } from '@core/logger'
 import type { assembleSegments } from '@core/media/segment-assembler'
 import type { SegmentDecryptor } from '@core/media/segment-decryptor'
@@ -188,7 +190,7 @@ export class MediaTaskCoordinator {
       throw new Error('MediaTaskCoordinator is stopped')
     }
 
-    const taskId = job.taskId ?? this.deps.mintTaskId?.() ?? crypto.randomUUID()
+    const taskId = job.taskId ?? this.deps.mintTaskId?.() ?? newTaskId()
     let accepted = false
     let resolveAccepted!: () => void
     let rejectAccepted!: (error: unknown) => void
@@ -228,7 +230,7 @@ export class MediaTaskCoordinator {
    * contract. Production bridge and desktop submit paths use submit().
    */
   async start(job: MediaJob): Promise<{ taskId: string }> {
-    const taskId = job.taskId ?? this.deps.mintTaskId?.() ?? crypto.randomUUID()
+    const taskId = job.taskId ?? this.deps.mintTaskId?.() ?? newTaskId()
     return this.run(job, taskId)
   }
 
@@ -286,7 +288,7 @@ export class MediaTaskCoordinator {
     // atomic syscall; on EEXIST (someone won the slot between the pipeline's
     // pickName and here) we re-pick and try again. Runs BEFORE makeTask so a
     // reservation failure rejects the submit without leaving a ghost task.
-    await fs.promises.mkdir(job.saveDir, { recursive: true })
+    await ensureDirectory(job.saveDir)
     let finalName = job.finalName
     let finalPath = path.join(job.saveDir, finalName)
     let diskPath = toTempPath(finalPath)
@@ -716,7 +718,7 @@ export class MediaTaskCoordinator {
       // saveDir was already created at reservation time; re-ensure it here in
       // case the user deleted it during a long download — ffmpeg does NOT
       // create its output's parent dir and would ENOENT after a full download.
-      await fs.promises.mkdir(job.saveDir, { recursive: true })
+      await ensureDirectory(job.saveDir)
       assertActive()
 
       // DIAGNOSTIC: inspect the assembled inputs right before mux. ffmpeg

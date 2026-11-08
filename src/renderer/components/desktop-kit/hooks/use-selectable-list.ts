@@ -165,7 +165,7 @@ export function useSelectableList<T>(
       checked: total > 0 && count === total,
       indeterminate: count > 0 && count < total,
       onChange: () => {
-        if (count > 0) {
+        if (count === total) {
           store.getState().clearSelection()
         } else {
           store.getState().selectAll()

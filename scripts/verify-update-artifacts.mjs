@@ -83,6 +83,21 @@ export async function verifyUpdateArtifacts({
         )
       }
     }
+    if (requireAll && platform.suffix === '') {
+      const expected = [
+        `Motrix-Setup-${version}.exe`,
+        `Motrix-Setup-${version}-arm64.exe`,
+      ]
+      if (
+        manifest.legacyFile.url !== expected[0] ||
+        manifest.files.length !== expected.length ||
+        manifest.files.some((file, index) => file.url !== expected[index])
+      ) {
+        throw new Error(
+          `${manifest.name}: Windows updates must list x64 then arm64 installers and retain the x64 legacy path`
+        )
+      }
+    }
 
     for (const file of manifest.files) {
       const previous = verified.get(file.url)

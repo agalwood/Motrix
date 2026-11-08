@@ -87,6 +87,20 @@ describe('LibsodiumSecretStore', () => {
     expect(recovered).toBe(plaintext)
   })
 
+  it('decrypts tokens written before lazy initialization', async () => {
+    const store = await LibsodiumSecretStore.create({
+      userDataDir: tmpDir,
+      envSeed: TEST_SEED,
+    })
+    // Fixed secretbox fixture: the existing 32-byte key, 24-byte nonce and
+    // box: token format must survive the change in initialization timing.
+    await expect(
+      store.decrypt(
+        'box:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA:02io/RDmzfFG2btAjFPmDMtgY7Q6HXgkp0yKYAJvg4vL'
+      )
+    ).resolves.toBe('legacy secret ✓')
+  })
+
   // Test 4: decrypt of malformed "box:" token rejects.
   it('decrypt of malformed box: token rejects', async () => {
     const store = await LibsodiumSecretStore.create({

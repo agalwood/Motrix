@@ -15,6 +15,7 @@ import type {
   IdentityTriState,
   PairRequestPayload,
 } from '@shared/protocol/bridge'
+import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 export type AppToastType = 'success' | 'info' | 'warning' | 'error'
@@ -46,6 +47,13 @@ export type PairRequestToastData = {
       })
     | (Extract<PairRequestPayload, { kind: 'extension' }> & {
         onDeny: () => void
+        accountName?: string
+      })
+    | (Extract<PairRequestPayload, { kind: 'extension-claim' }> & {
+        onClaim: () => void
+        claiming: boolean
+        onDeny: () => void
+        accountName?: string
       })
 }
 
@@ -180,79 +188,9 @@ function ToastList() {
         )
       }
 
-      const copy = pairRequestCopy(pairRequest, t)
-      const identityMeta = IDENTITY_BADGE_META[pairRequest.identity]
-      const isUnverified = pairRequest.identity === 'unverified'
       return (
         <Toast.Root key={item.id} toast={item} className={rootClassName}>
-          <div className="flex min-w-0 flex-1 flex-col gap-1.5 wrap-anywhere">
-            <div className="flex items-center gap-1.5">
-              {isUnverified && (
-                <SEVERITY_ICONS.warning.icon
-                  className={cn(
-                    'size-3.5 shrink-0',
-                    SEVERITY_ICONS.warning.iconClassName
-                  )}
-                  aria-hidden="true"
-                />
-              )}
-              <Badge
-                variant={identityMeta.badgeVariant}
-                className="rounded text-[10px]"
-              >
-                {t(identityMeta.labelKey)}
-              </Badge>
-            </div>
-            <Toast.Title className="text-sm font-medium">
-              {copy.title}
-            </Toast.Title>
-            {/* Raw id, not the self-reported name (§5) — same font-mono
-             *  truncate treatment as the trusted-extensions table. */}
-            <Toast.Description className="truncate font-mono text-[11px] text-muted-foreground">
-              {copy.description}
-            </Toast.Description>
-            {isUnverified && (
-              <p className="text-xs text-amber-700 dark:text-amber-400">
-                {t(
-                  'settings.integration.browser.pairToast.identityUnverifiedWarning'
-                )}
-              </p>
-            )}
-            <div className="mt-1 flex flex-col gap-1 rounded border border-border bg-muted/30 px-2 py-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] tracking-wide text-muted-foreground uppercase">
-                  {t('settings.integration.browser.pairToast.pairCode')}
-                </span>
-                <CopyButton
-                  content={pairRequest.code}
-                  size="xs"
-                  variant="ghost"
-                  aria-label={t(
-                    'settings.integration.browser.pairToast.copyCode'
-                  )}
-                  className="-my-0.5 -me-1 size-6 p-0 text-muted-foreground hover:text-foreground"
-                />
-              </div>
-              {/* The §7.1 PAKE password, rendered verbatim — never
-               *  reformatted and never logged (§7.1/§11). */}
-              <span className="text-center font-mono text-base font-semibold tracking-widest">
-                {pairRequest.code}
-              </span>
-              <span className="text-[11px] text-muted-foreground">
-                {t('settings.integration.browser.pairToast.pairCodeHint')}
-              </span>
-            </div>
-            <div className="mt-1.5 flex gap-2">
-              <Button
-                type="button"
-                size="xs"
-                variant="outline"
-                onClick={pairRequest.onDeny}
-              >
-                {copy.denyLabel}
-              </Button>
-            </div>
-          </div>
+          <ExtensionPairRequestContent pairRequest={pairRequest} />
           {closeButton}
         </Toast.Root>
       )
@@ -288,7 +226,132 @@ function ToastList() {
   })
 }
 
-export function Toaster() {
+type ExtensionPrompt = Exclude<
+  PairRequestToastData['pairRequest'],
+  { kind: 'cli' }
+>
+
+/** Both views use this document’s existing prompt and claim callback. A code
+ * only becomes available here after this operator explicitly claims it. */
+export function usePageExtensionPrompts(accountName: string) {
+  const { toasts } = Toast.useToastManager<PairRequestToastData>()
+  return toasts.flatMap((item) => {
+    const prompt = item.data?.pairRequest
+    return item.transitionStatus !== 'ending' &&
+      prompt &&
+      prompt.kind !== 'cli' &&
+      prompt.accountName === accountName
+      ? [{ id: item.id, prompt }]
+      : []
+  })
+}
+
+export function ExtensionPairRequestContent({
+  pairRequest,
+  inline = false,
+}: {
+  pairRequest: ExtensionPrompt
+  inline?: boolean
+}) {
+  const { t } = useTranslation()
+  const copy = pairRequestCopy(pairRequest, t)
+  const identityMeta = IDENTITY_BADGE_META[pairRequest.identity]
+  const isUnverified = pairRequest.identity === 'unverified'
+  const Title = inline ? 'h4' : Toast.Title
+  const Description = inline ? 'p' : Toast.Description
+  return (
+    <div className="flex min-w-0 flex-1 flex-col gap-1.5 wrap-anywhere">
+      <div className="flex items-center gap-1.5">
+        {isUnverified && (
+          <SEVERITY_ICONS.warning.icon
+            className={cn(
+              'size-3.5 shrink-0',
+              SEVERITY_ICONS.warning.iconClassName
+            )}
+            aria-hidden="true"
+          />
+        )}
+        <Badge
+          variant={identityMeta.badgeVariant}
+          className="rounded text-[10px]"
+        >
+          {t(identityMeta.labelKey)}
+        </Badge>
+      </div>
+      <Title className="text-sm font-medium">{copy.title}</Title>
+      {/* Raw id, not the self-reported name (§5) — same font-mono
+       *  truncate treatment as the trusted-extensions table. */}
+      <Description className="truncate font-mono text-[11px] text-muted-foreground">
+        {copy.description}
+      </Description>
+      {pairRequest.accountName && (
+        <p className="text-xs font-medium wrap-anywhere">
+          {t('settings.integration.browser.pairToast.account', {
+            name: pairRequest.accountName,
+          })}
+        </p>
+      )}
+      {isUnverified && (
+        <p className="text-xs text-amber-700 dark:text-amber-400">
+          {t(
+            'settings.integration.browser.pairToast.identityUnverifiedWarning'
+          )}
+        </p>
+      )}
+      {pairRequest.kind === 'extension-claim' ? (
+        <div className="mt-1 flex flex-col items-start gap-2">
+          <p className="text-xs text-muted-foreground">
+            {t('settings.integration.browser.pairToast.claimDesc')}
+          </p>
+          <Button
+            type="button"
+            size="xs"
+            onClick={pairRequest.onClaim}
+            disabled={pairRequest.claiming || !pairRequest.accountName}
+            aria-busy={pairRequest.claiming}
+          >
+            {t('settings.integration.browser.pairToast.claim')}
+          </Button>
+        </div>
+      ) : (
+        <div className="mt-1 flex flex-col gap-1 rounded border border-border bg-muted/30 px-2 py-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] tracking-wide text-muted-foreground uppercase">
+              {t('settings.integration.browser.pairToast.pairCode')}
+            </span>
+            <CopyButton
+              content={pairRequest.code}
+              size="xs"
+              variant="ghost"
+              aria-label={t('settings.integration.browser.pairToast.copyCode')}
+              className="-my-0.5 -me-1 size-6 p-0 text-muted-foreground hover:text-foreground"
+            />
+          </div>
+          {/* The §7.1 PAKE password, rendered verbatim — never
+           *  reformatted and never logged (§7.1/§11). */}
+          <span className="text-center font-mono text-base font-semibold tracking-widest">
+            {pairRequest.code}
+          </span>
+          <span className="text-[11px] text-muted-foreground">
+            {t('settings.integration.browser.pairToast.pairCodeHint')}
+          </span>
+        </div>
+      )}
+      <div className="mt-1.5 flex gap-2">
+        <Button
+          type="button"
+          size="xs"
+          variant="outline"
+          onClick={pairRequest.onDeny}
+        >
+          {copy.denyLabel}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+export function Toaster({ children }: { children?: ReactNode }) {
   const { t } = useTranslation()
   const avoidDesktopChrome =
     __MOTRIX_TARGET__ === 'electron' &&
@@ -304,6 +367,7 @@ export function Toaster() {
     // auto-deny. 5 gives enough headroom for a pairing prompt plus a
     // handful of transient toasts to coexist visibly.
     <Toast.Provider toastManager={toast} limit={5}>
+      {children}
       <Toast.Portal>
         <Toast.Viewport
           aria-label={t('notification.center.toastRegionAria')}

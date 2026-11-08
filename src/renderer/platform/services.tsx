@@ -1,3 +1,5 @@
+import type { CloseCurrentWindowPayload } from '@shared/schemas/close-current-window'
+import type { FilePickerOptions } from '@shared/schemas/file-picker'
 import { createContext, type ReactNode, useContext } from 'react'
 
 export type PluginInstallFileReference =
@@ -12,6 +14,9 @@ export interface PluginInstallFileCapability {
 export interface PlatformServices {
   readonly kind: 'electron' | 'web'
   readonly pluginInstallFile?: PluginInstallFileCapability
+  pickFile?(options: FilePickerOptions): Promise<string | null>
+  /** Resolve a user-dropped file on this host; absent for remote web sessions. */
+  getPathForFile?(file: File): string | null
   pickSaveDir(
     defaultPath?: string,
     options?: {
@@ -19,16 +24,11 @@ export interface PlatformServices {
       allowFavoriteEditing?: boolean
     }
   ): Promise<string | null>
-  closeHost(options?: {
-    showMain?: boolean
-    /**
-     * Electron only: after closing this child window and showing main,
-     * ask the main window's React Router to navigate to this path.
-     * Web ignores this — web hosts (e.g. dialogs) navigate via
-     * `useNavigate()` directly because they share the main React tree.
-     */
-    navigateMainTo?: string
-  }): Promise<void> | void
+  /**
+   * Electron uses the payload to focus or navigate the main window after closing.
+   * Web hosts ignore it and navigate via `useNavigate()` in the shared React tree.
+   */
+  closeHost(options?: CloseCurrentWindowPayload): Promise<void> | void
   readClipboard(): Promise<string>
   openExternal(url: string): Promise<void> | void
   notify(

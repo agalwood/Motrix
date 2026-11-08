@@ -52,7 +52,7 @@ require(${JSON.stringify(join(repo, 'dist/main/index.cjs'))});
     JSON.stringify({
       version: CURRENT_SETTINGS_VERSION,
       onboarding: { disclaimerAccepted: true },
-      app: { browserBridgeEnabled: true },
+      app: { browserBridgeEnabled: true, language: 'en-US' },
     })
   )
   const launch = () =>

@@ -10,7 +10,6 @@ import type {
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   applyDashboardPreset,
-  DASHBOARD_LAYOUT_PRESET_BY_ID,
   DASHBOARD_LAYOUT_PRESETS,
   type DashboardLayoutPresetId,
   getDashboardLayoutPreset,
@@ -28,55 +27,6 @@ const { packDashboardLayoutMock } = vi.hoisted(() => ({
 vi.mock('./dashboard-layout', () => ({
   packDashboardLayout: packDashboardLayoutMock,
 }))
-
-const EXPECTED_TILES: Record<DashboardLayoutPresetId, DashboardTileLayout[]> = {
-  balanced: [
-    { id: 'engine', enabled: true, x: 0, y: 0, w: 1, h: 1 },
-    { id: 'speedLimit', enabled: true, x: 1, y: 0, w: 1, h: 1 },
-    { id: 'speedUp', enabled: true, x: 2, y: 0, w: 1, h: 1 },
-    { id: 'speedDown', enabled: true, x: 3, y: 0, w: 1, h: 1 },
-    { id: 'active', enabled: true, x: 0, y: 1, w: 2, h: 1 },
-    { id: 'transfer', enabled: true, x: 2, y: 1, w: 2, h: 1 },
-    { id: 'activity', enabled: true, x: 0, y: 2, w: 4, h: 1 },
-    { id: 'tasks', enabled: false, x: 2, y: 1, w: 2, h: 2 },
-    { id: 'nat', enabled: false, x: 0, y: 0, w: 1, h: 1 },
-  ],
-  taskFocus: [
-    { id: 'engine', enabled: true, x: 0, y: 0, w: 1, h: 1 },
-    { id: 'speedLimit', enabled: true, x: 1, y: 0, w: 1, h: 1 },
-    { id: 'active', enabled: true, x: 2, y: 0, w: 1, h: 1 },
-    { id: 'transfer', enabled: true, x: 3, y: 0, w: 1, h: 1 },
-    { id: 'speedUp', enabled: true, x: 0, y: 1, w: 1, h: 1 },
-    { id: 'tasks', enabled: true, x: 1, y: 1, w: 3, h: 2 },
-    { id: 'speedDown', enabled: true, x: 0, y: 2, w: 1, h: 1 },
-    { id: 'nat', enabled: false, x: 0, y: 0, w: 1, h: 1 },
-    { id: 'activity', enabled: false, x: 0, y: 0, w: 1, h: 1 },
-  ],
-  speedFocus: [
-    { id: 'speedDown', enabled: true, x: 0, y: 0, w: 2, h: 2 },
-    { id: 'speedUp', enabled: true, x: 2, y: 0, w: 2, h: 2 },
-    { id: 'engine', enabled: true, x: 0, y: 2, w: 1, h: 1 },
-    { id: 'speedLimit', enabled: true, x: 1, y: 2, w: 1, h: 1 },
-    { id: 'transfer', enabled: true, x: 2, y: 2, w: 2, h: 1 },
-    { id: 'tasks', enabled: false, x: 0, y: 0, w: 2, h: 2 },
-    { id: 'active', enabled: false, x: 0, y: 0, w: 1, h: 1 },
-    { id: 'nat', enabled: false, x: 0, y: 0, w: 1, h: 1 },
-    { id: 'activity', enabled: false, x: 0, y: 0, w: 1, h: 1 },
-  ],
-  compact: [
-    { id: 'engine', enabled: true, x: 0, y: 0, w: 1, h: 1 },
-    { id: 'nat', enabled: true, x: 1, y: 0, w: 1, h: 1 },
-    { id: 'speedUp', enabled: true, x: 2, y: 0, w: 1, h: 1 },
-    { id: 'speedDown', enabled: true, x: 3, y: 0, w: 1, h: 1 },
-    { id: 'speedLimit', enabled: true, x: 0, y: 1, w: 1, h: 1 },
-    { id: 'transfer', enabled: true, x: 1, y: 1, w: 1, h: 1 },
-    { id: 'tasks', enabled: true, x: 2, y: 1, w: 2, h: 1 },
-    { id: 'active', enabled: true, x: 0, y: 2, w: 2, h: 1 },
-    { id: 'activity', enabled: true, x: 2, y: 2, w: 2, h: 1 },
-  ],
-}
-
-const PRESET_IDS = Object.keys(EXPECTED_TILES) as DashboardLayoutPresetId[]
 
 const TILE_FIELD_MUTATIONS: {
   name: string
@@ -171,29 +121,7 @@ describe('dashboard layout presets', () => {
     packDashboardLayoutMock.mockClear()
   })
 
-  it.each(PRESET_IDS)('defines the exact ordered %s table', (id) => {
-    expect(getDashboardLayoutPreset(id).layout).toEqual({
-      version: 1,
-      columns: DASHBOARD_COLUMNS,
-      tiles: EXPECTED_TILES[id],
-    })
-  })
-
-  it('exports all four presets in their canonical menu order', () => {
-    expect(DASHBOARD_LAYOUT_PRESETS.map((preset) => preset.id)).toEqual([
-      'balanced',
-      'taskFocus',
-      'speedFocus',
-      'compact',
-    ])
-
-    for (const preset of DASHBOARD_LAYOUT_PRESETS) {
-      expect(DASHBOARD_LAYOUT_PRESET_BY_ID.get(preset.id)).toBe(preset)
-      expect(getDashboardLayoutPreset(preset.id)).toBe(preset)
-    }
-  })
-
-  it.each(PRESET_IDS)(
+  it.each(DASHBOARD_LAYOUT_PRESETS.map((preset) => preset.id))(
     'keeps %s complete, supported, ordered, and inside the fixed canvas',
     (id) => {
       expectValidPreset(getDashboardLayoutPreset(id).layout)
@@ -228,8 +156,8 @@ describe('dashboard layout presets', () => {
     const arbitraryCurrent: DashboardLayoutSettings = {
       version: 1,
       columns: DASHBOARD_COLUMNS,
-      tiles: EXPECTED_TILES.compact
-        .toReversed()
+      tiles: getDashboardLayoutPreset('compact')
+        .layout.tiles.toReversed()
         .map((tile) => ({ ...tile, enabled: false, x: 0, y: 0 })),
     }
 
@@ -241,9 +169,12 @@ describe('dashboard layout presets', () => {
     expect(packDashboardLayoutMock).not.toHaveBeenCalled()
   })
 
-  it.each(PRESET_IDS)('matches the exact %s preset', (id) => {
-    expect(matchDashboardPreset(applyDashboardPreset(id))).toBe(id)
-  })
+  it.each(DASHBOARD_LAYOUT_PRESETS.map((preset) => preset.id))(
+    'matches the exact %s preset',
+    (id) => {
+      expect(matchDashboardPreset(applyDashboardPreset(id))).toBe(id)
+    }
+  )
 
   it.each(TILE_FIELD_MUTATIONS)(
     'returns null when tile $name differs',

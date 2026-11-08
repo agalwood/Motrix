@@ -86,17 +86,23 @@ export function TaskListPanel({
   const macOS =
     transport.platform === 'darwin' ||
     (transport.platform === 'web' && /Mac|iPhone|iPad/.test(navigator.platform))
-  const { listRef, listProps, marqueeProps, getRowProps, onKeyDown } =
-    useSelectableList({
-      items: displayed,
-      getId,
-      getText,
-      rowHeight: TASK_ROW_HEIGHT,
-      headerHeight: TASK_HEADER_HEIGHT,
-      store: selection,
-      nativeSelection: true,
-      macOS,
-    })
+  const {
+    listRef,
+    listProps,
+    marqueeProps,
+    getRowProps,
+    headerCheckbox,
+    onKeyDown,
+  } = useSelectableList({
+    items: displayed,
+    getId,
+    getText,
+    rowHeight: TASK_ROW_HEIGHT,
+    headerHeight: TASK_HEADER_HEIGHT,
+    store: selection,
+    nativeSelection: true,
+    macOS,
+  })
   const focusedId = selection((state) =>
     state.focusedIndex === null
       ? undefined
@@ -170,7 +176,7 @@ export function TaskListPanel({
         aria-label={t('panel.downloads.title')}
         aria-multiselectable="true"
         aria-rowcount={displayed.length + 1}
-        aria-colcount={columns.length}
+        aria-colcount={columns.length + 1}
         aria-activedescendant={
           focusedId ? `${prefix}-${encodeURIComponent(focusedId)}` : undefined
         }
@@ -215,12 +221,16 @@ export function TaskListPanel({
           pointerFocus.current = true
           setKeyboardFocus(false)
           if (event.button !== 0 || (macOS && event.ctrlKey)) return
-          if ((event.target as Element).closest(TASK_LIST_CONTROL_SELECTOR))
-            return
           suppressClick.current = false
           downId.current =
             (event.target as Element).closest<HTMLElement>('[data-task-id]')
               ?.dataset.taskId ?? null
+          // Keep checkbox taps attached to the task under the pointer while
+          // live sort values change, just like clicks on the rest of the row.
+          if ((event.target as Element).closest(TASK_LIST_CONTROL_SELECTOR)) {
+            if (downId.current) setFrozenIds(displayed.map(getId))
+            return
+          }
           setFrozenIds(displayed.map(getId))
           event.currentTarget.focus({ preventScroll: true })
         }}
@@ -238,6 +248,7 @@ export function TaskListPanel({
         onClickCapture={(event) => {
           lastClickedId.current = null
           const target = event.target as Element
+          if (target.closest(TASK_LIST_CONTROL_SELECTOR)) return
           const id =
             target.closest<HTMLElement>('[data-task-id]')?.dataset.taskId
           if (
@@ -308,6 +319,7 @@ export function TaskListPanel({
               columns={columns}
               sort={sort}
               onSort={toggleSort}
+              headerCheckbox={headerCheckbox}
             />
           )}
           renderRow={({ item, index }) => (

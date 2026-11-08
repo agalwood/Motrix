@@ -24,9 +24,11 @@ export const appearanceFormSchema = appSettingsInputSchema.pick({
   theme: true,
   sidebarColor: true,
   reduceMotion: true,
+  hardwareAcceleration: true,
   language: true,
   byteUnitSystem: true,
   traySpeedometer: true,
+  showDownloadProgress: true,
   trayIconColor: true,
   liquidGlassEffect: true,
 })

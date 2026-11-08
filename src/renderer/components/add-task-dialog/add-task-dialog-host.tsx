@@ -1,5 +1,4 @@
 import { AddTaskForm } from '@renderer/components/add-task/add-task-form'
-import { CreateTorrentDialog } from '@renderer/components/create-torrent/create-torrent-dialog'
 import {
   Dialog,
   DialogClose,
@@ -10,6 +9,7 @@ import {
 import { WindowChromeCaptionIcon } from '@renderer/components/window-chrome/window-chrome'
 import { MenuConfirmation } from '@renderer/features/application-menu/menu-confirmation'
 import { WebDirectoryPickerDialog } from '@renderer/features/web-directory-picker/web-directory-picker-dialog'
+import { useExitSnapshot } from '@renderer/hooks/use-exit-snapshot'
 import { showMagnetFileSelection } from '@renderer/lib/open-magnet-file-selection'
 import { transport } from '@renderer/lib/transport'
 import { PlatformServicesProvider } from '@renderer/platform/services'
@@ -23,11 +23,11 @@ import {
 } from '@shared/constants/add-task'
 import { Events } from '@shared/protocol/events'
 import {
+  addTaskModeToFormDefaults,
   magnetFileSelectionPayloadSchema,
   magnetFileSelectionSettledPayloadSchema,
   protocolTorrentFilePayloadSchema,
   setAddTaskModeEventPayloadSchema,
-  urlParamsToFormDefaults,
 } from '@shared/schemas/add-task'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -48,6 +48,11 @@ export function AddTaskDialogHost() {
     []
   )
   const prefill = useAddTaskDialogStore((s) => s.prefill)
+  const presentation = useExitSnapshot(open, {
+    revision,
+    prefill,
+    torrentFiles,
+  })
   const openWith = useAddTaskDialogStore((s) => s.openWith)
   const close = useAddTaskDialogStore((s) => s.close)
   const requestClose = useCallback(() => {
@@ -142,7 +147,7 @@ export function AddTaskDialogHost() {
     const onSetMode = (...args: unknown[]) => {
       const p = setAddTaskModeEventPayloadSchema.safeParse(args[0])
       if (!p.success) return
-      openWith(urlParamsToFormDefaults(p.data))
+      openWith(addTaskModeToFormDefaults(p.data))
     }
 
     transport.on(Events.MagnetFileSelection, onMagnet)
@@ -177,9 +182,10 @@ export function AddTaskDialogHost() {
           </DialogHeader>
           <PlatformServicesProvider services={webServices}>
             <AddTaskForm
-              key={revision}
-              defaultValues={prefill}
-              initialTorrentFiles={torrentFiles}
+              active={open}
+              key={presentation.revision}
+              defaultValues={presentation.prefill}
+              initialTorrentFiles={presentation.torrentFiles}
               onDraftStateChange={onDraftStateChange}
               onSubmitSuccess={onSubmitSuccess}
               onCancel={requestClose}
@@ -212,7 +218,6 @@ export function AddTaskDialogHost() {
         close={() => setDiscard(false)}
       />
       <WebDirectoryPickerDialog />
-      <CreateTorrentDialog />
     </>
   )
 }

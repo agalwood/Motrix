@@ -42,7 +42,7 @@
         {
           "repository": "motrix",
           "path": "src/server/bridge/remote-extension-wss.integration.test.ts",
-          "testName": "validates TLS hostname/CA, preserves Host/base path, pairs, and submits over WSS"
+          "testName": "validates TLS hostname/CA and pairs/submits as $browser over a WSS base path"
         }
       ]
     },
@@ -197,7 +197,7 @@
         {
           "repository": "motrix",
           "path": "src/server/bridge/remote-extension-wss.integration.test.ts",
-          "testName": "validates TLS hostname/CA, preserves Host/base path, pairs, and submits over WSS"
+          "testName": "validates TLS hostname/CA and pairs/submits as $browser over a WSS base path"
         }
       ]
     },

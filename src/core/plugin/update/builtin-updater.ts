@@ -13,10 +13,12 @@ import { extractMoext } from '../install/moext-reader'
 import { parseManifest } from '../manifest/parse'
 import type { PluginExecutableIdentity } from '../post/delivery-types'
 import { fetchVerifiedPackageBytes } from '../registry/registry-fetcher'
+import type { PluginSecurityService } from '../security/security-service'
 import { verifyBuiltinSignature } from './signature'
 import { builtinTrustSurfaceChanged } from './trust-diff'
 
 export interface BuiltinUpdaterOptions {
+  security?: PluginSecurityService
   overlayDir: string
   hostVersion: string
   pubkeys?: ReadonlyArray<string>
@@ -49,6 +51,8 @@ export interface BuiltinUpdaterLifecycleSink {
 
 interface StagedUpdate {
   pluginId: string
+  version: string
+  archiveSha256: string
   stagingDir: string
 }
 
@@ -119,6 +123,12 @@ export class BuiltinUpdater {
         origin: 'builtin',
       })
       const parsed = manifest as PluginManifest
+      await this.opts.security?.refreshIfStale()
+      this.opts.security?.assertAllowed({
+        pluginId: parsed.id,
+        version: parsed.version,
+        archiveSha256: pkg.sha256,
+      })
       if (
         parsed.id !== entry.id ||
         !parsed.id.startsWith('motrix.') ||
@@ -151,6 +161,8 @@ export class BuiltinUpdater {
       const stagingId = path.basename(stagingDir)
       this.pending.set(stagingId, {
         pluginId: entry.id,
+        version: parsed.version,
+        archiveSha256: pkg.sha256,
         stagingDir,
       })
       return {
@@ -224,6 +236,13 @@ export class BuiltinUpdater {
   }
 
   private async commitWithLifecycle(staged: StagedUpdate): Promise<void> {
+    this.opts.security?.assertAllowed(staged)
+    if (this.opts.security && !this.opts.security.isFresh()) {
+      throw new AppError(
+        ErrorCode.PluginSecurityPending,
+        'plugins.security.pending'
+      )
+    }
     const lifecycle = this.lifecycleSink
     if (!lifecycle) throw new Error('builtin updater lifecycle sink missing')
     const previous = lifecycle.currentExecutable(staged.pluginId)
@@ -241,6 +260,13 @@ export class BuiltinUpdater {
       await rename(staged.stagingDir, finalDir)
       published = true
       await lifecycle.refreshRegistry()
+      this.opts.security?.assertAllowed(staged)
+      if (this.opts.security && !this.opts.security.isFresh()) {
+        throw new AppError(
+          ErrorCode.PluginSecurityPending,
+          'plugins.security.pending'
+        )
+      }
       await lifecycle.supersede(previous, this.now())
     } catch (error) {
       await this.rollbackPublishedOverlay({
@@ -259,6 +285,13 @@ export class BuiltinUpdater {
   }
 
   private async commitWithoutLifecycle(staged: StagedUpdate): Promise<void> {
+    this.opts.security?.assertAllowed(staged)
+    if (this.opts.security && !this.opts.security.isFresh()) {
+      throw new AppError(
+        ErrorCode.PluginSecurityPending,
+        'plugins.security.pending'
+      )
+    }
     const finalDir = path.join(this.opts.overlayDir, staged.pluginId)
     const backup = this.backupPath(staged.pluginId, 'update')
     const hadPrevious = await moveIfPresent(finalDir, backup)

@@ -22,6 +22,7 @@ export interface CommandSchemaInput {
   argsSchema?: unknown
   resultSchema?: unknown
   public?: boolean
+  execution?: 'operation'
 }
 
 interface CompiledPair {
@@ -30,6 +31,8 @@ interface CompiledPair {
 }
 
 export class SchemaCache {
+  constructor(private readonly profile: 'public' | 'operation' = 'public') {}
+
   private readonly ajv = new Ajv({
     allErrors: false,
     strict: true,
@@ -44,7 +47,9 @@ export class SchemaCache {
     const compiled = new Map<string, CompiledPair>()
     for (const cmd of cmds) {
       if (
-        cmd.public !== true ||
+        (this.profile === 'operation'
+          ? cmd.execution !== 'operation' || cmd.public === true
+          : cmd.public !== true || cmd.execution === 'operation') ||
         cmd.argsSchema === undefined ||
         cmd.resultSchema === undefined
       ) {
@@ -93,7 +98,10 @@ export class SchemaCache {
       // reaches this branch after a successful validateArgs lookup, so
       // absence here means "no compiled validator for this command", not
       // "callee returned bad data".
-      return
+      throw new AppError(
+        ErrorCode.PluginRuntimeFault,
+        'plugin.command.schema_missing'
+      )
     }
     if (!pair.result(result)) {
       throw new AppError(

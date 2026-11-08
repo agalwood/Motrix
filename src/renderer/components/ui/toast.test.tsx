@@ -197,6 +197,56 @@ describe('toast', () => {
     })
 
     describe('extension pairing branch (§5 identity tri-state)', () => {
+      it('shows the NAS account before claiming and keeps it beside the resulting code', async () => {
+        render(<Toaster />)
+        const onClaim = vi.fn()
+        const request = {
+          kind: 'extension-claim' as const,
+          pairingNonce: 'nas-request',
+          extensionId: 'ext-1',
+          browser: 'chromium' as const,
+          identity: 'official' as const,
+          accountName: 'alice',
+          claiming: false,
+          onClaim,
+          onDeny: vi.fn(),
+        }
+        const id = add({
+          timeout: 0,
+          priority: 'high',
+          data: { pairRequest: request },
+        })
+        expect(
+          await screen.findByText('Current account: alice')
+        ).toBeInTheDocument()
+        await userEvent.click(
+          screen.getByRole('button', {
+            name: 'Pair with current account',
+            hidden: true,
+          })
+        )
+        expect(onClaim).toHaveBeenCalledOnce()
+        act(() =>
+          toast.update(id, {
+            data: {
+              pairRequest: {
+                ...request,
+                kind: 'extension',
+                code: '1234-5678',
+              },
+            },
+          })
+        )
+        expect(screen.getByText('Current account: alice')).toBeInTheDocument()
+        expect(screen.getByText('1234-5678')).toBeInTheDocument()
+        expect(
+          screen.queryByRole('button', {
+            name: 'Pair with current account',
+            hidden: true,
+          })
+        ).toBeNull()
+      })
+
       function extensionPairRequest(
         overrides: Partial<{
           identity: 'official' | 'attested-non-official' | 'unverified'

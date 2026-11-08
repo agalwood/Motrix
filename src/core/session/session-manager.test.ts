@@ -14,15 +14,19 @@ import {
 } from '@shared/types/task'
 import type { TaskTerminalOccurrence } from '@shared/types/task-occurrence'
 import { createBtStoragePlan } from '@test-utils/legacy-bt-storage'
+import { makeLegacyHttpTask } from '@test-utils/legacy-http-activation'
 import { makeMediaProgress } from '@test-utils/media-progress'
 import { makeDownloadTask } from '@test-utils/task'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Aria2RpcClient } from '../engine/aria2/aria2-rpc-client'
+import { PollingScheduler } from '../engine/aria2/polling-scheduler'
 import type { Aria2RawStatus } from '../engine/aria2/types'
 import type { EngineAdapter } from '../engine/engine-adapter'
 import { DIRECT_RESOURCE_METADATA_PROFILE } from '../engine/engine-adapter'
+import { EventBus } from '../events/event-bus'
 import { assertValidHookPlan } from '../plugin/finalize/hook-plan'
 import { clearStoppedTasks } from '../task/actions/clear-stopped-tasks'
+import { finalizeTask } from '../task/actions/finalize-task'
 import { stopSeedingTask } from '../task/actions/stop-seeding-task'
 import {
   btStoragePayload,
@@ -30,6 +34,7 @@ import {
   getBtPayloadPath,
   parseBtFileLayout,
 } from '../task/bt-storage-layout'
+import { CompletedEngineTaskCleanup } from '../task/completed-engine-task-cleanup'
 import { getMediaMetaPath } from '../task/media-task-files'
 import { TaskManager } from '../task/task-manager'
 import { computeUriHash } from './content-key'
@@ -159,13 +164,13 @@ function createMockDb(): MotrixDatabase {
 }
 
 function createMockRpc(
-  opts: { activeTasks?: Aria2RawStatus[] } = {}
+  opts: { activeTasks?: Aria2RawStatus[]; stoppedTasks?: Aria2RawStatus[] } = {}
 ): Aria2RpcClient {
   return {
     tellStatus: vi.fn().mockRejectedValue(new Error('tellStatus not mocked')),
     tellActive: vi.fn().mockResolvedValue(opts.activeTasks ?? []),
     tellWaiting: vi.fn().mockResolvedValue([]),
-    tellStopped: vi.fn().mockResolvedValue([]),
+    tellStopped: vi.fn().mockResolvedValue(opts.stoppedTasks ?? []),
     multicall: vi.fn().mockResolvedValue([[], [], []]),
   } as unknown as Aria2RpcClient
 }
@@ -290,6 +295,7 @@ function seedAsPair(
     errorMessage?: string | null
     errorCode?: DownloadErrorCode | null
     payload?: Record<string, unknown>
+    phase?: TaskInstancePhase
   }
 ): void {
   const isBtLike =
@@ -298,9 +304,9 @@ function seedAsPair(
     opts.kind === TaskKind.Bt ||
     !!opts.infoHash ||
     !!opts.torrentMetaPath
-  const phase = isBtLike
-    ? TaskInstancePhase.BtDownload
-    : TaskInstancePhase.HttpDownload
+  const phase =
+    opts.phase ??
+    (isBtLike ? TaskInstancePhase.BtDownload : TaskInstancePhase.HttpDownload)
   const kind = opts.kind ?? (isBtLike ? TaskKind.Bt : TaskKind.Direct)
   const status = opts.status ?? TaskStatus.Queued
   db.saveTaskWithInstances({
@@ -527,6 +533,135 @@ describe('SessionManager', () => {
     vi.restoreAllMocks()
   })
 
+  describe('engine session quarantine', () => {
+    const failed = {
+      engineTaskId: '2222222222222222',
+      metadataTaskId: '1111111111111111',
+      infoHash: 'a'.repeat(40),
+      sourceUri: `magnet:?xt=urn:btih:${'a'.repeat(40)}`,
+      saveDir: '/downloads/shared',
+      reason: 'metadata-unavailable' as const,
+    }
+
+    it('retains the owned task as an error across restore without re-adding it', async () => {
+      seedAsPair(db, {
+        motrixId: 'owned',
+        gid: failed.engineTaskId,
+        infoHash: failed.infoHash,
+        status: TaskStatus.Seeding,
+        totalBytes: 1000,
+        downloadedBytes: 1000,
+        uploadedBytes: 900,
+      })
+      const store = session.getEngineSessionRecoveryStore()
+      await store.quarantine([failed])
+      expect(db.getTask('owned')?.task).toMatchObject({
+        aggStatus: TaskStatus.Error,
+        errorDetailKey: 'task.recovery.startup.torrentMetaMissing',
+        downloadedBytes: 1000,
+      })
+      expect(store.getContext(failed).retired).toBe(true)
+      const durable = structuredClone(db.getTask('owned'))
+      await store.quarantine([failed])
+      expect(db.getTask('owned')).toEqual(durable)
+      await session.restore()
+      await session.restore()
+      expect(taskManager.getById('owned')).toMatchObject({
+        status: TaskStatus.Error,
+        uploadedBytes: 900,
+      })
+      expect(adapter.addTorrent).not.toHaveBeenCalled()
+      expect(adapter.createDownload).not.toHaveBeenCalled()
+    })
+
+    it('borrows metadata by content without retiring a different task with the same hash', async () => {
+      seedAsPair(db, {
+        motrixId: 'other-copy',
+        gid: '3333333333333333',
+        infoHash: failed.infoHash,
+        torrentMetaPath: '/cache/other.torrent',
+        status: TaskStatus.Paused,
+      })
+      const store = session.getEngineSessionRecoveryStore()
+      expect(store.getContext(failed)).toEqual({
+        metadataPaths: ['/cache/other.torrent'],
+        retired: false,
+      })
+      await store.quarantine([failed])
+      expect(db.getTask('other-copy')?.task.aggStatus).toBe(TaskStatus.Paused)
+      const quarantined = db
+        .getAllTasks()
+        .find((pair) => pair.task.motrixId !== 'other-copy')!
+      expect(quarantined.task).toMatchObject({
+        aggStatus: TaskStatus.Error,
+        finalPath: '',
+        finalName: '',
+      })
+      expect(quarantined.instances[0]).toMatchObject({
+        gid: failed.engineTaskId,
+        diskPath: '',
+        phase: TaskInstancePhase.BtDownload,
+      })
+      await store.quarantine([failed])
+      expect(db.getAllTasks()).toHaveLength(2)
+      db.deleteTask(quarantined.task.motrixId)
+      await session.restore()
+      expect(taskManager.getById(quarantined.task.motrixId)).toBeUndefined()
+    })
+
+    it('retires an owned metadata parent without reissuing its magnet on restore', async () => {
+      seedAsPair(db, {
+        motrixId: 'parent',
+        gid: failed.metadataTaskId,
+        infoHash: failed.infoHash,
+        status: TaskStatus.FetchingMetadata,
+      })
+      const pair = db.getTask('parent')!
+      pair.instances[0].phase = TaskInstancePhase.MagnetMetadataResolution
+      pair.instances[0].payload = { metadataDir: '/tmp/metadata' }
+      db.saveTaskWithInstances(pair)
+      await session
+        .getEngineSessionRecoveryStore()
+        .quarantine([{ ...failed, reason: 'files-missing' }])
+      await session.restore()
+      expect(taskManager.getById('parent')).toMatchObject({
+        status: TaskStatus.Error,
+        errorDetailKey: 'task.error.detail.filesMissing',
+      })
+      expect(db.getAllTasks()).toHaveLength(1)
+    })
+
+    it('does not publish an error or retire an engine identity when persistence fails', async () => {
+      seedAsPair(db, {
+        motrixId: 'owned',
+        gid: failed.engineTaskId,
+        infoHash: failed.infoHash,
+        status: TaskStatus.Seeding,
+      })
+      session.bindTerminalOccurrencePersistence(async () => {
+        throw new Error('disk full')
+      })
+      await expect(
+        session.getEngineSessionRecoveryStore().quarantine([failed])
+      ).rejects.toThrow('disk full')
+      expect(db.getTask('owned')?.task.aggStatus).toBe(TaskStatus.Seeding)
+      expect(taskManager.getById('owned')).toBeUndefined()
+    })
+
+    it('preserves completed task history while retiring its engine identity', async () => {
+      seedAsPair(db, {
+        motrixId: 'done',
+        gid: failed.engineTaskId,
+        infoHash: failed.infoHash,
+        status: TaskStatus.Completed,
+      })
+      const store = session.getEngineSessionRecoveryStore()
+      expect(store.getContext(failed).retired).toBe(true)
+      await store.quarantine([failed])
+      expect(db.getTask('done')?.task.aggStatus).toBe(TaskStatus.Completed)
+    })
+  })
+
   describe('save', () => {
     it('saves non-removed tasks to database', async () => {
       const task1 = createTask({
@@ -606,6 +741,19 @@ describe('SessionManager', () => {
         }),
         operations
       )
+    })
+
+    it('rejects revoked plugin results after payload preparation and before database persistence', async () => {
+      const candidate = createTask({ id: 'plugin-revoked-candidate' })
+      const beforeCommit = vi.fn(() => {
+        throw new Error('security revoked')
+      })
+      await expect(
+        session.persistTaskWithPluginMetadata(candidate, [], beforeCommit)
+      ).rejects.toThrow('security revoked')
+      expect(beforeCommit).toHaveBeenCalledOnce()
+      expect(db.persistTaskWithPluginMetadata).not.toHaveBeenCalled()
+      expect(taskManager.getById(candidate.id)).toBeUndefined()
     })
 
     it('emits a stable admission-rejected event after the terminal transaction commits', async () => {
@@ -1363,6 +1511,45 @@ describe('SessionManager', () => {
       sessionManager = new SessionManager(taskManager, rpc, db, adapter)
     })
 
+    it.each([true, false])(
+      'recomputes native request retention when rebuilding a missing HTTP engine row: %s',
+      async (supported) => {
+        seedAsPair(db, {
+          motrixId: 'retained-http-rebuild',
+          gid: 'old-http-gid',
+          type: TaskType.Http,
+          kind: TaskKind.Direct,
+          status: TaskStatus.Paused,
+          diskPath: '/tmp/retained-http-rebuild.motrix',
+          finalPath: '/tmp/retained-http-rebuild',
+          uris: ['https://example.test/retained-http-rebuild'],
+          payload: {
+            directReplay: {
+              version: 1,
+              requestModifiers: [],
+              replayability: 'uri-only',
+              engineContextVersion: 1,
+            },
+          },
+        })
+        adapter.supportsDirectTaskRetry = vi.fn().mockResolvedValue(supported)
+        await sessionManager.restore()
+        expect(
+          vi.mocked(adapter.createDownload).mock.calls[0][0]
+            .retainRequestContext
+        ).toBe(supported ? true : undefined)
+        expect(
+          taskManager.getById('retained-http-rebuild')?.instances[0].payload
+            .directReplay
+        ).toEqual({
+          version: 1,
+          requestModifiers: [],
+          replayability: 'uri-only',
+          ...(supported ? { engineContextVersion: 1 } : {}),
+        })
+      }
+    )
+
     it('MERGES BT task by info_hash even when gids differ', async () => {
       const savedGid = 'old-gid-001'
       const newGid = 'new-gid-001'
@@ -1641,9 +1828,42 @@ describe('SessionManager', () => {
       expect(restored?.downloadedBytes).toBe(250)
       // 250 / 1000 = 0.25 — derived from saved mirror, not hardcoded 0.
       expect(restored?.progress).toBe(0.25)
+      expect(restored?.uploadedBytes).toBe(100)
+      expect(restored?.uploadedBytesBaseline).toBe(100)
+      expect(restored?.instances[0]?.uploadedBytes).toBe(0)
 
       fs.rmSync(tmpDir, { recursive: true, force: true })
     })
+
+    it.each([TaskStatus.Completed, TaskStatus.Error])(
+      'retains settled upload after storage stops a %s torrent',
+      async (status) => {
+        for (const uploadedBytes of [0, 1000]) {
+          const gid = `storage-${uploadedBytes}`
+          seedAsPair(db, {
+            motrixId: gid,
+            gid,
+            type: TaskType.Bt,
+            status,
+            totalBytes: 1000,
+            downloadedBytes: 1000,
+            uploadedBytes,
+            uploadedBytesBaseline: 1000,
+            payload: { btFinalizeUpload: { gid, bytes: 1000 } },
+          })
+        }
+        rpc.tellActive = vi.fn(async () => [])
+        rpc.tellWaiting = vi.fn(async () => [])
+        rpc.tellStopped = vi.fn(async () => [])
+        await sessionManager.restore()
+        for (const uploadedBytes of [0, 1000]) {
+          const restored = taskManager.getById(`storage-${uploadedBytes}`)
+          expect(restored?.uploadedBytes).toBe(1000)
+          expect(restored?.uploadedBytesBaseline).toBe(1000)
+          expect(restored?.bt?.ratio).toBe(1)
+        }
+      }
+    )
 
     it('restores a live retiring GID without counting its settled upload twice', async () => {
       const gid = 'settled-finalize-gid'
@@ -2116,6 +2336,42 @@ describe('SessionManager', () => {
         fs.rmSync(torrentDir, { recursive: true, force: true })
       }
     })
+
+    it.each([
+      TaskInstancePhase.HttpDownload,
+      TaskInstancePhase.MagnetMetadataResolution,
+    ])(
+      'does not reconstruct lost work when host grants are revoked (%s)',
+      async (phase) => {
+        seedAsPair(db, {
+          motrixId: 'revoked',
+          gid: 'lost-revoked',
+          diskPath: '/tmp/revoked.bin.motrix',
+          finalPath: '/tmp/revoked.bin',
+          uris: ['http://example.com/revoked.bin'],
+          status: TaskStatus.Downloading,
+          phase,
+          payload: { metadataDir: '/tmp/motrix-magnet-metadata-test' },
+        })
+        rpc.tellActive = vi.fn(async () => [])
+        rpc.tellWaiting = vi.fn(async () => [])
+        rpc.tellStopped = vi.fn(async () => [])
+        rpc.addUri = vi.fn()
+        const authorize = vi.fn(async () => {
+          throw new Error('revoked')
+        })
+        sessionManager.setRecoveryWriteAuthorization(authorize)
+        await sessionManager.restore()
+        expect(authorize).toHaveBeenCalled()
+        expect(adapter.createDownload).not.toHaveBeenCalled()
+        expect(adapter.addTorrent).not.toHaveBeenCalled()
+        expect(rpc.addUri).not.toHaveBeenCalled()
+        expect(taskManager.getById('revoked')).toMatchObject({
+          status: TaskStatus.Error,
+          errorDetailKey: 'task.recovery.startup.resumePathInvalid',
+        })
+      }
+    )
 
     it('re-adds HTTP task via adapter.createDownload when aria2 has lost it', async () => {
       seedAsPair(db, {
@@ -2874,6 +3130,7 @@ describe('SessionManager', () => {
         .find((t) => t.id === 'm-legacy-completed')
       expect(restored?.diskPath).toBe('/dl/movie-final.mkv')
       expect(restored?.saveDir).toBe('/dl')
+      expect(restored?.fileCount).toBe(1)
       // Instances heal too, so the next save() rewrites the DB row and
       // the stale placeholder is gone for good.
       expect(restored?.instances[0]?.diskPath).toBe('/dl/movie-final.mkv')
@@ -4486,3 +4743,328 @@ it('restores an existing paused direct BT download with internal engine metadata
     fs.rmSync(root, { recursive: true, force: true })
   }
 })
+
+it.each([
+  ['legacyBtActivation', true],
+  ['legacyHttpActivation', true],
+  ['legacyHttpActivation', false],
+] as const)(
+  'quarantines a corrupt %s GID with marker=%s during restore and later authoritative polls',
+  async (activationKey, hasMarker) => {
+    const manager = new TaskManager()
+    const db = createMockDb()
+    const gid = '1122334455667788'
+    seedAsPair(db, {
+      motrixId: 'pending-legacy',
+      gid: null,
+      type:
+        activationKey === 'legacyHttpActivation' ? TaskType.Http : TaskType.Bt,
+      status: TaskStatus.Paused,
+      infoHash: 'a'.repeat(40),
+      diskPath: '/original/bundle',
+      finalPath: '/original/bundle',
+      payload: {
+        ...(hasMarker ? { legacyImport: { version: 99 } } : {}),
+        [activationKey]: { engineTaskId: gid },
+      },
+    })
+    const adapter = createMockAdapter()
+    const rpc = createMockRpc({
+      activeTasks: [
+        createRawStatus({ gid, status: 'paused', infoHash: 'a'.repeat(40) }),
+      ],
+    })
+    await new SessionManager(manager, rpc, db, adapter).restore()
+    expect(manager.getAll().map((task) => task.id)).toEqual(['pending-legacy'])
+    expect(manager.isEngineTaskIdRetired(gid)).toBe(true)
+    expect(adapter.addTorrent).not.toHaveBeenCalled()
+    expect(adapter.forceRemoveTask).not.toHaveBeenCalled()
+  }
+)
+
+it('restores HTTP migration source identity and delegates completion without ordinary retirement', async () => {
+  const manager = new TaskManager()
+  const db = createMockDb()
+  const task = makeLegacyHttpTask({ status: TaskStatus.Downloading })
+  seedAsPair(db, {
+    motrixId: task.id,
+    gid: task.engineTaskId,
+    type: TaskType.Http,
+    status: task.status,
+    diskPath: task.diskPath,
+    finalPath: task.finalPath,
+    uris: task.uris,
+    totalBytes: task.totalBytes,
+    downloadedBytes: task.downloadedBytes,
+    payload: task.instances[0].payload,
+  })
+  const adapter = createMockAdapter()
+  const rpc = createMockRpc({
+    stoppedTasks: [
+      createRawStatus({
+        gid: task.engineTaskId,
+        status: 'complete',
+        totalLength: '1024',
+        completedLength: '1024',
+        files: [
+          {
+            index: '1',
+            path: task.finalPath,
+            length: '1024',
+            completedLength: '1024',
+            selected: 'true',
+            uris: [
+              { uri: 'https://redirect.example/temporary', status: 'used' },
+            ],
+          },
+        ],
+      }),
+    ],
+  })
+  const observeCompleted = vi.fn(async (snapshot: DownloadTask) => {
+    expect(manager.getById(task.id)?.status).toBe(TaskStatus.Downloading)
+    expect(manager.getById(task.id)?.uris).toEqual(task.uris)
+    expect(snapshot).toMatchObject({
+      id: task.id,
+      engineTaskId: task.engineTaskId,
+      type: TaskType.Http,
+      status: TaskStatus.Completed,
+      downloadedBytes: 1024,
+      instances: [
+        {
+          payload: {
+            legacyImport: { storagePolicy: 'legacy-http-in-place' },
+            legacyHttpActivation: { engineTaskId: task.engineTaskId },
+          },
+        },
+      ],
+    })
+    expect(snapshot.uris).toEqual(task.uris)
+  })
+  const session = new SessionManager(manager, rpc, db, adapter)
+  await session.restore(undefined, observeCompleted)
+  expect(observeCompleted).toHaveBeenCalledOnce()
+  expect(manager.getById(task.id)?.instances[0].uris).toEqual(task.uris)
+  expect(manager.getById(task.id)?.downloadedBytes).toBe(1024)
+  expect(manager.isEngineTaskIdRetired(task.engineTaskId)).toBe(false)
+  expect(session.getCompletedDirectEngineTaskIds().size).toBe(0)
+  expect(adapter.createDownload).not.toHaveBeenCalled()
+  expect(adapter.forceRemoveTask).not.toHaveBeenCalled()
+  expect(adapter.removeDownloadResult).not.toHaveBeenCalled()
+})
+
+it.each(['throw', 'reject'])(
+  'restores unrelated history when an imported HTTP completion observer fails: %s',
+  async (failure) => {
+    const manager = new TaskManager()
+    const db = createMockDb()
+    const task = makeLegacyHttpTask({ status: TaskStatus.Downloading })
+    seedAsPair(db, {
+      motrixId: task.id,
+      gid: task.engineTaskId,
+      type: TaskType.Http,
+      status: task.status,
+      diskPath: task.diskPath,
+      finalPath: task.finalPath,
+      uris: task.uris,
+      totalBytes: task.totalBytes,
+      downloadedBytes: task.downloadedBytes,
+      payload: task.instances[0].payload,
+    })
+    seedAsPair(db, {
+      motrixId: 'unrelated-history',
+      gid: 'aaaaaaaaaaaaaaaa',
+      type: TaskType.Http,
+      status: TaskStatus.Completed,
+      diskPath: '/elsewhere/history.bin',
+      finalPath: '/elsewhere/history.bin',
+      uris: ['https://example.com/history.bin'],
+    })
+    const adapter = createMockAdapter()
+    const rpc = createMockRpc({
+      stoppedTasks: [
+        createRawStatus({
+          gid: task.engineTaskId,
+          status: 'complete',
+          totalLength: '1024',
+          completedLength: '1024',
+        }),
+      ],
+    })
+    const session = new SessionManager(manager, rpc, db, adapter)
+    const observeCompleted = vi.fn(() => {
+      const error = new Error('transient completion failure')
+      if (failure === 'throw') throw error
+      return Promise.reject(error)
+    })
+
+    await expect(
+      session.restore(undefined, observeCompleted)
+    ).resolves.toBeUndefined()
+
+    expect(observeCompleted).toHaveBeenCalledOnce()
+    expect(manager.getById(task.id)).toMatchObject({
+      status: TaskStatus.Downloading,
+      engineTaskId: task.engineTaskId,
+    })
+    expect(manager.getById('unrelated-history')?.status).toBe(
+      TaskStatus.Completed
+    )
+    expect(db.getTask('unrelated-history')).not.toBeNull()
+    expect(manager.isEngineTaskIdRetired(task.engineTaskId)).toBe(false)
+    expect(adapter.createDownload).not.toHaveBeenCalled()
+    expect(adapter.forceRemoveTask).not.toHaveBeenCalled()
+    expect(adapter.removeDownloadResult).not.toHaveBeenCalled()
+  }
+)
+
+it.each(['rpc', 'binding probe', 'persistence'])(
+  'starts polling and autosave while a restored HTTP completion retries a transient %s failure',
+  async (failure) => {
+    vi.useFakeTimers()
+    const manager = new TaskManager()
+    const db = createMockDb()
+    const task = makeLegacyHttpTask({ status: TaskStatus.Downloading })
+    seedAsPair(db, {
+      motrixId: task.id,
+      gid: task.engineTaskId,
+      type: TaskType.Http,
+      status: task.status,
+      diskPath: task.diskPath,
+      finalPath: task.finalPath,
+      uris: task.uris,
+      totalBytes: task.totalBytes,
+      downloadedBytes: task.downloadedBytes,
+      payload: task.instances[0].payload,
+    })
+    seedAsPair(db, {
+      motrixId: 'unrelated-history',
+      gid: 'aaaaaaaaaaaaaaaa',
+      type: TaskType.Http,
+      status: TaskStatus.Completed,
+      diskPath: '/elsewhere/history.bin',
+      finalPath: '/elsewhere/history.bin',
+      uris: ['https://example.com/history.bin'],
+    })
+    const adapter = createMockAdapter()
+    vi.mocked(adapter.getTaskStatus).mockResolvedValue({
+      ...task,
+      status: TaskStatus.Completed,
+      downloadedBytes: task.totalBytes,
+    })
+    adapter.verifyLegacyHttpBinding = vi.fn().mockResolvedValue(true)
+    if (failure === 'rpc') {
+      vi.mocked(adapter.getTaskStatus).mockRejectedValueOnce(
+        new Error('RPC unavailable')
+      )
+    } else if (failure === 'binding probe') {
+      vi.mocked(adapter.verifyLegacyHttpBinding).mockResolvedValueOnce(false)
+    } else {
+      vi.mocked(db.persistTaskWithOccurrence).mockImplementationOnce(() => {
+        throw new Error('database busy')
+      })
+    }
+    const rpc = createMockRpc({
+      stoppedTasks: [
+        createRawStatus({
+          gid: task.engineTaskId,
+          status: 'complete',
+          totalLength: '1024',
+          completedLength: '1024',
+        }),
+      ],
+    })
+    vi.mocked(rpc.multicall).mockResolvedValue([
+      {
+        downloadSpeed: '0',
+        uploadSpeed: '0',
+        numActive: '0',
+        numWaiting: '0',
+        numStopped: '1',
+        numStoppedTotal: '1',
+      },
+      [],
+      [],
+    ])
+    const session = new SessionManager(manager, rpc, db, adapter)
+    const log = { info: vi.fn(), warn: vi.fn(), error: vi.fn() }
+    const publish = vi.fn()
+    const eventBus = new EventBus()
+    const cleanup = new CompletedEngineTaskCleanup({
+      taskManager: manager,
+      adapter,
+      mintTaskId: () => 'unexpected-adoption',
+      persist: async (candidate, occurrence) =>
+        session.persistTaskWithOccurrence(candidate, occurrence),
+      adopt: async (_candidate, persist) => persist(),
+      publish,
+      dispatch: async () => {},
+      runTaskMutation: async (_ids, operation) => operation(),
+      finalizeLegacyHttp: (taskId) =>
+        finalizeTask(taskId, {
+          taskManager: {
+            getById: (id) => manager.getById(id),
+            getAll: () => manager.getAll(),
+            set: (id, candidate) => manager.set(id, candidate),
+            setReservedEngineTaskOwner: (id, candidate, gid) =>
+              manager.setReservedEngineTaskOwner(id, candidate, gid),
+            reserveEngineTaskId: (gid) => manager.reserveEngineTaskId(gid),
+            releaseEngineTaskIdReservation: (gid) =>
+              manager.releaseEngineTaskIdReservation(gid),
+            retireEngineTaskIdReservation: (gid) =>
+              manager.retireEngineTaskIdReservation(gid),
+            persist: (candidate) => session.persistTask(candidate),
+          },
+          adapter,
+          persistTaskWithOccurrence: (candidate, occurrence) =>
+            session.persistTaskWithOccurrence(candidate, occurrence),
+          publishTaskUpdate: publish,
+          publishTaskUpdateNow: publish,
+          fs: { renameAtomic: vi.fn(), removePathRecursive: vi.fn() },
+          torrentMetaStore: { read: vi.fn() },
+          settings: { get: () => ({ bt: { seedTime: 0, seedRatio: 0 } }) },
+          eventBus,
+          activityRecorder: {
+            recordSubmitted: vi.fn(),
+            recordDownloadCompleted: vi.fn(),
+          },
+          log,
+        }),
+      log,
+    })
+    const onPolledTasks = vi.fn()
+    rpc.onTaskMetadataChanged = vi.fn(() => vi.fn())
+    const polling = new PollingScheduler(rpc, eventBus, vi.fn(), onPolledTasks)
+    const startAutoSave = vi.spyOn(session, 'startAutoSave')
+
+    try {
+      await session.restore(undefined, (snapshot) => cleanup.observe(snapshot))
+      session.startAutoSave(60000)
+      polling.start()
+      await vi.advanceTimersByTimeAsync(0)
+
+      expect(startAutoSave).toHaveBeenCalledOnce()
+      expect(onPolledTasks).toHaveBeenCalledOnce()
+      expect(manager.getById('unrelated-history')?.status).toBe(
+        TaskStatus.Completed
+      )
+      expect(manager.getById(task.id)?.status).toBe(TaskStatus.Downloading)
+      expect(db.getTask(task.id)?.task.aggStatus).toBe(TaskStatus.Downloading)
+      expect(adapter.removeDownloadResult).not.toHaveBeenCalled()
+
+      await vi.advanceTimersByTimeAsync(1000)
+
+      expect(manager.getById(task.id)?.status).toBe(TaskStatus.Completed)
+      expect(db.getTask(task.id)?.task.aggStatus).toBe(TaskStatus.Completed)
+      expect(adapter.verifyLegacyHttpBinding).toHaveBeenCalled()
+      expect(manager.isEngineTaskIdRetired(task.engineTaskId)).toBe(false)
+      expect(adapter.forceRemoveTask).not.toHaveBeenCalled()
+      expect(adapter.removeDownloadResult).not.toHaveBeenCalled()
+    } finally {
+      await polling.stopAndDrain()
+      await cleanup.stopAndDrain()
+      session.stopAutoSave()
+      vi.useRealTimers()
+    }
+  }
+)

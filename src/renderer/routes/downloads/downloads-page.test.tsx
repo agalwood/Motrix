@@ -346,7 +346,7 @@ describe('DownloadsPage', () => {
     ).toBeInTheDocument()
   })
 
-  it('shows the Glass Motion empty state when only removed tasks remain', () => {
+  it('shows the Glass Motion empty state when only removed tasks remain', async () => {
     setTaskList({ tasks: [task('removed', TaskStatus.Removed)] })
     const { container } = renderAt('/downloads/all')
 
@@ -355,7 +355,7 @@ describe('DownloadsPage', () => {
       container.querySelector('[data-slot="cubic-glass-gradient"]')
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: /tune glass motion/i })
+      await screen.findByRole('button', { name: /tune glass motion/i })
     ).toBeInTheDocument()
     expect(
       screen.queryByText(/no tasks match this filter/i)

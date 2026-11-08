@@ -19,6 +19,14 @@ describe('electronServices', () => {
     } as never
   })
 
+  it('resolves dropped files through preload and rejects files without a host path', () => {
+    const file = new File(['clip'], 'clip.mp4')
+    expect(electronServices.getPathForFile?.(file)).toBe('/host/plugin.moext')
+    expect(window.motrix?.getPathForFile).toHaveBeenCalledWith(file)
+    vi.mocked(window.motrix!.getPathForFile).mockReturnValue('')
+    expect(electronServices.getPathForFile?.(file)).toBeNull()
+  })
+
   it('converts a selected file through the Electron host capability', async () => {
     const file = new File(['plugin'], 'plugin.moext')
     await expect(
@@ -30,6 +38,20 @@ describe('electronServices', () => {
     })
     expect(window.motrix?.getPathForFile).toHaveBeenCalledWith(file)
     expect(sha256File).toHaveBeenCalledWith(file)
+  })
+
+  it('uses the generic native file picker with save filters and cancellation', async () => {
+    vi.mocked(transport.invoke)
+      .mockResolvedValueOnce('/media/new.mkv')
+      .mockResolvedValueOnce(null)
+    const options = {
+      kind: 'save' as const,
+      defaultPath: '/media/new.mkv',
+      extensions: ['mp4', 'mkv'],
+    }
+    expect(await electronServices.pickFile?.(options)).toBe('/media/new.mkv')
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.PickFile, options)
+    expect(await electronServices.pickFile?.({ kind: 'open' })).toBeNull()
   })
 
   it('pickSaveDir returns path on user confirm', async () => {

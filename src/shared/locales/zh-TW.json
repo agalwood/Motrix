@@ -4,10 +4,12 @@
     "help": "此伺服器需要 Operator Token。請在主機上設定 MOTRIX_OPERATOR_TOKEN，或讀取 <dataDir>/operator-token 的 Token，然後貼到下方。",
     "placeholder": "Operator Token",
     "error": "Operator Token 無效。請確認主機上的 MOTRIX_OPERATOR_TOKEN 或 <dataDir>/operator-token，然後再試一次。",
-    "submit": "解鎖"
+    "submit": "解鎖",
+    "nasSessionExpired": "無法驗證 NAS 管理員工作階段，請從 NAS 桌面重新開啟 Motrix。",
+    "openDsm": "開啟 DSM 登入"
   },
   "operatorAdmin": {
-    "help": "用法：\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\n此命令只會透過容器 loopback 與正在執行的 Motrix 伺服器通訊。",
+    "help": "用法：\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\n此命令只會透過容器 loopback 與正在執行的 Motrix 伺服器通訊。",
     "errorPrefix": "motrix-admin: {{message}}",
     "usageHint": "執行「motrix-admin --help」查看用法。",
     "pending": {
@@ -55,6 +57,20 @@
         "loopback": "無法透過容器 loopback 連線至正在執行的 Motrix 伺服器。",
         "approvalNotReady": "正在執行的 Motrix 伺服器尚未準備好核准配對。"
       }
+    },
+    "extension": {
+      "heading": "待處理的瀏覽器擴充功能配對請求",
+      "identityNotice": "請核對這是你剛發起的請求。Origin 和自報身分不能單獨證明連線方身分。終端錄製可能記錄配對碼。",
+      "row": "{{index}}. {{browser}} [{{identity}}] 來源：{{origin}}；自報 ID：{{claimedId}}；伺服器：{{authority}}；剩餘 {{seconds}} 秒",
+      "select": "輸入一個請求的序號（Ctrl+C 結束）：",
+      "code": "配對碼：{{code}}",
+      "instructions": "將此配對碼輸入瀏覽器擴充功能，有效期限不會延長。Ctrl+C 僅關閉此檢視，不核准或拒絕請求。",
+      "none": "沒有待處理的擴充功能配對請求。請先在擴充功能中發起配對，再執行此命令。如果仍無請求，請檢查遠端擴充功能設定。",
+      "ended": "所選配對請求已結束，請在擴充功能中確認結果。",
+      "ttyRequired": "擴充功能配對要求輸入、輸出及錯誤輸出均為互動式終端，不支援管線、重新導向或 JSON 輸出。",
+      "cancelled": "已關閉配對碼檢視，未傳送核准或拒絕操作。",
+      "invalidSelection": "請透過序號選擇一個清單中的請求。",
+      "unavailable": "所選請求已過期、結束或發生變化，請在擴充功能中重新發起配對。"
     }
   },
   "common": {
@@ -316,7 +332,7 @@
         "loading": "正在載入活動資料",
         "unavailable": "無法取得活動資料",
         "retry": "重試",
-        "stale": "活動資料可能不是最新的",
+        "refreshFailed": "重新整理失敗",
         "coverageDegraded": "自 {{time}} 起的活動資料可能不完整",
         "rangeSummary": "{{start}} 至 {{end}} 的 {{weeks}} 週下載活動",
         "completedIntensity": "色彩深淺表示已完成的下載數量",
@@ -588,7 +604,7 @@
         "down": "下載速度",
         "up": "上傳速度",
         "eta": "剩餘時間",
-        "connections": "對等節點",
+        "connections": "連線數",
         "status": "狀態",
         "createdAt": "建立時間",
         "finishedAt": "完成時間"
@@ -634,6 +650,7 @@
         }
       },
       "stats": {
+        "title": "傳輸狀態",
         "downSpeed": "下載速度",
         "upSpeed": "上傳速度",
         "engineOk": "引擎已就緒",
@@ -685,18 +702,17 @@
         },
         "activity": {
           "transferTitle": {
-            "session": "本次工作階段傳輸量",
-            "lifetime": "累計傳輸量"
+            "session": "近期傳輸",
+            "lifetime": "全程傳輸"
           },
           "download": "下載",
           "upload": "上傳",
           "loading": "正在載入活動資料…",
           "collecting": "正在收集傳輸資料…",
-          "noSessionHistory": "此應用程式工作階段尚無傳輸記錄。",
+          "noSessionHistory": "暫無近期傳輸記錄。",
           "lifetimeEmpty": "尚無法取得累計歷程記錄。",
           "noTraffic": "目前沒有網路流量。",
           "unavailable": "無法取得累計活動資料。",
-          "coverageGap": "追蹤曾中斷。",
           "retry": "重試",
           "notAvailable": "無法使用",
           "stale": {
@@ -705,8 +721,8 @@
           },
           "range": {
             "label": "傳輸時間範圍",
-            "session": "工作階段 (60 秒)",
-            "lifetime": "累計",
+            "session": "最近 60 秒",
+            "lifetime": "全程",
             "latest": "最近 60 秒",
             "adaptive_other": "自適應解析度 · {{count}} 個樣本"
           },
@@ -758,7 +774,18 @@
             "accessibleSummary": "{{start}} 至 {{end}} 的 {{range}}。最新下載 {{download}}、上傳 {{upload}}。累計平均下載 {{average}}、最高下載 {{peak}}、有效時間 {{activeDuration}}。{{sampleLabel}}。{{state}}",
             "activeSeconds_other": "{{count}} 秒",
             "sampleCount_other": "{{count}} 個樣本",
-            "noDataQualityIssues": "沒有追蹤警告。"
+            "noDataQualityIssues": "沒有追蹤警告。",
+            "noSamples": "缺少取樣",
+            "overview": "全程概覽",
+            "rangeStart": "開始時間",
+            "rangeEnd": "結束時間",
+            "earlier": "較早歷史",
+            "later": "較新歷史",
+            "zoomIn": "放大",
+            "zoomOut": "縮小",
+            "showAll": "查看全程",
+            "following": "正在跟隨最新",
+            "followLatest": "回到最新"
           }
         },
         "pieces": {
@@ -890,12 +917,28 @@
         "removeMixedTitle": "要移除 {{count}} 個任務嗎？",
         "openFile": "開啟檔案",
         "openFileFailed": "無法開啟檔案",
+        "openFileAppFailed": "系統無法開啟此檔案。請檢查預設應用程式是否仍已安裝，或透過「開啟資料夾」選擇其他應用程式開啟。",
+        "openFileFailedHint": "請確認檔案仍然存在，而且你有權限開啟它。",
         "chooseFiles": "選擇下載檔案…",
         "queueOrder": "調整下載順序",
         "moveQueueTop": "移至佇列最前",
         "moveQueueBottom": "移至佇列最後",
         "copyError": "複製錯誤資訊",
-        "errorReport": "{{name}}\n任務 ID：{{id}}\n{{details}}"
+        "errorReport": "{{name}}\n任務 ID：{{id}}\n{{details}}",
+        "redownload": "重新下載",
+        "redownloadWithDialog": "編輯參數後重新下載…（Alt+Click）",
+        "redownloadTooltipBatch": "重新下載所選中的 {{n}} / {{total}}",
+        "redownloadOverwriteTitle": "檔案已存在",
+        "redownloadOverwriteDescription": "檔案「{{name}}」已存在於下載路徑中。重新下載將覆蓋或重命名該檔案，是否繼續？",
+        "redownloadCredentialsExpired": "原始下載參數已失效，請確認後提交",
+        "redownloadStarted": "已重新發起下載",
+        "retryDialogTitle": "重試下載",
+        "retryDialogDescription": "修改 {{name}} 的請求參數以開始新下載。原失敗任務和部分檔案將保留。",
+        "retryDialogProgress": "第 {{current}} 項，共 {{total}} 項",
+        "downloadToDevice": "下載到此裝置",
+        "revealInFileStation": "在 File Station 中顯示",
+        "nasFileUnavailable": "無法授權存取檔案，請檢查目前帳號和目錄權限。",
+        "fileStationWindowBlocked": "瀏覽器封鎖了 File Station 視窗，請允許此網站開啟彈出式視窗後重試。"
       },
       "titleCount": "顯示 {{shown}} 項 · 共 {{total}} 項",
       "type": {
@@ -975,6 +1018,11 @@
   },
   "task": {
     "add": {
+      "extraHeaders": "額外請求標頭",
+      "headerName": "標頭名稱",
+      "headerValue": "標頭值",
+      "addHeader": "新增標頭",
+      "removeHeader": "移除標頭",
       "title": "新增任務",
       "links": "連結",
       "torrent": "Torrent",
@@ -986,6 +1034,7 @@
       "createFailedByPlugin": "建立任務失敗：外掛「{{pluginId}}」中斷了任務建立（{{detail}}）。可在「設定 → 外掛」中停用該外掛後重試。",
       "createFailedPathTooLong": "建立任務失敗：目標路徑長 {{length}} 個字元，超出 Windows 上限 {{limit}}。請改用更短的儲存目錄或檔名。",
       "parseFailed": "無法解析 Torrent 檔案。",
+      "unsupportedTorrent": "此種子使用了目前下載引擎不支援的功能。",
       "urlsCount_other": "{{count}} 個 URL",
       "urlsWithInvalid": "{{valid}} 個有效，{{invalid}} 個無效",
       "validUrlCount": "{{count}} 個有效",
@@ -1067,6 +1116,7 @@
         "doc": "文件"
       },
       "errors": {
+        "headerNameRequired": "請輸入標頭名稱，或移除此標頭。",
         "urlsRequired": "至少需要一個 URL",
         "saveDirRequired": "必須指定儲存目錄",
         "noFilesSelected": "至少選擇一個檔案",
@@ -1077,7 +1127,8 @@
         "failed": "無法自動開始下載 {{name}}，請開啟任務詳細資料，選擇檔案後重試。"
       },
       "undoCorrection": "復原 URL 修正",
-      "submissionUnconfirmed": "結果尚未確認。再次提交時會先核對原請求，避免重複建立任務。"
+      "submissionUnconfirmed": "結果尚未確認。再次提交時會先核對原請求，避免重複建立任務。",
+      "selectNasTorrent": "從 NAS 選擇種子檔案"
     },
     "detail": {
       "peers": "對等節點：{{count}}",
@@ -1120,7 +1171,8 @@
         "resumeSourceChanged": "遠端檔案在下載開始後發生變更，已保留部分檔案且未繼續寫入。",
         "resumeRangeUnsupported": "伺服器不支援安全的範圍續傳，已保留部分檔案且未繼續寫入。",
         "resumeValidationFailed": "Motrix 無法確認遠端檔案是否未發生變更，已保留部分檔案且未繼續寫入。",
-        "mediaInterrupted": "此媒體下載因應用程式重新啟動而中斷，無法繼續。請重新新增後再試。"
+        "mediaInterrupted": "此媒體下載因應用程式重新啟動而中斷，無法繼續。請重新新增後再試。",
+        "portableExternalPath": "此任務使用可攜目錄以外的位置。應用程式位置已變更或原目錄無法使用，請確認下載檔案的位置後重試。"
       }
     },
     "error": {
@@ -1129,6 +1181,7 @@
         "recoveryFailed": "無法恢復下載：{{cause}}",
         "recoveryOutputConflict": "暫存檔與最終檔案皆存在，兩者均已保留以供手動檢查",
         "filesMissing": "應用程式重新啟動後找不到檔案",
+        "sourceHash": "發行者的 SHA-256",
         "renameFileFailed": "無法重新命名檔案：{{cause}}",
         "renameDirFailed": "無法重新命名目錄：{{cause}}",
         "pluginChainAborted": "外掛程式鏈已中止：{{cause}}",
@@ -1162,6 +1215,36 @@
         "checksumMismatch": "下載的檔案可能損毀，請重新下載以驗證",
         "tooManyRedirects": "來源連結可能失效，請嘗試其他連結",
         "btMetadataFailed": "請檢查 Magnet 連結或新增更多 Tracker，然後重試"
+      }
+    },
+    "storage": {
+      "move": "移動檔案…",
+      "locate": "尋找現有檔案…",
+      "recheck": "檢查檔案…",
+      "moveDescription": "為下載好的檔案選擇新位置。移動期間會暫停做種。",
+      "locateDescription": "指定檔案目前的位置，檢查完整後即可繼續做種。",
+      "recheckDescription": "檢查下載的檔案是否完整。檢查不會修改檔案或重新下載。",
+      "directory": "所在資料夾",
+      "name": "檔案或資料夾名稱",
+      "resume": "檢查通過後繼續做種",
+      "checking": "正在檢查檔案…",
+      "moving": "正在移動檔案…",
+      "resuming": "正在啟動做種…",
+      "verifiedPercent": "檢查通過 {{percent}}%",
+      "checkFailed": "檢查未通過",
+      "verified": "檔案完整，可以開始做種。",
+      "resumed": "已恢復做種。",
+      "incomplete": "部分檔案遺失或不完整，請確認資料夾選擇正確後重試。",
+      "resumeFailed": "新位置已儲存。可以點選「重新做種」再試一次。",
+      "useExisting": "檢查並使用這些檔案",
+      "errors": {
+        "unavailable": "這個任務暫時無法移動或檢查。",
+        "busy": "還有檔案操作正在進行，請稍後再試。",
+        "destination": "請換一個資料夾或名稱。所選位置可能已有同名檔案，或位於目前資料夾內。",
+        "conflict": "另一個下載任務正在使用這些檔案，請開啟對應任務變更位置。",
+        "engine": "未能停止目前任務，請重試。",
+        "failed": "無法存取或移動檔案，請檢查資料夾、可用空間和存取權限。",
+        "cancelled": "已取消檢查。"
       }
     }
   },
@@ -1200,6 +1283,10 @@
       "integration": {
         "title": "整合",
         "desc": "瀏覽器擴充功能、CLI、系統整合"
+      },
+      "nas": {
+        "title": "群暉套件",
+        "desc": "授權目錄與用戶端連線"
       }
     },
     "general": {
@@ -1254,6 +1341,12 @@
       "themeDark": "深色",
       "language": "語言",
       "traySpeedometer": "在選單列顯示速度",
+      "dockAndMenuBar": "Dock 和選單列",
+      "taskbar": "工作列",
+      "taskbarProgress": "在工作列圖示上顯示下載進度",
+      "taskbarProgressDesc": "在主視窗的工作列按鈕上顯示下載中工作的整體進度。",
+      "dockProgress": "在 Dock 圖示上顯示下載進度",
+      "dockProgressDesc": "在 Dock 圖示上顯示下載中工作的整體進度。",
       "traySpeedometerDesc": "在應用程式圖示旁顯示下載和上傳速度。",
       "trayIconColor": "系統匣圖示色彩",
       "trayIconColorDesc": "選擇在系統面板上容易看清的顏色。",
@@ -1262,6 +1355,10 @@
       "trayIconColorDark": "深色圖示（淺色面板）",
       "reduceMotion": "減少動畫",
       "reduceMotionDesc": "減少介面中的動態效果。",
+      "hardwareAcceleration": "硬體加速",
+      "hardwareAccelerationDesc": "使用顯示卡讓介面顯示更流暢。如果出現閃爍或閃退，可以嘗試關閉。變更後需重新啟動 Motrix 才會生效。",
+      "hardwareAccelerationRecoveryTitle": "已關閉硬體加速",
+      "hardwareAccelerationRecoveryBody": "由於畫面顯示連續出錯，Motrix 已關閉硬體加速，避免再次閃退。你可以在「設定 → 外觀」中重新開啟，重新啟動後生效。",
       "liquidGlassEffect": "液態玻璃",
       "liquidGlassEffectDesc": "讓下載工具列呈現半透明玻璃效果。",
       "liquidGlassEffectMacDesc": "macOS 26 及以上也會套用至視窗；變更後視窗會重新開啟。",
@@ -1324,7 +1421,15 @@
         "historyCountHint": "較早的恢復記錄會被移除。",
         "historyCountPositive": "請輸入大於 0 的數量。"
       },
-      "description": "RPC、進度與恢復"
+      "description": "RPC、進度與恢復",
+      "configFile": {
+        "title": "設定檔",
+        "serverTitle": "伺服器設定檔",
+        "openDirectory": "開啟所在資料夾",
+        "copyPath": "複製路徑",
+        "copied": "已複製",
+        "actionFailed": "操作未完成，請重試。"
+      }
     },
     "about": {
       "appIconAlt": "Motrix 應用程式圖示",
@@ -1372,7 +1477,12 @@
         "channelStable": "穩定版",
         "channelBeta": "測試版",
         "channelBetaWarning": "測試版可能不夠穩定，也會接收後續穩定版。切回穩定版後不再接收測試版，不會自動降級。",
-        "channelSaveError": "無法儲存更新通道。請再試一次。"
+        "channelSaveError": "無法儲存更新通道。請再試一次。",
+        "installing": "正在安裝…",
+        "installingDescription": "正在準備更新，準備完成後 Motrix 將重新啟動。",
+        "manualDownload": "手動下載",
+        "manualInstall": "請下載新版本，結束 Motrix 後取代已安裝的應用程式。",
+        "manualCrossVolume": "目前不支援跨磁碟自動安裝更新。請下載新版本並手動取代 Motrix。"
       },
       "details": {
         "author": "作者",
@@ -1572,8 +1682,9 @@
         "turtle_off": "標準",
         "turtle_on": "低速",
         "turtle_auto": "自動",
+        "unitFor": "{{field}}的單位",
         "baseSection": "一般限速",
-        "baseSectionDesc": "用於日常下載，且在每個模式下都會遵守。",
+        "baseSectionDesc": "用於一般模式，以及未觸發低速規則時。",
         "baseDownload": "下載",
         "baseDownloadDesc": "日常下載的最高速度。",
         "baseUpload": "上傳",
@@ -1583,7 +1694,7 @@
         "standardLimit": "沿用一般上限",
         "useStandardLimit": "沿用標準限制",
         "altSection": "低速限速",
-        "altSectionDesc": "用於低速模式或排程規則。這些限制只能低於標準限制。",
+        "altSectionDesc": "用於低速模式，或自動規則選擇低速設定時。",
         "altDownload": "下載",
         "altDownloadDesc": "低速模式啟用時的最高下載速度。",
         "altUpload": "上傳",
@@ -1654,7 +1765,7 @@
           "adaptiveRulePending": "輸入連線頻寬後，為其他應用程式保留 {{reserved}}% 的頻寬",
           "ruleSeparator": "，並且",
           "autoRules": "Motrix 將{{rules}}。",
-          "lowerWins": "多項限速同時生效時取最低值。"
+          "profileSelection": "依所選模式套用限速。低速限速留空時沿用一般值；自動模式還可能受到自適應限速限制。"
         },
         "bandwidthUsed": "Motrix 最多使用 {{motrix}}%。",
         "bandwidthPending": "填入下載和上傳速度後生效。"
@@ -1692,7 +1803,7 @@
         "hidePassword": "隱藏密碼",
         "bypass": "不使用代理的位址",
         "bypassDesc": "每行填寫一個網域、IP 或 CIDR。開頭加 . 僅比對子網域。檔案下載不支援 * 萬用字元。",
-        "bypassScopeNote": "僅下載檔案和更新應用程式",
+        "bypassScopeNote": "僅下載檔案、外掛和更新應用程式",
         "scopes": "代理用途",
         "scopesDesc": "選擇哪些流量要通過 Proxy。",
         "scopeDownload": "下載檔案",
@@ -1708,7 +1819,9 @@
         "scopeHint": "BT 節點、DHT 和 UDP Tracker 仍直接連線。",
         "scopeNone": "未選取",
         "scopeChoose": "選擇…",
-        "scopeSeparator": "、"
+        "scopeSeparator": "、",
+        "scopePlugins": "外掛安裝與更新",
+        "scopePluginsDesc": "為外掛市集、安裝套件、外掛更新和安全性原則請求使用代理。"
       },
       "nat": {
         "title": "連接埠對映（NAT）",
@@ -1759,6 +1872,12 @@
       "hideSecret": "隱藏密鑰"
     },
     "integration": {
+      "clientPairingUnavailable": "目前安裝版本暫不支援用戶端配對。",
+      "extensionPairingUnavailable": "目前安裝版本暫不支援瀏覽器擴充功能配對。",
+      "clients": {
+        "masterSwitch": "允許外部用戶端連線",
+        "masterSwitchDesc": "用戶端須經核准後才能管理下載。"
+      },
       "system": {
         "title": "預設應用程式",
         "protocolMagnet": "使用 Motrix 開啟 Magnet 連結",
@@ -1816,8 +1935,14 @@
           "store": "安裝擴充功能",
           "development": "開發版"
         },
+        "pendingTitle": "瀏覽器擴充功能配對請求",
+        "pendingEmpty": "在擴充功能中點選「配對」，請求就會顯示在這裡。",
         "pairedTitle": "已連線的擴充功能",
         "pairedEmpty": "尚未連線任何擴充功能。",
+        "profile": "瀏覽器設定檔 {{number}}",
+        "connected": "已連線",
+        "disconnected": "未連線",
+        "revokeAll": "全部中斷",
         "lastActive": "上次使用",
         "revoke": "中斷連線",
         "disconnecting": "正在中斷連線…",
@@ -1843,7 +1968,10 @@
             "attested": "已驗證的擴充功能",
             "unverified": "未驗證的擴充功能"
           },
-          "identityUnverifiedWarning": "無法驗證此擴充功能的身分，請確認信任後再繼續。"
+          "identityUnverifiedWarning": "無法驗證此擴充功能的身分，請確認信任後再繼續。",
+          "claim": "使用目前帳號配對",
+          "claimDesc": "擴充功能將使用此帳號的權限。下一步請在擴充功能中輸入配對碼，完成配對。",
+          "account": "目前帳號：{{name}}"
         },
         "pairUnavailable": "此配對要求已不再待處理，請從瀏覽器擴充功能重新配對。",
         "trustedExtensions": "受信任的擴充功能",
@@ -2022,7 +2150,8 @@
           "missing": "找不到",
           "untrusted": "macOS 已阻擋",
           "unconfigured": "未設定",
-          "version_mismatch": "不支援"
+          "version_mismatch": "不支援",
+          "verificationUnavailable": "暫時無法驗證"
         },
         "stagingMB": "暫存檔案空間上限（MB）",
         "stagingMBDesc": "每個外掛、每個任務處理媒體時可用的暫存空間。",
@@ -2125,6 +2254,46 @@
       "originMismatchBody": "即時更新無法使用。請使用伺服器設定的存取位址，或聯絡管理員修正設定。",
       "disconnectedTitle": "即時更新連線已中斷。",
       "disconnectedBody": "部分資訊可能延遲。如果持續出現，請檢查伺服器連線和反向代理設定。"
+    },
+    "portable": {
+      "title": "可攜模式",
+      "startupError": "無法開啟可攜資料目錄。請檢查 Motrix.exe 同層的 data 資料夾是否可寫入，並確認未設定外部使用者資料目錄。Motrix 未切換至系統使用者資料目錄。",
+      "integrationUnavailable": "可攜模式保持系統設定不變，不支援開機啟動註冊、檔案關聯和系統工具安裝。",
+      "browserDescription": "Motrix 執行時仍可使用本機橋接。可攜模式不會註冊瀏覽器啟動器，也不會修改現有的瀏覽器整合。",
+      "updateDescription": "請下載 Windows ZIP，結束 Motrix 後將完整的 data 資料夾移至新版本目錄。可攜模式不會執行安裝程式。",
+      "recoveryError": "無法安全復原可攜資料。請保留 data 資料夾，檢查記錄和目錄權限後重試。Motrix 已停止啟動，未使用系統使用者資料目錄。",
+      "enginePathDescription": "可攜模式將引擎狀態儲存於 data 資料夾內，隨應用程式位置自動管理。"
+    },
+    "nas": {
+      "description": "所有 DSM 管理員共用這些設定。請在套件中心重新啟動 Motrix 以套用變更。",
+      "account": "目前 DSM 帳號：{{username}}",
+      "restartRequired": "設定已儲存。請在套件中心停止並重新啟動 Motrix。",
+      "storageUnavailable": "下載資料夾無法使用",
+      "storageRecoveryHint": "下載已暫停。請還原原本的資料夾，或改為授權其他路徑，然後在套件中心重新啟動 Motrix。",
+      "roots": "授權下載目錄",
+      "rootsHint": "每行一個現有資料夾。必須允許目前帳號及內部系統使用者 motrix 讀寫。移除預設資料夾後，第一個資料夾會成為新預設。",
+      "extensionEnabled": "啟用瀏覽器擴充功能連線",
+      "extensionHint": "使用 DSM HTTPS 憑證涵蓋的網域名稱，並將它解析到 NAS 內部位址。",
+      "webAddress": "Motrix Web 位址",
+      "webAddressHint": "填寫平時開啟的位址，包含 /motrix/。可直接使用目前瀏覽器的位址。",
+      "useCurrentAddress": "使用目前 DSM 位址",
+      "extensionAddress": "擴充功能連線位址",
+      "allowHttp": "允許透過 HTTP 顯示配對碼",
+      "allowHttpHint": "僅在可信任網路中啟用。使用 HTTPS 時無需開啟此選項。",
+      "clientPort": "用戶端直連連接埠",
+      "clientPortHint": "直連用戶端使用此連接埠（1024–65535）。DSM HTTPS 位址使用 DSM 連接埠。",
+      "activeConnections": "目前連線位址",
+      "cliAddress": "CLI 連線位址",
+      "sessionHint": "用戶端沿用配對帳號的目前權限。登出 DSM、工作階段過期或套件重新啟動後，請用對應帳號重新開啟 Motrix，無需重新配對。",
+      "copy": "複製位址",
+      "openSettings": "設定 NAS 連線",
+      "errors": {
+        "invalid": "請檢查目錄、連接埠和連線位址。透過 HTTP 顯示配對碼需要明確許可。",
+        "folderUnavailable": "請確認資料夾位於已掛載的儲存空間，並允許內部系統使用者 motrix 讀寫。",
+        "permissionDenied": "無法授權目前帳號或目錄。請在 DSM 共用資料夾權限中檢查目前帳號及內部系統使用者 motrix 的權限。",
+        "unavailable": "暫時無法讀取或儲存套件設定，請在服務恢復後重試。",
+        "conflict": "已儲存的設定發生變更，請重新載入後再編輯。重新載入會取代尚未儲存的修改。"
+      }
     }
   },
   "errors": {
@@ -2298,9 +2467,13 @@
         "title": "FFmpeg 需求",
         "notInstalled": "此系統未安裝 FFmpeg。",
         "versionMismatch": "已安裝 FFmpeg {{version}}。",
-        "requiredByPlugin": "此外掛程式需要 ffmpeg。請安裝後再試一次。",
+        "requiredByPlugin": "可以先安裝外掛，啟用或執行前再設定相容的 FFmpeg。",
         "optionalDegraded": "安裝 ffmpeg 前，此外掛程式的媒體功能無法使用。"
       }
+    },
+    "runtime": {
+      "ffmpegUnavailable": "FFmpeg 目前無法使用。 Configure FFmpeg in Settings → Integration → Media Tools.",
+      "ffmpegIncompatible": "FFmpeg 版本不符合此外掛的需求。 Configure FFmpeg in Settings → Integration → Media Tools."
     }
   },
   "bridge": {
@@ -2407,6 +2580,8 @@
       "local": "本機檔案",
       "local.pick": "選擇 .moext 檔案",
       "lead": "貼上外掛程式位址、選擇 .moext 檔案，或將檔案拖放至輸入欄位。",
+      "reviewLead": "安裝前，請檢查外掛程式要求的權限。",
+      "preparing": "準備中…",
       "placeholder": "貼上 GitHub 位址、URL，或選擇本機 .moext 檔案",
       "detected": {
         "auto": "自動",
@@ -2425,7 +2600,15 @@
       "localPrepareFailed": "無法準備此外掛程式檔案：{{detail}}",
       "dropHint": "將 .moext 檔案拖放到這裡以檢查此外掛程式",
       "dragDisabledHint": "此環境不支援拖放。請使用 GitHub 位址或 URL。",
-      "warning": "安裝前請確認：只有在信任作者，且預期其使用上列權限時才繼續。"
+      "warning": "安裝前請確認：只有在信任作者，且預期其使用上列權限時才繼續。",
+      "officialVerified": "已驗證 Motrix 官方簽章",
+      "officialSignatureInvalid": "無法驗證此外掛的官方簽章，請重新整理外掛市集後再試。",
+      "officialBuiltinOnly": "此版本需要內建外掛專屬權限，請安裝支援選用安裝的新版本。",
+      "builtinAlreadyInstalled": "此外掛已內建，請使用外掛的更新功能。",
+      "hostIncompatible": "此擴充功能需要 Motrix {{required}}，目前版本為 {{current}}。請升級或切換至符合要求的 Motrix 版本後重試。",
+      "installed": "已安裝",
+      "optionalHint": "預設關閉，依需要開啟",
+      "optionalLater": "安裝後，可在外掛設定中變更選用權限。"
     },
     "consent": {
       "installTitle": "要安裝 {{name}} {{version}} 嗎？",
@@ -2491,12 +2674,16 @@
       "accessHosts_other": "可讀取 {{count}} 個網站",
       "accessBroad": "可讀取任何網站",
       "attentionTitle": "此外掛程式回報問題",
+      "runtimeStartFailed": "外掛執行環境無法啟動",
+      "runtimeFailed": "外掛執行環境意外停止",
       "attentionGeneric": "請查看日誌以瞭解詳細資料。",
       "viewIssue": "檢視問題",
       "removeTitle": "移除外掛程式",
       "removeDesc": "移除此外掛程式也會刪除其儲存在 Motrix 的資料。",
       "uninstallConfirmTitle": "要解除安裝 {{name}} 嗎？",
-      "uninstallConfirmDesc": "這將從 Motrix 移除外掛程式及其已儲存的設定。"
+      "uninstallConfirmDesc": "這將從 Motrix 移除外掛程式及其已儲存的設定。",
+      "operations": "操作",
+      "operationsFailed": "操作介面載入失敗，請重試。"
     },
     "permissions": {
       "empty": "此外掛程式未要求任何權限。",
@@ -2516,8 +2703,9 @@
         "error": "錯誤",
         "fatal": "嚴重錯誤"
       },
-      "copy": "複製",
+      "copy": "複製已遮蔽的日誌",
       "clear": "清除",
+      "clearFailed": "無法清空日誌，請重試。",
       "output": "即時輸出",
       "entryCount_other": "{{count}} 筆項目",
       "empty": "尚無日誌項目",
@@ -2711,7 +2899,8 @@
       },
       "ffmpeg": {
         "strong": "使用 FFmpeg",
-        "plain": "處理音訊或影片。"
+        "plain": "處理音訊或影片。",
+        "requirement": "用於處理音訊與影片，使用前請先<settings>在設定中安裝或選擇 FFmpeg</settings>。"
       },
       "notify": {
         "strong": "傳送通知",
@@ -2763,7 +2952,43 @@
         "allowed": "已允許",
         "noAccess": "關閉",
         "grant": "允許"
+      },
+      "metadata": {
+        "strong": "讀寫工作中繼資料",
+        "plain": "為下載工作儲存此外掛產生的資訊。"
+      },
+      "files.selected.read": {
+        "strong": "Read files selected for this operation",
+        "plain": "Each operation needs your input selection. Other files are not authorized."
+      },
+      "files.selected.write": {
+        "strong": "Save a new file for this operation",
+        "plain": "Save at the location you confirm without replacing existing files."
       }
+    },
+    "security": {
+      "blocked": "已因安全風險停用",
+      "pending": "請連線檢查更新後再啟用此外掛。",
+      "unavailable": "無法驗證安全原則，請檢查更新後重試。",
+      "malware": "此外掛已被確認為惡意外掛。",
+      "vulnerability": "此外掛版本存在安全漏洞。",
+      "compromised": "此外掛的散布管道已遭入侵。",
+      "fixedVersion": "修復版本：{{version}}。",
+      "details": "檢視安全公告"
+    },
+    "network": {
+      "timeout": "連線逾時",
+      "dns": "DNS 解析失敗",
+      "proxyAuth": "代理驗證失敗",
+      "proxyConnect": "無法連線至代理",
+      "certificate": "憑證或 TLS 錯誤",
+      "http": "HTTP {{status}}",
+      "cancelled": "請求已取消",
+      "network": "網路請求失敗",
+      "cached": "重新整理失敗，正在顯示快取的外掛",
+      "unavailable": "無法載入外掛市集",
+      "direct": "直接連線至 {{host}} 失敗：{{reason}}",
+      "viaProxy": "透過代理 {{proxy}} 連線至 {{host}} 失敗：{{reason}}"
     }
   },
   "applicationMenu": {
@@ -2825,7 +3050,9 @@
       "invalidName": "請輸入有效的資料夾名稱。",
       "tooLarge": "路徑或資料夾名稱過長。",
       "unavailable": "伺服器無法完成要求，請再試一次。",
-      "creationOutcomeUnknown": "無法確認資料夾是否已建立。請先重新整理確認，再在此處建立其他資料夾。"
+      "creationOutcomeUnknown": "無法確認資料夾是否已建立。請先重新整理確認，再在此處建立其他資料夾。",
+      "notFile": "請選擇可讀取的一般檔案。",
+      "unsupportedFileType": "不支援此副檔名。"
     },
     "places": {
       "common": "常用位置",
@@ -2837,6 +3064,33 @@
       "downloads": "下載",
       "root": "檔案系統",
       "loadFailed": "部分目錄位置無法載入。"
+    },
+    "openFileTitle": "選擇檔案",
+    "saveFileTitle": "儲存檔案",
+    "fileDescription": "瀏覽 Motrix 伺服器上的檔案。",
+    "selectFile": "選擇檔案",
+    "saveFile": "使用此檔案名稱",
+    "files": "檔案和資料夾",
+    "fileName": "檔案名稱",
+    "emptyFiles": "此資料夾為空。",
+    "fileErrors": {
+      "invalidPath": "請輸入有效的絕對路徑。",
+      "outsideRoots": "此路徑不在允許的位置範圍內。",
+      "notFound": "此路徑已不存在。",
+      "permissionDenied": "你沒有使用此路徑的權限。",
+      "invalidName": "請輸入有效的檔案名稱。",
+      "tooLarge": "路徑或檔案名稱過長。"
+    },
+    "selectedFilePath": "所選檔案",
+    "file": {
+      "chooseOnServer": "請點擊選擇伺服器上的檔案。",
+      "singleFile": "請一次選擇一個檔案。",
+      "wrongType": "請選擇以下格式的檔案：{{extensions}}。",
+      "pathUnavailable": "無法讀取此檔案的位置，請點擊選擇。",
+      "choose": "選擇檔案",
+      "dropHint": "拖入檔案，或點擊選擇",
+      "browseHint": "點擊瀏覽檔案",
+      "change": "點擊更換檔案"
     }
   },
   "directoryPreferences": {
@@ -2905,12 +3159,343 @@
     "stoppedSplit": "已停止的任務現按已完成和錯誤分類，已開啟全部下載。",
     "invalidStatus": "下載分類無效，已開啟全部下載。"
   },
+  "mediaMerge": {
+    "title": "合併音訊與影片",
+    "description": "將影片畫面與音訊合為一個檔案，無需重新編碼。",
+    "videoInput": "影片檔案",
+    "audioInput": "音訊檔案",
+    "output": "輸出檔案",
+    "provider": "外掛",
+    "browse": "選擇…",
+    "browseField": "選擇{{field}}",
+    "required": "請選擇檔案或填寫完整路徑。",
+    "outputHint": "儲存為 MP4 或 MKV，並使用新檔名。MP4 不相容時可嘗試 MKV。",
+    "noPlugin": "請安裝並啟用音視訊合併擴充功能，並在「設定 → 整合 → 媒體工具」中設定 FFmpeg。",
+    "serverPaths": "選擇 Motrix 伺服器上的檔案；不會上傳本機檔案。",
+    "start": "合併",
+    "running": "正在合併…",
+    "cancelling": "正在取消…",
+    "completed": "合併成功",
+    "cancelled": "已取消合併",
+    "failed": "合併失敗",
+    "invalidSelection": "請選擇兩個已完成的單檔下載任務。",
+    "jobMissing": "此合併任務已無法使用。",
+    "busy": "已有另一個合併任務正在執行。",
+    "pluginUnavailable": "音訊與影片合併外掛無法使用。",
+    "absolutePaths": "請填寫完整的檔案絕對路徑。",
+    "invalidFiles": "請選擇兩個非空的媒體檔案。",
+    "sameInput": "請選擇兩個不同的輸入檔案。",
+    "outputFormat": "輸出檔名需以 .mp4 或 .mkv 結尾。",
+    "outputExists": "輸出檔案已存在，請使用新檔名。",
+    "invalidOutput": "外掛未產生有效的輸出檔案。",
+    "again": "再次合併",
+    "pluginDisabled": "啟用此擴充功能後即可合併檔案。",
+    "choose": {
+      "videoInput": "選擇影片",
+      "audioInput": "選擇音訊",
+      "output": "選擇儲存位置"
+    },
+    "hint": {
+      "videoInput": "提供合併後的畫面",
+      "audioInput": "提供合併後的聲音",
+      "output": "儲存為 MP4 或 MKV"
+    },
+    "preserveOriginals": "無損合併，保留原始檔案",
+    "format": "輸出格式"
+  },
+  "legacyImport": {
+    "navigation": "Migration",
+    "title": "Migration",
+    "pausedDescription": "Choose which Motrix v1 downloads to import. They won’t start automatically.",
+    "settingsTitle": "Migration",
+    "settingsDescription": "Import your downloads from Motrix v1.",
+    "settingsAction": "Open migration",
+    "pickSource": "Choose the Motrix v1 data folder",
+    "source": "From",
+    "changeSource": "Change folder…",
+    "noSource": "Choose the folder containing your Motrix v1 data",
+    "discovery": "Downloads found: {{count}}",
+    "preserveFiles": "Downloaded files stay in their original location.",
+    "chooseTasks": "Choose downloads",
+    "skip": "Not now",
+    "skippedHint": "如需移轉，可前往「{{settings}} → {{advanced}}」。",
+    "back": "Back",
+    "loading": "Looking for your old downloads…",
+    "empty": "There are no tasks to migrate from this folder.",
+    "continueBefore": "Before continuing:",
+    "capabilityLimit": "This task needs to be downloaded again. Choose a new folder to keep the original files.",
+    "running": "Motrix v1 may still be running. Quit it, then check again.",
+    "recheck": "Check again",
+    "search": "Search downloads",
+    "selectAll": "Select all",
+    "skipped": "Skipped: {{count}}",
+    "backupNote": "Your task list is backed up before import. Downloaded files stay in place.",
+    "backingUp": "Backing up your task list…",
+    "committing": "Adding your downloads…",
+    "progress": "Migration progress",
+    "processed": "{{done}} / {{total}} processed",
+    "stop": "Stop migration",
+    "stopTitle": "Stop migration?",
+    "stopDescription": "Downloads already imported will be kept. You can import the rest later.",
+    "resultTitle": "Migration complete",
+    "importedCount": "Imported {{count}}",
+    "resultDescription": "Your imported tasks are now in Downloads.",
+    "details": "View details",
+    "exportReport": "Save report…",
+    "retry": "Migrate remaining",
+    "viewTasks": "View downloads",
+    "freshDownload": "Download again…",
+    "freshDescription": "Choose where to save the new download. Motrix will create a separate folder and open the download form for you to confirm. It will start from the beginning and leave your old files untouched.",
+    "freshDestination": "Choose where to save the new download",
+    "chooseDestination": "Choose another location…",
+    "requestSettingsHelp": "舊版 Cookie 檔案中的資訊，請填寫為所需的 Cookie 請求標頭。舊版 HTTP 使用者名稱和密碼，請填寫為等效的 Authorization 請求標頭。代理伺服器憑證請填寫在代理伺服器 URL 中。",
+    "unsupportedOptions": "不支援的選項：{{options}}",
+    "ignoredOptions": "已移除不支援的參數：{{options}}",
+    "currentProxyDescription": "遷移後的下載使用 Motrix 目前的下載代理設定，不保留舊代理設定。",
+    "requestOptions": "已儲存的請求設定：{{options}}",
+    "requestSettingsDescription": "舊版請求設定未複製。請在「進階」中重新填寫後，下載到新資料夾。",
+    "reconfigureDownload": "重新設定並下載…",
+    "reasons": {
+      "fresh-download-required": "Needs a new download",
+      "verification-required": "Existing files need checking",
+      "metadata-required": "Original torrent file needed",
+      "selection-required": "Choose which files to download",
+      "request-settings-required": "續傳前會檢查已儲存的請求設定",
+      "mirrors-unsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "unsupported-options": "不支援的下載選項",
+      "invalid-record": "Couldn’t read this task",
+      "unsafe-path": "File location needs checking",
+      "already-imported": "Already imported",
+      "deleted-import": "Previously removed",
+      "path-conflict": "Another task uses this location",
+      "changed-source": "Old task data has changed",
+      "not-selected": "Not selected",
+      "stopped": "Not imported before stopping",
+      "commit-failed": "Import failed. You can try again."
+    },
+    "errors": {
+      "pageUnavailable": "Migration couldn’t open. Restart Motrix and try again. Downloads already imported are kept.",
+      "failed": "The operation couldn’t be completed. Please try again.",
+      "consentRequired": "Accept the agreement before opening migration.",
+      "invalidSource": "No Motrix v1 data was found here. Choose its original data folder.",
+      "unsafeSource": "This data folder can’t be read safely. Choose the original Motrix v1 folder.",
+      "unsafeBackup": "A safe backup couldn’t be created, so importing has stopped.",
+      "tooLarge": "This task list is too large to import.",
+      "tooManySources": "Too many folders have been opened. Restart Motrix and try again.",
+      "sourceNotAuthorized": "Select the old data folder using the folder picker.",
+      "expiredPreview": "This task list needs refreshing. Check again before importing.",
+      "changedSource": "The old task data has changed. Check again before importing.",
+      "running": "Motrix v1 may still be running. Quit it, then check again.",
+      "invalidSelection": "The selected tasks have changed. Check the list again.",
+      "pathConflict": "Another task uses this file location. Check the list again.",
+      "busy": "An import is already running. Wait for it to finish.",
+      "unknownRun": "The import result is unavailable.",
+      "unknownTask": "This imported task is no longer available.",
+      "rescanRequired": "Choose the data folder again to import the remaining tasks.",
+      "metadataRequired": "Choose this task’s original torrent file first.",
+      "unsafePath": "Choose a folder you can access.",
+      "mirrorsUnsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "stopping": "Motrix is closing. Reopen it to continue importing.",
+      "desktopOnly": "Open migration in the Motrix desktop app.",
+      "metadataMismatch": "This torrent does not match the old task. Choose its original torrent file.",
+      "checkpointUnavailable": "This version can’t resume the old files. You can download again in a new folder.",
+      "activationSourceMissing": "Some original task information is missing. Download again in a new folder.",
+      "selectionRequired": "The previous file selection is unavailable. Choose the files again in a new download.",
+      "originalDirectoryRequired": "Choose the original folder shown here. Files moved to another location can’t be resumed.",
+      "payloadMissing": "Some original files are missing, including files previously left unselected. All are needed to resume this task. Download again in a new folder.",
+      "payloadUnsafe": "The original files can’t be updated safely because of file links or permissions. Keep them and download again in a new folder.",
+      "controlRequired": "The saved download progress is missing. Download again in a new folder.",
+      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder.",
+      "httpContentChanged": "已下載的資料與伺服器內容不一致。",
+      "httpRangeUnsupported": "伺服器不支援所需的位元組範圍請求。",
+      "httpValidatorRequired": "伺服器未提供可靠的資源版本識別碼。",
+      "httpVerificationFailed": "無法驗證已下載的資料。",
+      "httpRequestUnsupported": "引擎或請求設定不支援安全續傳。",
+      "httpVerificationCancelled": "驗證已取消。",
+      "httpRedirectUnsupported": "重新導向的連結暫時無法安全原地續傳。"
+    },
+    "resultIncompleteTitle": "Migration is incomplete",
+    "resultStoppedTitle": "Migration stopped",
+    "activationRequired": "請開啟任務詳細資料，驗證後繼續下載。",
+    "chooseTorrent": "Choose torrent…",
+    "torrentFile": "Torrent file",
+    "verifyAndContinue": "驗證並繼續",
+    "verifyDescription": "Motrix will verify the original files, then continue with your previous file selection. While downloading, it may upload data and write shared pieces to unselected files. It won’t seed automatically when finished.",
+    "authorizeOriginalDirectory": "Choose the original download folder",
+    "verifyReady": "Verify your existing files to continue this download, or start again in a new folder.",
+    "trackersReadOnly": "This download keeps its original trackers. They can’t be changed here.",
+    "page": {
+      "stepsLabel": "Migration steps",
+      "steps": {
+        "select": "Choose downloads",
+        "import": "Import",
+        "result": "Review"
+      },
+      "foundSummary": "Download types",
+      "selectionSummary": "Selected",
+      "resultSummary": "Migration summary",
+      "countUnit": "total",
+      "notImported": "Not imported",
+      "skippedSummary": "Skipped",
+      "types": {
+        "http": "Direct links",
+        "bt": "Torrents",
+        "magnet": "Magnet links",
+        "unknown": "Other tasks"
+      },
+      "pathUnavailable": "Download location unavailable",
+      "filesStayTitle": "Your files stay where they are",
+      "filesStayDescription": "Migration won’t move or delete downloaded files.",
+      "nextTitle": "Only your downloads",
+      "nextDescription": "Your app settings stay the same.",
+      "footerNote": "Imported tasks will stay paused.",
+      "discoveryDescription": "Choose what to add to your download list. Some tasks need a new download or a check of the existing files.",
+      "previousVersion": "Motrix v1",
+      "currentVersion": "Motrix",
+      "introduction": "Choose the downloads you’d like to add to Motrix.",
+      "selectionTitle": "Choose what to migrate",
+      "searchEmpty": "No matching downloads.",
+      "resultEmptyTitle": "No new downloads",
+      "resultEmptyDescription": "Open the details to see why each task was skipped.",
+      "resultIncompleteDescription": "Downloads already imported are kept. Review the details and try importing the rest again.",
+      "resultStoppedDescription": "Downloads already imported are kept. You can import the rest when you’re ready.",
+      "outcomes": {
+        "imported": "Imported",
+        "skipped": "Skipped",
+        "failed": "Failed",
+        "unprocessed": "Not imported"
+      },
+      "sourceDescription": "From {{name}}",
+      "assistantTitle": "Migration Assistant",
+      "backToSource": "Back to source",
+      "continue": "Continue",
+      "revealSource": "Show in folder",
+      "welcomeTitle": "Migrate your downloads",
+      "sourceFeedback": {
+        "retry": "Try again",
+        "unreadableTitle": "Unable to read downloads from this location",
+        "chooseFolder": "Choose the data folder used by the previous version of Motrix.",
+        "readTitle": "Unable to read downloads",
+        "readDescription": "Check that this location is accessible, then try again.",
+        "pickTitle": "Unable to use the selected folder",
+        "pickDescription": "Try choosing the folder again. Your previous selection is still available.",
+        "revealTitle": "Unable to show this folder",
+        "revealDescription": "Check that this location is accessible, then try again.",
+        "discoverTitle": "Unable to look for previous downloads",
+        "discoverDescription": "Try again, or choose the previous Motrix data folder yourself.",
+        "reading": "Reading downloads…"
+      },
+      "sourceTitle": "Where would you like to migrate from?",
+      "sourceIntroduction": "Import your download tasks from the previous version of Motrix. You can choose what to migrate next. Your downloaded files will stay where they are.",
+      "sourceKind": "Downloads from the previous version",
+      "sourceHelp": "Choose the data folder used by Motrix v1. Your downloaded files stay where they are.",
+      "noSourceDescription": "No downloads from the previous version of Motrix were found. Choose another location to look for them.",
+      "progressTitle": "Migrating your downloads",
+      "progressDescription": "Your task list is being backed up and added to Motrix.",
+      "selectGroup": "Select {{name}}",
+      "phases": {
+        "discovery": "Choose source",
+        "selection": "Choose content",
+        "progress": "Migration",
+        "result": "Result"
+      },
+      "groups": {
+        "http": "Direct links",
+        "bt": "Torrent downloads",
+        "magnet": "Magnet links",
+        "unknown": "Other downloads"
+      },
+      "groupDescriptions": {
+        "http": "A new download is needed",
+        "bt": "Existing files will be checked before continuing",
+        "magnet": "The original torrent file is needed",
+        "unknown": "Review the task details"
+      },
+      "groupCount_other": "{{count}} tasks",
+      "selectedNote_other": "Selected {{count}} tasks. After migration, tasks will stay paused and downloaded files will remain in place.",
+      "run": {
+        "backup": "Back up task list",
+        "backupActive": "Saving a copy of your previous task list…",
+        "backupDone": "Backup saved",
+        "add": "Add downloads",
+        "waiting": "Waiting for the backup",
+        "completeDescription": "Your tasks are now in Downloads, paused until you’re ready to continue.",
+        "partialDescription": "Imported tasks are paused. You can retry the remaining tasks or view your downloads.",
+        "stoppedEmptyDescription": "No tasks were added. You can try again when you’re ready.",
+        "failedEmptyDescription": "No tasks were added. Review the details, then try again.",
+        "imported": "Imported",
+        "remaining": "Remaining"
+      }
+    },
+    "importSelected": "Migrate",
+    "httpResumeDescription": "Motrix 會將所有已下載的資料區段與伺服器內容比對，通過後在原資料夾繼續下載。驗證會重新傳輸這些區段；已儲存的請求設定僅在記憶體中使用。",
+    "httpVerifying": "正在準備或驗證…",
+    "httpOriginalFilesKept": "原始檔案已保留。"
+  },
+  "rendererRecovery": {
+    "title": "介面需要復原",
+    "description": "下載仍在背景繼續。未儲存的表單內容可能遺失。",
+    "recovering": "正在復原介面…",
+    "recover": "復原介面",
+    "diagnostics": "開啟診斷記錄",
+    "downloads": "開啟下載清單",
+    "failed": "暫時無法復原，請透過應用程式選單重試。",
+    "restored": "介面已恢復",
+    "wait": "繼續等待",
+    "routeTitle": "此頁面暫時無法顯示",
+    "submissionNotice": "上次提交可能已經完成，請先檢查下載清單，避免重複建立任務。"
+  },
+  "pluginOperations": {
+    "requiredField": "必填項",
+    "run": "Run operation",
+    "runAgain": "Run again",
+    "background": "Operations continue when this panel is closed.",
+    "loading": "Loading operation…",
+    "unauthorized": "This session is no longer authorized. Sign in again.",
+    "disabled": "Enable this plugin to use its operations.",
+    "blocked": "This plugin is blocked or its permissions are changing.",
+    "unsupported": "This host does not support the operation requirements.",
+    "ffmpeg": "Configure FFmpeg in Settings → Integration → Media Tools.",
+    "busy": "Another operation is using these resources. Try again after it finishes.",
+    "unavailable": "This operation is unavailable.",
+    "draftExpired": "This selection expired. Reopen the operation and select the files again.",
+    "resourceLimit": "The operation exceeds the host resource limit or available disk space.",
+    "invalidSelection": "Select completed tasks with one local file each.",
+    "invalidFile": "Choose a regular, non-empty local file.",
+    "fileType": "The selected file type does not match this field.",
+    "outputExists": "The output already exists. Choose a different name.",
+    "fileChanged": "A selected file or directory changed. Select it again.",
+    "invalidGrant": "Select the files again before starting.",
+    "sameInput": "Choose two different input files.",
+    "invalidOutput": "The plugin did not produce a valid output.",
+    "invalidRequest": "Check the operation parameters and try again.",
+    "invalidValue": "Enter a valid value.",
+    "descriptorChanged": "The plugin changed. Reopen the operation.",
+    "jobMissing": "This operation is no longer available in this session.",
+    "cancelled": "The operation was cancelled.",
+    "failed": "The operation failed. See the plugin log for details.",
+    "interrupted": "The host stopped before this operation finished. It was not restarted.",
+    "publicationUncertain": "The host could not confirm output publication. Check the destination before trying again.",
+    "cleanupWarning": "Temporary files remain for safe recovery. The host did not delete uncertain files.",
+    "status": {
+      "accepted": "Queued",
+      "preparing": "Preparing files",
+      "running": "Running",
+      "validating": "Validating result",
+      "committing": "Saving output",
+      "cleaning": "Cleaning up",
+      "cancelling": "Cancelling",
+      "succeeded": "Completed",
+      "cancelled": "Cancelled",
+      "failed": "Failed",
+      "interrupted": "Interrupted"
+    },
+    "confirmFileTitle": "Authorize file access",
+    "confirmFile": "Allow this operation to read the following file?"
+  },
   "createTorrent": {
     "title": "建立種子",
-    "description": "從本機檔案或資料夾產生 .torrent 檔案，用於分享與做種。",
     "source": "來源",
-    "sourcePlaceholder": "選擇檔案或資料夾…",
-    "browse": "瀏覽…",
     "trackers": "Tracker 伺服器",
     "trackersPlaceholder": "每行一個 announce URL",
     "webSeeds": "Web 種子",
@@ -2923,15 +3508,17 @@
     "hashing": "正在計算雜湊…",
     "resultName": "名稱",
     "resultSize": "大小",
-    "files": "個檔案",
-    "pieces": "個分塊",
     "resultInfoHash": "Info 雜湊",
     "saveFile": "儲存 .torrent",
     "create": "建立",
     "savedToast": "種子已儲存到 {{path}}",
     "createFailed": "建立種子失敗",
     "saveFailed": "儲存種子檔案失敗",
-    "invalidTracker": "部分 tracker URL 格式無效",
-    "openFromAddTask": "從本機檔案或資料夾建立種子…"
+    "seedAfter": "儲存後使用原始檔案做種",
+    "seedFailed": "種子已儲存，但無法啟動做種任務。",
+    "seedSubmitted": "已提交做種任務。",
+    "invalidOptions": "每個清單最多 {{limit}} 個有效網址。私人種子至少需要一個 Tracker。",
+    "sourcePlaceholder": "選擇檔案或資料夾…",
+    "menuLabel": "建立種子檔案…"
   }
 }

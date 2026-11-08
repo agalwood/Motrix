@@ -4,10 +4,12 @@
     "help": "Máy chủ này yêu cầu token quản trị. Trên máy chủ, đặt MOTRIX_OPERATOR_TOKEN hoặc đọc token từ <dataDir>/operator-token rồi dán vào bên dưới.",
     "placeholder": "Token quản trị",
     "error": "Token quản trị không hợp lệ. Hãy kiểm tra MOTRIX_OPERATOR_TOKEN hoặc <dataDir>/operator-token trên máy chủ rồi thử lại.",
-    "submit": "Mở khóa"
+    "submit": "Mở khóa",
+    "nasSessionExpired": "Không thể xác minh phiên quản trị viên NAS. Hãy mở Motrix từ màn hình NAS.",
+    "openDsm": "Open DSM to sign in"
   },
   "operatorAdmin": {
-    "help": "Cách dùng:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\nLệnh chỉ giao tiếp với máy chủ Motrix đang chạy qua địa chỉ loopback của container.",
+    "help": "Cách dùng:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nLệnh chỉ giao tiếp với máy chủ Motrix đang chạy qua địa chỉ loopback của container.",
     "errorPrefix": "motrix-admin: {{message}}",
     "usageHint": "Chạy `motrix-admin --help` để xem cách dùng.",
     "pending": {
@@ -55,6 +57,20 @@
         "loopback": "Không thể truy cập máy chủ Motrix đang chạy qua địa chỉ loopback của container.",
         "approvalNotReady": "Chức năng chấp thuận ghép đôi trên máy chủ Motrix đang chạy chưa sẵn sàng."
       }
+    },
+    "extension": {
+      "heading": "Pending browser Extension pairing requests",
+      "identityNotice": "Verify that you initiated this request. Origin and claimed identity alone do not prove who is connecting. Terminal recording can capture the pairing code.",
+      "row": "{{index}}. {{browser}} [{{identity}}] Origin: {{origin}}; claimed ID: {{claimedId}}; Server: {{authority}}; {{seconds}} s remaining",
+      "select": "Enter the number of one request (Ctrl+C to exit): ",
+      "code": "Pairing code: {{code}}",
+      "instructions": "Type this code into the browser Extension. It expires at the original deadline. Ctrl+C closes this view without approving or denying the request.",
+      "none": "No pending Extension pairing requests. Start pairing in the Extension, then run this command again. If requests remain absent, check the remote Extension configuration.",
+      "ended": "The selected pairing request has ended. Check the Extension for its outcome.",
+      "ttyRequired": "Extension pairing requires interactive input, output and error terminals. Piping, redirection and JSON output are not supported.",
+      "cancelled": "Pairing code view closed. No approval or denial was sent.",
+      "invalidSelection": "Select exactly one listed request by its number.",
+      "unavailable": "The selected request expired, ended or changed. Start a new pairing attempt in the Extension."
     }
   },
   "common": {
@@ -316,7 +332,7 @@
         "loading": "Đang tải dữ liệu hoạt động",
         "unavailable": "Không thể tải dữ liệu hoạt động",
         "retry": "Thử lại",
-        "stale": "Dữ liệu hoạt động có thể đã cũ",
+        "refreshFailed": "Không thể làm mới",
         "coverageDegraded": "Dữ liệu hoạt động có thể không đầy đủ từ {{time}}",
         "rangeSummary": "{{weeks}} tuần hoạt động tải xuống, từ {{start}} đến {{end}}",
         "completedIntensity": "Độ đậm của màu thể hiện số lượt tải xuống hoàn tất",
@@ -588,7 +604,7 @@
         "down": "Tốc độ tải xuống",
         "up": "Tốc độ tải lên",
         "eta": "Thời gian còn lại",
-        "connections": "Máy ngang hàng",
+        "connections": "Kết nối",
         "status": "Trạng thái",
         "createdAt": "Ngày tạo",
         "finishedAt": "Ngày hoàn tất"
@@ -634,6 +650,7 @@
         }
       },
       "stats": {
+        "title": "Trạng thái truyền",
         "downSpeed": "Tốc độ tải xuống",
         "upSpeed": "Tốc độ tải lên",
         "engineOk": "Bộ máy sẵn sàng",
@@ -685,18 +702,17 @@
         },
         "activity": {
           "transferTitle": {
-            "session": "Lưu lượng trong phiên",
+            "session": "Truyền gần đây",
             "lifetime": "Lưu lượng toàn bộ thời gian"
           },
           "download": "Tải xuống",
           "upload": "Tải lên",
           "loading": "Đang tải dữ liệu hoạt động…",
           "collecting": "Đang thu thập dữ liệu lưu lượng…",
-          "noSessionHistory": "Chưa ghi nhận lưu lượng trong phiên ứng dụng này.",
+          "noSessionHistory": "Chưa ghi nhận truyền dữ liệu gần đây.",
           "lifetimeEmpty": "Chưa có lịch sử toàn bộ thời gian.",
           "noTraffic": "Hiện không có lưu lượng mạng.",
           "unavailable": "Không thể tải dữ liệu hoạt động của toàn bộ thời gian.",
-          "coverageGap": "Việc theo dõi đã bị gián đoạn.",
           "retry": "Thử lại",
           "notAvailable": "Không khả dụng",
           "stale": {
@@ -705,7 +721,7 @@
           },
           "range": {
             "label": "Khoảng thời gian truyền dữ liệu",
-            "session": "Phiên (60 giây)",
+            "session": "60 giây gần nhất",
             "lifetime": "Toàn bộ thời gian",
             "latest": "60 giây gần nhất",
             "adaptive_other": "Độ phân giải thích ứng · {{count}} mẫu"
@@ -758,7 +774,18 @@
             "accessibleSummary": "{{range}} từ {{start}} đến {{end}}. Tốc độ mới nhất: tải xuống {{download}}, tải lên {{upload}}. Trong toàn bộ thời gian: tải xuống trung bình {{average}}, cao nhất {{peak}}, hoạt động {{activeDuration}}. {{sampleLabel}}. {{state}}",
             "activeSeconds_other": "{{count}} giây",
             "sampleCount_other": "{{count}} mẫu",
-            "noDataQualityIssues": "Không có cảnh báo theo dõi."
+            "noDataQualityIssues": "Không có cảnh báo theo dõi.",
+            "noSamples": "Không có mẫu",
+            "overview": "Tổng quan lịch sử",
+            "rangeStart": "Bắt đầu khoảng",
+            "rangeEnd": "Kết thúc khoảng",
+            "earlier": "Lịch sử cũ hơn",
+            "later": "Lịch sử mới hơn",
+            "zoomIn": "Phóng to",
+            "zoomOut": "Thu nhỏ",
+            "showAll": "Hiện tất cả",
+            "following": "Đang theo dõi dữ liệu mới nhất",
+            "followLatest": "Về dữ liệu mới nhất"
           }
         },
         "pieces": {
@@ -890,12 +917,28 @@
         "removeMixedTitle": "Xóa {{count}} tác vụ khỏi danh sách?",
         "openFile": "Mở tệp",
         "openFileFailed": "Không thể mở tệp",
+        "openFileAppFailed": "Hệ thống không thể mở tệp này. Hãy kiểm tra xem ứng dụng mặc định còn được cài đặt hay không, hoặc mở thư mục để chọn ứng dụng khác.",
+        "openFileFailedHint": "Hãy kiểm tra xem tệp còn tồn tại và bạn có quyền mở tệp hay không.",
         "chooseFiles": "Chọn tệp…",
         "queueOrder": "Thứ tự tải xuống",
         "moveQueueTop": "Chuyển lên đầu",
         "moveQueueBottom": "Chuyển xuống cuối",
         "copyError": "Sao chép thông tin lỗi",
-        "errorReport": "{{name}}\nID tác vụ: {{id}}\n{{details}}"
+        "errorReport": "{{name}}\nID tác vụ: {{id}}\n{{details}}",
+        "redownload": "Re-download",
+        "redownloadWithDialog": "Re-download with options... (Alt+Click)",
+        "redownloadTooltipBatch": "Re-download {{n}} of {{total}} selected",
+        "redownloadOverwriteTitle": "File Already Exists",
+        "redownloadOverwriteDescription": "“{{name}}” already exists in the download directory. Re-downloading will overwrite or rename it. Do you want to continue?",
+        "redownloadCredentialsExpired": "Original request options have expired. Please review and submit.",
+        "redownloadStarted": "Re-download started",
+        "retryDialogTitle": "Thử tải xuống lại",
+        "retryDialogDescription": "Chỉnh sửa tham số yêu cầu cho {{name}} để bắt đầu lượt tải xuống mới. Tác vụ thất bại và tệp tải xuống một phần sẽ được giữ lại.",
+        "retryDialogProgress": "Lượt tải {{current}} trên {{total}}",
+        "downloadToDevice": "Download to this device",
+        "revealInFileStation": "Show in File Station",
+        "nasFileUnavailable": "File access could not be authorized. Check the account and folder permissions.",
+        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again."
       },
       "titleCount": "Đang hiện {{shown}} · Tổng cộng {{total}}",
       "type": {
@@ -975,6 +1018,11 @@
   },
   "task": {
     "add": {
+      "extraHeaders": "Tiêu đề bổ sung",
+      "headerName": "Tên tiêu đề",
+      "headerValue": "Giá trị tiêu đề",
+      "addHeader": "Thêm tiêu đề",
+      "removeHeader": "Xóa tiêu đề",
       "title": "Tác vụ mới",
       "links": "Liên kết",
       "torrent": "Torrent",
@@ -986,6 +1034,7 @@
       "createFailedByPlugin": "Không thể tạo tác vụ: tiện ích “{{pluginId}}” đã chặn tác vụ ({{detail}}). Hãy tắt tiện ích đó trong Cài đặt → Tiện ích rồi thử lại.",
       "createFailedPathTooLong": "Không thể tạo tác vụ: đường dẫn đích dài {{length}} ký tự, vượt giới hạn {{limit}} của Windows. Hãy chọn thư mục lưu hoặc tên tệp ngắn hơn.",
       "parseFailed": "Không thể phân tích tệp torrent.",
+      "unsupportedTorrent": "Torrent này sử dụng các tính năng mà công cụ tải xuống hiện tại không hỗ trợ.",
       "urlsCount_other": "{{count}} URL",
       "urlsWithInvalid": "{{valid}} hợp lệ, {{invalid}} không hợp lệ",
       "validUrlCount": "{{count}} hợp lệ",
@@ -1067,6 +1116,7 @@
         "doc": "Tài liệu"
       },
       "errors": {
+        "headerNameRequired": "Nhập tên tiêu đề hoặc xóa tiêu đề này.",
         "urlsRequired": "Cần ít nhất một URL",
         "saveDirRequired": "Cần chọn thư mục lưu",
         "noFilesSelected": "Chọn ít nhất một tệp",
@@ -1077,7 +1127,8 @@
         "failed": "Không thể tự động bắt đầu {{name}}. Hãy mở chi tiết tác vụ để chọn tệp rồi thử lại."
       },
       "undoCorrection": "Hoàn tác sửa URL",
-      "submissionUnconfirmed": "Chưa xác nhận được kết quả. Khi thử lại, yêu cầu ban đầu sẽ được kiểm tra trước khi tạo tác vụ khác."
+      "submissionUnconfirmed": "Chưa xác nhận được kết quả. Khi thử lại, yêu cầu ban đầu sẽ được kiểm tra trước khi tạo tác vụ khác.",
+      "selectNasTorrent": "Choose a torrent from the NAS"
     },
     "detail": {
       "peers": "Máy ngang hàng: {{count}}",
@@ -1120,7 +1171,8 @@
         "resumeSourceChanged": "Tệp tải dở được giữ lại vì tệp trên máy chủ đã thay đổi kể từ khi bắt đầu tải xuống.",
         "resumeRangeUnsupported": "Tệp tải dở được giữ lại vì máy chủ không hỗ trợ tải tiếp an toàn từ vị trí đã dừng.",
         "resumeValidationFailed": "Tệp tải dở được giữ lại vì Motrix không thể xác minh rằng tệp trên máy chủ chưa thay đổi.",
-        "mediaInterrupted": "Lượt tải nội dung đa phương tiện này bị gián đoạn khi ứng dụng khởi động lại và không thể tiếp tục. Hãy thêm lại để thử lại."
+        "mediaInterrupted": "Lượt tải nội dung đa phương tiện này bị gián đoạn khi ứng dụng khởi động lại và không thể tiếp tục. Hãy thêm lại để thử lại.",
+        "portableExternalPath": "This task uses a location outside the portable folder. The application moved or the original directory is unavailable. Check the download location before retrying."
       }
     },
     "error": {
@@ -1129,6 +1181,7 @@
         "recoveryFailed": "Không thể khôi phục lượt tải xuống: {{cause}}",
         "recoveryOutputConflict": "Cả tệp tạm và tệp cuối cùng đều tồn tại; cả hai được giữ lại để kiểm tra thủ công",
         "filesMissing": "Thiếu tệp sau khi ứng dụng khởi động lại",
+        "sourceHash": "SHA-256 của nhà phát hành",
         "renameFileFailed": "Không thể đổi tên tệp: {{cause}}",
         "renameDirFailed": "Không thể đổi tên thư mục: {{cause}}",
         "pluginChainAborted": "Chuỗi tiện ích đã bị hủy: {{cause}}",
@@ -1162,6 +1215,36 @@
         "checksumMismatch": "Tệp đã tải xuống có thể bị hỏng; hãy tải lại để kiểm tra",
         "tooManyRedirects": "Liên kết nguồn có thể bị hỏng; hãy thử liên kết khác",
         "btMetadataFailed": "Kiểm tra liên kết magnet hoặc thêm máy chủ theo dõi rồi thử lại"
+      }
+    },
+    "storage": {
+      "move": "Move files…",
+      "locate": "Find existing files…",
+      "recheck": "Check files…",
+      "moveDescription": "Choose a new folder for your downloaded files. Seeding pauses while they move.",
+      "locateDescription": "Choose where your downloaded files are now. Motrix will check them so you can continue seeding.",
+      "recheckDescription": "Check that your downloaded files are complete. This will not change the files or download them again.",
+      "directory": "Folder",
+      "name": "File or folder name",
+      "resume": "Continue seeding after checking",
+      "checking": "Checking files…",
+      "moving": "Moving files…",
+      "resuming": "Starting seeding…",
+      "verifiedPercent": "Verified: {{percent}}%",
+      "checkFailed": "Check failed",
+      "verified": "Your files are ready to seed.",
+      "resumed": "Seeding has resumed.",
+      "incomplete": "Some files are missing or incomplete. Check that you selected the right folder and try again.",
+      "resumeFailed": "The new location is saved. Select Re-seed to try sharing the files again.",
+      "useExisting": "Check and use these files",
+      "errors": {
+        "unavailable": "This task cannot be moved or checked yet.",
+        "busy": "Another file operation is still running. Please wait for it to finish.",
+        "destination": "Choose a different folder or file name. The location may already contain these files or be inside the current folder.",
+        "conflict": "Another download is using these files. Open that task to change their location.",
+        "engine": "Motrix could not stop this task. Please try again.",
+        "failed": "Motrix could not access or move the files. Check the folder, available space, and permission to use it.",
+        "cancelled": "Check cancelled."
       }
     }
   },
@@ -1200,6 +1283,10 @@
       "integration": {
         "title": "Tích hợp",
         "desc": "Tiện ích mở rộng trình duyệt, CLI, tích hợp hệ thống"
+      },
+      "nas": {
+        "title": "Synology NAS",
+        "desc": "Download folders and client connections"
       }
     },
     "general": {
@@ -1254,6 +1341,12 @@
       "themeDark": "Tối",
       "language": "Ngôn ngữ",
       "traySpeedometer": "Hiện tốc độ trên thanh menu",
+      "dockAndMenuBar": "Dock và thanh menu",
+      "taskbar": "Thanh tác vụ",
+      "taskbarProgress": "Hiển thị tiến độ tải xuống trên thanh tác vụ",
+      "taskbarProgressDesc": "Hiển thị tiến độ tổng hợp của các lượt tải đang hoạt động trên nút cửa sổ chính ở thanh tác vụ.",
+      "dockProgress": "Hiển thị tiến độ tải xuống trên Dock",
+      "dockProgressDesc": "Hiển thị tiến độ tổng hợp của các lượt tải đang hoạt động trên biểu tượng Dock.",
       "traySpeedometerDesc": "Xem tốc độ tải xuống và tải lên bên cạnh biểu tượng ứng dụng.",
       "trayIconColor": "Màu biểu tượng khay hệ thống",
       "trayIconColorDesc": "Chọn màu dễ nhìn trên thanh hệ thống.",
@@ -1262,6 +1355,10 @@
       "trayIconColorDark": "Biểu tượng tối (nền sáng)",
       "reduceMotion": "Giảm chuyển động",
       "reduceMotionDesc": "Giảm hiệu ứng chuyển động trong toàn bộ ứng dụng.",
+      "hardwareAcceleration": "Tăng tốc phần cứng",
+      "hardwareAccelerationDesc": "Dùng card đồ họa để hiển thị mượt hơn. Tắt nếu cửa sổ nhấp nháy hoặc Motrix bị đóng đột ngột. Thay đổi có hiệu lực sau khi khởi động lại Motrix.",
+      "hardwareAccelerationRecoveryTitle": "Đã tắt tăng tốc phần cứng",
+      "hardwareAccelerationRecoveryBody": "Motrix đã tắt tăng tốc phần cứng sau nhiều lần gặp sự cố hiển thị. Bạn có thể bật lại trong Cài đặt → Giao diện, rồi khởi động lại Motrix.",
       "liquidGlassEffect": "Liquid Glass",
       "liquidGlassEffectDesc": "Thêm hiệu ứng kính trong mờ cho thanh công cụ tải xuống.",
       "liquidGlassEffectMacDesc": "Cũng áp dụng cho cửa sổ trên macOS 26 trở lên. Cửa sổ sẽ mở lại khi thay đổi.",
@@ -1324,7 +1421,15 @@
         "historyCountHint": "Các bản ghi khôi phục cũ hơn sẽ bị xóa.",
         "historyCountPositive": "Nhập một số lớn hơn 0."
       },
-      "description": "RPC, tiến độ và khôi phục"
+      "description": "RPC, tiến độ và khôi phục",
+      "configFile": {
+        "title": "Tệp cấu hình",
+        "serverTitle": "Tệp cấu hình máy chủ",
+        "openDirectory": "Mở thư mục",
+        "copyPath": "Sao chép đường dẫn",
+        "copied": "Đã sao chép",
+        "actionFailed": "Không thể hoàn tất thao tác. Vui lòng thử lại."
+      }
     },
     "about": {
       "appIconAlt": "Biểu tượng ứng dụng Motrix",
@@ -1372,7 +1477,12 @@
         "channelStable": "Ổn định",
         "channelBeta": "Beta",
         "channelBetaWarning": "Bản beta có thể kém ổn định hơn. Bạn cũng sẽ nhận các bản phát hành ổn định mới hơn. Chuyển về kênh ổn định sẽ ngừng cập nhật beta mà không hạ phiên bản.",
-        "channelSaveError": "Không thể lưu kênh cập nhật. Hãy thử lại."
+        "channelSaveError": "Không thể lưu kênh cập nhật. Hãy thử lại.",
+        "installing": "Đang cài đặt…",
+        "installingDescription": "Đang chuẩn bị bản cập nhật. Motrix sẽ khởi động lại khi sẵn sàng.",
+        "manualDownload": "Tải xuống thủ công",
+        "manualInstall": "Tải phiên bản mới, thoát Motrix rồi thay thế ứng dụng đã cài đặt.",
+        "manualCrossVolume": "Hiện chưa hỗ trợ cài đặt tự động giữa các ổ đĩa. Hãy tải phiên bản mới và thay thế Motrix theo cách thủ công."
       },
       "details": {
         "author": "Tác giả",
@@ -1572,8 +1682,9 @@
         "turtle_off": "Tiêu chuẩn",
         "turtle_on": "Tốc độ thấp",
         "turtle_auto": "Tự động",
+        "unitFor": "Đơn vị cho {{field}}",
         "baseSection": "Giới hạn tiêu chuẩn",
-        "baseSectionDesc": "Dùng cho các lượt tải xuống hằng ngày và được tuân thủ trong mọi chế độ.",
+        "baseSectionDesc": "Dùng trong chế độ tiêu chuẩn và khi không có quy tắc tốc độ thấp đang hoạt động.",
         "baseDownload": "Tải xuống",
         "baseDownloadDesc": "Tốc độ tải xuống tối đa thường dùng.",
         "baseUpload": "Tải lên",
@@ -1583,7 +1694,7 @@
         "standardLimit": "Dùng tiêu chuẩn",
         "useStandardLimit": "Dùng giới hạn tiêu chuẩn",
         "altSection": "Giới hạn tốc độ thấp",
-        "altSectionDesc": "Dùng trong chế độ Tốc độ thấp hoặc theo lịch. Các giới hạn này chỉ có thể giảm giới hạn tiêu chuẩn.",
+        "altSectionDesc": "Dùng trong chế độ tốc độ thấp hoặc khi một quy tắc tự động chọn cấu hình này.",
         "altDownload": "Tải xuống",
         "altDownloadDesc": "Tốc độ tải xuống tối đa khi chế độ Tốc độ thấp đang bật.",
         "altUpload": "Tải lên",
@@ -1654,7 +1765,7 @@
           "adaptiveRulePending": "dành {{reserved}}% băng thông cho ứng dụng khác sau khi nhập băng thông kết nối",
           "ruleSeparator": " và ",
           "autoRules": "Motrix sẽ {{rules}}.",
-          "lowerWins": "Áp dụng giới hạn đang có hiệu lực thấp nhất."
+          "profileSelection": "Áp dụng giới hạn của chế độ đã chọn. Giới hạn tốc độ thấp để trống sẽ dùng giới hạn tiêu chuẩn; chế độ tự động có thể thêm giới hạn thích ứng."
         },
         "bandwidthUsed": "Motrix có thể dùng tối đa {{motrix}}%.",
         "bandwidthPending": "Nhập cả hai tốc độ kết nối để áp dụng giới hạn này."
@@ -1692,7 +1803,7 @@
         "hidePassword": "Ẩn mật khẩu",
         "bypass": "Kết nối trực tiếp đến",
         "bypassDesc": "Mỗi dòng một tên miền, IP hoặc CIDR. Bắt đầu bằng dấu . để chỉ khớp tên miền con. Tải tệp không hỗ trợ ký tự đại diện *.",
-        "bypassScopeNote": "Chỉ áp dụng cho tải tệp và cập nhật ứng dụng",
+        "bypassScopeNote": "Chỉ tải xuống, tiện ích và cập nhật ứng dụng",
         "scopes": "Dùng proxy cho",
         "scopesDesc": "Chọn các loại lưu lượng đi qua proxy.",
         "scopeDownload": "Tải tệp",
@@ -1708,7 +1819,9 @@
         "scopeHint": "Máy ngang hàng BT, DHT và máy chủ theo dõi UDP kết nối trực tiếp.",
         "scopeNone": "Chưa chọn",
         "scopeChoose": "Chọn…",
-        "scopeSeparator": ", "
+        "scopeSeparator": ", ",
+        "scopePlugins": "Cài đặt và cập nhật tiện ích",
+        "scopePluginsDesc": "Dùng proxy cho danh mục, gói cài đặt, bản cập nhật và yêu cầu chính sách bảo mật của tiện ích."
       },
       "nat": {
         "title": "Ánh xạ cổng (NAT)",
@@ -1759,6 +1872,12 @@
       "hideSecret": "Ẩn giá trị bí mật"
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "system": {
         "title": "Ứng dụng mặc định",
         "protocolMagnet": "Mở liên kết magnet bằng Motrix",
@@ -1816,8 +1935,14 @@
           "store": "Cài đặt",
           "development": "Phát triển"
         },
+        "pendingTitle": "Browser pairing requests",
+        "pendingEmpty": "Start pairing in your extension.",
         "pairedTitle": "Tiện ích mở rộng đã kết nối",
         "pairedEmpty": "Chưa có tiện ích mở rộng nào kết nối.",
+        "profile": "Hồ sơ trình duyệt {{number}}",
+        "connected": "Đã kết nối",
+        "disconnected": "Chưa kết nối",
+        "revokeAll": "Ngắt kết nối tất cả",
         "lastActive": "Hoạt động gần nhất",
         "revoke": "Ngắt kết nối",
         "disconnecting": "Đang ngắt kết nối…",
@@ -1843,7 +1968,10 @@
             "attested": "Tiện ích mở rộng đã xác minh",
             "unverified": "Tiện ích mở rộng chưa xác minh"
           },
-          "identityUnverifiedWarning": "Không thể xác minh danh tính tiện ích mở rộng này. Chỉ tiếp tục nếu bạn tin tưởng tiện ích."
+          "identityUnverifiedWarning": "Không thể xác minh danh tính tiện ích mở rộng này. Chỉ tiếp tục nếu bạn tin tưởng tiện ích.",
+          "claim": "Ghép nối bằng tài khoản hiện tại",
+          "claimDesc": "Tiện ích sẽ sử dụng quyền của tài khoản này. Tiếp theo, nhập mã vào tiện ích để hoàn tất ghép nối.",
+          "account": "Tài khoản hiện tại: {{name}}"
         },
         "pairUnavailable": "Yêu cầu ghép đôi này không còn ở trạng thái chờ — hãy thử ghép đôi lại từ tiện ích mở rộng trình duyệt.",
         "trustedExtensions": "Tiện ích mở rộng đáng tin cậy",
@@ -2022,7 +2150,8 @@
           "missing": "Không tìm thấy",
           "untrusted": "Bị macOS chặn",
           "unconfigured": "Chưa đặt",
-          "version_mismatch": "Không được hỗ trợ"
+          "version_mismatch": "Không được hỗ trợ",
+          "verificationUnavailable": "Không thể xác minh"
         },
         "stagingMB": "Giới hạn tệp tạm (MB)",
         "stagingMBDesc": "Dung lượng cho tệp trung gian, tính riêng theo từng tiện ích và tác vụ.",
@@ -2125,6 +2254,46 @@
       "originMismatchBody": "Không có cập nhật theo thời gian thực. Hãy dùng địa chỉ máy chủ đã cấu hình hoặc nhờ quản trị viên sửa địa chỉ.",
       "disconnectedTitle": "Kết nối cập nhật theo thời gian thực đã bị ngắt.",
       "disconnectedBody": "Một số thông tin có thể bị trễ. Nếu tình trạng này kéo dài, hãy kiểm tra kết nối máy chủ và cấu hình proxy."
+    },
+    "portable": {
+      "title": "Portable mode",
+      "startupError": "Motrix could not open its portable data directory. Check that the data folder beside Motrix.exe is writable and that no external profile override is set. Motrix has not switched to the system profile.",
+      "integrationUnavailable": "Portable mode keeps system settings unchanged. Startup registration, file associations, and system tool installation are unavailable.",
+      "browserDescription": "The local bridge remains available while Motrix is running. Portable mode does not register a browser launcher or change existing browser integration.",
+      "updateDescription": "Download the Windows ZIP, exit Motrix, and move the entire data folder to the new version. Portable mode never runs the installer.",
+      "recoveryError": "Portable data could not be recovered safely. Keep the data folder and check the logs and directory permissions before retrying. Motrix has stopped without using the system profile.",
+      "enginePathDescription": "Portable mode manages engine state inside the data folder for the current application location."
+    },
+    "nas": {
+      "description": "Shared by all DSM administrators. Restart Motrix in Package Center to apply changes.",
+      "account": "Current DSM account: {{username}}",
+      "restartRequired": "Settings saved. Restart Motrix in Package Center to apply them.",
+      "storageUnavailable": "Download folders unavailable",
+      "storageRecoveryHint": "Downloads are paused. Restore the original folders or authorize a different path, then restart Motrix in Package Center.",
+      "roots": "Authorized download folders",
+      "rootsHint": "One existing folder per line. Both your account and the system user motrix need read/write access. Removing the default makes the first folder the new default.",
+      "extensionEnabled": "Enable browser extension connections",
+      "extensionHint": "Use a DSM certificate hostname that resolves to the NAS LAN address.",
+      "webAddress": "Motrix Web address",
+      "webAddressHint": "Use the address you normally open, including /motrix/. You can fill it from this browser.",
+      "useCurrentAddress": "Use this DSM address",
+      "extensionAddress": "Extension connection address",
+      "allowHttp": "Allow pairing codes over HTTP",
+      "allowHttpHint": "Enable only on a trusted network. HTTPS does not require this option.",
+      "clientPort": "Direct client port",
+      "clientPortHint": "Direct clients use this port (1024–65535). DSM HTTPS addresses use the DSM port.",
+      "activeConnections": "Current connection addresses",
+      "cliAddress": "CLI endpoint",
+      "sessionHint": "Clients use their paired DSM account’s current permissions. After DSM logout, session expiration or a package restart, reopen Motrix with that account; pairing again is not required.",
+      "copy": "Copy address",
+      "openSettings": "Configure NAS connections",
+      "errors": {
+        "invalid": "Check the folder paths, port and connection addresses. HTTP code delivery requires explicit permission.",
+        "folderUnavailable": "Check that each folder is on a mounted volume and writable by the internal system user motrix.",
+        "permissionDenied": "The account or folder cannot be authorized. Check DSM shared-folder permissions for your account and the internal system user motrix.",
+        "unavailable": "Package settings are unavailable. Try again after the service has recovered.",
+        "conflict": "The saved configuration changed. Reload before editing again; your unsaved changes will be replaced."
+      }
     }
   },
   "errors": {
@@ -2307,6 +2476,8 @@
       "local": "Tệp cục bộ",
       "local.pick": "Chọn tệp .moext",
       "lead": "Dán địa chỉ tiện ích, chọn tệp .moext hoặc thả tệp vào ô nhập.",
+      "reviewLead": "Kiểm tra quyền của tiện ích trước khi cài đặt.",
+      "preparing": "Đang chuẩn bị…",
       "placeholder": "Dán địa chỉ GitHub, URL hoặc chọn tệp .moext cục bộ",
       "detected": {
         "auto": "Tự động",
@@ -2325,7 +2496,15 @@
       "localPrepareFailed": "Không thể chuẩn bị tệp tiện ích này: {{detail}}",
       "dropHint": "Thả tệp .moext vào đây để kiểm tra tiện ích",
       "dragDisabledHint": "Môi trường này không hỗ trợ kéo và thả. Hãy dùng địa chỉ GitHub hoặc URL.",
-      "warning": "Trước khi cài: chỉ tiếp tục nếu bạn tin tưởng tác giả và đồng ý với việc tiện ích sử dụng các quyền truy cập liệt kê ở trên."
+      "warning": "Trước khi cài: chỉ tiếp tục nếu bạn tin tưởng tác giả và đồng ý với việc tiện ích sử dụng các quyền truy cập liệt kê ở trên.",
+      "officialVerified": "Đã xác minh chữ ký chính thức của Motrix",
+      "officialSignatureInvalid": "Không thể xác minh chữ ký chính thức của tiện ích. Hãy làm mới danh mục.",
+      "officialBuiltinOnly": "Phiên bản này yêu cầu quyền của tiện ích tích hợp. Hãy cài phiên bản mới hơn hỗ trợ cài đặt tùy chọn.",
+      "builtinAlreadyInstalled": "Tiện ích này đã được tích hợp. Hãy dùng chức năng cập nhật của tiện ích.",
+      "hostIncompatible": "Plugin này yêu cầu Motrix {{required}}; phiên bản hiện tại: {{current}}. Hãy nâng cấp hoặc chuyển sang phiên bản Motrix tương thích rồi thử lại.",
+      "installed": "Đã cài đặt",
+      "optionalHint": "Mặc định tắt; bật khi cần",
+      "optionalLater": "Bạn có thể thay đổi các quyền tùy chọn trong cài đặt tiện ích sau khi cài đặt."
     },
     "consent": {
       "installTitle": "Cài {{name}} {{version}}?",
@@ -2391,12 +2570,16 @@
       "accessHosts_other": "Có thể đọc {{count}} trang web",
       "accessBroad": "Có thể đọc mọi trang web",
       "attentionTitle": "Tiện ích này đã báo cáo sự cố",
+      "runtimeStartFailed": "Không thể khởi động môi trường chạy tiện ích",
+      "runtimeFailed": "Môi trường chạy tiện ích đã dừng đột ngột",
       "attentionGeneric": "Xem chi tiết trong nhật ký.",
       "viewIssue": "Xem sự cố",
       "removeTitle": "Gỡ tiện ích",
       "removeDesc": "Gỡ tiện ích này cũng sẽ xóa dữ liệu của tiện ích được lưu trong Motrix.",
       "uninstallConfirmTitle": "Gỡ cài đặt {{name}}?",
-      "uninstallConfirmDesc": "Thao tác này sẽ xóa tiện ích và các cài đặt đã lưu của tiện ích khỏi Motrix."
+      "uninstallConfirmDesc": "Thao tác này sẽ xóa tiện ích và các cài đặt đã lưu của tiện ích khỏi Motrix.",
+      "operations": "Operations",
+      "operationsFailed": "The operation panel could not load. Try again."
     },
     "permissions": {
       "empty": "Tiện ích này không yêu cầu quyền nào.",
@@ -2416,8 +2599,9 @@
         "error": "Lỗi",
         "fatal": "Lỗi nghiêm trọng"
       },
-      "copy": "Sao chép",
+      "copy": "Sao chép nhật ký đã che dữ liệu",
       "clear": "Xóa",
+      "clearFailed": "Không thể xóa nhật ký. Hãy thử lại.",
       "output": "Đầu ra trực tiếp",
       "entryCount_other": "{{count}} mục",
       "empty": "Chưa có mục nhật ký",
@@ -2611,7 +2795,8 @@
       },
       "ffmpeg": {
         "strong": "Dùng FFmpeg",
-        "plain": "Xử lý âm thanh hoặc video."
+        "plain": "Xử lý âm thanh hoặc video.",
+        "requirement": "Processes audio or video. First, <settings>install or select FFmpeg in Settings</settings>."
       },
       "notify": {
         "strong": "Gửi thông báo",
@@ -2663,7 +2848,43 @@
         "allowed": "Đã cho phép",
         "noAccess": "Tắt",
         "grant": "Cho phép"
+      },
+      "metadata": {
+        "strong": "Đọc và ghi siêu dữ liệu tác vụ",
+        "plain": "Lưu thông tin do tiện ích này tạo cho các tác vụ tải xuống."
+      },
+      "files.selected.read": {
+        "strong": "Read files selected for this operation",
+        "plain": "Each operation needs your input selection. Other files are not authorized."
+      },
+      "files.selected.write": {
+        "strong": "Save a new file for this operation",
+        "plain": "Save at the location you confirm without replacing existing files."
       }
+    },
+    "security": {
+      "blocked": "Bị chặn vì lý do bảo mật",
+      "pending": "Kết nối internet và kiểm tra bản cập nhật trước khi bật tiện ích này.",
+      "unavailable": "Không thể xác minh chính sách bảo mật. Hãy kiểm tra bản cập nhật để thử lại.",
+      "malware": "Tiện ích này đã được xác định là độc hại.",
+      "vulnerability": "Phiên bản tiện ích này có lỗ hổng bảo mật.",
+      "compromised": "Kênh phân phối tiện ích này đã bị xâm phạm.",
+      "fixedVersion": "Bản sửa lỗi có trong phiên bản {{version}}.",
+      "details": "Xem thông báo bảo mật"
+    },
+    "network": {
+      "timeout": "Kết nối hết thời gian chờ",
+      "dns": "Tra cứu DNS thất bại",
+      "proxyAuth": "Xác thực proxy thất bại",
+      "proxyConnect": "Không thể kết nối tới proxy",
+      "certificate": "Lỗi chứng chỉ hoặc TLS",
+      "http": "HTTP {{status}}",
+      "cancelled": "Yêu cầu đã bị hủy",
+      "network": "Yêu cầu mạng thất bại",
+      "cached": "Làm mới thất bại; đang hiển thị tiện ích đã lưu đệm",
+      "unavailable": "Không thể tải danh mục tiện ích",
+      "direct": "Kết nối trực tiếp tới {{host}} thất bại: {{reason}}",
+      "viaProxy": "Kết nối tới {{host}} qua proxy {{proxy}} thất bại: {{reason}}"
     }
   },
   "plugin": {
@@ -2676,9 +2897,13 @@
         "title": "Yêu cầu FFmpeg",
         "notInstalled": "Chưa cài FFmpeg trên hệ thống này.",
         "versionMismatch": "Đã cài FFmpeg {{version}}.",
-        "requiredByPlugin": "Tiện ích này cần ffmpeg. Hãy cài đặt rồi thử lại.",
+        "requiredByPlugin": "Bạn có thể cài đặt plugin ngay. Hãy cấu hình phiên bản FFmpeg tương thích trước khi bật hoặc chạy plugin.",
         "optionalDegraded": "Các tính năng đa phương tiện của tiện ích này sẽ không khả dụng cho đến khi cài ffmpeg."
       }
+    },
+    "runtime": {
+      "ffmpegUnavailable": "FFmpeg hiện không khả dụng. Configure FFmpeg in Settings → Integration → Media Tools.",
+      "ffmpegIncompatible": "Phiên bản FFmpeg không đáp ứng yêu cầu của plugin này. Configure FFmpeg in Settings → Integration → Media Tools."
     }
   },
   "bridge": {
@@ -2825,7 +3050,9 @@
       "invalidName": "Nhập tên thư mục hợp lệ.",
       "tooLarge": "Đường dẫn hoặc tên thư mục này quá dài.",
       "unavailable": "Máy chủ không thể hoàn thành yêu cầu này. Hãy thử lại.",
-      "creationOutcomeUnknown": "Chưa xác nhận được việc tạo thư mục. Hãy làm mới để kiểm tra trước khi tạo thư mục khác tại đây."
+      "creationOutcomeUnknown": "Chưa xác nhận được việc tạo thư mục. Hãy làm mới để kiểm tra trước khi tạo thư mục khác tại đây.",
+      "notFile": "Select a readable regular file.",
+      "unsupportedFileType": "This file extension is not supported."
     },
     "places": {
       "common": "Vị trí thường dùng",
@@ -2837,6 +3064,33 @@
       "downloads": "Tải xuống",
       "root": "Hệ thống tệp",
       "loadFailed": "Không thể tải một số vị trí thư mục."
+    },
+    "openFileTitle": "Select a file",
+    "saveFileTitle": "Save a file",
+    "fileDescription": "Browse files on the Motrix server.",
+    "selectFile": "Select file",
+    "saveFile": "Use this filename",
+    "files": "Files and folders",
+    "fileName": "File name",
+    "emptyFiles": "This folder is empty.",
+    "fileErrors": {
+      "invalidPath": "Enter a valid absolute path.",
+      "outsideRoots": "This path is outside the allowed locations.",
+      "notFound": "This path no longer exists.",
+      "permissionDenied": "You do not have permission to use this path.",
+      "invalidName": "Enter a valid file name.",
+      "tooLarge": "This path or file name is too long."
+    },
+    "selectedFilePath": "Selected file",
+    "file": {
+      "chooseOnServer": "Choose a file on the server using this picker.",
+      "singleFile": "Choose one file at a time.",
+      "wrongType": "Choose a file with one of these extensions: {{extensions}}.",
+      "pathUnavailable": "This file’s location is unavailable. Click to choose it instead.",
+      "choose": "Choose a file",
+      "dropHint": "Drop a file here or click to choose",
+      "browseHint": "Click to browse files",
+      "change": "Click to replace"
     }
   },
   "directoryPreferences": {
@@ -2905,12 +3159,343 @@
     "stoppedSplit": "Tác vụ đã dừng được chia thành Hoàn tất và Lỗi. Đã mở tất cả bản tải xuống.",
     "invalidStatus": "Danh mục tải xuống không hợp lệ. Đã mở tất cả bản tải xuống."
   },
+  "mediaMerge": {
+    "title": "Merge audio and video",
+    "description": "Combine two files without re-encoding. Original files are kept. Audio-only and video-only inputs are detected automatically.",
+    "videoInput": "Video file",
+    "audioInput": "Audio file",
+    "output": "Output file",
+    "provider": "Plugin",
+    "browse": "Browse…",
+    "browseField": "Browse {{field}}",
+    "required": "Choose a file or enter its full path.",
+    "outputHint": "Use a new .mp4 or .mkv filename. Existing files are never overwritten. If the codecs cannot be copied to MP4, try MKV.",
+    "noPlugin": "Install and enable a media merge plugin. FFmpeg must be configured in Settings > Integration > Media Tools.",
+    "serverPaths": "Select files on the Motrix server. Files on this computer are not uploaded.",
+    "start": "Merge",
+    "running": "Merging…",
+    "cancelling": "Cancelling…",
+    "completed": "Merged successfully",
+    "cancelled": "Merge cancelled",
+    "failed": "Merge failed",
+    "invalidSelection": "Select two completed, single-file downloads.",
+    "jobMissing": "This merge is no longer available.",
+    "busy": "Another merge is already running.",
+    "pluginUnavailable": "The media merge plugin is unavailable.",
+    "absolutePaths": "Enter full, absolute file paths.",
+    "invalidFiles": "Choose two non-empty media files.",
+    "sameInput": "Choose two different input files.",
+    "outputFormat": "Use an .mp4 or .mkv output filename.",
+    "outputExists": "The output already exists. Choose a new filename.",
+    "invalidOutput": "The plugin did not produce a valid output file.",
+    "again": "Merge another file",
+    "pluginDisabled": "Enable this plugin to merge files.",
+    "choose": {
+      "videoInput": "Choose video",
+      "audioInput": "Choose audio",
+      "output": "Choose a save location"
+    },
+    "hint": {
+      "videoInput": "The picture for your merged file",
+      "audioInput": "The sound for your merged file",
+      "output": "Save as MP4 or MKV"
+    },
+    "preserveOriginals": "Original files are kept",
+    "format": "Output format"
+  },
+  "legacyImport": {
+    "navigation": "Migration",
+    "title": "Migration",
+    "pausedDescription": "Choose which Motrix v1 downloads to import. They won’t start automatically.",
+    "settingsTitle": "Migration",
+    "settingsDescription": "Import your downloads from Motrix v1.",
+    "settingsAction": "Open migration",
+    "pickSource": "Choose the Motrix v1 data folder",
+    "source": "From",
+    "changeSource": "Change folder…",
+    "noSource": "Choose the folder containing your Motrix v1 data",
+    "discovery": "Downloads found: {{count}}",
+    "preserveFiles": "Downloaded files stay in their original location.",
+    "chooseTasks": "Choose downloads",
+    "skip": "Not now",
+    "skippedHint": "Bạn có thể di chuyển sau từ {{settings}} → {{advanced}}.",
+    "back": "Back",
+    "loading": "Looking for your old downloads…",
+    "empty": "There are no tasks to migrate from this folder.",
+    "continueBefore": "Before continuing:",
+    "capabilityLimit": "This task needs to be downloaded again. Choose a new folder to keep the original files.",
+    "running": "Motrix v1 may still be running. Quit it, then check again.",
+    "recheck": "Check again",
+    "search": "Search downloads",
+    "selectAll": "Select all",
+    "skipped": "Skipped: {{count}}",
+    "backupNote": "Your task list is backed up before import. Downloaded files stay in place.",
+    "backingUp": "Backing up your task list…",
+    "committing": "Adding your downloads…",
+    "progress": "Migration progress",
+    "processed": "{{done}} / {{total}} processed",
+    "stop": "Stop migration",
+    "stopTitle": "Stop migration?",
+    "stopDescription": "Downloads already imported will be kept. You can import the rest later.",
+    "resultTitle": "Migration complete",
+    "importedCount": "Imported {{count}}",
+    "resultDescription": "Your imported tasks are now in Downloads.",
+    "details": "View details",
+    "exportReport": "Save report…",
+    "retry": "Migrate remaining",
+    "viewTasks": "View downloads",
+    "freshDownload": "Download again…",
+    "freshDescription": "Choose where to save the new download. Motrix will create a separate folder and open the download form for you to confirm. It will start from the beginning and leave your old files untouched.",
+    "freshDestination": "Choose where to save the new download",
+    "chooseDestination": "Choose another location…",
+    "requestSettingsHelp": "Với các tệp cookie cũ, hãy nhập tiêu đề Cookie cần thiết. Với tên người dùng và mật khẩu HTTP, hãy nhập tiêu đề Authorization tương đương. Nhập thông tin xác thực proxy trong URL proxy.",
+    "unsupportedOptions": "Tùy chọn không được hỗ trợ: {{options}}",
+    "ignoredOptions": "Đã bỏ qua các tùy chọn không được hỗ trợ: {{options}}",
+    "currentProxyDescription": "Các lượt tải được chuyển sang dùng cài đặt proxy tải xuống hiện tại của Motrix. Cài đặt proxy cũ không được giữ lại.",
+    "requestOptions": "Cài đặt yêu cầu đã lưu: {{options}}",
+    "requestSettingsDescription": "Các cài đặt yêu cầu cũ chưa được sao chép. Hãy nhập lại trong phần Nâng cao trước khi tải vào thư mục mới.",
+    "reconfigureDownload": "Cấu hình lại và tải xuống…",
+    "reasons": {
+      "fresh-download-required": "Needs a new download",
+      "verification-required": "Existing files need checking",
+      "metadata-required": "Original torrent file needed",
+      "selection-required": "Choose which files to download",
+      "request-settings-required": "Các cài đặt yêu cầu đã lưu sẽ được kiểm tra trước khi tiếp tục",
+      "mirrors-unsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "unsupported-options": "Tùy chọn tải xuống không được hỗ trợ",
+      "invalid-record": "Couldn’t read this task",
+      "unsafe-path": "File location needs checking",
+      "already-imported": "Already imported",
+      "deleted-import": "Previously removed",
+      "path-conflict": "Another task uses this location",
+      "changed-source": "Old task data has changed",
+      "not-selected": "Not selected",
+      "stopped": "Not imported before stopping",
+      "commit-failed": "Import failed. You can try again."
+    },
+    "errors": {
+      "pageUnavailable": "Migration couldn’t open. Restart Motrix and try again. Downloads already imported are kept.",
+      "failed": "The operation couldn’t be completed. Please try again.",
+      "consentRequired": "Accept the agreement before opening migration.",
+      "invalidSource": "No Motrix v1 data was found here. Choose its original data folder.",
+      "unsafeSource": "This data folder can’t be read safely. Choose the original Motrix v1 folder.",
+      "unsafeBackup": "A safe backup couldn’t be created, so importing has stopped.",
+      "tooLarge": "This task list is too large to import.",
+      "tooManySources": "Too many folders have been opened. Restart Motrix and try again.",
+      "sourceNotAuthorized": "Select the old data folder using the folder picker.",
+      "expiredPreview": "This task list needs refreshing. Check again before importing.",
+      "changedSource": "The old task data has changed. Check again before importing.",
+      "running": "Motrix v1 may still be running. Quit it, then check again.",
+      "invalidSelection": "The selected tasks have changed. Check the list again.",
+      "pathConflict": "Another task uses this file location. Check the list again.",
+      "busy": "An import is already running. Wait for it to finish.",
+      "unknownRun": "The import result is unavailable.",
+      "unknownTask": "This imported task is no longer available.",
+      "rescanRequired": "Choose the data folder again to import the remaining tasks.",
+      "metadataRequired": "Choose this task’s original torrent file first.",
+      "unsafePath": "Choose a folder you can access.",
+      "mirrorsUnsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "stopping": "Motrix is closing. Reopen it to continue importing.",
+      "desktopOnly": "Open migration in the Motrix desktop app.",
+      "metadataMismatch": "This torrent does not match the old task. Choose its original torrent file.",
+      "checkpointUnavailable": "This version can’t resume the old files. You can download again in a new folder.",
+      "activationSourceMissing": "Some original task information is missing. Download again in a new folder.",
+      "selectionRequired": "The previous file selection is unavailable. Choose the files again in a new download.",
+      "originalDirectoryRequired": "Choose the original folder shown here. Files moved to another location can’t be resumed.",
+      "payloadMissing": "Some original files are missing, including files previously left unselected. All are needed to resume this task. Download again in a new folder.",
+      "payloadUnsafe": "The original files can’t be updated safely because of file links or permissions. Keep them and download again in a new folder.",
+      "controlRequired": "The saved download progress is missing. Download again in a new folder.",
+      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder.",
+      "httpContentChanged": "Dữ liệu đã tải khác với nội dung máy chủ.",
+      "httpRangeUnsupported": "Máy chủ không hỗ trợ các phạm vi byte cần thiết.",
+      "httpValidatorRequired": "Máy chủ không cung cấp mã định danh phiên bản tài nguyên đáng tin cậy.",
+      "httpVerificationFailed": "Không thể xác minh dữ liệu đã tải.",
+      "httpRequestUnsupported": "Bộ máy hoặc cài đặt yêu cầu không hỗ trợ tiếp tục an toàn.",
+      "httpVerificationCancelled": "Đã hủy xác minh.",
+      "httpRedirectUnsupported": "Không thể tiếp tục an toàn liên kết chuyển hướng tại vị trí gốc."
+    },
+    "resultIncompleteTitle": "Migration is incomplete",
+    "resultStoppedTitle": "Migration stopped",
+    "activationRequired": "Mở chi tiết tác vụ để xác minh và tiếp tục tải.",
+    "chooseTorrent": "Choose torrent…",
+    "torrentFile": "Torrent file",
+    "verifyAndContinue": "Xác minh và tiếp tục",
+    "verifyDescription": "Motrix will verify the original files, then continue with your previous file selection. While downloading, it may upload data and write shared pieces to unselected files. It won’t seed automatically when finished.",
+    "authorizeOriginalDirectory": "Choose the original download folder",
+    "verifyReady": "Verify your existing files to continue this download, or start again in a new folder.",
+    "trackersReadOnly": "This download keeps its original trackers. They can’t be changed here.",
+    "page": {
+      "stepsLabel": "Migration steps",
+      "steps": {
+        "select": "Choose downloads",
+        "import": "Import",
+        "result": "Review"
+      },
+      "foundSummary": "Download types",
+      "selectionSummary": "Selected",
+      "resultSummary": "Migration summary",
+      "countUnit": "total",
+      "notImported": "Not imported",
+      "skippedSummary": "Skipped",
+      "types": {
+        "http": "Direct links",
+        "bt": "Torrents",
+        "magnet": "Magnet links",
+        "unknown": "Other tasks"
+      },
+      "pathUnavailable": "Download location unavailable",
+      "filesStayTitle": "Your files stay where they are",
+      "filesStayDescription": "Migration won’t move or delete downloaded files.",
+      "nextTitle": "Only your downloads",
+      "nextDescription": "Your app settings stay the same.",
+      "footerNote": "Imported tasks will stay paused.",
+      "discoveryDescription": "Choose what to add to your download list. Some tasks need a new download or a check of the existing files.",
+      "previousVersion": "Motrix v1",
+      "currentVersion": "Motrix",
+      "introduction": "Choose the downloads you’d like to add to Motrix.",
+      "selectionTitle": "Choose what to migrate",
+      "searchEmpty": "No matching downloads.",
+      "resultEmptyTitle": "No new downloads",
+      "resultEmptyDescription": "Open the details to see why each task was skipped.",
+      "resultIncompleteDescription": "Downloads already imported are kept. Review the details and try importing the rest again.",
+      "resultStoppedDescription": "Downloads already imported are kept. You can import the rest when you’re ready.",
+      "outcomes": {
+        "imported": "Imported",
+        "skipped": "Skipped",
+        "failed": "Failed",
+        "unprocessed": "Not imported"
+      },
+      "sourceDescription": "From {{name}}",
+      "assistantTitle": "Migration Assistant",
+      "backToSource": "Back to source",
+      "continue": "Continue",
+      "revealSource": "Show in folder",
+      "welcomeTitle": "Migrate your downloads",
+      "sourceFeedback": {
+        "retry": "Try again",
+        "unreadableTitle": "Unable to read downloads from this location",
+        "chooseFolder": "Choose the data folder used by the previous version of Motrix.",
+        "readTitle": "Unable to read downloads",
+        "readDescription": "Check that this location is accessible, then try again.",
+        "pickTitle": "Unable to use the selected folder",
+        "pickDescription": "Try choosing the folder again. Your previous selection is still available.",
+        "revealTitle": "Unable to show this folder",
+        "revealDescription": "Check that this location is accessible, then try again.",
+        "discoverTitle": "Unable to look for previous downloads",
+        "discoverDescription": "Try again, or choose the previous Motrix data folder yourself.",
+        "reading": "Reading downloads…"
+      },
+      "sourceTitle": "Where would you like to migrate from?",
+      "sourceIntroduction": "Import your download tasks from the previous version of Motrix. You can choose what to migrate next. Your downloaded files will stay where they are.",
+      "sourceKind": "Downloads from the previous version",
+      "sourceHelp": "Choose the data folder used by Motrix v1. Your downloaded files stay where they are.",
+      "noSourceDescription": "No downloads from the previous version of Motrix were found. Choose another location to look for them.",
+      "progressTitle": "Migrating your downloads",
+      "progressDescription": "Your task list is being backed up and added to Motrix.",
+      "selectGroup": "Select {{name}}",
+      "phases": {
+        "discovery": "Choose source",
+        "selection": "Choose content",
+        "progress": "Migration",
+        "result": "Result"
+      },
+      "groups": {
+        "http": "Direct links",
+        "bt": "Torrent downloads",
+        "magnet": "Magnet links",
+        "unknown": "Other downloads"
+      },
+      "groupDescriptions": {
+        "http": "A new download is needed",
+        "bt": "Existing files will be checked before continuing",
+        "magnet": "The original torrent file is needed",
+        "unknown": "Review the task details"
+      },
+      "groupCount_other": "{{count}} tasks",
+      "selectedNote_other": "Selected {{count}} tasks. After migration, tasks will stay paused and downloaded files will remain in place.",
+      "run": {
+        "backup": "Back up task list",
+        "backupActive": "Saving a copy of your previous task list…",
+        "backupDone": "Backup saved",
+        "add": "Add downloads",
+        "waiting": "Waiting for the backup",
+        "completeDescription": "Your tasks are now in Downloads, paused until you’re ready to continue.",
+        "partialDescription": "Imported tasks are paused. You can retry the remaining tasks or view your downloads.",
+        "stoppedEmptyDescription": "No tasks were added. You can try again when you’re ready.",
+        "failedEmptyDescription": "No tasks were added. Review the details, then try again.",
+        "imported": "Imported",
+        "remaining": "Remaining"
+      }
+    },
+    "importSelected": "Migrate",
+    "httpResumeDescription": "Motrix sẽ đối chiếu tất cả các vùng đã tải với máy chủ rồi tiếp tục trong thư mục gốc. Xác minh sẽ truyền lại các vùng này; cài đặt yêu cầu đã lưu chỉ được giữ trong bộ nhớ.",
+    "httpVerifying": "Đang chuẩn bị hoặc xác minh…",
+    "httpOriginalFilesKept": "Các tệp hiện có được giữ nguyên."
+  },
+  "rendererRecovery": {
+    "title": "Giao diện cần được khôi phục",
+    "description": "Các lượt tải vẫn tiếp tục trong nền. Những thay đổi chưa lưu trong biểu mẫu có thể bị mất.",
+    "recovering": "Đang khôi phục giao diện…",
+    "recover": "Khôi phục giao diện",
+    "diagnostics": "Mở nhật ký chẩn đoán",
+    "downloads": "Mở danh sách tải xuống",
+    "failed": "Chưa thể khôi phục. Hãy thử lại từ menu ứng dụng.",
+    "restored": "Đã khôi phục giao diện",
+    "wait": "Tiếp tục chờ",
+    "routeTitle": "Không thể hiển thị trang này",
+    "submissionNotice": "Lần gửi trước có thể đã hoàn tất. Kiểm tra danh sách tải xuống trước khi tạo lại cùng một tác vụ."
+  },
+  "pluginOperations": {
+    "requiredField": "Trường bắt buộc",
+    "run": "Run operation",
+    "runAgain": "Run again",
+    "background": "Operations continue when this panel is closed.",
+    "loading": "Loading operation…",
+    "unauthorized": "This session is no longer authorized. Sign in again.",
+    "disabled": "Enable this plugin to use its operations.",
+    "blocked": "This plugin is blocked or its permissions are changing.",
+    "unsupported": "This host does not support the operation requirements.",
+    "ffmpeg": "Configure FFmpeg in Settings → Integration → Media Tools.",
+    "busy": "Another operation is using these resources. Try again after it finishes.",
+    "unavailable": "This operation is unavailable.",
+    "draftExpired": "This selection expired. Reopen the operation and select the files again.",
+    "resourceLimit": "The operation exceeds the host resource limit or available disk space.",
+    "invalidSelection": "Select completed tasks with one local file each.",
+    "invalidFile": "Choose a regular, non-empty local file.",
+    "fileType": "The selected file type does not match this field.",
+    "outputExists": "The output already exists. Choose a different name.",
+    "fileChanged": "A selected file or directory changed. Select it again.",
+    "invalidGrant": "Select the files again before starting.",
+    "sameInput": "Choose two different input files.",
+    "invalidOutput": "The plugin did not produce a valid output.",
+    "invalidRequest": "Check the operation parameters and try again.",
+    "invalidValue": "Enter a valid value.",
+    "descriptorChanged": "The plugin changed. Reopen the operation.",
+    "jobMissing": "This operation is no longer available in this session.",
+    "cancelled": "The operation was cancelled.",
+    "failed": "The operation failed. See the plugin log for details.",
+    "interrupted": "The host stopped before this operation finished. It was not restarted.",
+    "publicationUncertain": "The host could not confirm output publication. Check the destination before trying again.",
+    "cleanupWarning": "Temporary files remain for safe recovery. The host did not delete uncertain files.",
+    "status": {
+      "accepted": "Queued",
+      "preparing": "Preparing files",
+      "running": "Running",
+      "validating": "Validating result",
+      "committing": "Saving output",
+      "cleaning": "Cleaning up",
+      "cancelling": "Cancelling",
+      "succeeded": "Completed",
+      "cancelled": "Cancelled",
+      "failed": "Failed",
+      "interrupted": "Interrupted"
+    },
+    "confirmFileTitle": "Authorize file access",
+    "confirmFile": "Allow this operation to read the following file?"
+  },
   "createTorrent": {
     "title": "Tạo torrent",
-    "description": "Tạo tệp .torrent từ tệp hoặc thư mục cục bộ để chia sẻ và seed.",
     "source": "Nguồn",
-    "sourcePlaceholder": "Chọn tệp hoặc thư mục…",
-    "browse": "Duyệt…",
     "trackers": "Tracker",
     "trackersPlaceholder": "Mỗi dòng một URL announce",
     "webSeeds": "Web seed",
@@ -2923,15 +3508,17 @@
     "hashing": "Đang tính hash…",
     "resultName": "Tên",
     "resultSize": "Kích thước",
-    "files": "tệp",
-    "pieces": "mảnh",
     "resultInfoHash": "Hash info",
     "saveFile": "Lưu .torrent",
     "create": "Tạo",
     "savedToast": "Đã lưu torrent vào {{path}}",
     "createFailed": "Không thể tạo torrent",
     "saveFailed": "Không thể lưu tệp torrent",
-    "invalidTracker": "Có URL tracker trông không hợp lệ",
-    "openFromAddTask": "Tạo torrent từ tệp hoặc thư mục cục bộ…"
+    "seedAfter": "Bắt đầu chia sẻ sau khi lưu",
+    "seedFailed": "Đã lưu torrent nhưng không thể bắt đầu chia sẻ.",
+    "seedSubmitted": "Đã gửi tác vụ chia sẻ.",
+    "invalidOptions": "Mỗi danh sách nhận tối đa {{limit}} URL hợp lệ. Torrent riêng tư cần có tracker.",
+    "sourcePlaceholder": "Chọn tệp hoặc thư mục…",
+    "menuLabel": "Tạo tệp torrent…"
   }
 }

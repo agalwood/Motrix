@@ -229,7 +229,12 @@ test.describe('plugin diagnostics call graph', () => {
     const app = await launchMotrix({ userDataDir, rpcPort })
     try {
       const page = await openMain(app)
+      expect(page.workers()).toHaveLength(0)
+      await page.context().setOffline(true)
       await openCallGraph(page)
+      const workers = page.workers()
+      expect(workers).toHaveLength(1)
+      expect(workers[0]?.url()).toMatch(/^file:.*\/elk-worker\.min-[\w-]+\.js$/)
       await expect(
         page.getByRole('group', { name: 'Call volume legend' })
       ).toBeVisible()

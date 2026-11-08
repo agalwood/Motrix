@@ -1,89 +1,77 @@
 import { z } from 'zod'
 
-// Create-torrent (#459): build a BitTorrent v1 metainfo file from a local
-// file or folder. The heavy work (piece hashing) runs in the main process;
-// progress is reported via the CreateTorrentProgress event so the UI can
-// show a determinate bar.
-
-export const CREATE_TORRENT_TRACKER_LIMIT = 64
-export const CREATE_TORRENT_WEB_SEED_LIMIT = 64
+export const CREATE_TORRENT_URL_LIMIT = 64
 export const CREATE_TORRENT_COMMENT_MAX = 2048
-
-// Shared with the renderer's per-line textarea validation.
-export const createTorrentUrlSchema = z.string().url().max(2048)
-
-// C0 control range in source paths.
-// biome-ignore lint/complexity/useRegexLiterals: RegExp constructor avoids noControlCharactersInRegex
-const CONTROL_CHARS = new RegExp('[\\u0000-\\u001f]')
-
-export const createTorrentRequestSchema = z
-  .object({
-    // Absolute on-disk path to the source file or folder (already picked
-    // through a native dialog, so no control-character games are expected;
-    // the guard keeps hostile payloads out of fs calls regardless).
-    sourcePath: z
-      .string()
-      .min(1)
-      .max(4096)
-      .refine((value) => !CONTROL_CHARS.test(value)),
-    trackers: z
-      .array(createTorrentUrlSchema)
-      .max(CREATE_TORRENT_TRACKER_LIMIT)
-      .catch([]),
-    webSeeds: z
-      .array(createTorrentUrlSchema)
-      .max(CREATE_TORRENT_WEB_SEED_LIMIT)
-      .catch([]),
-    comment: z.string().max(CREATE_TORRENT_COMMENT_MAX).optional(),
-    private: z.boolean().catch(false),
-    // Absent → suggestPieceLength picks by total size.
-    pieceLength: z.number().int().optional(),
-  })
-  .strict()
-
-export const createTorrentResultSchema = z
-  .object({
-    torrentBase64: z.string().min(1),
-    infoHash: z.string().length(40),
-    name: z.string().min(1),
-    totalSize: z.number().nonnegative(),
-    fileCount: z.number().int().positive(),
-    // A zero-byte source legitimately produces zero pieces.
-    pieceCount: z.number().int().nonnegative(),
-    pieceLength: z.number().int().positive(),
-    // Suggested .torrent file name for the save dialog.
-    suggestedSaveName: z.string().min(1),
-  })
-  .strict()
-
-export const pickTorrentSourceResultSchema = z
-  .object({ path: z.string().min(1) })
-  .strict()
-
-export const saveTorrentFileRequestSchema = z
-  .object({
-    torrentBase64: z.string().min(1),
-    suggestedSaveName: z.string().min(1).max(255),
-  })
-  .strict()
-
-export const saveTorrentFileResultSchema = z
-  .object({ path: z.string().min(1) })
-  .strict()
-
-export interface CreateTorrentProgressPayload {
-  /** Fixed per operation; one create runs at a time. */
-  operationId: 'create-torrent'
-  processedBytes: number
-  totalBytes: number
-  /** 0..1, clamped; equals 1 on completion. */
-  fraction: number
+export const PIECE_LENGTH_MIN = 16 * 1024
+export const PIECE_LENGTH_MAX = 16 * 1024 * 1024
+export function isValidPieceLength(value: number): boolean {
+  return (
+    Number.isInteger(value) &&
+    value >= PIECE_LENGTH_MIN &&
+    value <= PIECE_LENGTH_MAX &&
+    (value & (value - 1)) === 0
+  )
 }
 
+const url = (protocols: string[]) =>
+  z
+    .string()
+    .max(2048)
+    .refine((value) => {
+      try {
+        const parsed = new URL(value)
+        return !!parsed.hostname && protocols.includes(parsed.protocol)
+      } catch {
+        return false
+      }
+    })
+export const trackerUrlSchema = url(['http:', 'https:', 'udp:'])
+export const webSeedUrlSchema = url(['http:', 'https:'])
+export const pickTorrentSourceSchema = z.enum(['file', 'directory'])
+export const createTorrentRequestSchema = z
+  .object({
+    trackers: z
+      .array(trackerUrlSchema)
+      .max(CREATE_TORRENT_URL_LIMIT)
+      .default([]),
+    webSeeds: z
+      .array(webSeedUrlSchema)
+      .max(CREATE_TORRENT_URL_LIMIT)
+      .default([]),
+    comment: z.string().max(CREATE_TORRENT_COMMENT_MAX).optional(),
+    private: z.boolean().default(false),
+    pieceLength: z.number().refine(isValidPieceLength).optional(),
+  })
+  .strict()
+  .refine((value) => !value.private || value.trackers.length > 0, {
+    path: ['trackers'],
+  })
+export const createTorrentResultSchema = z
+  .object({
+    id: z.string().uuid(),
+    infoHash: z.string().regex(/^[a-f0-9]{40}$/),
+    name: z.string().min(1),
+    totalSize: z.number().int().nonnegative(),
+    fileCount: z.number().int().positive(),
+    pieceCount: z.number().int().nonnegative(),
+    pieceLength: z.number().refine(isValidPieceLength),
+  })
+  .strict()
+export const saveTorrentFileRequestSchema = z
+  .object({
+    id: z.string().uuid(),
+    seed: z.boolean(),
+  })
+  .strict()
+export const saveTorrentFileResultSchema = z
+  .object({
+    path: z.string().min(1),
+    seeding: z.enum(['not-requested', 'submitted', 'failed']),
+  })
+  .strict()
+export const pickedTorrentSourceSchema = z.object({ path: z.string().min(1) })
+export const createTorrentProgressSchema = z.number().min(0).max(1)
 export type CreateTorrentRequest = z.infer<typeof createTorrentRequestSchema>
 export type CreateTorrentResultPayload = z.infer<
   typeof createTorrentResultSchema
->
-export type SaveTorrentFileRequest = z.infer<
-  typeof saveTorrentFileRequestSchema
 >

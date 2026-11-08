@@ -15,6 +15,7 @@ import {
 } from '@renderer/components/ui/input-group'
 import { cn } from '@renderer/lib/utils'
 import * as React from 'react'
+import { usePopupPositioning } from './popup-positioning'
 
 const Combobox = ComboboxPrimitive.Root
 
@@ -103,9 +104,11 @@ function ComboboxContent({
     ComboboxPrimitive.Positioner.Props,
     'side' | 'align' | 'sideOffset' | 'alignOffset' | 'anchor'
   >) {
+  const positioning = usePopupPositioning()
   return (
     <ComboboxPrimitive.Portal>
       <ComboboxPrimitive.Positioner
+        {...positioning}
         side={side}
         sideOffset={sideOffset}
         align={align}

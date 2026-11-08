@@ -4,10 +4,12 @@
     "help": "Questo server richiede il token operatore. Sull’host, imposta MOTRIX_OPERATOR_TOKEN oppure leggi il token da <dataDir>/operator-token e incollalo qui sotto.",
     "placeholder": "Token operatore",
     "error": "Token operatore non valido. Controlla MOTRIX_OPERATOR_TOKEN o <dataDir>/operator-token sull’host e riprova.",
-    "submit": "Sblocca"
+    "submit": "Sblocca",
+    "nasSessionExpired": "Impossibile verificare la sessione di amministratore NAS. Apri Motrix dal desktop del NAS.",
+    "openDsm": "Open DSM to sign in"
   },
   "operatorAdmin": {
-    "help": "Utilizzo:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\nIl comando comunica esclusivamente con il server Motrix in esecuzione tramite l’interfaccia di loopback del container.",
+    "help": "Utilizzo:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nIl comando comunica esclusivamente con il server Motrix in esecuzione tramite l’interfaccia di loopback del container.",
     "errorPrefix": "motrix-admin: {{message}}",
     "usageHint": "Esegui `motrix-admin --help` per le istruzioni d’uso.",
     "pending": {
@@ -55,6 +57,20 @@
         "loopback": "Il server Motrix in esecuzione non è disponibile sull’interfaccia di loopback del container.",
         "approvalNotReady": "L’approvazione delle associazioni non è ancora pronta nel server Motrix in esecuzione."
       }
+    },
+    "extension": {
+      "heading": "Pending browser Extension pairing requests",
+      "identityNotice": "Verify that you initiated this request. Origin and claimed identity alone do not prove who is connecting. Terminal recording can capture the pairing code.",
+      "row": "{{index}}. {{browser}} [{{identity}}] Origin: {{origin}}; claimed ID: {{claimedId}}; Server: {{authority}}; {{seconds}} s remaining",
+      "select": "Enter the number of one request (Ctrl+C to exit): ",
+      "code": "Pairing code: {{code}}",
+      "instructions": "Type this code into the browser Extension. It expires at the original deadline. Ctrl+C closes this view without approving or denying the request.",
+      "none": "No pending Extension pairing requests. Start pairing in the Extension, then run this command again. If requests remain absent, check the remote Extension configuration.",
+      "ended": "The selected pairing request has ended. Check the Extension for its outcome.",
+      "ttyRequired": "Extension pairing requires interactive input, output and error terminals. Piping, redirection and JSON output are not supported.",
+      "cancelled": "Pairing code view closed. No approval or denial was sent.",
+      "invalidSelection": "Select exactly one listed request by its number.",
+      "unavailable": "The selected request expired, ended or changed. Start a new pairing attempt in the Extension."
     }
   },
   "common": {
@@ -318,7 +334,7 @@
         "loading": "Caricamento delle attività",
         "unavailable": "Dati sulle attività non disponibili",
         "retry": "Riprova",
-        "stale": "I dati sulle attività potrebbero non essere aggiornati",
+        "refreshFailed": "Aggiornamento non riuscito",
         "coverageDegraded": "I dati sulle attività potrebbero essere incompleti da {{time}}",
         "rangeSummary": "{{weeks}} settimane di attività di download, da {{start}} a {{end}}",
         "completedIntensity": "L’intensità del colore indica i download completati",
@@ -594,7 +610,7 @@
         "down": "Velocità di download",
         "up": "Velocità di caricamento",
         "eta": "Tempo rimanente",
-        "connections": "Peer",
+        "connections": "Connessioni",
         "status": "Stato",
         "createdAt": "Data di creazione",
         "finishedAt": "Data di completamento"
@@ -640,6 +656,7 @@
         }
       },
       "stats": {
+        "title": "Stato dei trasferimenti",
         "downSpeed": "Velocità di download",
         "upSpeed": "Velocità di caricamento",
         "engineOk": "Motore pronto",
@@ -691,18 +708,17 @@
         },
         "activity": {
           "transferTitle": {
-            "session": "Trasferimenti della sessione",
+            "session": "Trasferimento recente",
             "lifetime": "Trasferimenti dall’inizio"
           },
           "download": "Download",
           "upload": "Caricamento",
           "loading": "Caricamento delle attività…",
           "collecting": "Raccolta dei dati di trasferimento…",
-          "noSessionHistory": "Nessun trasferimento registrato in questa sessione dell’app.",
+          "noSessionHistory": "Nessun trasferimento recente registrato.",
           "lifetimeEmpty": "La cronologia completa non è ancora disponibile.",
           "noTraffic": "Nessun traffico di rete al momento.",
           "unavailable": "Le attività dall’inizio non sono disponibili.",
-          "coverageGap": "La registrazione è stata interrotta.",
           "retry": "Riprova",
           "notAvailable": "Non disponibile",
           "stale": {
@@ -711,7 +727,7 @@
           },
           "range": {
             "label": "Intervallo temporale dei trasferimenti",
-            "session": "Sessione (60 s)",
+            "session": "Ultimi 60 s",
             "lifetime": "Dall’inizio",
             "latest": "Ultimi 60 secondi",
             "adaptive_one": "Risoluzione adattiva · {{count}} campione",
@@ -774,7 +790,18 @@
             "sampleCount_one": "{{count}} campione",
             "sampleCount_other": "{{count}} campioni",
             "sampleCount_many": "{{count}} campioni",
-            "noDataQualityIssues": "Nessun avviso sulla registrazione."
+            "noDataQualityIssues": "Nessun avviso sulla registrazione.",
+            "noSamples": "Nessun campione",
+            "overview": "Panoramica della cronologia",
+            "rangeStart": "Inizio intervallo",
+            "rangeEnd": "Fine intervallo",
+            "earlier": "Cronologia precedente",
+            "later": "Cronologia successiva",
+            "zoomIn": "Ingrandisci",
+            "zoomOut": "Riduci",
+            "showAll": "Mostra tutto",
+            "following": "Segui i dati più recenti",
+            "followLatest": "Torna ai dati recenti"
           }
         },
         "pieces": {
@@ -914,12 +941,28 @@
         "removeMixedTitle": "Rimuovere {{count}} attività dall’elenco?",
         "openFile": "Apri file",
         "openFileFailed": "Impossibile aprire il file",
+        "openFileAppFailed": "Il sistema non ha potuto aprire questo file. Verifica che l’app predefinita sia ancora installata oppure apri la cartella per scegliere un’altra app.",
+        "openFileFailedHint": "Verifica che il file esista ancora e che tu abbia il permesso di aprirlo.",
         "chooseFiles": "Scegli file…",
         "queueOrder": "Ordine di download",
         "moveQueueTop": "Sposta all’inizio",
         "moveQueueBottom": "Sposta alla fine",
         "copyError": "Copia informazioni sull’errore",
-        "errorReport": "{{name}}\nID attività: {{id}}\n{{details}}"
+        "errorReport": "{{name}}\nID attività: {{id}}\n{{details}}",
+        "redownload": "Re-download",
+        "redownloadWithDialog": "Re-download with options... (Alt+Click)",
+        "redownloadTooltipBatch": "Re-download {{n}} of {{total}} selected",
+        "redownloadOverwriteTitle": "File Already Exists",
+        "redownloadOverwriteDescription": "“{{name}}” already exists in the download directory. Re-downloading will overwrite or rename it. Do you want to continue?",
+        "redownloadCredentialsExpired": "Original request options have expired. Please review and submit.",
+        "redownloadStarted": "Re-download started",
+        "retryDialogTitle": "Riprova il download",
+        "retryDialogDescription": "Modifica i parametri della richiesta per {{name}} per avviare un nuovo download. L’attività non riuscita e il suo file parziale verranno conservati.",
+        "retryDialogProgress": "Download {{current}} di {{total}}",
+        "downloadToDevice": "Download to this device",
+        "revealInFileStation": "Show in File Station",
+        "nasFileUnavailable": "File access could not be authorized. Check the account and folder permissions.",
+        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again."
       },
       "titleCount": "Visualizzati: {{shown}} · Totale: {{total}}",
       "type": {
@@ -999,6 +1042,11 @@
   },
   "task": {
     "add": {
+      "extraHeaders": "Intestazioni aggiuntive",
+      "headerName": "Nome dell’intestazione",
+      "headerValue": "Valore dell’intestazione",
+      "addHeader": "Aggiungi intestazione",
+      "removeHeader": "Rimuovi intestazione",
       "title": "Nuova attività",
       "links": "Link",
       "torrent": "Torrent",
@@ -1010,6 +1058,7 @@
       "createFailedByPlugin": "Impossibile creare l’attività: il plugin “{{pluginId}}” l’ha bloccata ({{detail}}). Disattiva il plugin in Impostazioni → Plugin, quindi riprova.",
       "createFailedPathTooLong": "Impossibile creare l’attività: il percorso di destinazione contiene {{length}} caratteri e supera il limite di Windows di {{limit}}. Scegli un percorso di salvataggio o un nome file più corto.",
       "parseFailed": "Impossibile analizzare il file torrent.",
+      "unsupportedTorrent": "Questo torrent utilizza funzionalità non supportate dal motore di download attuale.",
       "urlsCount_one": "{{count}} URL",
       "urlsCount_other": "{{count}} URL",
       "urlsCount_many": "{{count}} URL",
@@ -1093,6 +1142,7 @@
         "doc": "Documento"
       },
       "errors": {
+        "headerNameRequired": "Inserisci un nome per l’intestazione o rimuovila.",
         "urlsRequired": "È richiesto almeno un URL",
         "saveDirRequired": "È richiesta una cartella di salvataggio",
         "noFilesSelected": "Seleziona almeno un file",
@@ -1103,7 +1153,8 @@
         "failed": "Impossibile avviare {{name}} automaticamente. Apri i dettagli dell’attività per selezionare i file e riprovare."
       },
       "undoCorrection": "Annulla correzione URL",
-      "submissionUnconfirmed": "L’esito non è confermato. Un nuovo tentativo verificherà la richiesta originale prima di creare un’altra attività."
+      "submissionUnconfirmed": "L’esito non è confermato. Un nuovo tentativo verificherà la richiesta originale prima di creare un’altra attività.",
+      "selectNasTorrent": "Choose a torrent from the NAS"
     },
     "detail": {
       "peers": "Peer: {{count}}",
@@ -1148,7 +1199,8 @@
         "resumeSourceChanged": "Il file parziale è stato conservato perché il file remoto è cambiato dall’inizio del download.",
         "resumeRangeUnsupported": "Il file parziale è stato conservato perché il server non supporta la ripresa sicura tramite intervalli di byte.",
         "resumeValidationFailed": "Il file parziale è stato conservato perché Motrix non ha potuto verificare che il file remoto sia rimasto invariato.",
-        "mediaInterrupted": "Questo download multimediale è stato interrotto da un riavvio dell’app e non può essere ripreso. Aggiungilo di nuovo per riprovare."
+        "mediaInterrupted": "Questo download multimediale è stato interrotto da un riavvio dell’app e non può essere ripreso. Aggiungilo di nuovo per riprovare.",
+        "portableExternalPath": "This task uses a location outside the portable folder. The application moved or the original directory is unavailable. Check the download location before retrying."
       }
     },
     "error": {
@@ -1157,6 +1209,7 @@
         "recoveryFailed": "Impossibile recuperare il download: {{cause}}",
         "recoveryOutputConflict": "Sono presenti sia il file temporaneo sia quello finale; entrambi sono stati conservati per la verifica manuale",
         "filesMissing": "Mancano dei file dopo il riavvio dell’app",
+        "sourceHash": "SHA-256 dell’editore",
         "renameFileFailed": "Impossibile rinominare il file: {{cause}}",
         "renameDirFailed": "Impossibile rinominare la cartella: {{cause}}",
         "pluginChainAborted": "Catena di plugin interrotta: {{cause}}",
@@ -1190,6 +1243,36 @@
         "checksumMismatch": "Il file scaricato potrebbe essere danneggiato; scaricalo di nuovo per verificarlo",
         "tooManyRedirects": "Il link di origine potrebbe non funzionare; prova un altro link",
         "btMetadataFailed": "Controlla il link magnet o aggiungi altri tracker, quindi riprova"
+      }
+    },
+    "storage": {
+      "move": "Move files…",
+      "locate": "Find existing files…",
+      "recheck": "Check files…",
+      "moveDescription": "Choose a new folder for your downloaded files. Seeding pauses while they move.",
+      "locateDescription": "Choose where your downloaded files are now. Motrix will check them so you can continue seeding.",
+      "recheckDescription": "Check that your downloaded files are complete. This will not change the files or download them again.",
+      "directory": "Folder",
+      "name": "File or folder name",
+      "resume": "Continue seeding after checking",
+      "checking": "Checking files…",
+      "moving": "Moving files…",
+      "resuming": "Starting seeding…",
+      "verifiedPercent": "Verified: {{percent}}%",
+      "checkFailed": "Check failed",
+      "verified": "Your files are ready to seed.",
+      "resumed": "Seeding has resumed.",
+      "incomplete": "Some files are missing or incomplete. Check that you selected the right folder and try again.",
+      "resumeFailed": "The new location is saved. Select Re-seed to try sharing the files again.",
+      "useExisting": "Check and use these files",
+      "errors": {
+        "unavailable": "This task cannot be moved or checked yet.",
+        "busy": "Another file operation is still running. Please wait for it to finish.",
+        "destination": "Choose a different folder or file name. The location may already contain these files or be inside the current folder.",
+        "conflict": "Another download is using these files. Open that task to change their location.",
+        "engine": "Motrix could not stop this task. Please try again.",
+        "failed": "Motrix could not access or move the files. Check the folder, available space, and permission to use it.",
+        "cancelled": "Check cancelled."
       }
     }
   },
@@ -1228,6 +1311,10 @@
       "integration": {
         "title": "Integrazione",
         "desc": "Estensioni del browser, CLI, integrazione con il sistema"
+      },
+      "nas": {
+        "title": "Synology NAS",
+        "desc": "Download folders and client connections"
       }
     },
     "general": {
@@ -1282,6 +1369,12 @@
       "themeDark": "Scuro",
       "language": "Lingua",
       "traySpeedometer": "Mostra velocità nella barra dei menu",
+      "dockAndMenuBar": "Dock e barra dei menu",
+      "taskbar": "Barra delle applicazioni",
+      "taskbarProgress": "Mostra l’avanzamento dei download nella barra delle applicazioni",
+      "taskbarProgressDesc": "Mostra l’avanzamento complessivo dei download attivi sul pulsante della finestra principale nella barra delle applicazioni.",
+      "dockProgress": "Mostra l’avanzamento dei download nel Dock",
+      "dockProgressDesc": "Mostra l’avanzamento complessivo dei download attivi sull’icona del Dock.",
       "traySpeedometerDesc": "Visualizza le velocità di download e caricamento accanto all’icona dell’app.",
       "trayIconColor": "Colore dell’icona nell’area di notifica",
       "trayIconColorDesc": "Scegli un colore ben visibile sul pannello di sistema.",
@@ -1290,6 +1383,10 @@
       "trayIconColorDark": "Icona scura (pannello chiaro)",
       "reduceMotion": "Riduci movimento",
       "reduceMotionDesc": "Usa meno animazioni nell’app.",
+      "hardwareAcceleration": "Accelerazione hardware",
+      "hardwareAccelerationDesc": "Usa la scheda grafica per una visualizzazione più fluida. Disattivala se la finestra sfarfalla o Motrix si arresta. Le modifiche si applicano dopo il riavvio di Motrix.",
+      "hardwareAccelerationRecoveryTitle": "Accelerazione hardware disattivata",
+      "hardwareAccelerationRecoveryBody": "Motrix ha disattivato l’accelerazione hardware dopo ripetuti arresti della visualizzazione. Puoi riattivarla in Impostazioni → Aspetto, quindi riavviare Motrix.",
       "liquidGlassEffect": "Liquid Glass",
       "liquidGlassEffectDesc": "Applica un effetto vetro traslucido alla barra degli strumenti dei download.",
       "liquidGlassEffectMacDesc": "Si applica anche alla finestra su macOS 26 e versioni successive. La finestra viene riaperta quando cambi questa impostazione.",
@@ -1352,7 +1449,15 @@
         "historyCountHint": "I record di recupero più vecchi vengono rimossi.",
         "historyCountPositive": "Inserisci un numero maggiore di 0."
       },
-      "description": "RPC, avanzamento e recupero"
+      "description": "RPC, avanzamento e recupero",
+      "configFile": {
+        "title": "File di configurazione",
+        "serverTitle": "File di configurazione del server",
+        "openDirectory": "Apri cartella",
+        "copyPath": "Copia percorso",
+        "copied": "Copiato",
+        "actionFailed": "Impossibile completare l’azione. Riprova."
+      }
     },
     "about": {
       "appIconAlt": "Icona dell’app Motrix",
@@ -1400,7 +1505,12 @@
         "channelStable": "Stabile",
         "channelBeta": "Beta",
         "channelBetaWarning": "Le versioni beta possono essere meno stabili. Riceverai anche le nuove versioni stabili. Tornando al canale stabile, gli aggiornamenti beta si interrompono senza installare una versione precedente.",
-        "channelSaveError": "Impossibile salvare il canale di aggiornamento. Riprova."
+        "channelSaveError": "Impossibile salvare il canale di aggiornamento. Riprova.",
+        "installing": "Installazione…",
+        "installingDescription": "Preparazione dell’aggiornamento. Motrix si riavvierà quando sarà pronto.",
+        "manualDownload": "Scarica manualmente",
+        "manualInstall": "Scarica la nuova versione, chiudi Motrix e sostituisci l’applicazione installata.",
+        "manualCrossVolume": "L’installazione automatica tra dischi non è attualmente disponibile. Scarica la nuova versione e sostituisci Motrix manualmente."
       },
       "details": {
         "author": "Autore",
@@ -1600,8 +1710,9 @@
         "turtle_off": "Standard",
         "turtle_on": "Bassa velocità",
         "turtle_auto": "Automatica",
+        "unitFor": "Unità per {{field}}",
         "baseSection": "Limiti standard",
-        "baseSectionDesc": "Usati per i download quotidiani e rispettati in ogni modalità.",
+        "baseSectionDesc": "Usati in modalità standard e quando nessuna regola di bassa velocità è attiva.",
         "baseDownload": "Download",
         "baseDownloadDesc": "Velocità massima di download per l’uso quotidiano.",
         "baseUpload": "Caricamento",
@@ -1611,7 +1722,7 @@
         "standardLimit": "Usa standard",
         "useStandardLimit": "Usa limite standard",
         "altSection": "Limiti a bassa velocità",
-        "altSectionDesc": "Usati nella modalità Bassa velocità o dalle regole pianificate. Questi limiti possono solo ridurre i limiti standard.",
+        "altSectionDesc": "Usati in modalità lenta o quando una regola automatica seleziona questo profilo.",
         "altDownload": "Download",
         "altDownloadDesc": "Velocità massima di download quando è attiva la modalità Bassa velocità.",
         "altUpload": "Caricamento",
@@ -1682,7 +1793,7 @@
           "adaptiveRulePending": "riserverà il {{reserved}}% della banda per le altre app una volta specificata la banda della connessione",
           "ruleSeparator": " e ",
           "autoRules": "Motrix {{rules}}.",
-          "lowerWins": "Si applica il limite attivo più basso."
+          "profileSelection": "Si applicano i limiti della modalità selezionata. I limiti vuoti della modalità lenta usano quelli standard; la modalità automatica può aggiungere un limite adattivo."
         },
         "bandwidthUsed": "Motrix può usare fino al {{motrix}}%.",
         "bandwidthPending": "Inserisci entrambe le velocità della connessione per applicare questo limite."
@@ -1720,7 +1831,7 @@
         "hidePassword": "Nascondi password",
         "bypass": "Connetti direttamente a",
         "bypassDesc": "Un dominio, IP o CIDR per riga. Inizia con . per includere solo i sottodomini. I download di file non supportano il carattere jolly *.",
-        "bypassScopeNote": "Solo download di file e aggiornamenti dell’app",
+        "bypassScopeNote": "Solo download, plugin e aggiornamenti dell’app",
         "scopes": "Usa proxy per",
         "scopesDesc": "Scegli quali tipi di traffico passano attraverso il proxy.",
         "scopeDownload": "Download di file",
@@ -1736,7 +1847,9 @@
         "scopeHint": "Peer BT, DHT e tracker UDP si connettono direttamente.",
         "scopeNone": "Nessuna selezione",
         "scopeChoose": "Seleziona…",
-        "scopeSeparator": ", "
+        "scopeSeparator": ", ",
+        "scopePlugins": "Installazione e aggiornamento dei plugin",
+        "scopePluginsDesc": "Usa il proxy per il catalogo, i pacchetti, gli aggiornamenti e le politiche di sicurezza dei plugin."
       },
       "nat": {
         "title": "Mappatura delle porte (NAT)",
@@ -1787,6 +1900,12 @@
       "hideSecret": "Nascondi segreto"
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "system": {
         "title": "App predefinita",
         "protocolMagnet": "Apri i link magnet con Motrix",
@@ -1844,8 +1963,14 @@
           "store": "Installa",
           "development": "Sviluppo"
         },
+        "pendingTitle": "Browser pairing requests",
+        "pendingEmpty": "Start pairing in your extension.",
         "pairedTitle": "Estensioni collegate",
         "pairedEmpty": "Nessuna estensione collegata.",
+        "profile": "Profilo del browser {{number}}",
+        "connected": "Connesso",
+        "disconnected": "Non connesso",
+        "revokeAll": "Disconnetti tutti",
         "lastActive": "Ultima attività",
         "revoke": "Scollega",
         "disconnecting": "Disconnessione…",
@@ -1871,7 +1996,10 @@
             "attested": "Estensione verificata",
             "unverified": "Estensione non verificata"
           },
-          "identityUnverifiedWarning": "Impossibile verificare l’identità di questa estensione. Continua solo se la ritieni affidabile."
+          "identityUnverifiedWarning": "Impossibile verificare l’identità di questa estensione. Continua solo se la ritieni affidabile.",
+          "claim": "Associa all’account attuale",
+          "claimDesc": "L’estensione userà i permessi di questo account. Inserisci quindi il codice nell’estensione per completare l’associazione.",
+          "account": "Account attuale: {{name}}"
         },
         "pairUnavailable": "Questa richiesta di associazione non è più in attesa: riprova dall’estensione del browser.",
         "trustedExtensions": "Estensioni attendibili",
@@ -2052,7 +2180,8 @@
           "missing": "Non trovato",
           "untrusted": "Bloccato da macOS",
           "unconfigured": "Non impostato",
-          "version_mismatch": "Non supportato"
+          "version_mismatch": "Non supportato",
+          "verificationUnavailable": "Verifica non disponibile"
         },
         "stagingMB": "Limite dei file temporanei (MB)",
         "stagingMBDesc": "Spazio per i file intermedi, per plugin e attività.",
@@ -2155,6 +2284,46 @@
       "originMismatchBody": "Gli aggiornamenti in tempo reale non sono disponibili. Usa l’indirizzo configurato del server o chiedi all’amministratore di correggerlo.",
       "disconnectedTitle": "La connessione per gli aggiornamenti in tempo reale è interrotta.",
       "disconnectedBody": "Alcune informazioni potrebbero arrivare in ritardo. Se il problema persiste, controlla la connessione al server e la configurazione del proxy."
+    },
+    "portable": {
+      "title": "Portable mode",
+      "startupError": "Motrix could not open its portable data directory. Check that the data folder beside Motrix.exe is writable and that no external profile override is set. Motrix has not switched to the system profile.",
+      "integrationUnavailable": "Portable mode keeps system settings unchanged. Startup registration, file associations, and system tool installation are unavailable.",
+      "browserDescription": "The local bridge remains available while Motrix is running. Portable mode does not register a browser launcher or change existing browser integration.",
+      "updateDescription": "Download the Windows ZIP, exit Motrix, and move the entire data folder to the new version. Portable mode never runs the installer.",
+      "recoveryError": "Portable data could not be recovered safely. Keep the data folder and check the logs and directory permissions before retrying. Motrix has stopped without using the system profile.",
+      "enginePathDescription": "Portable mode manages engine state inside the data folder for the current application location."
+    },
+    "nas": {
+      "description": "Shared by all DSM administrators. Restart Motrix in Package Center to apply changes.",
+      "account": "Current DSM account: {{username}}",
+      "restartRequired": "Settings saved. Restart Motrix in Package Center to apply them.",
+      "storageUnavailable": "Download folders unavailable",
+      "storageRecoveryHint": "Downloads are paused. Restore the original folders or authorize a different path, then restart Motrix in Package Center.",
+      "roots": "Authorized download folders",
+      "rootsHint": "One existing folder per line. Both your account and the system user motrix need read/write access. Removing the default makes the first folder the new default.",
+      "extensionEnabled": "Enable browser extension connections",
+      "extensionHint": "Use a DSM certificate hostname that resolves to the NAS LAN address.",
+      "webAddress": "Motrix Web address",
+      "webAddressHint": "Use the address you normally open, including /motrix/. You can fill it from this browser.",
+      "useCurrentAddress": "Use this DSM address",
+      "extensionAddress": "Extension connection address",
+      "allowHttp": "Allow pairing codes over HTTP",
+      "allowHttpHint": "Enable only on a trusted network. HTTPS does not require this option.",
+      "clientPort": "Direct client port",
+      "clientPortHint": "Direct clients use this port (1024–65535). DSM HTTPS addresses use the DSM port.",
+      "activeConnections": "Current connection addresses",
+      "cliAddress": "CLI endpoint",
+      "sessionHint": "Clients use their paired DSM account’s current permissions. After DSM logout, session expiration or a package restart, reopen Motrix with that account; pairing again is not required.",
+      "copy": "Copy address",
+      "openSettings": "Configure NAS connections",
+      "errors": {
+        "invalid": "Check the folder paths, port and connection addresses. HTTP code delivery requires explicit permission.",
+        "folderUnavailable": "Check that each folder is on a mounted volume and writable by the internal system user motrix.",
+        "permissionDenied": "The account or folder cannot be authorized. Check DSM shared-folder permissions for your account and the internal system user motrix.",
+        "unavailable": "Package settings are unavailable. Try again after the service has recovered.",
+        "conflict": "The saved configuration changed. Reload before editing again; your unsaved changes will be replaced."
+      }
     }
   },
   "errors": {
@@ -2339,6 +2508,8 @@
       "local": "File locale",
       "local.pick": "Scegli un file .moext",
       "lead": "Incolla l’indirizzo di un plugin, scegli un file .moext o trascina un file nel campo.",
+      "reviewLead": "Controlla i permessi del plugin prima di installarlo.",
+      "preparing": "Preparazione…",
       "placeholder": "Incolla un indirizzo GitHub o un URL oppure scegli un file .moext locale",
       "detected": {
         "auto": "Automatico",
@@ -2357,7 +2528,15 @@
       "localPrepareFailed": "Impossibile preparare il file del plugin: {{detail}}",
       "dropHint": "Trascina qui un file .moext per verificare il plugin",
       "dragDisabledHint": "Il trascinamento non è supportato in questo ambiente. Usa un indirizzo GitHub o un URL.",
-      "warning": "Prima di installare: continua solo se ti fidi dell’autore e prevedi che il plugin usi gli accessi elencati sopra."
+      "warning": "Prima di installare: continua solo se ti fidi dell’autore e prevedi che il plugin usi gli accessi elencati sopra.",
+      "officialVerified": "Firma ufficiale di Motrix verificata",
+      "officialSignatureInvalid": "Impossibile verificare la firma ufficiale del plugin. Aggiorna il catalogo.",
+      "officialBuiltinOnly": "Questa versione richiede privilegi di un plugin integrato. Installa una versione più recente che supporti l’installazione facoltativa.",
+      "builtinAlreadyInstalled": "Questo plugin è già integrato. Usa la sua funzione di aggiornamento.",
+      "hostIncompatible": "Questo plugin richiede Motrix {{required}}; versione attuale: {{current}}. Aggiorna o passa a una versione compatibile di Motrix e riprova.",
+      "installed": "Installato",
+      "optionalHint": "Disattivati per impostazione predefinita; attivali se servono",
+      "optionalLater": "Puoi modificare i permessi facoltativi nelle impostazioni del plugin dopo l’installazione."
     },
     "consent": {
       "installTitle": "Installare {{name}} {{version}}?",
@@ -2427,12 +2606,16 @@
       "accessHosts_many": "Può leggere {{count}} siti web",
       "accessBroad": "Può leggere qualsiasi sito web",
       "attentionTitle": "Questo plugin ha segnalato un problema",
+      "runtimeStartFailed": "Impossibile avviare l’ambiente di esecuzione del plugin",
+      "runtimeFailed": "L’ambiente di esecuzione del plugin si è arrestato in modo imprevisto",
       "attentionGeneric": "Consulta i log per i dettagli.",
       "viewIssue": "Visualizza problema",
       "removeTitle": "Rimuovi plugin",
       "removeDesc": "La rimozione del plugin elimina anche i suoi dati salvati in Motrix.",
       "uninstallConfirmTitle": "Disinstallare {{name}}?",
-      "uninstallConfirmDesc": "Il plugin e le sue impostazioni salvate verranno rimossi da Motrix."
+      "uninstallConfirmDesc": "Il plugin e le sue impostazioni salvate verranno rimossi da Motrix.",
+      "operations": "Operations",
+      "operationsFailed": "The operation panel could not load. Try again."
     },
     "permissions": {
       "empty": "Questo plugin non richiede autorizzazioni.",
@@ -2452,8 +2635,9 @@
         "error": "Errore",
         "fatal": "Critico"
       },
-      "copy": "Copia",
+      "copy": "Copia log oscurati",
       "clear": "Cancella",
+      "clearFailed": "Impossibile cancellare i registri. Riprova.",
       "output": "Output in tempo reale",
       "entryCount_one": "{{count}} voce",
       "entryCount_other": "{{count}} voci",
@@ -2653,7 +2837,8 @@
       },
       "ffmpeg": {
         "strong": "Usare FFmpeg",
-        "plain": "Elabora audio o video."
+        "plain": "Elabora audio o video.",
+        "requirement": "Processes audio or video. First, <settings>install or select FFmpeg in Settings</settings>."
       },
       "notify": {
         "strong": "Inviare notifiche",
@@ -2705,7 +2890,43 @@
         "allowed": "Consentito",
         "noAccess": "Disattivato",
         "grant": "Consenti"
+      },
+      "metadata": {
+        "strong": "Leggere e scrivere i metadati delle attività",
+        "plain": "Salva le informazioni generate da questo plugin per le attività di download."
+      },
+      "files.selected.read": {
+        "strong": "Read files selected for this operation",
+        "plain": "Each operation needs your input selection. Other files are not authorized."
+      },
+      "files.selected.write": {
+        "strong": "Save a new file for this operation",
+        "plain": "Save at the location you confirm without replacing existing files."
       }
+    },
+    "security": {
+      "blocked": "Bloccato per motivi di sicurezza",
+      "pending": "Connettiti a Internet e cerca aggiornamenti prima di attivare questo plugin.",
+      "unavailable": "Impossibile verificare la politica di sicurezza. Cerca aggiornamenti per riprovare.",
+      "malware": "Questo plugin è stato identificato come dannoso.",
+      "vulnerability": "Questa versione del plugin presenta una vulnerabilità di sicurezza.",
+      "compromised": "La distribuzione di questo plugin è stata compromessa.",
+      "fixedVersion": "Una correzione è disponibile nella versione {{version}}.",
+      "details": "Visualizza avviso di sicurezza"
+    },
+    "network": {
+      "timeout": "Connessione scaduta",
+      "dns": "Risoluzione DNS non riuscita",
+      "proxyAuth": "Autenticazione del proxy non riuscita",
+      "proxyConnect": "Impossibile connettersi al proxy",
+      "certificate": "Errore di certificato o TLS",
+      "http": "HTTP {{status}}",
+      "cancelled": "Richiesta annullata",
+      "network": "Richiesta di rete non riuscita",
+      "cached": "Aggiornamento non riuscito; vengono mostrati i plugin in cache",
+      "unavailable": "Impossibile caricare il catalogo dei plugin",
+      "direct": "Connessione diretta a {{host}} non riuscita: {{reason}}",
+      "viaProxy": "Connessione a {{host}} tramite il proxy {{proxy}} non riuscita: {{reason}}"
     }
   },
   "plugin": {
@@ -2718,9 +2939,13 @@
         "title": "Requisito FFmpeg",
         "notInstalled": "FFmpeg non è installato su questo sistema.",
         "versionMismatch": "È installato FFmpeg {{version}}.",
-        "requiredByPlugin": "Questo plugin richiede ffmpeg. Installalo e riprova.",
+        "requiredByPlugin": "Puoi installare il plugin ora. Configura una versione compatibile di FFmpeg prima di attivarlo o eseguirlo.",
         "optionalDegraded": "Le funzionalità multimediali di questo plugin non saranno disponibili finché non verrà installato ffmpeg."
       }
+    },
+    "runtime": {
+      "ffmpegUnavailable": "FFmpeg non è disponibile. Configure FFmpeg in Settings → Integration → Media Tools.",
+      "ffmpegIncompatible": "La versione di FFmpeg non soddisfa i requisiti di questo plugin. Configure FFmpeg in Settings → Integration → Media Tools."
     }
   },
   "bridge": {
@@ -2869,7 +3094,9 @@
       "invalidName": "Inserisci un nome valido per la cartella.",
       "tooLarge": "Il percorso o il nome della cartella è troppo lungo.",
       "unavailable": "Il server non ha potuto completare la richiesta. Riprova.",
-      "creationOutcomeUnknown": "Impossibile confermare la creazione. Aggiorna per verificare prima di creare un’altra cartella qui."
+      "creationOutcomeUnknown": "Impossibile confermare la creazione. Aggiorna per verificare prima di creare un’altra cartella qui.",
+      "notFile": "Select a readable regular file.",
+      "unsupportedFileType": "This file extension is not supported."
     },
     "places": {
       "common": "Posizioni comuni",
@@ -2881,6 +3108,33 @@
       "downloads": "Download",
       "root": "File system",
       "loadFailed": "Impossibile caricare alcune posizioni delle cartelle."
+    },
+    "openFileTitle": "Select a file",
+    "saveFileTitle": "Save a file",
+    "fileDescription": "Browse files on the Motrix server.",
+    "selectFile": "Select file",
+    "saveFile": "Use this filename",
+    "files": "Files and folders",
+    "fileName": "File name",
+    "emptyFiles": "This folder is empty.",
+    "fileErrors": {
+      "invalidPath": "Enter a valid absolute path.",
+      "outsideRoots": "This path is outside the allowed locations.",
+      "notFound": "This path no longer exists.",
+      "permissionDenied": "You do not have permission to use this path.",
+      "invalidName": "Enter a valid file name.",
+      "tooLarge": "This path or file name is too long."
+    },
+    "selectedFilePath": "Selected file",
+    "file": {
+      "chooseOnServer": "Choose a file on the server using this picker.",
+      "singleFile": "Choose one file at a time.",
+      "wrongType": "Choose a file with one of these extensions: {{extensions}}.",
+      "pathUnavailable": "This file’s location is unavailable. Click to choose it instead.",
+      "choose": "Choose a file",
+      "dropHint": "Drop a file here or click to choose",
+      "browseHint": "Click to browse files",
+      "change": "Click to replace"
     }
   },
   "directoryPreferences": {
@@ -2949,12 +3203,347 @@
     "stoppedSplit": "Le attività arrestate sono raggruppate in Completate ed Errori. Sono stati aperti tutti i download.",
     "invalidStatus": "La categoria non è valida. Sono stati aperti tutti i download."
   },
+  "mediaMerge": {
+    "title": "Merge audio and video",
+    "description": "Combine two files without re-encoding. Original files are kept. Audio-only and video-only inputs are detected automatically.",
+    "videoInput": "Video file",
+    "audioInput": "Audio file",
+    "output": "Output file",
+    "provider": "Plugin",
+    "browse": "Browse…",
+    "browseField": "Browse {{field}}",
+    "required": "Choose a file or enter its full path.",
+    "outputHint": "Use a new .mp4 or .mkv filename. Existing files are never overwritten. If the codecs cannot be copied to MP4, try MKV.",
+    "noPlugin": "Install and enable a media merge plugin. FFmpeg must be configured in Settings > Integration > Media Tools.",
+    "serverPaths": "Select files on the Motrix server. Files on this computer are not uploaded.",
+    "start": "Merge",
+    "running": "Merging…",
+    "cancelling": "Cancelling…",
+    "completed": "Merged successfully",
+    "cancelled": "Merge cancelled",
+    "failed": "Merge failed",
+    "invalidSelection": "Select two completed, single-file downloads.",
+    "jobMissing": "This merge is no longer available.",
+    "busy": "Another merge is already running.",
+    "pluginUnavailable": "The media merge plugin is unavailable.",
+    "absolutePaths": "Enter full, absolute file paths.",
+    "invalidFiles": "Choose two non-empty media files.",
+    "sameInput": "Choose two different input files.",
+    "outputFormat": "Use an .mp4 or .mkv output filename.",
+    "outputExists": "The output already exists. Choose a new filename.",
+    "invalidOutput": "The plugin did not produce a valid output file.",
+    "again": "Merge another file",
+    "pluginDisabled": "Enable this plugin to merge files.",
+    "choose": {
+      "videoInput": "Choose video",
+      "audioInput": "Choose audio",
+      "output": "Choose a save location"
+    },
+    "hint": {
+      "videoInput": "The picture for your merged file",
+      "audioInput": "The sound for your merged file",
+      "output": "Save as MP4 or MKV"
+    },
+    "preserveOriginals": "Original files are kept",
+    "format": "Output format"
+  },
+  "legacyImport": {
+    "navigation": "Migration",
+    "title": "Migration",
+    "pausedDescription": "Choose which Motrix v1 downloads to import. They won’t start automatically.",
+    "settingsTitle": "Migration",
+    "settingsDescription": "Import your downloads from Motrix v1.",
+    "settingsAction": "Open migration",
+    "pickSource": "Choose the Motrix v1 data folder",
+    "source": "From",
+    "changeSource": "Change folder…",
+    "noSource": "Choose the folder containing your Motrix v1 data",
+    "discovery": "Downloads found: {{count}}",
+    "preserveFiles": "Downloaded files stay in their original location.",
+    "chooseTasks": "Choose downloads",
+    "skip": "Not now",
+    "skippedHint": "Puoi effettuare la migrazione in seguito da {{settings}} → {{advanced}}.",
+    "back": "Back",
+    "loading": "Looking for your old downloads…",
+    "empty": "There are no tasks to migrate from this folder.",
+    "continueBefore": "Before continuing:",
+    "capabilityLimit": "This task needs to be downloaded again. Choose a new folder to keep the original files.",
+    "running": "Motrix v1 may still be running. Quit it, then check again.",
+    "recheck": "Check again",
+    "search": "Search downloads",
+    "selectAll": "Select all",
+    "skipped": "Skipped: {{count}}",
+    "backupNote": "Your task list is backed up before import. Downloaded files stay in place.",
+    "backingUp": "Backing up your task list…",
+    "committing": "Adding your downloads…",
+    "progress": "Migration progress",
+    "processed": "{{done}} / {{total}} processed",
+    "stop": "Stop migration",
+    "stopTitle": "Stop migration?",
+    "stopDescription": "Downloads already imported will be kept. You can import the rest later.",
+    "resultTitle": "Migration complete",
+    "importedCount": "Imported {{count}}",
+    "resultDescription": "Your imported tasks are now in Downloads.",
+    "details": "View details",
+    "exportReport": "Save report…",
+    "retry": "Migrate remaining",
+    "viewTasks": "View downloads",
+    "freshDownload": "Download again…",
+    "freshDescription": "Choose where to save the new download. Motrix will create a separate folder and open the download form for you to confirm. It will start from the beginning and leave your old files untouched.",
+    "freshDestination": "Choose where to save the new download",
+    "chooseDestination": "Choose another location…",
+    "requestSettingsHelp": "Per i vecchi file cookie, inserisci l’intestazione Cookie necessaria. Per nomi utente e password HTTP, inserisci un’intestazione Authorization equivalente. Inserisci le credenziali del proxy nel relativo URL.",
+    "unsupportedOptions": "Opzioni non supportate: {{options}}",
+    "ignoredOptions": "Opzioni non supportate omesse: {{options}}",
+    "currentProxyDescription": "I download migrati usano le impostazioni proxy di download attuali di Motrix. Le vecchie impostazioni non vengono mantenute.",
+    "requestOptions": "Impostazioni di richiesta salvate: {{options}}",
+    "requestSettingsDescription": "Le vecchie impostazioni di richiesta non sono state copiate. Reinseriscile in Avanzate prima di scaricare in una nuova cartella.",
+    "reconfigureDownload": "Riconfigura e scarica…",
+    "reasons": {
+      "fresh-download-required": "Needs a new download",
+      "verification-required": "Existing files need checking",
+      "metadata-required": "Original torrent file needed",
+      "selection-required": "Choose which files to download",
+      "request-settings-required": "Le impostazioni di richiesta salvate verranno controllate prima della ripresa",
+      "mirrors-unsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "unsupported-options": "Opzioni di download non supportate",
+      "invalid-record": "Couldn’t read this task",
+      "unsafe-path": "File location needs checking",
+      "already-imported": "Already imported",
+      "deleted-import": "Previously removed",
+      "path-conflict": "Another task uses this location",
+      "changed-source": "Old task data has changed",
+      "not-selected": "Not selected",
+      "stopped": "Not imported before stopping",
+      "commit-failed": "Import failed. You can try again."
+    },
+    "errors": {
+      "pageUnavailable": "Migration couldn’t open. Restart Motrix and try again. Downloads already imported are kept.",
+      "failed": "The operation couldn’t be completed. Please try again.",
+      "consentRequired": "Accept the agreement before opening migration.",
+      "invalidSource": "No Motrix v1 data was found here. Choose its original data folder.",
+      "unsafeSource": "This data folder can’t be read safely. Choose the original Motrix v1 folder.",
+      "unsafeBackup": "A safe backup couldn’t be created, so importing has stopped.",
+      "tooLarge": "This task list is too large to import.",
+      "tooManySources": "Too many folders have been opened. Restart Motrix and try again.",
+      "sourceNotAuthorized": "Select the old data folder using the folder picker.",
+      "expiredPreview": "This task list needs refreshing. Check again before importing.",
+      "changedSource": "The old task data has changed. Check again before importing.",
+      "running": "Motrix v1 may still be running. Quit it, then check again.",
+      "invalidSelection": "The selected tasks have changed. Check the list again.",
+      "pathConflict": "Another task uses this file location. Check the list again.",
+      "busy": "An import is already running. Wait for it to finish.",
+      "unknownRun": "The import result is unavailable.",
+      "unknownTask": "This imported task is no longer available.",
+      "rescanRequired": "Choose the data folder again to import the remaining tasks.",
+      "metadataRequired": "Choose this task’s original torrent file first.",
+      "unsafePath": "Choose a folder you can access.",
+      "mirrorsUnsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "stopping": "Motrix is closing. Reopen it to continue importing.",
+      "desktopOnly": "Open migration in the Motrix desktop app.",
+      "metadataMismatch": "This torrent does not match the old task. Choose its original torrent file.",
+      "checkpointUnavailable": "This version can’t resume the old files. You can download again in a new folder.",
+      "activationSourceMissing": "Some original task information is missing. Download again in a new folder.",
+      "selectionRequired": "The previous file selection is unavailable. Choose the files again in a new download.",
+      "originalDirectoryRequired": "Choose the original folder shown here. Files moved to another location can’t be resumed.",
+      "payloadMissing": "Some original files are missing, including files previously left unselected. All are needed to resume this task. Download again in a new folder.",
+      "payloadUnsafe": "The original files can’t be updated safely because of file links or permissions. Keep them and download again in a new folder.",
+      "controlRequired": "The saved download progress is missing. Download again in a new folder.",
+      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder.",
+      "httpContentChanged": "I dati scaricati differiscono dal contenuto del server.",
+      "httpRangeUnsupported": "Il server non supporta gli intervalli di byte richiesti.",
+      "httpValidatorRequired": "Il server non fornisce un identificatore affidabile della versione della risorsa.",
+      "httpVerificationFailed": "Impossibile verificare i dati scaricati.",
+      "httpRequestUnsupported": "Il motore o le impostazioni di richiesta non consentono una ripresa sicura.",
+      "httpVerificationCancelled": "Verifica annullata.",
+      "httpRedirectUnsupported": "I collegamenti reindirizzati non possono essere ripresi in sicurezza nella posizione originale."
+    },
+    "resultIncompleteTitle": "Migration is incomplete",
+    "resultStoppedTitle": "Migration stopped",
+    "activationRequired": "Apri i dettagli dell’attività per verificare e riprendere il download.",
+    "chooseTorrent": "Choose torrent…",
+    "torrentFile": "Torrent file",
+    "verifyAndContinue": "Verifica e continua",
+    "verifyDescription": "Motrix will verify the original files, then continue with your previous file selection. While downloading, it may upload data and write shared pieces to unselected files. It won’t seed automatically when finished.",
+    "authorizeOriginalDirectory": "Choose the original download folder",
+    "verifyReady": "Verify your existing files to continue this download, or start again in a new folder.",
+    "trackersReadOnly": "This download keeps its original trackers. They can’t be changed here.",
+    "page": {
+      "stepsLabel": "Migration steps",
+      "steps": {
+        "select": "Choose downloads",
+        "import": "Import",
+        "result": "Review"
+      },
+      "foundSummary": "Download types",
+      "selectionSummary": "Selected",
+      "resultSummary": "Migration summary",
+      "countUnit": "total",
+      "notImported": "Not imported",
+      "skippedSummary": "Skipped",
+      "types": {
+        "http": "Direct links",
+        "bt": "Torrents",
+        "magnet": "Magnet links",
+        "unknown": "Other tasks"
+      },
+      "pathUnavailable": "Download location unavailable",
+      "filesStayTitle": "Your files stay where they are",
+      "filesStayDescription": "Migration won’t move or delete downloaded files.",
+      "nextTitle": "Only your downloads",
+      "nextDescription": "Your app settings stay the same.",
+      "footerNote": "Imported tasks will stay paused.",
+      "discoveryDescription": "Choose what to add to your download list. Some tasks need a new download or a check of the existing files.",
+      "previousVersion": "Motrix v1",
+      "currentVersion": "Motrix",
+      "introduction": "Choose the downloads you’d like to add to Motrix.",
+      "selectionTitle": "Choose what to migrate",
+      "searchEmpty": "No matching downloads.",
+      "resultEmptyTitle": "No new downloads",
+      "resultEmptyDescription": "Open the details to see why each task was skipped.",
+      "resultIncompleteDescription": "Downloads already imported are kept. Review the details and try importing the rest again.",
+      "resultStoppedDescription": "Downloads already imported are kept. You can import the rest when you’re ready.",
+      "outcomes": {
+        "imported": "Imported",
+        "skipped": "Skipped",
+        "failed": "Failed",
+        "unprocessed": "Not imported"
+      },
+      "sourceDescription": "From {{name}}",
+      "assistantTitle": "Migration Assistant",
+      "backToSource": "Back to source",
+      "continue": "Continue",
+      "revealSource": "Show in folder",
+      "welcomeTitle": "Migrate your downloads",
+      "sourceFeedback": {
+        "retry": "Try again",
+        "unreadableTitle": "Unable to read downloads from this location",
+        "chooseFolder": "Choose the data folder used by the previous version of Motrix.",
+        "readTitle": "Unable to read downloads",
+        "readDescription": "Check that this location is accessible, then try again.",
+        "pickTitle": "Unable to use the selected folder",
+        "pickDescription": "Try choosing the folder again. Your previous selection is still available.",
+        "revealTitle": "Unable to show this folder",
+        "revealDescription": "Check that this location is accessible, then try again.",
+        "discoverTitle": "Unable to look for previous downloads",
+        "discoverDescription": "Try again, or choose the previous Motrix data folder yourself.",
+        "reading": "Reading downloads…"
+      },
+      "sourceTitle": "Where would you like to migrate from?",
+      "sourceIntroduction": "Import your download tasks from the previous version of Motrix. You can choose what to migrate next. Your downloaded files will stay where they are.",
+      "sourceKind": "Downloads from the previous version",
+      "sourceHelp": "Choose the data folder used by Motrix v1. Your downloaded files stay where they are.",
+      "noSourceDescription": "No downloads from the previous version of Motrix were found. Choose another location to look for them.",
+      "progressTitle": "Migrating your downloads",
+      "progressDescription": "Your task list is being backed up and added to Motrix.",
+      "selectGroup": "Select {{name}}",
+      "phases": {
+        "discovery": "Choose source",
+        "selection": "Choose content",
+        "progress": "Migration",
+        "result": "Result"
+      },
+      "groups": {
+        "http": "Direct links",
+        "bt": "Torrent downloads",
+        "magnet": "Magnet links",
+        "unknown": "Other downloads"
+      },
+      "groupDescriptions": {
+        "http": "A new download is needed",
+        "bt": "Existing files will be checked before continuing",
+        "magnet": "The original torrent file is needed",
+        "unknown": "Review the task details"
+      },
+      "groupCount_one": "{{count}} task",
+      "selectedNote_one": "Selected {{count}} task. After migration, tasks will stay paused and downloaded files will remain in place.",
+      "groupCount_many": "{{count}} tasks",
+      "selectedNote_many": "Selected {{count}} tasks. After migration, tasks will stay paused and downloaded files will remain in place.",
+      "groupCount_other": "{{count}} tasks",
+      "selectedNote_other": "Selected {{count}} tasks. After migration, tasks will stay paused and downloaded files will remain in place.",
+      "run": {
+        "backup": "Back up task list",
+        "backupActive": "Saving a copy of your previous task list…",
+        "backupDone": "Backup saved",
+        "add": "Add downloads",
+        "waiting": "Waiting for the backup",
+        "completeDescription": "Your tasks are now in Downloads, paused until you’re ready to continue.",
+        "partialDescription": "Imported tasks are paused. You can retry the remaining tasks or view your downloads.",
+        "stoppedEmptyDescription": "No tasks were added. You can try again when you’re ready.",
+        "failedEmptyDescription": "No tasks were added. Review the details, then try again.",
+        "imported": "Imported",
+        "remaining": "Remaining"
+      }
+    },
+    "importSelected": "Migrate",
+    "httpResumeDescription": "Motrix confronterà tutti gli intervalli scaricati con il server, poi riprenderà nella cartella originale. La verifica trasferisce di nuovo questi intervalli; le impostazioni di richiesta salvate restano in memoria.",
+    "httpVerifying": "Preparazione o verifica…",
+    "httpOriginalFilesKept": "I file esistenti sono stati conservati."
+  },
+  "rendererRecovery": {
+    "title": "L’interfaccia deve essere ripristinata",
+    "description": "I download continuano in background. Le modifiche non salvate del modulo potrebbero andare perse.",
+    "recovering": "Ripristino dell’interfaccia…",
+    "recover": "Ripristina interfaccia",
+    "diagnostics": "Apri i registri diagnostici",
+    "downloads": "Apri i download",
+    "failed": "Il ripristino non è disponibile. Riprova dal menu dell’applicazione.",
+    "restored": "Interfaccia ripristinata",
+    "wait": "Continua ad attendere",
+    "routeTitle": "Impossibile visualizzare questa pagina",
+    "submissionNotice": "L’invio precedente potrebbe essere stato completato. Controlla i download prima di creare di nuovo la stessa attività."
+  },
+  "pluginOperations": {
+    "requiredField": "Campo obbligatorio",
+    "run": "Run operation",
+    "runAgain": "Run again",
+    "background": "Operations continue when this panel is closed.",
+    "loading": "Loading operation…",
+    "unauthorized": "This session is no longer authorized. Sign in again.",
+    "disabled": "Enable this plugin to use its operations.",
+    "blocked": "This plugin is blocked or its permissions are changing.",
+    "unsupported": "This host does not support the operation requirements.",
+    "ffmpeg": "Configure FFmpeg in Settings → Integration → Media Tools.",
+    "busy": "Another operation is using these resources. Try again after it finishes.",
+    "unavailable": "This operation is unavailable.",
+    "draftExpired": "This selection expired. Reopen the operation and select the files again.",
+    "resourceLimit": "The operation exceeds the host resource limit or available disk space.",
+    "invalidSelection": "Select completed tasks with one local file each.",
+    "invalidFile": "Choose a regular, non-empty local file.",
+    "fileType": "The selected file type does not match this field.",
+    "outputExists": "The output already exists. Choose a different name.",
+    "fileChanged": "A selected file or directory changed. Select it again.",
+    "invalidGrant": "Select the files again before starting.",
+    "sameInput": "Choose two different input files.",
+    "invalidOutput": "The plugin did not produce a valid output.",
+    "invalidRequest": "Check the operation parameters and try again.",
+    "invalidValue": "Enter a valid value.",
+    "descriptorChanged": "The plugin changed. Reopen the operation.",
+    "jobMissing": "This operation is no longer available in this session.",
+    "cancelled": "The operation was cancelled.",
+    "failed": "The operation failed. See the plugin log for details.",
+    "interrupted": "The host stopped before this operation finished. It was not restarted.",
+    "publicationUncertain": "The host could not confirm output publication. Check the destination before trying again.",
+    "cleanupWarning": "Temporary files remain for safe recovery. The host did not delete uncertain files.",
+    "status": {
+      "accepted": "Queued",
+      "preparing": "Preparing files",
+      "running": "Running",
+      "validating": "Validating result",
+      "committing": "Saving output",
+      "cleaning": "Cleaning up",
+      "cancelling": "Cancelling",
+      "succeeded": "Completed",
+      "cancelled": "Cancelled",
+      "failed": "Failed",
+      "interrupted": "Interrupted"
+    },
+    "confirmFileTitle": "Authorize file access",
+    "confirmFile": "Allow this operation to read the following file?"
+  },
   "createTorrent": {
     "title": "Crea torrent",
-    "description": "Genera un file .torrent da un file o cartella locale per condividerlo e fare seeding.",
     "source": "Origine",
-    "sourcePlaceholder": "Scegli un file o una cartella…",
-    "browse": "Sfoglia…",
     "trackers": "Tracker",
     "trackersPlaceholder": "Un URL announce per riga",
     "webSeeds": "Web seed",
@@ -2967,15 +3556,17 @@
     "hashing": "Calcolo degli hash…",
     "resultName": "Nome",
     "resultSize": "Dimensione",
-    "files": "file",
-    "pieces": "pezzi",
     "resultInfoHash": "Hash info",
     "saveFile": "Salva .torrent",
     "create": "Crea",
     "savedToast": "Torrent salvato in {{path}}",
     "createFailed": "Impossibile creare il torrent",
     "saveFailed": "Impossibile salvare il file torrent",
-    "invalidTracker": "Uno o più URL dei tracker non sembrano validi",
-    "openFromAddTask": "Crea un torrent da un file o cartella locale…"
+    "seedAfter": "Avvia la condivisione dopo il salvataggio",
+    "seedFailed": "Il torrent è stato salvato, ma non è stato possibile avviare la condivisione.",
+    "seedSubmitted": "La richiesta di condivisione è stata inviata.",
+    "invalidOptions": "Ogni elenco accetta fino a {{limit}} URL validi. I torrent privati richiedono un tracker.",
+    "sourcePlaceholder": "Scegli un file o una cartella…",
+    "menuLabel": "Crea file torrent…"
   }
 }

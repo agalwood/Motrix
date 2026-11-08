@@ -6,8 +6,25 @@ import {
   watchOperatorSession,
 } from '@renderer/lib/operator-auth'
 import { transport } from '@renderer/lib/transport'
-import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
+import { isNasAuthMode } from '@shared/schemas/operator-auth'
+import {
+  type FormEvent,
+  lazy,
+  type ReactNode,
+  Suspense,
+  useEffect,
+  useState,
+} from 'react'
 import { useTranslation } from 'react-i18next'
+
+const StorageRecovery =
+  __MOTRIX_TARGET__ === 'web'
+    ? lazy(() =>
+        import('./nas-storage-recovery').then((module) => ({
+          default: module.NasStorageRecovery,
+        }))
+      )
+    : () => null
 
 /**
  * Gates the app on the server (web) build behind operator authentication
@@ -22,6 +39,12 @@ export function OperatorUnlockGate({ children }: { children: ReactNode }) {
 function WebGate({ children }: { children: ReactNode }) {
   const { t } = useTranslation()
   const state = useOperatorSession((s) => s.state)
+  const fnos = useOperatorSession((s) => isNasAuthMode(s.status?.mode))
+  const synology = useOperatorSession((s) => s.status?.mode === 'synologyDsm')
+  const diagnostic = useOperatorSession((s) => s.status?.nasAuthDiagnostic)
+  const unavailableRoots = useOperatorSession(
+    (s) => s.status?.nasUnavailableDownloadRoots
+  )
   const [token, setToken] = useState('')
   const [error, setError] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -41,8 +64,40 @@ function WebGate({ children }: { children: ReactNode }) {
         </Button>
       </div>
     )
+  if (state === 'authenticated' && synology && unavailableRoots?.length)
+    return (
+      <Suspense fallback={null}>
+        <StorageRecovery roots={unavailableRoots} />
+      </Suspense>
+    )
   if (state === 'authenticated' || state === 'logging-out')
     return <>{children}</>
+  if (fnos)
+    return (
+      <div className="flex h-svh flex-col items-center justify-center gap-4 p-6">
+        <p>{t('operatorUnlock.nasSessionExpired')}</p>
+        {diagnostic && (
+          <code className="select-text text-xs text-muted-foreground">
+            {[
+              diagnostic.stage,
+              diagnostic.code,
+              diagnostic.failure,
+              diagnostic.exitCode,
+            ]
+              .filter((value) => value !== undefined)
+              .join(' / ')}
+          </code>
+        )}
+        <Button onClick={() => window.location.reload()}>
+          {t('applicationMenu.retry')}
+        </Button>
+        {synology && (
+          <Button variant="outline" onClick={() => window.location.assign('/')}>
+            {t('operatorUnlock.openDsm')}
+          </Button>
+        )}
+      </div>
+    )
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()

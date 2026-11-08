@@ -32,6 +32,20 @@ export class StagedEffectStore {
   private metaOps: StagedMetadataOp[] = []
   private finalizePath: string | undefined
   private stagings: Map<string, FfmpegStaging> = new Map()
+  private policyChecks = new Map<string, () => void>()
+
+  bindPolicyCheck(pluginId: string, check: () => void): void {
+    this.policyChecks.set(pluginId, check)
+  }
+
+  get hasPolicyChecks(): boolean {
+    return this.policyChecks.size > 0
+  }
+
+  /** Revalidate returned guest results at the host's commit boundary. */
+  assertPolicyCurrent(): void {
+    for (const check of this.policyChecks.values()) check()
+  }
 
   appendHttp(pluginId: string, role: RoleBand, patch: StagedHttpPatch): void {
     // Shallow-clone at the boundary so later caller mutations don't leak in.
@@ -117,6 +131,7 @@ export class StagedEffectStore {
     )
 
     db.transaction(() => {
+      this.assertPolicyCurrent()
       tx()
       const serialized = validateStagedMetadataQuota(db, taskId, this.metaOps)
       const now = Date.now()
@@ -150,21 +165,21 @@ export class StagedEffectStore {
     this.metaOps = []
     this.finalizePath = undefined
     this.stagings.clear()
+    this.policyChecks.clear()
   }
 
   /**
    * Plan C fail-open isolation — drop every staged contribution from the named
-   * plugin. Called by the HookOrchestrator when an enrich/audit plugin throws
-   * mid-chain so its partial effects are not committed alongside the
-   * succeeding plugins'. The finalize path is intentionally NOT cleared here:
-   * it is only ever set by resolve/post-process plugins (audit/enrich cannot
-   * touch it per the matrix), so removing one of their meta/http stages should
-   * not roll back a separate plugin's finalize decision.
+   * plugin. Called by the HookOrchestrator when an optional plugin fails so
+   * its partial effects are not committed alongside succeeding plugins'.
+   * The caller separately restores the previous finalize path, preserving
+   * any target accepted before this plugin ran.
    */
   removeFromPlugin(pluginId: string): void {
     this.httpPatches = this.httpPatches.filter((e) => e.pluginId !== pluginId)
     this.metaOps = this.metaOps.filter((o) => o.pluginId !== pluginId)
     this.stagings.delete(pluginId)
+    this.policyChecks.delete(pluginId)
   }
 }
 

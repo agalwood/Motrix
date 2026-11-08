@@ -24,6 +24,7 @@ export const postDeliveryPermanentReasons = [
   'disabled',
   'uninstalled',
   'quarantined',
+  'security_revoked',
   'permission_revoked',
   'output_invalid',
   'attempt_limit',
@@ -305,6 +306,7 @@ export type PostDeliveryPolicyDecision =
         | 'disabled'
         | 'uninstalled'
         | 'quarantined'
+        | 'security_revoked'
       message?: string
     }
 

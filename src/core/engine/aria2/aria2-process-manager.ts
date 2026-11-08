@@ -15,13 +15,13 @@ import {
   Aria2ProcessInspector,
   type InspectedProcess,
 } from './aria2-process-inspector'
+import { Aria2ProcessOutput } from './aria2-process-output'
 import { buildFeatureReport } from './feature-report'
 
 const log = getLogger('aria2')
 
 const OWNER_RECORD_VERSION = 1
 const STDERR_TAIL_LIMIT = 32 * 1024
-const RPC_DIAGNOSTIC_MARKER = 'RPC-DIAG'
 const OWNER_MARKER_PREFIXES = [
   '--conf-path=',
   '--save-session=',
@@ -123,6 +123,7 @@ export class Aria2ProcessManager {
   private readonly ownershipFilePath: string | null
   private readonly inspector: Aria2ProcessInspector
   private recentStderr = ''
+  private outputGeneration = 0
 
   onExit: ((code: number | null, signal: string | null) => void) | null = null
   onError: ((err: Error) => void) | null = null
@@ -168,6 +169,7 @@ export class Aria2ProcessManager {
     env?: NodeJS.ProcessEnv
   ): Promise<void> {
     this.recentStderr = ''
+    const outputGeneration = ++this.outputGeneration
     const options: SpawnOptions = {
       stdio: ['ignore', 'pipe', 'pipe'],
     }
@@ -190,25 +192,28 @@ export class Aria2ProcessManager {
       )
     }
 
-    child.stdout?.on('data', (data: Buffer) => {
-      const text = redactSensitiveText(data.toString().trim(), args)
-      if (text.includes(RPC_DIAGNOSTIC_MARKER)) {
-        // Native RPC diagnostics are sparse (first queue/send per session and
-        // exceptional states).  Promote only those lines into production logs;
-        // ordinary aria2 stdout remains debug-only.
-        log.info({ data: text }, 'aria2 RPC diagnostic')
-      } else {
-        log.debug({ data: text }, 'aria2 stdout')
-      }
-    })
-
-    child.stderr?.on('data', (data: Buffer) => {
-      const text = redactSensitiveText(data.toString(), args)
-      this.recentStderr = `${this.recentStderr}${text}`.slice(
-        -STDERR_TAIL_LIMIT
+    for (const stream of ['stdout', 'stderr'] as const) {
+      const output = new Aria2ProcessOutput(
+        stream,
+        ({ level, fields, message }) => {
+          if (
+            stream === 'stderr' &&
+            this.outputGeneration === outputGeneration
+          ) {
+            this.recentStderr = `${this.recentStderr}${fields.data}\n`.slice(
+              -STDERR_TAIL_LIMIT
+            )
+          }
+          log[level]({ enginePid: child.pid, ...fields }, message)
+        },
+        (text) => redactSensitiveText(text, args)
       )
-      log.warn({ data: text.trim() }, 'aria2 stderr')
-    })
+      child[stream]?.on('data', (data: Buffer) => output.write(data))
+      child[stream]?.on('end', () => output.end())
+      // Pipes may still deliver output after exit. Close is the fallback for
+      // streams destroyed without end and flushes an unterminated last line.
+      child.on('close', () => output.end())
+    }
 
     child.on('exit', (code, signal) => {
       log.info({ code, signal }, 'aria2 process exited')

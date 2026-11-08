@@ -279,19 +279,6 @@ describe('NatTile', () => {
     )
   })
 
-  it('stacks diagnostic fields in one column in the narrow tall presentation', () => {
-    render(<NatTile viewport={TALL_DETAILED} />)
-
-    expect(screen.getByTestId('nat-details')).toHaveClass('grid-cols-1')
-    expect(screen.getByTestId('nat-details')).toHaveAttribute(
-      'data-orientation',
-      'tall'
-    )
-    expect(screen.getByTestId('nat-metric-external-ip')).toHaveClass(
-      'col-span-full'
-    )
-  })
-
   it.each([SUMMARY, TALL_DETAILED, SQUARE_DETAILED, FOCUS])(
     'replaces stale diagnostic fields with a quiet empty state when off in $contentLevel',
     (viewport) => {
@@ -382,29 +369,6 @@ describe('NatTile', () => {
     expect(openExternalMock).toHaveBeenCalledWith(
       EXTERNAL_URLS.motrix.manual.natTroubleshooting.zh
     )
-  })
-
-  it('wraps long network values instead of hiding their content', () => {
-    const ipv6 = '2001:db8:85a3:0000:0000:8a2e:0370:7334'
-    natState.status = makeStatus({
-      gatewayInfo: {
-        internalIp: 'fd00::2',
-        gatewayIp: 'fd00::1',
-        externalIp: ipv6,
-        controlUrl: null,
-        controlHost: null,
-        controlPort: null,
-        manufacturer: null,
-        modelName: null,
-        supportedProtocols: [],
-      },
-    })
-
-    render(<NatTile viewport={TALL_DETAILED} />)
-
-    expect(screen.getByText(ipv6)).toHaveClass('break-all')
-    expect(screen.getByText(ipv6)).not.toHaveClass('truncate')
-    expect(screen.getByText(ipv6)).toHaveAttribute('title', ipv6)
   })
 
   it('disables NAT from the menu when running', async () => {

@@ -1,7 +1,7 @@
 //! Handle registry and request dispatch, independent of platform syscalls.
 
 use crate::platform::{
-    ArtifactHandle, RootHandle, copy_opened, open_artifact, open_artifact_for_rename, open_root,
+    ArtifactHandle, RootHandle, copy_opened, open_artifact, open_artifact_for_rename,
     remove_opened, rename_no_replace, rename_opened_no_replace, sync_root_mode,
 };
 use crate::protocol::{Request, Response};
@@ -32,6 +32,83 @@ impl State {
     fn dispatch(&mut self, request: Request) -> Response<'static> {
         match request {
             Request::Capabilities => self.capabilities(),
+            Request::CreatePrivateRoot {
+                request_id,
+                root,
+                name,
+            } => {
+                let Some(parent) = self.roots.get(&root) else {
+                    return Response::error(Some(request_id), "invalid_handle", "unknown root");
+                };
+                match crate::platform::create_private_root(parent, &name) {
+                    Ok(root) => {
+                        let identity = match crate::platform::root_identity(&root) {
+                            Ok(id) => id,
+                            Err(e) => return Response::filesystem_error(request_id, e),
+                        };
+                        let handle = self.insert_root(root);
+                        let mut response = Response::ok(Some(request_id));
+                        response.handle = Some(handle);
+                        response.platform_file_id = Some(identity);
+                        response
+                    }
+                    Err(e) => Response::filesystem_error(request_id, e),
+                }
+            }
+            Request::RemovePrivateRoot {
+                request_id,
+                parent,
+                name,
+                root,
+            } => {
+                let (Some(parent), Some(root)) = (self.roots.get(&parent), self.roots.get(&root))
+                else {
+                    return Response::error(Some(request_id), "invalid_handle", "unknown root");
+                };
+                match crate::platform::remove_private_root(parent, &name, root) {
+                    Ok(()) => Response::ok(Some(request_id)),
+                    Err(e) => Response::filesystem_error(request_id, e),
+                }
+            }
+            Request::OpenSelectedFile {
+                request_id,
+                root,
+                relative,
+            } => {
+                let Some(root) = self.roots.get(&root) else {
+                    return Response::error(Some(request_id), "invalid_handle", "unknown root");
+                };
+                match crate::platform::open_selected_file(root, &relative) {
+                    Ok(file) => {
+                        let handle = self.insert_artifact(file);
+                        let mut r = Response::ok(Some(request_id));
+                        r.handle = Some(handle);
+                        r
+                    }
+                    Err(e) => Response::filesystem_error(request_id, e),
+                }
+            }
+            Request::CopySelectedFile {
+                request_id,
+                artifact,
+                target_root,
+                target_relative,
+            } => {
+                let (Some(file), Some(root)) = (
+                    self.artifacts.get(&artifact).and_then(Option::as_ref),
+                    self.roots.get(&target_root),
+                ) else {
+                    return Response::error(
+                        Some(request_id),
+                        "invalid_handle",
+                        "unknown selection",
+                    );
+                };
+                match crate::platform::copy_selected_file(file, root, &target_relative) {
+                    Ok(()) => Response::ok(Some(request_id)),
+                    Err(e) => Response::filesystem_error(request_id, e),
+                }
+            }
             Request::SanitizeName { request_id, name } => {
                 let mut response = Response::ok(Some(request_id));
                 response.sanitized_name = Some(crate::sanitize::sanitize_filename(&name));
@@ -41,7 +118,8 @@ impl State {
                 request_id,
                 path,
                 expected_identity,
-            } => match open_root(&path) {
+                read_only,
+            } => match crate::platform::open_root_for_selection(&path, read_only) {
                 Ok(root) => {
                     if let Some(expected) = expected_identity
                         && let Err(error) =
@@ -49,8 +127,10 @@ impl State {
                     {
                         return Response::filesystem_error(request_id, error);
                     }
+                    let identity = crate::platform::root_identity(&root).ok();
                     let handle = self.insert_root(root);
                     let mut response = Response::ok(Some(request_id));
+                    response.platform_file_id = identity;
                     response.handle = Some(handle);
                     response
                 }
@@ -93,6 +173,44 @@ impl State {
                     }
                 }
             }
+            Request::OpenRenameGuard {
+                request_id,
+                root,
+                relative,
+            } => {
+                let Some(root) = self.roots.get(&root) else {
+                    return Response::error(Some(request_id), "invalid_handle", "unknown root");
+                };
+                match crate::platform::open_rename_guard(root, &relative) {
+                    Ok(Some((artifact, file_id))) => {
+                        let mut response = Response::ok(Some(request_id));
+                        response.handle = Some(self.insert_artifact(artifact));
+                        response.platform_file_id = Some(file_id);
+                        response
+                    }
+                    Ok(None) => Response::ok(Some(request_id)),
+                    Err(error) => Response::filesystem_error(request_id, error),
+                }
+            }
+            Request::OpenRemoval {
+                request_id,
+                root,
+                relative,
+                expected_identity,
+            } => {
+                let Some(root) = self.roots.get(&root) else {
+                    return Response::error(Some(request_id), "invalid_handle", "unknown root");
+                };
+                match crate::platform::open_removal(root, &relative, &expected_identity) {
+                    Ok(artifact) => {
+                        let handle = self.insert_artifact(artifact);
+                        let mut response = Response::ok(Some(request_id));
+                        response.handle = Some(handle);
+                        response
+                    }
+                    Err(error) => Response::filesystem_error(request_id, error),
+                }
+            }
             Request::RenameOpenedNoReplace {
                 request_id,
                 artifact,
@@ -126,6 +244,136 @@ impl State {
                 &target_relative,
                 crate::platform::link_opened_no_replace,
             ),
+            Request::ExfatVolumeIdentity { request_id, root } => {
+                #[cfg(target_os = "macos")]
+                {
+                    let Some(root) = self.roots.get(&root) else {
+                        return Response::error(Some(request_id), "invalid_handle", "unknown root");
+                    };
+                    match crate::platform::exfat_volume_identity(root) {
+                        Ok(id) => {
+                            let mut response = Response::ok(Some(request_id));
+                            response.volume_id = id;
+                            response
+                        }
+                        Err(error) => Response::filesystem_error(request_id, error),
+                    }
+                }
+                #[cfg(not(target_os = "macos"))]
+                {
+                    let _ = root;
+                    Response::error(
+                        Some(request_id),
+                        "unsupported",
+                        "exFAT volume identity requires macOS",
+                    )
+                }
+            }
+            Request::ReserveExfatTarget {
+                request_id,
+                artifact,
+                target_root,
+                target_relative,
+                expected_identity,
+                token,
+                volume_id,
+            } => {
+                #[cfg(target_os = "macos")]
+                {
+                    let Some(source) = self.artifacts.get(&artifact).and_then(Option::as_ref)
+                    else {
+                        return Response::error(
+                            Some(request_id),
+                            "invalid_handle",
+                            "unknown artifact",
+                        );
+                    };
+                    let Some(root) = self.roots.get(&target_root) else {
+                        return Response::error(Some(request_id), "invalid_handle", "unknown root");
+                    };
+                    if token.is_some() != volume_id.is_some() {
+                        return Response::error(
+                            Some(request_id),
+                            "invalid_request",
+                            "incomplete reservation ownership",
+                        );
+                    }
+                    match crate::platform::reserve_exfat_target(
+                        source,
+                        root,
+                        &target_relative,
+                        expected_identity.as_deref(),
+                        token.as_deref().zip(volume_id.as_deref()),
+                    ) {
+                        Ok((reservation, identity)) => {
+                            let handle = self.insert_artifact(reservation);
+                            let mut response = Response::ok(Some(request_id));
+                            response.handle = Some(handle);
+                            response.platform_file_id = Some(identity);
+                            response
+                        }
+                        Err(error) => Response::filesystem_error(request_id, error),
+                    }
+                }
+                #[cfg(not(target_os = "macos"))]
+                {
+                    let _ = (
+                        artifact,
+                        target_root,
+                        target_relative,
+                        expected_identity,
+                        token,
+                        volume_id,
+                    );
+                    Response::error(
+                        Some(request_id),
+                        "unsupported",
+                        "reserved exFAT rename requires macOS",
+                    )
+                }
+            }
+            Request::RenameOpenedReserved {
+                request_id,
+                artifact,
+                reservation,
+            } => {
+                #[cfg(target_os = "macos")]
+                {
+                    let Some(source) = self.artifacts.get(&artifact).and_then(Option::as_ref)
+                    else {
+                        return Response::error(
+                            Some(request_id),
+                            "invalid_handle",
+                            "unknown artifact",
+                        );
+                    };
+                    let Some(reserved) = self.artifacts.get(&reservation).and_then(Option::as_ref)
+                    else {
+                        return Response::error(
+                            Some(request_id),
+                            "invalid_handle",
+                            "unknown reservation",
+                        );
+                    };
+                    match crate::platform::rename_opened_reserved(source, reserved) {
+                        Ok((outcome, identity)) => {
+                            let mut response = rename_response(request_id, Ok(outcome));
+                            response.platform_file_id = Some(identity);
+                            response
+                        }
+                        Err(error) => Response::filesystem_error(request_id, error),
+                    }
+                }
+                #[cfg(not(target_os = "macos"))]
+                {
+                    let _ = (artifact, reservation);
+                    Response::error(
+                        Some(request_id),
+                        "unsupported",
+                        "reserved exFAT rename requires macOS",
+                    )
+                }
+            }
             Request::IsolateOpened {
                 request_id,
                 artifact,
@@ -312,6 +560,10 @@ impl State {
         response.held_roots = Some(cfg!(any(unix, windows)));
         response.directory_sync = Some(cfg!(any(unix, windows)));
         response.held_artifacts = Some(cfg!(any(unix, windows)));
+        response.held_file_write_exclusion = Some(cfg!(windows));
+        response.synced_rename_guard = Some(cfg!(windows));
+        response.reserved_exfat_rename = Some(cfg!(target_os = "macos"));
+        response.token_exfat_reservation = Some(cfg!(target_os = "macos"));
         response
     }
 
@@ -365,6 +617,7 @@ mod tests {
     #[test]
     fn capabilities_claim_only_the_implemented_native_boundaries() {
         let response = State::new().handle(Request::Capabilities);
+        assert_eq!(response.held_file_write_exclusion, Some(cfg!(windows)));
         #[cfg(unix)]
         {
             assert_eq!(response.held_roots, Some(true));

@@ -19,17 +19,23 @@ The same core powers two ways to run Motrix:
 - **Desktop app:** Runs on macOS, Windows, and Linux
 - **Headless server:** Runs without a desktop environment, either directly on Node.js or in Docker, and includes a web UI for NAS devices and home servers
 
-## 🧪 Beta testing
+## Motrix 2.3.0
 
-Motrix Turbo v2 is currently in beta. After its remaining release gates pass,
-download [v2.0.0-beta.46 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.0.0-beta.46)
-and read the [full release notes](./docs/release-notes/2.0.0-beta.46.md) before
-installing it.
+Motrix 2.3.0 refreshes the application artwork, restores cloud-drive directory
+downloads with aria2 1.37.0-motrix.23, and improves Server media tools, settings
+and update checks. It also introduces native fnOS integration; FPK packages
+follow a separate verified publication workflow.
+Download [v2.3.0 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.3.0)
+and read the [full release notes](./docs/release-notes/2.3.0.md).
 
-Back up your existing Motrix data and downloads before testing. Migration from
-Motrix v1 data has not yet been validated, so do not use your only copy of v1
-data with this beta. When practical, test v2 in parallel using a separate OS
-account, machine, or Docker data directory.
+Back up your existing Motrix profile and downloads before upgrading. The bundled
+engine upgrades its SQLite database to schema 6 and keeps a pre-upgrade backup;
+older engines cannot open schema 6. Keep that backup if you may need to downgrade.
+The desktop Migration Assistant imports selected v1 tasks as paused records and
+preserves the original files. Resuming downloads requires a separate explicit
+action. Windows in-place BitTorrent activation requires a supported local NTFS
+volume and explicit authorization. See the [migration guide](./docs/legacy-migration.md)
+for supported volumes, file permissions, and recovery. Keep the original v1 profile.
 
 ## Screenshots
 
@@ -133,17 +139,17 @@ For installation and pairing, see the [browser extension guide](https://motrix.a
 
 Download Motrix from [motrix.app](https://motrix.app) and choose the package for your operating system. Most Mac users should choose the Apple Silicon build; Intel builds are available for older Macs with Intel processors.
 
-After the remaining release gates pass, the current beta desktop packages
-will be distributed through the GitHub prerelease linked above. The protected
-release tag also publishes verified Snap builds to `latest/edge`. Choose the
-package that matches your operating system and architecture:
+Desktop packages are available from the GitHub Release linked above. Snap
+builds pass through `latest/edge` and `latest/candidate` before promotion to
+`latest/stable`. Choose the package that matches your operating system and
+architecture:
 
 | Platform | Architectures | Packages / channel | Recommendation |
 |----------|---------------|--------------------|----------------|
 | macOS 13+ | `arm64` (Apple Silicon), `x64` (Intel) | `.dmg` / `.zip` | Use the `.dmg` matching your Mac; choose `x64` only for an Intel-based Mac |
-| Windows | `x64` | `.exe` (NSIS installer) / `.zip` | Use the `.exe` installer for a normal installation or `.zip` for a manually extracted copy |
+| Windows 10+ | `x64`, `arm64` | `.exe` (NSIS installer) / `.zip` | Use the `.exe` installer for a normal installation or `.zip` for a manually extracted copy |
 | Linux | `x64`, `arm64` | `.AppImage` / `.deb` / `.rpm` | Use the portable `.AppImage` on any distribution, `.deb` on Debian or Ubuntu, or `.rpm` on Fedora or openSUSE |
-| Linux (Snap Store) | `amd64`, `arm64` | `latest/edge` | Install the strictly confined beta with `sudo snap install motrix --edge` |
+| Linux (Snap Store) | `amd64`, `arm64` | `latest/stable` | Install the strictly confined package with `sudo snap install motrix` after stable promotion |
 | Linux (Flatpak) | `x86_64`, `aarch64` | `.flatpak` | Install a versioned bundle from a release that includes it; see the [Flatpak guide](docs/flatpak.md) |
 | Arch Linux / Omarchy | `x64`, `arm64` | `.pacman` | Install the native Arch package with `sudo pacman -U ./Motrix-<version>-<arch>.pacman`; see the [Arch installation guide](docs/arch-linux.md) |
 
@@ -158,8 +164,9 @@ interfaces. Release tags build and validate Flatpak application bundles for
 both architectures before publication. Older releases, including beta.39,
 contain only the Flatpak Native Host companion. These single-file bundles
 require manual upgrades; they do not configure a Motrix update repository.
-Windows `arm64` and all 32-bit packages are not available.
-Windows `x64` packages are unsigned and may trigger a Windows SmartScreen
+Windows ARM64 computers can use the native `arm64` installer or ZIP.
+All 32-bit packages remain unavailable.
+Windows `x64` and `arm64` packages are unsigned and may trigger a Windows SmartScreen
 warning.
 
 ### Command-line client
@@ -173,14 +180,14 @@ You can also install it from Settings → Integration → Command-line tools in 
 ### Headless server with Docker
 
 Tagged releases publish a multi-architecture Server image to Docker Hub and
-GHCR. Beta releases publish only the immutable version tag and do not update
-`latest`; the included `compose.yaml` keeps Server state separate from
-downloaded resources:
+GHCR. Stable releases also update `2.3`, `2`, `stable`, and `latest` after runtime
+verification; beta releases publish only their immutable version tag. The
+included `compose.yaml` keeps Server state separate from downloaded resources:
 
 ```bash
 mkdir -p motrix-data downloads
 sudo chown 1000:1000 motrix-data downloads
-export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.0.0-beta.46'
+export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.3.0'
 export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
 docker compose pull server
 docker compose up -d --wait
@@ -243,8 +250,10 @@ MOTRIX_PREVIEW_MAC_MENU=1 pnpm start
 ```
 
 The flag hides the main window's macOS traffic-light buttons, enables the
-renderer dropdown menu, and shows the custom window controls used on Windows
-and Linux. Collapse the sidebar in this mode to check the application menu,
+renderer dropdown menu, and shows the custom window controls used on Windows.
+Linux uses Electron's Window Controls Overlay to follow supported desktop
+button layouts and themes; validate those native controls in a Linux desktop
+session. Collapse the sidebar in preview mode to check the application menu,
 attached actions, drag region, and caption-control safe areas together.
 Restart the development process after changing the flag because both Electron
 and Vite read it at startup.

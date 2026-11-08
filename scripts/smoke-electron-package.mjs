@@ -17,6 +17,9 @@ import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import electronPath from 'electron'
 import { chromium } from 'playwright'
+import { MenuItemIds } from '../src/main/menu/menu-ids.ts'
+import { Commands } from '../src/shared/protocol/commands.ts'
+import { Queries } from '../src/shared/protocol/queries.ts'
 import { parseTarget, stringifySortedJson } from './electron-package-utils.mjs'
 
 const execFileAsync = promisify(execFile)
@@ -148,18 +151,143 @@ async function runElectronNodeHelper(mode, args) {
   return JSON.parse(stdout)
 }
 
-async function stopPackagedApp(child) {
-  if (child.exitCode !== null || child.signalCode !== null) return
-  child.kill('SIGTERM')
-  await Promise.race([
-    new Promise((resolve) => child.once('exit', resolve)),
-    new Promise((_, reject) =>
-      setTimeout(
-        () => reject(new Error('packaged app did not stop after SIGTERM')),
-        15_000
+function hasExited(child) {
+  return child.exitCode !== null || child.signalCode !== null
+}
+
+function observeExit(child, timeoutMs, label) {
+  let timer
+  let onExit
+  let onError
+  const dispose = () => {
+    clearTimeout(timer)
+    child.off('exit', onExit)
+    child.off('error', onError)
+  }
+  const promise = new Promise((resolve, reject) => {
+    onExit = (code, signal) => {
+      dispose()
+      resolve({ code, signal })
+    }
+    onError = (error) => {
+      dispose()
+      reject(error)
+    }
+    child.once('exit', onExit)
+    child.once('error', onError)
+    timer = setTimeout(() => {
+      dispose()
+      reject(new Error(`${label} timed out after ${timeoutMs}ms`))
+    }, timeoutMs)
+    if (hasExited(child)) onExit(child.exitCode, child.signalCode)
+  })
+  return { promise, dispose }
+}
+
+async function forceStopPackagedApp(child, options) {
+  if (hasExited(child)) return
+  if (!Number.isSafeInteger(child.pid) || child.pid <= 0) {
+    throw new Error('packaged app has no owned process ID for cleanup')
+  }
+  const exited = observeExit(child, options.forceTimeoutMs, 'app cleanup')
+  try {
+    await Promise.all([
+      exited.promise,
+      Promise.resolve().then(() => {
+        if (hasExited(child)) return
+        if (options.platform === 'win32') {
+          return options.execFile(
+            'taskkill.exe',
+            ['/PID', String(child.pid), '/T', '/F'],
+            { windowsHide: true, timeout: options.forceTimeoutMs }
+          )
+        }
+        child.kill('SIGKILL')
+      }),
+    ])
+  } finally {
+    exited.dispose()
+  }
+}
+
+export async function stopPackagedApp(child, mainPage, options = {}) {
+  const cleanup = {
+    platform: options.platform ?? process.platform,
+    forceTimeoutMs: options.forceTimeoutMs ?? 5000,
+    execFile: options.execFile ?? execFileAsync,
+  }
+  let shutdownError
+  let evaluationError
+  const exited = observeExit(
+    child,
+    options.timeoutMs ?? 15_000,
+    'packaged app graceful shutdown'
+  )
+  try {
+    if (!hasExited(child) && cleanup.platform !== 'win32') {
+      // Unix delivers SIGTERM to the application's termination handler, which
+      // performs its ordinary engine and storage cleanup. Windows treats this
+      // signal as abrupt process termination, so it needs renderer IPC instead.
+      child.kill('SIGTERM')
+    } else if (!hasExited(child)) {
+      if (!mainPage)
+        throw new Error('packaged main renderer is unavailable for shutdown')
+      // Register the exit listener before asking Electron to quit. The page
+      // may be destroyed before evaluate receives its IPC response, so only
+      // the process exit status determines whether shutdown succeeded.
+      Promise.resolve()
+        .then(() =>
+          mainPage.evaluate(
+            async ({ query, command, itemId }) => {
+              const snapshot = await window.motrix.invoke(query)
+              await window.motrix.invoke(command, {
+                itemId,
+                revision: snapshot.revision,
+                trigger: 'menu',
+                selectedTaskId: null,
+              })
+            },
+            {
+              query: Queries.GetApplicationMenu,
+              command: Commands.ExecuteApplicationMenuItem,
+              itemId: MenuItemIds.AppQuit,
+            }
+          )
+        )
+        .catch((error) => {
+          evaluationError = error
+        })
+    }
+    const result = await exited.promise
+    if (result.code !== 0 || result.signal !== null) {
+      throw new Error(
+        `packaged app did not exit cleanly: code=${result.code}, signal=${result.signal}`
       )
-    ),
-  ])
+    }
+  } catch (error) {
+    shutdownError = error
+    if (evaluationError) {
+      shutdownError = new Error(
+        `${error.message}: ${evaluationError.message}`,
+        {
+          cause: error,
+        }
+      )
+    }
+  } finally {
+    exited.dispose()
+    if (shutdownError) {
+      try {
+        await forceStopPackagedApp(child, cleanup)
+      } catch (cleanupError) {
+        shutdownError = new AggregateError(
+          [shutdownError, cleanupError],
+          `packaged app shutdown and cleanup failed: ${shutdownError.message}; ${cleanupError.message}`
+        )
+      }
+    }
+  }
+  if (shutdownError) throw shutdownError
 }
 
 async function connectToRenderer(debugPort, child, readStderr) {
@@ -218,6 +346,7 @@ async function runPackagedApplication(layout, tempDir) {
 
   const rendererErrors = []
   let browser
+  let mainPage
   let stderr = ''
   const child = spawn(
     layout.executable,
@@ -246,6 +375,7 @@ async function runPackagedApplication(layout, tempDir) {
     browser = await connectToRenderer(debugPort, child, () => stderr.trim())
     await markProgress('launched')
     const page = await findMainPage(browser)
+    mainPage = page
     await markProgress('first-window')
     page.on('pageerror', (error) => rendererErrors.push(error.message))
     page.on('console', (message) => {
@@ -272,10 +402,13 @@ async function runPackagedApplication(layout, tempDir) {
       windowReady: true,
     }
   } finally {
-    await markProgress('stopping')
-    await stopPackagedApp(child)
-    await browser?.close().catch(() => {})
-    await markProgress('stopped')
+    try {
+      await markProgress('stopping').catch(() => {})
+      await stopPackagedApp(child, mainPage)
+      await markProgress('stopped')
+    } finally {
+      await browser?.close().catch(() => {})
+    }
   }
 }
 

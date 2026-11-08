@@ -1,10 +1,10 @@
+import { parseEngineTorrent as parseTorrent } from '@shared/lib/engine-torrent'
 import {
   MAX_TORRENT_BASE64_SIZE,
   MAX_TORRENT_FILE_SIZE,
   projectTorrentMeta,
 } from '@shared/lib/torrent-meta'
 import type { TorrentMeta } from '@shared/types/torrent'
-import parseTorrent from 'parse-torrent'
 
 export interface ParsedTorrentFile {
   name: string

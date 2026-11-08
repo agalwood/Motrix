@@ -159,6 +159,7 @@ graphify-out/*
 /.playwright/*
 !/.playwright/cli.config.json
 /output/playwright/
+/output/ci/
 # Legacy artifact locations (keep old local evidence ignored)
 /e2e/test-results
 /e2e/playwright-report

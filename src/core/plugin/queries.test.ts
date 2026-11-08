@@ -46,6 +46,16 @@ function fakeIndexed(over: Partial<IndexedPluginLike>): IndexedPluginLike {
 // ---------------------------------------------------------------------------
 
 describe('checkPluginCompatibility', () => {
+  it('uses the same beta floor for the pre-install compatibility query', () => {
+    const manifest = fakeManifest({ engines: { motrix: '>=2.0.0-beta.45' } })
+    expect(checkPluginCompatibility(manifest, '2.0.0-beta.44')).toMatchObject({
+      ok: false,
+      code: 'plugin.manifest.engine_version_too_old',
+    })
+    expect(checkPluginCompatibility(manifest, '2.0.0-beta.45').ok).toBe(true)
+    expect(checkPluginCompatibility(manifest, '2.0.0').ok).toBe(true)
+  })
+
   it('returns ok when engines.motrix is satisfied', () => {
     const m = fakeManifest({ engines: { motrix: '>=2.0.0 <3.0.0' } })
     const r = checkPluginCompatibility(m, '2.5.0')

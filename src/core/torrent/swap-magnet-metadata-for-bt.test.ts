@@ -17,12 +17,19 @@ import {
   TaskType,
   TransitionPhase,
 } from '@shared/types/task'
+import { storageTorrent } from '@test-utils/bt-storage'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MagnetTracker } from './magnet-tracker'
 import {
   type SwapMagnetMetadataDeps,
   swapMagnetMetadataForBt,
 } from './swap-magnet-metadata-for-bt'
+
+const sampleTorrentBase64 = storageTorrent([
+  { name: 'a', data: 'a' },
+  { name: 'b', data: 'b' },
+  { name: 'c', data: 'c' },
+]).toString('base64')
 
 // Stub node:fs/promises so the swap's `mkdir(diskPath, {recursive:true})`
 // (the final output directory pre-create) doesn't touch the real FS.
@@ -469,6 +476,35 @@ describe('swapMagnetMetadataForBt', () => {
     )
   })
 
+  it('rejects invalid resolved metadata before cancelling the existing task or persisting bytes', async () => {
+    await expect(
+      swapMagnetMetadataForBt(
+        {
+          taskId: 'm-mag',
+          base64: 'AAAA',
+          selectedFiles: [0],
+          saveDir: '/Downloads',
+        },
+        {
+          db,
+          taskManager,
+          adapter: adapter as never,
+          magnetTracker: magnetTracker as never as MagnetTracker,
+          publishTaskUpdate: () => {},
+          publishTaskUpdateNow: () => {},
+          finalNamePicker: finalNamePicker as never,
+          torrentMetaStore: torrentMetaStore as never,
+          runTaskMutation: runImmediately,
+          runExclusivePersistence: persistImmediately,
+        }
+      )
+    ).rejects.toMatchObject({ code: ErrorCode.TorrentParseFailed })
+    expect(magnetTracker.cancel).not.toHaveBeenCalled()
+    expect(adapter.addTorrent).not.toHaveBeenCalled()
+    expect(torrentMetaStore.persist).not.toHaveBeenCalled()
+    expect(mkdirMock).not.toHaveBeenCalled()
+  })
+
   it('does not create a container when torrent metadata persistence rejects', async () => {
     torrentMetaStore.persist.mockRejectedValueOnce(
       new Error('torrent metadata write failed')
@@ -478,7 +514,7 @@ describe('swapMagnetMetadataForBt', () => {
       swapMagnetMetadataForBt(
         {
           taskId: 'm-mag',
-          base64: 'BASE64TORRENT==',
+          base64: sampleTorrentBase64,
           selectedFiles: [0],
           saveDir: '/Downloads',
         },
@@ -535,7 +571,7 @@ describe('swapMagnetMetadataForBt', () => {
     }
     const input = {
       taskId: 'm-mag',
-      base64: 'BASE64TORRENT==',
+      base64: sampleTorrentBase64,
       selectedFiles: [0, 1],
       saveDir: '/Downloads',
       name: 'video.mp4',
@@ -598,7 +634,7 @@ describe('swapMagnetMetadataForBt', () => {
         swapMagnetMetadataForBt(
           {
             taskId: 'm-mag',
-            base64: 'BASE64TORRENT==',
+            base64: sampleTorrentBase64,
             selectedFiles: [0],
             saveDir: '/Downloads',
           },
@@ -655,7 +691,7 @@ describe('swapMagnetMetadataForBt', () => {
     }
     const input = {
       taskId: 'm-mag',
-      base64: 'BASE64TORRENT==',
+      base64: sampleTorrentBase64,
       selectedFiles: [0, 1],
       saveDir: '/Downloads',
       name: 'video.mp4',
@@ -715,7 +751,7 @@ describe('swapMagnetMetadataForBt', () => {
     await swapMagnetMetadataForBt(
       {
         taskId: 'm-mag',
-        base64: 'BASE64==',
+        base64: sampleTorrentBase64,
         selectedFiles: [0],
         saveDir: '/Downloads',
       },
@@ -750,7 +786,7 @@ describe('swapMagnetMetadataForBt', () => {
     const result = await swapMagnetMetadataForBt(
       {
         taskId: 'm-mag',
-        base64: 'BASE64TORRENT==',
+        base64: sampleTorrentBase64,
         selectedFiles: [0, 1],
         saveDir: '/Downloads',
         name: 'video.mp4',
@@ -822,7 +858,7 @@ describe('swapMagnetMetadataForBt', () => {
     const result = await swapMagnetMetadataForBt(
       {
         taskId: 'm-mag',
-        base64: 'BASE64TORRENT==',
+        base64: sampleTorrentBase64,
         selectedFiles: [0],
         saveDir: '/Downloads',
         name: 'Show',
@@ -879,7 +915,7 @@ describe('swapMagnetMetadataForBt', () => {
     await swapMagnetMetadataForBt(
       {
         taskId: 'm-mag',
-        base64: 'BASE64TORRENT==',
+        base64: sampleTorrentBase64,
         selectedFiles: [0],
         saveDir: '/Downloads',
       },
@@ -952,7 +988,7 @@ describe('swapMagnetMetadataForBt', () => {
     const swapPromise = swapMagnetMetadataForBt(
       {
         taskId: 'm-mag',
-        base64: 'BASE64TORRENT==',
+        base64: sampleTorrentBase64,
         selectedFiles: [0],
         saveDir: '/Downloads',
       },
@@ -1037,7 +1073,7 @@ describe('swapMagnetMetadataForBt', () => {
       swapMagnetMetadataForBt(
         {
           taskId: 'm-mag',
-          base64: 'BASE64TORRENT==',
+          base64: sampleTorrentBase64,
           selectedFiles: [0],
           saveDir: '/Downloads',
         },
@@ -1088,7 +1124,7 @@ describe('swapMagnetMetadataForBt', () => {
       swapMagnetMetadataForBt(
         {
           taskId: 'm-mag',
-          base64: 'BASE64TORRENT==',
+          base64: sampleTorrentBase64,
           selectedFiles: [0],
           saveDir: '/Downloads',
         },
@@ -1142,7 +1178,7 @@ describe('swapMagnetMetadataForBt', () => {
       swapMagnetMetadataForBt(
         {
           taskId: 'm-mag',
-          base64: 'BASE64TORRENT==',
+          base64: sampleTorrentBase64,
           selectedFiles: [0],
           saveDir: '/Downloads',
         },
@@ -1175,7 +1211,7 @@ describe('swapMagnetMetadataForBt', () => {
     )
   })
 
-  it('uses the final directory for unparsed metadata and persists BT recovery paths', async () => {
+  it('maps validated metadata into the final directory and persists BT recovery paths', async () => {
     // Mirrors createTaskHandler's BT branch. The pre-fix swap passed the bare
     // saveDir to aria2 (files loose in ~/Downloads, no in-flight container),
     // left finalPath=saveDir / finalName='' / torrentMetaPath=null — which
@@ -1184,7 +1220,7 @@ describe('swapMagnetMetadataForBt', () => {
     await swapMagnetMetadataForBt(
       {
         taskId: 'm-mag',
-        base64: 'BASE64==',
+        base64: sampleTorrentBase64,
         selectedFiles: [0],
         saveDir: '/Downloads',
         name: 'Movie',
@@ -1208,11 +1244,14 @@ describe('swapMagnetMetadataForBt', () => {
     const finalPath = '/Downloads/Movie'
     // The engine writes directly into the final container.
     expect(adapter.addTorrent).toHaveBeenCalledWith(
-      expect.objectContaining({ saveDir: finalPath })
+      expect.objectContaining({
+        saveDir: '/u/torrents/m-mag.torrent.state',
+        outputRoot: finalPath,
+      })
     )
-    expect(adapter.addTorrent.mock.calls[0][0].outputFilePaths).toBeUndefined()
+    expect(adapter.addTorrent.mock.calls[0][0].outputFilePaths).toHaveLength(3)
     // Container is pre-created so aria2's <dir>/<sha1>.torrent write succeeds.
-    expect(mkdirMock).toHaveBeenCalledWith(finalPath, {
+    expect(mkdirMock).toHaveBeenCalledWith('/u/torrents/m-mag.torrent.state', {
       recursive: true,
     })
 
@@ -1221,7 +1260,7 @@ describe('swapMagnetMetadataForBt', () => {
     expect(after?.instances[0].payload.btStorageLayout).toMatchObject({
       version: 2,
       strategy: 'direct',
-      torrentRootName: null,
+      torrentRootName: 'bundle',
     })
     // The download uses its final path from creation through completion.
     expect(after?.task.finalPath).toBe('/Downloads/Movie')
@@ -1329,7 +1368,7 @@ describe('swapMagnetMetadataForBt', () => {
     await swapMagnetMetadataForBt(
       {
         taskId: 'm-mag',
-        base64: 'BASE64==',
+        base64: sampleTorrentBase64,
         selectedFiles: [0, 2, 3],
         saveDir: '/Downloads',
       },
@@ -1361,7 +1400,7 @@ describe('swapMagnetMetadataForBt', () => {
       swapMagnetMetadataForBt(
         {
           taskId: 'm-mag',
-          base64: 'BASE64TORRENT==',
+          base64: sampleTorrentBase64,
           selectedFiles: [0, 1],
           saveDir: '/Downloads',
           name: 'video.mp4',
@@ -1398,7 +1437,7 @@ describe('swapMagnetMetadataForBt', () => {
       swapMagnetMetadataForBt(
         {
           taskId: 'm-nonexistent',
-          base64: 'BASE64TORRENT==',
+          base64: sampleTorrentBase64,
           selectedFiles: [0],
           saveDir: '/Downloads',
         },
@@ -1431,7 +1470,7 @@ describe('swapMagnetMetadataForBt', () => {
     await swapMagnetMetadataForBt(
       {
         taskId: 'm-mag',
-        base64: 'BASE64==',
+        base64: sampleTorrentBase64,
         selectedFiles: [0],
         saveDir: '/Downloads',
       },
@@ -1461,7 +1500,7 @@ describe('swapMagnetMetadataForBt', () => {
     await swapMagnetMetadataForBt(
       {
         taskId: 'm-mag',
-        base64: 'BASE64==',
+        base64: sampleTorrentBase64,
         selectedFiles: [0],
         saveDir: '/Downloads',
         name: 'video.mp4',

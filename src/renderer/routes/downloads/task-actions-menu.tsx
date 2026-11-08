@@ -22,15 +22,26 @@ import {
   menuActionEnabled,
   subscribeMenuContext,
 } from '@renderer/features/application-menu/task-context'
+import { OperationTaskMenuItems } from '@renderer/features/plugin-operations/operation-task-menu'
+import { useExitSnapshot } from '@renderer/hooks/use-exit-snapshot'
 import { openAddTaskDialog } from '@renderer/lib/open-add-task-dialog'
 import { openMagnetFileSelection } from '@renderer/lib/open-magnet-file-selection'
+import { openTaskFile } from '@renderer/lib/open-task-file'
 import { transport } from '@renderer/lib/transport'
+import {
+  hasHostFileActions,
+  hostOpenFileLabelKey,
+  hostRevealFolderLabelKey,
+} from '@renderer/platform/nas'
 import { CommandIds } from '@shared/commands-catalog'
+import { formatNativePath } from '@shared/lib/path-display'
 import { Commands } from '@shared/protocol/commands'
+import type { BtStorageRequest } from '@shared/schemas/bt-storage'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
 import {
   type BulkTaskCommandResult,
+  canManageBtStorage,
   canOpenTaskFile,
   canSelectTaskFiles,
 } from '@shared/types/task-actions'
@@ -46,6 +57,7 @@ import {
   useSyncExternalStore,
 } from 'react'
 import { useTranslation } from 'react-i18next'
+import { BtStorageDialog } from './bt-storage-dialog'
 import { DownloadsToolbarButton } from './downloads-toolbar-button'
 import { canRevealTaskFolder } from './inspector/can-reveal-task-folder'
 import { copyTaskUrls } from './inspector/task-copy-url'
@@ -112,6 +124,17 @@ export function TaskActionsMenu({
     () => tasks.filter((task) => (targetIds ?? selectedIds).has(task.id)),
     [tasks, targetIds, selectedIds]
   )
+  const [storageDialog, setStorageDialog] = useState<{
+    task: DownloadTask
+    mode: BtStorageRequest['mode']
+  } | null>(null)
+  const storage = storageDialog ? (
+    <BtStorageDialog
+      key={`${storageDialog.task.id}-${storageDialog.mode}`}
+      {...storageDialog}
+      onClose={() => setStorageDialog(null)}
+    />
+  ) : null
   const [menuOpen, setMenuOpen] = useState(false)
   const pendingRef = useRef(false)
   const [pending, setPending] = useState(false)
@@ -123,10 +146,12 @@ export function TaskActionsMenu({
       actions.resumeCount +
       actions.retryCount +
       actions.reseedCount +
+      actions.redownloadCount +
       actions.stopSeedingCount >
       0 ||
     single?.status === TaskStatus.MetadataReady ||
     canChooseFiles ||
+    (single && canManageBtStorage(single)) ||
     actions.moveCount > 0
   const { open: inspectorVisible } = useTaskInspectorState(selection, tasks)
   const macOS =
@@ -136,7 +161,10 @@ export function TaskActionsMenu({
     () => taskMenuShortcuts(macOS, __MOTRIX_TARGET__ === 'electron'),
     [macOS]
   )
-  const taskPath = single?.finalPath || single?.diskPath
+  const taskPath = formatNativePath(
+    single?.finalPath || single?.diskPath || '',
+    transport.platform
+  )
   const runAction = async (
     action: () => Promise<unknown>,
     failureTitle: string
@@ -255,45 +283,39 @@ export function TaskActionsMenu({
       visible: selected.length > 0 || !children,
       content: (
         <>
-          {single &&
-            __MOTRIX_TARGET__ === 'electron' &&
-            canOpenTaskFile(single) && (
-              <DropdownMenuItem
-                disabled={pending}
-                onClick={() =>
-                  void runAction(
-                    () =>
-                      transport.invoke(Commands.OpenTaskFile, {
-                        taskId: single.id,
+          {single && hasHostFileActions() && canOpenTaskFile(single) && (
+            <DropdownMenuItem
+              disabled={pending}
+              onClick={() =>
+                void runAction(
+                  () => openTaskFile(single.id, t),
+                  t('panel.downloads.action.openFileFailed')
+                )
+              }
+            >
+              {t(hostOpenFileLabelKey())}
+            </DropdownMenuItem>
+          )}
+          {single && hasHostFileActions() && canRevealTaskFolder(single) && (
+            <DropdownMenuItem
+              onClick={() => {
+                void transport
+                  .invoke(Commands.RevealInFolder, { taskId: single.id })
+                  .catch((error: unknown) =>
+                    toast.add({
+                      title: t('panel.downloads.action.singleTaskFailed', {
+                        name: single.name,
+                        reason: String(error),
                       }),
-                    t('panel.downloads.action.openFileFailed')
+                      type: 'error',
+                    })
                   )
-                }
-              >
-                {t('panel.downloads.action.openFile')}
-              </DropdownMenuItem>
-            )}
-          {single &&
-            __MOTRIX_TARGET__ === 'electron' &&
-            canRevealTaskFolder(single) && (
-              <DropdownMenuItem
-                onClick={() => {
-                  void transport
-                    .invoke(Commands.RevealInFolder, { taskId: single.id })
-                    .catch((error: unknown) =>
-                      toast.add({
-                        title: t('panel.downloads.action.singleTaskFailed', {
-                          name: single.name,
-                          reason: String(error),
-                        }),
-                        type: 'error',
-                      })
-                    )
-                }}
-              >
-                {t('panel.downloads.action.openFolder')}
-              </DropdownMenuItem>
-            )}
+              }}
+            >
+              {t(hostRevealFolderLabelKey())}
+            </DropdownMenuItem>
+          )}
+          <OperationTaskMenuItems selected={selected} open={menuOpen} />
           <InspectorMenuItem
             visible={inspectorVisible}
             disabled={!inspectorVisible && selected.length === 0}
@@ -326,8 +348,19 @@ export function TaskActionsMenu({
             </DropdownMenuItem>
           )}
           {actions.retryCount > 0 && (
-            <DropdownMenuItem onClick={() => void actions.onRetry()}>
+            <DropdownMenuItem
+              onClick={(event) => void actions.onRetry({ alt: event.altKey })}
+            >
               {t('panel.downloads.action.retry')}
+            </DropdownMenuItem>
+          )}
+          {actions.redownloadCount > 0 && (
+            <DropdownMenuItem
+              onClick={(event) =>
+                void actions.onRedownload({ alt: event.altKey })
+              }
+            >
+              {t('panel.downloads.action.redownload')}
             </DropdownMenuItem>
           )}
           {actions.reseedCount > 0 && (
@@ -335,6 +368,16 @@ export function TaskActionsMenu({
               {t('panel.downloads.action.reseed')}
             </DropdownMenuItem>
           )}
+          {single &&
+            canManageBtStorage(single) &&
+            (['move', 'locate', 'recheck'] as const).map((mode) => (
+              <DropdownMenuItem
+                key={mode}
+                onClick={() => setStorageDialog({ task: single, mode })}
+              >
+                {t(`task.storage.${mode}`)}
+              </DropdownMenuItem>
+            ))}
           {single?.status === TaskStatus.MetadataReady && (
             <DropdownMenuItem
               disabled={pending}
@@ -489,9 +532,50 @@ export function TaskActionsMenu({
       <DropdownMenuGroup>{group.content}</DropdownMenuGroup>
     </Fragment>
   ))
+  const presentation = useExitSnapshot(menuOpen, items)
   if (children)
     return (
-      <ContextMenu
+      <>
+        {' '}
+        {storage}
+        <ContextMenu
+          open={menuOpen}
+          onOpenChange={(open) => {
+            if (open) prepare()
+            else setTargetIds(null)
+            setMenuOpen(open)
+          }}
+        >
+          <ContextMenuTrigger
+            render={children}
+            onKeyDownCapture={handleShortcut}
+            onCopyCapture={handleCopy}
+            onContextMenuCapture={(event) => {
+              const row = (event.target as Element).closest<HTMLElement>(
+                '[data-task-id]'
+              )
+              if (!row?.dataset.taskId) return
+              const state = selection.getState()
+              if (!state.selectedIds.has(row.dataset.taskId))
+                state.select(row.dataset.taskId)
+              state.focus(row.dataset.taskId)
+              prepare()
+            }}
+          />
+          <ContextMenuContent
+            onKeyDownCapture={handleShortcut}
+            onCopyCapture={handleCopy}
+            className="w-max min-w-48 max-w-[min(18rem,var(--available-width))]"
+          >
+            {presentation}
+          </ContextMenuContent>
+        </ContextMenu>
+      </>
+    )
+  return (
+    <>
+      {storage}
+      <DropdownMenu
         open={menuOpen}
         onOpenChange={(open) => {
           if (open) prepare()
@@ -499,62 +583,29 @@ export function TaskActionsMenu({
           setMenuOpen(open)
         }}
       >
-        <ContextMenuTrigger
-          render={children}
+        <DropdownMenuTrigger
           onKeyDownCapture={handleShortcut}
           onCopyCapture={handleCopy}
-          onContextMenuCapture={(event) => {
-            const row = (event.target as Element).closest<HTMLElement>(
-              '[data-task-id]'
-            )
-            if (!row?.dataset.taskId) return
-            const state = selection.getState()
-            if (!state.selectedIds.has(row.dataset.taskId))
-              state.select(row.dataset.taskId)
-            state.focus(row.dataset.taskId)
-            prepare()
-          }}
-        />
-        <ContextMenuContent
+          render={
+            <DownloadsToolbarButton
+              aria-label={t('panel.downloads.view.taskActions')}
+              title={t('panel.downloads.view.taskActions')}
+              ref={triggerRef}
+            />
+          }
+        >
+          <MoreIcon className="size-4" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
           onKeyDownCapture={handleShortcut}
           onCopyCapture={handleCopy}
+          align="end"
+          data-menu-density="compact"
           className="w-max min-w-48 max-w-[min(18rem,var(--available-width))]"
         >
-          {items}
-        </ContextMenuContent>
-      </ContextMenu>
-    )
-  return (
-    <DropdownMenu
-      open={menuOpen}
-      onOpenChange={(open) => {
-        if (open) prepare()
-        else setTargetIds(null)
-        setMenuOpen(open)
-      }}
-    >
-      <DropdownMenuTrigger
-        onKeyDownCapture={handleShortcut}
-        onCopyCapture={handleCopy}
-        render={
-          <DownloadsToolbarButton
-            aria-label={t('panel.downloads.view.taskActions')}
-            title={t('panel.downloads.view.taskActions')}
-            ref={triggerRef}
-          />
-        }
-      >
-        <MoreIcon className="size-4" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        onKeyDownCapture={handleShortcut}
-        onCopyCapture={handleCopy}
-        align="end"
-        data-menu-density="compact"
-        className="w-max min-w-48 max-w-[min(18rem,var(--available-width))]"
-      >
-        {items}
-      </DropdownMenuContent>
-    </DropdownMenu>
+          {presentation}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
   )
 }

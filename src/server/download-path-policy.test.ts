@@ -57,6 +57,62 @@ describe('resolveServerDefaultSaveDir', () => {
 })
 
 describe('ServerDownloadPathPolicy', () => {
+  it.each([false, true])(
+    'prepares an existing volume root whose mkdir reports EPERM (allowlist: %s)',
+    async (allowlisted) => {
+      const root = await realpath(await tempRoot())
+      const realMkdir = filesystem.mkdir
+      const mkdirSpy = vi
+        .spyOn(filesystem, 'mkdir')
+        .mockImplementation(async (...args) => {
+          if (args[0] === root) {
+            throw Object.assign(new Error('cannot mkdir volume root'), {
+              code: 'EPERM',
+            })
+          }
+          return realMkdir(...args)
+        })
+      syncBuiltinESMExports()
+      vi.resetModules()
+      const { createServerDownloadPathPolicy: createPolicy } = await import(
+        './download-path-policy'
+      )
+
+      const policy = await createPolicy({
+        defaultSaveDir: root,
+        allowedSaveDirsValue: allowlisted ? root : undefined,
+      })
+      expect(await policy.prepareSaveDir(root)).toBe(root)
+      expect(await policy.authorizeDirectory(root)).toMatchObject({
+        canonicalPath: root,
+      })
+      const nested = path.join(root, 'nested', 'downloads')
+      expect(await policy.prepareSaveDir(nested)).toBe(nested)
+      expect((await stat(nested)).isDirectory()).toBe(true)
+      expect(mkdirSpy).toHaveBeenCalledWith(nested, { recursive: true })
+      expect(mkdirSpy).not.toHaveBeenCalledWith(root, expect.anything())
+    }
+  )
+
+  it('still rejects an existing directory when the write probe is denied', async () => {
+    const root = await realpath(await tempRoot())
+    const error = Object.assign(new Error('write access denied'), {
+      code: 'EPERM',
+    })
+    const openSpy = vi.spyOn(filesystem, 'open').mockRejectedValue(error)
+    syncBuiltinESMExports()
+    vi.resetModules()
+    const { createServerDownloadPathPolicy: createPolicy } = await import(
+      './download-path-policy'
+    )
+
+    await expect(createPolicy({ defaultSaveDir: root })).rejects.toMatchObject({
+      message: `Save directory is not writable: ${root}`,
+      cause: error,
+    })
+    expect(openSpy).toHaveBeenCalledOnce()
+  })
+
   it('reuses the single authorization stat for the authorized symlink target modification time', async () => {
     const root = await tempRoot()
     const observed = vi.spyOn(filesystem, 'stat')

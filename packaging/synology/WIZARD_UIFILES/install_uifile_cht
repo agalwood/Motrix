@@ -1,0 +1,28 @@
+[
+  {
+    "step_title": "Motrix",
+    "items": [
+      {
+        "desc": "所有 DSM 管理員共同管理同一組任務。預設下載目錄為 motrix 共用資料夾。安裝後可在 Motrix 的「設定 → 群暉套件」中設定目錄和瀏覽器擴充功能，無需編輯設定檔。"
+      },
+      {
+        "type": "textfield",
+        "desc": "用戶端連接埠",
+        "subitems": [
+          {
+            "key": "wizard_client_port",
+            "defaultValue": "16802",
+            "validator": {
+              "allowBlank": false,
+              "regex": {
+                "expr": "/^\\d{4,5}$/",
+                "errorText": "請輸入 1024–65535 之間的連接埠號碼"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "invalid_next_disabled_v2": true
+  }
+]

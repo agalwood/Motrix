@@ -4,10 +4,12 @@
     "help": "Ez a szerver üzemeltetői tokent kér. A szervert futtató gépen állítsd be a MOTRIX_OPERATOR_TOKEN környezeti változót, vagy másold ki a tokent a <dataDir>/operator-token fájlból, majd illeszd be alább.",
     "placeholder": "Üzemeltetői token",
     "error": "Érvénytelen üzemeltetői token. Ellenőrizd a MOTRIX_OPERATOR_TOKEN értékét vagy a <dataDir>/operator-token fájlt a szervert futtató gépen, majd próbáld újra.",
-    "submit": "Feloldás"
+    "submit": "Feloldás",
+    "nasSessionExpired": "A NAS rendszergazdai munkamenete nem ellenőrizhető. Nyissa meg a Motrixot a NAS asztaláról.",
+    "openDsm": "Open DSM to sign in"
   },
   "operatorAdmin": {
-    "help": "Használat:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\nA parancs kizárólag a futó Motrix szerverrel kommunikál a konténer loopback kapcsolatán keresztül.",
+    "help": "Használat:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nA parancs kizárólag a futó Motrix szerverrel kommunikál a konténer loopback kapcsolatán keresztül.",
     "errorPrefix": "motrix-admin: {{message}}",
     "usageHint": "A használati útmutatóhoz futtasd a `motrix-admin --help` parancsot.",
     "pending": {
@@ -55,6 +57,20 @@
         "loopback": "A futó Motrix szerver nem érhető el a konténer loopback kapcsolatán keresztül.",
         "approvalNotReady": "A párosítás jóváhagyása még nem áll készen a futó Motrix szerveren."
       }
+    },
+    "extension": {
+      "heading": "Pending browser Extension pairing requests",
+      "identityNotice": "Verify that you initiated this request. Origin and claimed identity alone do not prove who is connecting. Terminal recording can capture the pairing code.",
+      "row": "{{index}}. {{browser}} [{{identity}}] Origin: {{origin}}; claimed ID: {{claimedId}}; Server: {{authority}}; {{seconds}} s remaining",
+      "select": "Enter the number of one request (Ctrl+C to exit): ",
+      "code": "Pairing code: {{code}}",
+      "instructions": "Type this code into the browser Extension. It expires at the original deadline. Ctrl+C closes this view without approving or denying the request.",
+      "none": "No pending Extension pairing requests. Start pairing in the Extension, then run this command again. If requests remain absent, check the remote Extension configuration.",
+      "ended": "The selected pairing request has ended. Check the Extension for its outcome.",
+      "ttyRequired": "Extension pairing requires interactive input, output and error terminals. Piping, redirection and JSON output are not supported.",
+      "cancelled": "Pairing code view closed. No approval or denial was sent.",
+      "invalidSelection": "Select exactly one listed request by its number.",
+      "unavailable": "The selected request expired, ended or changed. Start a new pairing attempt in the Extension."
     }
   },
   "common": {
@@ -317,7 +333,7 @@
         "loading": "Aktivitási adatok betöltése",
         "unavailable": "Az aktivitási adatok nem érhetők el",
         "retry": "Újrapróbálás",
-        "stale": "Az aktivitási adatok elavultak lehetnek",
+        "refreshFailed": "A frissítés sikertelen",
         "coverageDegraded": "Az aktivitási adatok {{time}} óta hiányosak lehetnek",
         "rangeSummary": "{{weeks}} hét letöltési aktivitása, {{start}} – {{end}}",
         "completedIntensity": "A szín intenzitása a befejezett letöltések számát jelzi",
@@ -591,7 +607,7 @@
         "down": "Letöltési sebesség",
         "up": "Feltöltési sebesség",
         "eta": "Hátralévő idő",
-        "connections": "Partnerek",
+        "connections": "Kapcsolatok",
         "status": "Állapot",
         "createdAt": "Létrehozás dátuma",
         "finishedAt": "Befejezés dátuma"
@@ -637,6 +653,7 @@
         }
       },
       "stats": {
+        "title": "Átviteli állapot",
         "downSpeed": "Letöltési sebesség",
         "upSpeed": "Feltöltési sebesség",
         "engineOk": "Motor kész",
@@ -688,18 +705,17 @@
         },
         "activity": {
           "transferTitle": {
-            "session": "Munkamenet adatforgalma",
+            "session": "Legutóbbi átvitel",
             "lifetime": "Összesített adatforgalom"
           },
           "download": "Letöltés",
           "upload": "Feltöltés",
           "loading": "Aktivitási adatok betöltése…",
           "collecting": "Adatforgalmi adatok gyűjtése…",
-          "noSessionHistory": "Ebben a munkamenetben még nincs rögzített adatforgalom.",
+          "noSessionHistory": "Nincs rögzített legutóbbi átvitel.",
           "lifetimeEmpty": "Még nem érhetők el a teljes időszak előzményei.",
           "noTraffic": "Jelenleg nincs hálózati adatforgalom.",
           "unavailable": "A teljes időszak aktivitási adatai nem érhetők el.",
-          "coverageGap": "Az adatrögzítés megszakadt.",
           "retry": "Újrapróbálás",
           "notAvailable": "Nem érhető el",
           "stale": {
@@ -708,7 +724,7 @@
           },
           "range": {
             "label": "Adatforgalmi időszak",
-            "session": "Munkamenet (60 mp)",
+            "session": "Utolsó 60 mp",
             "lifetime": "Teljes időszak",
             "latest": "Legutóbbi 60 másodperc",
             "adaptive_one": "Adaptív felbontás · {{count}} minta",
@@ -766,7 +782,18 @@
             "activeSeconds_other": "{{count}} másodperc",
             "sampleCount_one": "{{count}} minta",
             "sampleCount_other": "{{count}} minta",
-            "noDataQualityIssues": "Nincs adatrögzítési figyelmeztetés."
+            "noDataQualityIssues": "Nincs adatrögzítési figyelmeztetés.",
+            "noSamples": "Nincsenek minták",
+            "overview": "Előzmények áttekintése",
+            "rangeStart": "Tartomány kezdete",
+            "rangeEnd": "Tartomány vége",
+            "earlier": "Régebbi előzmények",
+            "later": "Újabb előzmények",
+            "zoomIn": "Nagyítás",
+            "zoomOut": "Kicsinyítés",
+            "showAll": "Összes megjelenítése",
+            "following": "Legfrissebb adatok követése",
+            "followLatest": "Vissza a legfrissebbhez"
           }
         },
         "pieces": {
@@ -902,12 +929,28 @@
         "removeMixedTitle": "Eltávolítod a(z) {{count}} feladatot?",
         "openFile": "Fájl megnyitása",
         "openFileFailed": "Nem sikerült megnyitni a fájlt",
+        "openFileAppFailed": "A rendszer nem tudta megnyitni ezt a fájlt. Ellenőrizze, hogy az alapértelmezett alkalmazás még telepítve van-e, vagy nyissa meg a mappát, és válasszon másik alkalmazást.",
+        "openFileFailedHint": "Ellenőrizze, hogy a fájl még létezik-e, és van-e jogosultsága megnyitni.",
         "chooseFiles": "Fájlok kiválasztása…",
         "queueOrder": "Letöltési sorrend",
         "moveQueueTop": "A sor elejére",
         "moveQueueBottom": "A sor végére",
         "copyError": "Hibainformáció másolása",
-        "errorReport": "{{name}}\nFeladatazonosító: {{id}}\n{{details}}"
+        "errorReport": "{{name}}\nFeladatazonosító: {{id}}\n{{details}}",
+        "redownload": "Re-download",
+        "redownloadWithDialog": "Re-download with options... (Alt+Click)",
+        "redownloadTooltipBatch": "Re-download {{n}} of {{total}} selected",
+        "redownloadOverwriteTitle": "File Already Exists",
+        "redownloadOverwriteDescription": "“{{name}}” already exists in the download directory. Re-downloading will overwrite or rename it. Do you want to continue?",
+        "redownloadCredentialsExpired": "Original request options have expired. Please review and submit.",
+        "redownloadStarted": "Re-download started",
+        "retryDialogTitle": "Letöltés újrapróbálása",
+        "retryDialogDescription": "Új letöltés indításához módosítsa a(z) {{name}} kérési paramétereit. A sikertelen feladat és a részleges fájl megmarad.",
+        "retryDialogProgress": "{{current}}. letöltés, összesen {{total}}",
+        "downloadToDevice": "Download to this device",
+        "revealInFileStation": "Show in File Station",
+        "nasFileUnavailable": "File access could not be authorized. Check the account and folder permissions.",
+        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again."
       },
       "titleCount": "{{shown}} megjelenítve · összesen {{total}}",
       "type": {
@@ -987,6 +1030,11 @@
   },
   "task": {
     "add": {
+      "extraHeaders": "További fejlécek",
+      "headerName": "Fejléc neve",
+      "headerValue": "Fejléc értéke",
+      "addHeader": "Fejléc hozzáadása",
+      "removeHeader": "Fejléc eltávolítása",
       "title": "Új feladat",
       "links": "Hivatkozások",
       "torrent": "Torrent",
@@ -998,6 +1046,7 @@
       "createFailedByPlugin": "Nem sikerült létrehozni a feladatot: a(z) „{{pluginId}}” bővítmény leállította ({{detail}}). Tiltsd le ezt a bővítményt a Beállítások → Bővítmények alatt, majd próbáld újra.",
       "createFailedPathTooLong": "Nem sikerült létrehozni a feladatot: a cél elérési útja {{length}} karakter hosszú, ami meghaladja a Windows {{limit}} karakteres korlátját. Válassz rövidebb mentési útvonalat vagy fájlnevet.",
       "parseFailed": "A torrentfájl feldolgozása sikertelen.",
+      "unsupportedTorrent": "Ez a torrent a jelenlegi letöltőmotor által nem támogatott funkciókat használ.",
       "urlsCount_one": "{{count}} URL",
       "urlsCount_other": "{{count}} URL",
       "urlsWithInvalid": "{{valid}} érvényes, {{invalid}} érvénytelen",
@@ -1080,6 +1129,7 @@
         "doc": "Dokumentum"
       },
       "errors": {
+        "headerNameRequired": "Adja meg a fejléc nevét, vagy távolítsa el ezt a fejlécet.",
         "urlsRequired": "Legalább egy URL megadása szükséges",
         "saveDirRequired": "Mentési mappa megadása szükséges",
         "noFilesSelected": "Válassz ki legalább egy fájlt",
@@ -1090,7 +1140,8 @@
         "failed": "A(z) {{name}} automatikus indítása sikertelen. Nyisd meg a feladat részleteit, válaszd ki a fájlokat, majd próbáld újra."
       },
       "undoCorrection": "URL-javítás visszavonása",
-      "submissionUnconfirmed": "Az eredmény nincs megerősítve. Újrapróbáláskor a rendszer ellenőrzi az eredeti kérést, mielőtt újabb feladatot hozna létre."
+      "submissionUnconfirmed": "Az eredmény nincs megerősítve. Újrapróbáláskor a rendszer ellenőrzi az eredeti kérést, mielőtt újabb feladatot hozna létre.",
+      "selectNasTorrent": "Choose a torrent from the NAS"
     },
     "detail": {
       "peers": "Partnerek: {{count}}",
@@ -1134,7 +1185,8 @@
         "resumeSourceChanged": "A részleges fájl megmaradt, mert a távoli fájl a letöltés megkezdése óta megváltozott.",
         "resumeRangeUnsupported": "A részleges fájl megmaradt, mert a szerver nem támogatja a biztonságos tartományalapú folytatást.",
         "resumeValidationFailed": "A részleges fájl megmaradt, mert a Motrix nem tudta ellenőrizni, hogy a távoli fájl változatlan maradt-e.",
-        "mediaInterrupted": "Ezt a médialetöltést az alkalmazás újraindítása megszakította, és nem folytatható. Add hozzá újra az újbóli letöltéshez."
+        "mediaInterrupted": "Ezt a médialetöltést az alkalmazás újraindítása megszakította, és nem folytatható. Add hozzá újra az újbóli letöltéshez.",
+        "portableExternalPath": "This task uses a location outside the portable folder. The application moved or the original directory is unavailable. Check the download location before retrying."
       }
     },
     "error": {
@@ -1143,6 +1195,7 @@
         "recoveryFailed": "Nem sikerült helyreállítani a letöltést: {{cause}}",
         "recoveryOutputConflict": "Az ideiglenes és a végleges fájl is létezik; mindkettő megmaradt kézi ellenőrzésre",
         "filesMissing": "Az alkalmazás újraindítása után egyes fájlok hiányoznak",
+        "sourceHash": "A kiadó SHA-256 értéke",
         "renameFileFailed": "Nem sikerült átnevezni a fájlt: {{cause}}",
         "renameDirFailed": "Nem sikerült átnevezni a mappát: {{cause}}",
         "pluginChainAborted": "A bővítménylánc megszakadt: {{cause}}",
@@ -1176,6 +1229,36 @@
         "checksumMismatch": "A letöltött fájl sérült lehet; töltsd le újra az ellenőrzéshez",
         "tooManyRedirects": "A forráshivatkozás hibás lehet; próbálj másik hivatkozást",
         "btMetadataFailed": "Ellenőrizd a magnet hivatkozást, vagy adj hozzá további trackereket, majd próbáld újra"
+      }
+    },
+    "storage": {
+      "move": "Move files…",
+      "locate": "Find existing files…",
+      "recheck": "Check files…",
+      "moveDescription": "Choose a new folder for your downloaded files. Seeding pauses while they move.",
+      "locateDescription": "Choose where your downloaded files are now. Motrix will check them so you can continue seeding.",
+      "recheckDescription": "Check that your downloaded files are complete. This will not change the files or download them again.",
+      "directory": "Folder",
+      "name": "File or folder name",
+      "resume": "Continue seeding after checking",
+      "checking": "Checking files…",
+      "moving": "Moving files…",
+      "resuming": "Starting seeding…",
+      "verifiedPercent": "Verified: {{percent}}%",
+      "checkFailed": "Check failed",
+      "verified": "Your files are ready to seed.",
+      "resumed": "Seeding has resumed.",
+      "incomplete": "Some files are missing or incomplete. Check that you selected the right folder and try again.",
+      "resumeFailed": "The new location is saved. Select Re-seed to try sharing the files again.",
+      "useExisting": "Check and use these files",
+      "errors": {
+        "unavailable": "This task cannot be moved or checked yet.",
+        "busy": "Another file operation is still running. Please wait for it to finish.",
+        "destination": "Choose a different folder or file name. The location may already contain these files or be inside the current folder.",
+        "conflict": "Another download is using these files. Open that task to change their location.",
+        "engine": "Motrix could not stop this task. Please try again.",
+        "failed": "Motrix could not access or move the files. Check the folder, available space, and permission to use it.",
+        "cancelled": "Check cancelled."
       }
     }
   },
@@ -1214,6 +1297,10 @@
       "integration": {
         "title": "Integráció",
         "desc": "Böngészőbővítmények, CLI és rendszerintegrációk"
+      },
+      "nas": {
+        "title": "Synology NAS",
+        "desc": "Download folders and client connections"
       }
     },
     "general": {
@@ -1269,6 +1356,12 @@
       "language": "Nyelv",
       "traySpeedometer": "Sebesség megjelenítése a menüsávban",
       "traySpeedometerDesc": "Letöltési és feltöltési sebesség megjelenítése az alkalmazás ikonja mellett.",
+      "dockAndMenuBar": "Dock és menüsáv",
+      "taskbar": "Tálca",
+      "taskbarProgress": "Letöltési folyamat megjelenítése a tálcán",
+      "taskbarProgressDesc": "Az aktív letöltések összesített előrehaladásának megjelenítése a főablak tálcagombján.",
+      "dockProgress": "Letöltési folyamat megjelenítése a Dockban",
+      "dockProgressDesc": "Az aktív letöltések összesített előrehaladásának megjelenítése a Dock ikonján.",
       "trayIconColor": "Tálcaikon színe",
       "trayIconColorDesc": "Válassz olyan színt, amely jól látható a rendszer paneljén.",
       "trayIconColorAuto": "Alkalmazástéma követése",
@@ -1276,6 +1369,10 @@
       "trayIconColorDark": "Sötét ikon (világos panel)",
       "reduceMotion": "Mozgás csökkentése",
       "reduceMotionDesc": "Kevesebb animáció használata az alkalmazásban.",
+      "hardwareAcceleration": "Hardveres gyorsítás",
+      "hardwareAccelerationDesc": "A videokártyát használja a simább megjelenítéshez. Kapcsolja ki, ha az ablak villog vagy a Motrix összeomlik. A módosítás a Motrix újraindítása után lép életbe.",
+      "hardwareAccelerationRecoveryTitle": "A hardveres gyorsítás kikapcsolva",
+      "hardwareAccelerationRecoveryBody": "A Motrix ismétlődő megjelenítési összeomlások miatt kikapcsolta a hardveres gyorsítást. A Beállítások → Megjelenés menüben visszakapcsolhatja, majd újraindíthatja a Motrixot.",
       "liquidGlassEffect": "Liquid Glass",
       "liquidGlassEffectDesc": "Áttetsző üveghatás a letöltési eszköztáron.",
       "liquidGlassEffectMacDesc": "macOS 26 vagy újabb rendszeren az ablakra is érvényes. Módosításkor az ablak újra megnyílik.",
@@ -1338,7 +1435,15 @@
         "historyCountHint": "A régebbi helyreállítási bejegyzések törlődnek.",
         "historyCountPositive": "Adj meg 0-nál nagyobb számot."
       },
-      "description": "RPC, előrehaladás és helyreállítás"
+      "description": "RPC, előrehaladás és helyreállítás",
+      "configFile": {
+        "title": "Konfigurációs fájl",
+        "serverTitle": "Szerver konfigurációs fájlja",
+        "openDirectory": "Mappa megnyitása",
+        "copyPath": "Útvonal másolása",
+        "copied": "Másolva",
+        "actionFailed": "A művelet nem sikerült. Próbáld újra."
+      }
     },
     "about": {
       "appIconAlt": "Motrix alkalmazásikon",
@@ -1386,7 +1491,12 @@
         "channelStable": "Stabil",
         "channelBeta": "Béta",
         "channelBetaWarning": "A béta kevésbé stabil lehet. Az újabb stabil kiadásokat is megkapod. A visszaváltás leállítja a béta frissítéseket, de nem állít vissza régebbi verziót.",
-        "channelSaveError": "A frissítési csatornát nem sikerült menteni. Próbáld újra."
+        "channelSaveError": "A frissítési csatornát nem sikerült menteni. Próbáld újra.",
+        "installing": "Telepítés…",
+        "installingDescription": "A frissítés előkészítése folyamatban van. A Motrix újraindul, amint elkészült.",
+        "manualDownload": "Kézi letöltés",
+        "manualInstall": "Töltse le az új verziót, zárja be a Motrix alkalmazást, majd cserélje le a telepített alkalmazást.",
+        "manualCrossVolume": "A lemezek közötti automatikus telepítés jelenleg nem érhető el. Töltse le az új verziót, és cserélje le kézzel a Motrix alkalmazást."
       },
       "details": {
         "author": "Szerző",
@@ -1586,8 +1696,9 @@
         "turtle_off": "Normál",
         "turtle_on": "Alacsony sebesség",
         "turtle_auto": "Automatikus",
+        "unitFor": "{{field}} mértékegysége",
         "baseSection": "Normál korlátok",
-        "baseSectionDesc": "A mindennapi letöltésekhez használatosak, és minden mód figyelembe veszi őket.",
+        "baseSectionDesc": "Normál módban és aktív alacsony sebességű szabály hiányában érvényesek.",
         "baseDownload": "Letöltés",
         "baseDownloadDesc": "A mindennapi letöltések maximális sebessége.",
         "baseUpload": "Feltöltés",
@@ -1597,7 +1708,7 @@
         "standardLimit": "Normál használata",
         "useStandardLimit": "Normál korlát használata",
         "altSection": "Alacsony sebességű korlátok",
-        "altSectionDesc": "Alacsony sebességű módban vagy ütemezett szabályoknál használatosak. Ezek a korlátok csak csökkenthetik a normál korlátokat.",
+        "altSectionDesc": "Alacsony sebességű módban vagy a profilt kiválasztó automatikus szabály esetén érvényesek.",
         "altDownload": "Letöltés",
         "altDownloadDesc": "Az alacsony sebességű módban érvényes maximális letöltési sebesség.",
         "altUpload": "Feltöltés",
@@ -1668,7 +1779,7 @@
           "adaptiveRulePending": "a sávszélesség {{reserved}}%-át fenntartja más alkalmazások számára a kapcsolat sávszélességének megadása után",
           "ruleSeparator": " és ",
           "autoRules": "A Motrix {{rules}}.",
-          "lowerWins": "A legalacsonyabb aktív korlát érvényesül."
+          "profileSelection": "A kiválasztott mód korlátai érvényesek. Az üres alacsony sebességű értékek a normál korlátokat használják; az automatikus mód további adaptív korlátot alkalmazhat."
         },
         "bandwidthUsed": "A Motrix legfeljebb {{motrix}}%-ot használhat.",
         "bandwidthPending": "A korlát alkalmazásához add meg mindkét kapcsolati sebességet."
@@ -1706,7 +1817,7 @@
         "hidePassword": "Jelszó elrejtése",
         "bypass": "Közvetlen kapcsolódás ezekhez",
         "bypassDesc": "Soronként egy domain, IP-cím vagy CIDR-tartomány. Kezdő ponttal csak az aldomainekre illeszkedik. Fájlletöltésnél a * helyettesítő karakter nem támogatott.",
-        "bypassScopeNote": "Csak fájlletöltésekhez és alkalmazásfrissítésekhez",
+        "bypassScopeNote": "Csak letöltések, bővítmények és alkalmazásfrissítések",
         "scopes": "Proxy használata ezekhez",
         "scopesDesc": "Válaszd ki, mely forgalomtípusok haladjanak át a proxyn.",
         "scopeDownload": "Fájlletöltések",
@@ -1722,7 +1833,9 @@
         "scopeHint": "A BitTorrent-partnerek, a DHT és az UDP-trackerek közvetlenül kapcsolódnak.",
         "scopeNone": "Nincs kiválasztva",
         "scopeChoose": "Kiválasztás…",
-        "scopeSeparator": ", "
+        "scopeSeparator": ", ",
+        "scopePlugins": "Bővítmények telepítése és frissítése",
+        "scopePluginsDesc": "Proxy használata a bővítménykatalógushoz, csomagokhoz, frissítésekhez és biztonsági szabályzatokhoz."
       },
       "nat": {
         "title": "Portleképezés (NAT)",
@@ -1773,6 +1886,12 @@
       "hideSecret": "Titkos érték elrejtése"
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "system": {
         "title": "Alapértelmezett alkalmazás",
         "protocolMagnet": "Magnet hivatkozások megnyitása a Motrixszal",
@@ -1830,8 +1949,14 @@
           "store": "Telepítés",
           "development": "Fejlesztői"
         },
+        "pendingTitle": "Browser pairing requests",
+        "pendingEmpty": "Start pairing in your extension.",
         "pairedTitle": "Csatlakoztatott bővítmények",
         "pairedEmpty": "Még nincs csatlakoztatott bővítmény.",
+        "profile": "Böngészőprofil {{number}}",
+        "connected": "Csatlakoztatva",
+        "disconnected": "Nincs csatlakoztatva",
+        "revokeAll": "Összes leválasztása",
         "lastActive": "Utolsó aktivitás",
         "revoke": "Leválasztás",
         "disconnecting": "Leválasztás…",
@@ -1857,7 +1982,10 @@
             "attested": "Ellenőrzött bővítmény",
             "unverified": "Nem ellenőrzött bővítmény"
           },
-          "identityUnverifiedWarning": "A bővítmény azonosságát nem sikerült ellenőrizni. Csak akkor folytasd, ha megbízol benne."
+          "identityUnverifiedWarning": "A bővítmény azonosságát nem sikerült ellenőrizni. Csak akkor folytasd, ha megbízol benne.",
+          "claim": "Párosítás a jelenlegi fiókkal",
+          "claimDesc": "A bővítmény ennek a fióknak a jogosultságait fogja használni. Ezután adja meg a párosítási kódot a bővítményben a befejezéshez.",
+          "account": "Jelenlegi fiók: {{name}}"
         },
         "pairUnavailable": "Ez a párosítási kérelem már nincs függőben — indítsd újra a párosítást a böngészőbővítményből.",
         "trustedExtensions": "Megbízható bővítmények",
@@ -2037,7 +2165,8 @@
           "missing": "Nem található",
           "untrusted": "A macOS blokkolta",
           "unconfigured": "Nincs beállítva",
-          "version_mismatch": "Nem támogatott"
+          "version_mismatch": "Nem támogatott",
+          "verificationUnavailable": "Az ellenőrzés nem érhető el"
         },
         "stagingMB": "Ideiglenes fájlok méretkorlátja (MB)",
         "stagingMBDesc": "A köztes fájlok számára rendelkezésre álló tárhely bővítményenként és feladatonként.",
@@ -2140,6 +2269,46 @@
       "originMismatchBody": "A valós idejű frissítések nem érhetők el. Használd a beállított szervercímet, vagy kérd meg a rendszergazdát a javítására.",
       "disconnectedTitle": "A valós idejű frissítések kapcsolata megszakadt.",
       "disconnectedBody": "Egyes információk késve jelenhetnek meg. Ha a probléma továbbra is fennáll, ellenőrizd a szerverkapcsolatot és a proxybeállításokat."
+    },
+    "portable": {
+      "title": "Portable mode",
+      "startupError": "Motrix could not open its portable data directory. Check that the data folder beside Motrix.exe is writable and that no external profile override is set. Motrix has not switched to the system profile.",
+      "integrationUnavailable": "Portable mode keeps system settings unchanged. Startup registration, file associations, and system tool installation are unavailable.",
+      "browserDescription": "The local bridge remains available while Motrix is running. Portable mode does not register a browser launcher or change existing browser integration.",
+      "updateDescription": "Download the Windows ZIP, exit Motrix, and move the entire data folder to the new version. Portable mode never runs the installer.",
+      "recoveryError": "Portable data could not be recovered safely. Keep the data folder and check the logs and directory permissions before retrying. Motrix has stopped without using the system profile.",
+      "enginePathDescription": "Portable mode manages engine state inside the data folder for the current application location."
+    },
+    "nas": {
+      "description": "Shared by all DSM administrators. Restart Motrix in Package Center to apply changes.",
+      "account": "Current DSM account: {{username}}",
+      "restartRequired": "Settings saved. Restart Motrix in Package Center to apply them.",
+      "storageUnavailable": "Download folders unavailable",
+      "storageRecoveryHint": "Downloads are paused. Restore the original folders or authorize a different path, then restart Motrix in Package Center.",
+      "roots": "Authorized download folders",
+      "rootsHint": "One existing folder per line. Both your account and the system user motrix need read/write access. Removing the default makes the first folder the new default.",
+      "extensionEnabled": "Enable browser extension connections",
+      "extensionHint": "Use a DSM certificate hostname that resolves to the NAS LAN address.",
+      "webAddress": "Motrix Web address",
+      "webAddressHint": "Use the address you normally open, including /motrix/. You can fill it from this browser.",
+      "useCurrentAddress": "Use this DSM address",
+      "extensionAddress": "Extension connection address",
+      "allowHttp": "Allow pairing codes over HTTP",
+      "allowHttpHint": "Enable only on a trusted network. HTTPS does not require this option.",
+      "clientPort": "Direct client port",
+      "clientPortHint": "Direct clients use this port (1024–65535). DSM HTTPS addresses use the DSM port.",
+      "activeConnections": "Current connection addresses",
+      "cliAddress": "CLI endpoint",
+      "sessionHint": "Clients use their paired DSM account’s current permissions. After DSM logout, session expiration or a package restart, reopen Motrix with that account; pairing again is not required.",
+      "copy": "Copy address",
+      "openSettings": "Configure NAS connections",
+      "errors": {
+        "invalid": "Check the folder paths, port and connection addresses. HTTP code delivery requires explicit permission.",
+        "folderUnavailable": "Check that each folder is on a mounted volume and writable by the internal system user motrix.",
+        "permissionDenied": "The account or folder cannot be authorized. Check DSM shared-folder permissions for your account and the internal system user motrix.",
+        "unavailable": "Package settings are unavailable. Try again after the service has recovered.",
+        "conflict": "The saved configuration changed. Reload before editing again; your unsaved changes will be replaced."
+      }
     }
   },
   "errors": {
@@ -2323,6 +2492,8 @@
       "local": "Helyi fájl",
       "local.pick": ".moext fájl kiválasztása",
       "lead": "Illessz be egy bővítménycímet, válassz egy .moext fájlt, vagy húzz egy fájlt a beviteli mezőre.",
+      "reviewLead": "Telepítés előtt ellenőrizze a bővítmény engedélyeit.",
+      "preparing": "Előkészítés…",
       "placeholder": "Illessz be egy GitHub-címet vagy URL-t, vagy válassz egy helyi .moext fájlt",
       "detected": {
         "auto": "Automatikus",
@@ -2341,7 +2512,15 @@
       "localPrepareFailed": "A bővítményfájlt nem sikerült előkészíteni: {{detail}}",
       "dropHint": "Húzz ide egy .moext fájlt a bővítmény ellenőrzéséhez",
       "dragDisabledHint": "A fogd és vidd művelet ebben a környezetben nem támogatott. Használj GitHub-címet vagy URL-t.",
-      "warning": "Telepítés előtt: csak akkor folytasd, ha megbízol a szerzőben, és számítasz arra, hogy a bővítmény a fent felsorolt hozzáféréseket használja."
+      "warning": "Telepítés előtt: csak akkor folytasd, ha megbízol a szerzőben, és számítasz arra, hogy a bővítmény a fent felsorolt hozzáféréseket használja.",
+      "officialVerified": "A hivatalos Motrix-aláírás ellenőrizve",
+      "officialSignatureInvalid": "A bővítmény hivatalos aláírása nem ellenőrizhető. Frissítse a katalógust.",
+      "officialBuiltinOnly": "Ez a verzió beépített bővítmény jogosultságait igényli. Telepítsen újabb, választható telepítést támogató verziót.",
+      "builtinAlreadyInstalled": "Ez a bővítmény már be van építve. Használja a frissítési műveletét.",
+      "hostIncompatible": "A bővítményhez Motrix {{required}} szükséges; jelenlegi verzió: {{current}}. Frissítsen vagy váltson kompatibilis Motrix-verzióra, és próbálja újra.",
+      "installed": "Telepítve",
+      "optionalHint": "Alapból kikapcsolva; szükség szerint engedélyezhető",
+      "optionalLater": "A választható engedélyek a telepítés után a bővítmény beállításaiban módosíthatók."
     },
     "consent": {
       "installTitle": "Telepíted a(z) {{name}} {{version}} verzióját?",
@@ -2409,12 +2588,16 @@
       "accessHosts_other": "{{count}} webhelyet olvashat",
       "accessBroad": "Bármely webhelyet olvashat",
       "attentionTitle": "A bővítmény problémát jelzett",
+      "runtimeStartFailed": "A bővítmény futtatókörnyezete nem indítható el",
+      "runtimeFailed": "A bővítmény futtatókörnyezete váratlanul leállt",
       "attentionGeneric": "A részleteket a naplókban találod.",
       "viewIssue": "Probléma megtekintése",
       "removeTitle": "Bővítmény eltávolítása",
       "removeDesc": "A bővítmény eltávolításával a Motrixban tárolt adatai is törlődnek.",
       "uninstallConfirmTitle": "Eltávolítod a(z) {{name}} bővítményt?",
-      "uninstallConfirmDesc": "Ezzel a bővítmény és a Motrixban tárolt beállításai is törlődnek."
+      "uninstallConfirmDesc": "Ezzel a bővítmény és a Motrixban tárolt beállításai is törlődnek.",
+      "operations": "Operations",
+      "operationsFailed": "The operation panel could not load. Try again."
     },
     "permissions": {
       "empty": "Ez a bővítmény nem kér engedélyeket.",
@@ -2434,8 +2617,9 @@
         "error": "Hiba",
         "fatal": "Végzetes hiba"
       },
-      "copy": "Másolás",
+      "copy": "Kitakart naplók másolása",
       "clear": "Törlés",
+      "clearFailed": "Nem sikerült törölni a naplókat. Próbáld újra.",
       "output": "Élő napló",
       "entryCount_one": "{{count}} bejegyzés",
       "entryCount_other": "{{count}} bejegyzés",
@@ -2632,7 +2816,8 @@
       },
       "ffmpeg": {
         "strong": "FFmpeg használata",
-        "plain": "Hang- vagy videótartalmat dolgoz fel."
+        "plain": "Hang- vagy videótartalmat dolgoz fel.",
+        "requirement": "Processes audio or video. First, <settings>install or select FFmpeg in Settings</settings>."
       },
       "notify": {
         "strong": "Értesítések küldése",
@@ -2684,7 +2869,43 @@
         "allowed": "Engedélyezve",
         "noAccess": "Kikapcsolva",
         "grant": "Engedélyezés"
+      },
+      "metadata": {
+        "strong": "Feladatok metaadatainak olvasása és írása",
+        "plain": "Menti a bővítmény által a letöltési feladatokhoz létrehozott adatokat."
+      },
+      "files.selected.read": {
+        "strong": "Read files selected for this operation",
+        "plain": "Each operation needs your input selection. Other files are not authorized."
+      },
+      "files.selected.write": {
+        "strong": "Save a new file for this operation",
+        "plain": "Save at the location you confirm without replacing existing files."
       }
+    },
+    "security": {
+      "blocked": "Biztonsági okokból letiltva",
+      "pending": "A bővítmény engedélyezése előtt csatlakozzon az internethez, és keressen frissítéseket.",
+      "unavailable": "A biztonsági szabályzat nem ellenőrizhető. Keressen ismét frissítéseket.",
+      "malware": "Ez a bővítmény rosszindulatúnak bizonyult.",
+      "vulnerability": "A bővítmény ezen verziója biztonsági rést tartalmaz.",
+      "compromised": "A bővítmény terjesztési csatornáját feltörték.",
+      "fixedVersion": "Javítás érhető el a(z) {{version}} verzióban.",
+      "details": "Biztonsági közlemény megtekintése"
+    },
+    "network": {
+      "timeout": "A kapcsolat időtúllépése",
+      "dns": "Sikertelen DNS-feloldás",
+      "proxyAuth": "Sikertelen proxyhitelesítés",
+      "proxyConnect": "Nem lehet kapcsolódni a proxyhoz",
+      "certificate": "Tanúsítvány- vagy TLS-hiba",
+      "http": "HTTP {{status}}",
+      "cancelled": "Kérés megszakítva",
+      "network": "Sikertelen hálózati kérés",
+      "cached": "Sikertelen frissítés; gyorsítótárazott bővítmények láthatók",
+      "unavailable": "A bővítménykatalógus nem tölthető be",
+      "direct": "Sikertelen közvetlen kapcsolat: {{host}}: {{reason}}",
+      "viaProxy": "Sikertelen kapcsolat: {{host}}, proxy: {{proxy}}: {{reason}}"
     }
   },
   "plugin": {
@@ -2697,9 +2918,13 @@
         "title": "FFmpeg-követelmény",
         "notInstalled": "Az FFmpeg nincs telepítve ezen a rendszeren.",
         "versionMismatch": "Az FFmpeg {{version}} verziója van telepítve.",
-        "requiredByPlugin": "Ehhez a bővítményhez FFmpeg szükséges. Telepítsd, majd próbáld újra.",
+        "requiredByPlugin": "A bővítmény most telepíthető. Engedélyezés vagy futtatás előtt állítson be egy kompatibilis FFmpeg-verziót.",
         "optionalDegraded": "A bővítmény médiafunkciói nem lesznek elérhetők, amíg az FFmpeg nincs telepítve."
       }
+    },
+    "runtime": {
+      "ffmpegUnavailable": "Az FFmpeg nem érhető el. Configure FFmpeg in Settings → Integration → Media Tools.",
+      "ffmpegIncompatible": "Az FFmpeg verziója nem felel meg a bővítmény követelményeinek. Configure FFmpeg in Settings → Integration → Media Tools."
     }
   },
   "bridge": {
@@ -2847,7 +3072,9 @@
       "invalidName": "Adj meg érvényes mappanevet.",
       "tooLarge": "Az elérési út vagy a mappanév túl hosszú.",
       "unavailable": "A szerver nem tudta végrehajtani a kérést. Próbáld újra.",
-      "creationOutcomeUnknown": "A létrehozás eredménye nem erősíthető meg. Újabb mappa létrehozása előtt frissítsd a nézetet."
+      "creationOutcomeUnknown": "A létrehozás eredménye nem erősíthető meg. Újabb mappa létrehozása előtt frissítsd a nézetet.",
+      "notFile": "Select a readable regular file.",
+      "unsupportedFileType": "This file extension is not supported."
     },
     "places": {
       "common": "Gyakori helyek",
@@ -2859,6 +3086,33 @@
       "downloads": "Letöltések",
       "root": "Fájlrendszer",
       "loadFailed": "Néhány mappahelyet nem sikerült betölteni."
+    },
+    "openFileTitle": "Select a file",
+    "saveFileTitle": "Save a file",
+    "fileDescription": "Browse files on the Motrix server.",
+    "selectFile": "Select file",
+    "saveFile": "Use this filename",
+    "files": "Files and folders",
+    "fileName": "File name",
+    "emptyFiles": "This folder is empty.",
+    "fileErrors": {
+      "invalidPath": "Enter a valid absolute path.",
+      "outsideRoots": "This path is outside the allowed locations.",
+      "notFound": "This path no longer exists.",
+      "permissionDenied": "You do not have permission to use this path.",
+      "invalidName": "Enter a valid file name.",
+      "tooLarge": "This path or file name is too long."
+    },
+    "selectedFilePath": "Selected file",
+    "file": {
+      "chooseOnServer": "Choose a file on the server using this picker.",
+      "singleFile": "Choose one file at a time.",
+      "wrongType": "Choose a file with one of these extensions: {{extensions}}.",
+      "pathUnavailable": "This file’s location is unavailable. Click to choose it instead.",
+      "choose": "Choose a file",
+      "dropHint": "Drop a file here or click to choose",
+      "browseHint": "Click to browse files",
+      "change": "Click to replace"
     }
   },
   "directoryPreferences": {
@@ -2927,12 +3181,345 @@
     "stoppedSplit": "A leállított feladatok a Befejezett és Hiba csoportokba kerültek. Az összes letöltés megnyílt.",
     "invalidStatus": "Érvénytelen letöltési kategória. Az összes letöltés megnyílt."
   },
+  "mediaMerge": {
+    "title": "Merge audio and video",
+    "description": "Combine two files without re-encoding. Original files are kept. Audio-only and video-only inputs are detected automatically.",
+    "videoInput": "Video file",
+    "audioInput": "Audio file",
+    "output": "Output file",
+    "provider": "Plugin",
+    "browse": "Browse…",
+    "browseField": "Browse {{field}}",
+    "required": "Choose a file or enter its full path.",
+    "outputHint": "Use a new .mp4 or .mkv filename. Existing files are never overwritten. If the codecs cannot be copied to MP4, try MKV.",
+    "noPlugin": "Install and enable a media merge plugin. FFmpeg must be configured in Settings > Integration > Media Tools.",
+    "serverPaths": "Select files on the Motrix server. Files on this computer are not uploaded.",
+    "start": "Merge",
+    "running": "Merging…",
+    "cancelling": "Cancelling…",
+    "completed": "Merged successfully",
+    "cancelled": "Merge cancelled",
+    "failed": "Merge failed",
+    "invalidSelection": "Select two completed, single-file downloads.",
+    "jobMissing": "This merge is no longer available.",
+    "busy": "Another merge is already running.",
+    "pluginUnavailable": "The media merge plugin is unavailable.",
+    "absolutePaths": "Enter full, absolute file paths.",
+    "invalidFiles": "Choose two non-empty media files.",
+    "sameInput": "Choose two different input files.",
+    "outputFormat": "Use an .mp4 or .mkv output filename.",
+    "outputExists": "The output already exists. Choose a new filename.",
+    "invalidOutput": "The plugin did not produce a valid output file.",
+    "again": "Merge another file",
+    "pluginDisabled": "Enable this plugin to merge files.",
+    "choose": {
+      "videoInput": "Choose video",
+      "audioInput": "Choose audio",
+      "output": "Choose a save location"
+    },
+    "hint": {
+      "videoInput": "The picture for your merged file",
+      "audioInput": "The sound for your merged file",
+      "output": "Save as MP4 or MKV"
+    },
+    "preserveOriginals": "Original files are kept",
+    "format": "Output format"
+  },
+  "legacyImport": {
+    "navigation": "Migration",
+    "title": "Migration",
+    "pausedDescription": "Choose which Motrix v1 downloads to import. They won’t start automatically.",
+    "settingsTitle": "Migration",
+    "settingsDescription": "Import your downloads from Motrix v1.",
+    "settingsAction": "Open migration",
+    "pickSource": "Choose the Motrix v1 data folder",
+    "source": "From",
+    "changeSource": "Change folder…",
+    "noSource": "Choose the folder containing your Motrix v1 data",
+    "discovery": "Downloads found: {{count}}",
+    "preserveFiles": "Downloaded files stay in their original location.",
+    "chooseTasks": "Choose downloads",
+    "skip": "Not now",
+    "skippedHint": "Később is elvégezheti az áttelepítést itt: {{settings}} → {{advanced}}.",
+    "back": "Back",
+    "loading": "Looking for your old downloads…",
+    "empty": "There are no tasks to migrate from this folder.",
+    "continueBefore": "Before continuing:",
+    "capabilityLimit": "This task needs to be downloaded again. Choose a new folder to keep the original files.",
+    "running": "Motrix v1 may still be running. Quit it, then check again.",
+    "recheck": "Check again",
+    "search": "Search downloads",
+    "selectAll": "Select all",
+    "skipped": "Skipped: {{count}}",
+    "backupNote": "Your task list is backed up before import. Downloaded files stay in place.",
+    "backingUp": "Backing up your task list…",
+    "committing": "Adding your downloads…",
+    "progress": "Migration progress",
+    "processed": "{{done}} / {{total}} processed",
+    "stop": "Stop migration",
+    "stopTitle": "Stop migration?",
+    "stopDescription": "Downloads already imported will be kept. You can import the rest later.",
+    "resultTitle": "Migration complete",
+    "importedCount": "Imported {{count}}",
+    "resultDescription": "Your imported tasks are now in Downloads.",
+    "details": "View details",
+    "exportReport": "Save report…",
+    "retry": "Migrate remaining",
+    "viewTasks": "View downloads",
+    "freshDownload": "Download again…",
+    "freshDescription": "Choose where to save the new download. Motrix will create a separate folder and open the download form for you to confirm. It will start from the beginning and leave your old files untouched.",
+    "freshDestination": "Choose where to save the new download",
+    "chooseDestination": "Choose another location…",
+    "requestSettingsHelp": "A korábbi sütifájlok helyett adja meg a szükséges Cookie fejlécet. A HTTP-felhasználónevek és -jelszavak helyett adjon meg egy megfelelő Authorization fejlécet. A proxy hitelesítési adatait a proxy URL-jében adja meg.",
+    "unsupportedOptions": "Nem támogatott beállítások: {{options}}",
+    "ignoredOptions": "Kihagyott, nem támogatott beállítások: {{options}}",
+    "currentProxyDescription": "Az áthozott letöltések a Motrix jelenlegi letöltési proxybeállításait használják. A régi beállításokat nem őrizzük meg.",
+    "requestOptions": "Mentett kérésbeállítások: {{options}}",
+    "requestSettingsDescription": "A régi kérésbeállítások nem lettek átmásolva. Add meg őket újra a Speciális részben, mielőtt új mappába töltenél le.",
+    "reconfigureDownload": "Újrakonfigurálás és letöltés…",
+    "reasons": {
+      "fresh-download-required": "Needs a new download",
+      "verification-required": "Existing files need checking",
+      "metadata-required": "Original torrent file needed",
+      "selection-required": "Choose which files to download",
+      "request-settings-required": "A mentett kérésbeállításokat folytatás előtt ellenőrizzük",
+      "mirrors-unsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "unsupported-options": "Nem támogatott letöltési beállítások",
+      "invalid-record": "Couldn’t read this task",
+      "unsafe-path": "File location needs checking",
+      "already-imported": "Already imported",
+      "deleted-import": "Previously removed",
+      "path-conflict": "Another task uses this location",
+      "changed-source": "Old task data has changed",
+      "not-selected": "Not selected",
+      "stopped": "Not imported before stopping",
+      "commit-failed": "Import failed. You can try again."
+    },
+    "errors": {
+      "pageUnavailable": "Migration couldn’t open. Restart Motrix and try again. Downloads already imported are kept.",
+      "failed": "The operation couldn’t be completed. Please try again.",
+      "consentRequired": "Accept the agreement before opening migration.",
+      "invalidSource": "No Motrix v1 data was found here. Choose its original data folder.",
+      "unsafeSource": "This data folder can’t be read safely. Choose the original Motrix v1 folder.",
+      "unsafeBackup": "A safe backup couldn’t be created, so importing has stopped.",
+      "tooLarge": "This task list is too large to import.",
+      "tooManySources": "Too many folders have been opened. Restart Motrix and try again.",
+      "sourceNotAuthorized": "Select the old data folder using the folder picker.",
+      "expiredPreview": "This task list needs refreshing. Check again before importing.",
+      "changedSource": "The old task data has changed. Check again before importing.",
+      "running": "Motrix v1 may still be running. Quit it, then check again.",
+      "invalidSelection": "The selected tasks have changed. Check the list again.",
+      "pathConflict": "Another task uses this file location. Check the list again.",
+      "busy": "An import is already running. Wait for it to finish.",
+      "unknownRun": "The import result is unavailable.",
+      "unknownTask": "This imported task is no longer available.",
+      "rescanRequired": "Choose the data folder again to import the remaining tasks.",
+      "metadataRequired": "Choose this task’s original torrent file first.",
+      "unsafePath": "Choose a folder you can access.",
+      "mirrorsUnsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "stopping": "Motrix is closing. Reopen it to continue importing.",
+      "desktopOnly": "Open migration in the Motrix desktop app.",
+      "metadataMismatch": "This torrent does not match the old task. Choose its original torrent file.",
+      "checkpointUnavailable": "This version can’t resume the old files. You can download again in a new folder.",
+      "activationSourceMissing": "Some original task information is missing. Download again in a new folder.",
+      "selectionRequired": "The previous file selection is unavailable. Choose the files again in a new download.",
+      "originalDirectoryRequired": "Choose the original folder shown here. Files moved to another location can’t be resumed.",
+      "payloadMissing": "Some original files are missing, including files previously left unselected. All are needed to resume this task. Download again in a new folder.",
+      "payloadUnsafe": "The original files can’t be updated safely because of file links or permissions. Keep them and download again in a new folder.",
+      "controlRequired": "The saved download progress is missing. Download again in a new folder.",
+      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder.",
+      "httpContentChanged": "A letöltött adatok eltérnek a szerver tartalmától.",
+      "httpRangeUnsupported": "A szerver nem támogatja a szükséges bájttartományokat.",
+      "httpValidatorRequired": "A szerver nem ad megbízható erőforrásverzió-azonosítót.",
+      "httpVerificationFailed": "Nem sikerült ellenőrizni a letöltött adatokat.",
+      "httpRequestUnsupported": "A motor vagy a kérésbeállítások nem támogatják a biztonságos folytatást.",
+      "httpVerificationCancelled": "Az ellenőrzés megszakítva.",
+      "httpRedirectUnsupported": "Az átirányított hivatkozások nem folytathatók biztonságosan az eredeti helyen."
+    },
+    "resultIncompleteTitle": "Migration is incomplete",
+    "resultStoppedTitle": "Migration stopped",
+    "activationRequired": "Nyisd meg a feladat részleteit a letöltés ellenőrzéséhez és folytatásához.",
+    "chooseTorrent": "Choose torrent…",
+    "torrentFile": "Torrent file",
+    "verifyAndContinue": "Ellenőrzés és folytatás",
+    "verifyDescription": "Motrix will verify the original files, then continue with your previous file selection. While downloading, it may upload data and write shared pieces to unselected files. It won’t seed automatically when finished.",
+    "authorizeOriginalDirectory": "Choose the original download folder",
+    "verifyReady": "Verify your existing files to continue this download, or start again in a new folder.",
+    "trackersReadOnly": "This download keeps its original trackers. They can’t be changed here.",
+    "page": {
+      "stepsLabel": "Migration steps",
+      "steps": {
+        "select": "Choose downloads",
+        "import": "Import",
+        "result": "Review"
+      },
+      "foundSummary": "Download types",
+      "selectionSummary": "Selected",
+      "resultSummary": "Migration summary",
+      "countUnit": "total",
+      "notImported": "Not imported",
+      "skippedSummary": "Skipped",
+      "types": {
+        "http": "Direct links",
+        "bt": "Torrents",
+        "magnet": "Magnet links",
+        "unknown": "Other tasks"
+      },
+      "pathUnavailable": "Download location unavailable",
+      "filesStayTitle": "Your files stay where they are",
+      "filesStayDescription": "Migration won’t move or delete downloaded files.",
+      "nextTitle": "Only your downloads",
+      "nextDescription": "Your app settings stay the same.",
+      "footerNote": "Imported tasks will stay paused.",
+      "discoveryDescription": "Choose what to add to your download list. Some tasks need a new download or a check of the existing files.",
+      "previousVersion": "Motrix v1",
+      "currentVersion": "Motrix",
+      "introduction": "Choose the downloads you’d like to add to Motrix.",
+      "selectionTitle": "Choose what to migrate",
+      "searchEmpty": "No matching downloads.",
+      "resultEmptyTitle": "No new downloads",
+      "resultEmptyDescription": "Open the details to see why each task was skipped.",
+      "resultIncompleteDescription": "Downloads already imported are kept. Review the details and try importing the rest again.",
+      "resultStoppedDescription": "Downloads already imported are kept. You can import the rest when you’re ready.",
+      "outcomes": {
+        "imported": "Imported",
+        "skipped": "Skipped",
+        "failed": "Failed",
+        "unprocessed": "Not imported"
+      },
+      "sourceDescription": "From {{name}}",
+      "assistantTitle": "Migration Assistant",
+      "backToSource": "Back to source",
+      "continue": "Continue",
+      "revealSource": "Show in folder",
+      "welcomeTitle": "Migrate your downloads",
+      "sourceFeedback": {
+        "retry": "Try again",
+        "unreadableTitle": "Unable to read downloads from this location",
+        "chooseFolder": "Choose the data folder used by the previous version of Motrix.",
+        "readTitle": "Unable to read downloads",
+        "readDescription": "Check that this location is accessible, then try again.",
+        "pickTitle": "Unable to use the selected folder",
+        "pickDescription": "Try choosing the folder again. Your previous selection is still available.",
+        "revealTitle": "Unable to show this folder",
+        "revealDescription": "Check that this location is accessible, then try again.",
+        "discoverTitle": "Unable to look for previous downloads",
+        "discoverDescription": "Try again, or choose the previous Motrix data folder yourself.",
+        "reading": "Reading downloads…"
+      },
+      "sourceTitle": "Where would you like to migrate from?",
+      "sourceIntroduction": "Import your download tasks from the previous version of Motrix. You can choose what to migrate next. Your downloaded files will stay where they are.",
+      "sourceKind": "Downloads from the previous version",
+      "sourceHelp": "Choose the data folder used by Motrix v1. Your downloaded files stay where they are.",
+      "noSourceDescription": "No downloads from the previous version of Motrix were found. Choose another location to look for them.",
+      "progressTitle": "Migrating your downloads",
+      "progressDescription": "Your task list is being backed up and added to Motrix.",
+      "selectGroup": "Select {{name}}",
+      "phases": {
+        "discovery": "Choose source",
+        "selection": "Choose content",
+        "progress": "Migration",
+        "result": "Result"
+      },
+      "groups": {
+        "http": "Direct links",
+        "bt": "Torrent downloads",
+        "magnet": "Magnet links",
+        "unknown": "Other downloads"
+      },
+      "groupDescriptions": {
+        "http": "A new download is needed",
+        "bt": "Existing files will be checked before continuing",
+        "magnet": "The original torrent file is needed",
+        "unknown": "Review the task details"
+      },
+      "groupCount_one": "{{count}} task",
+      "selectedNote_one": "Selected {{count}} task. After migration, tasks will stay paused and downloaded files will remain in place.",
+      "groupCount_other": "{{count}} tasks",
+      "selectedNote_other": "Selected {{count}} tasks. After migration, tasks will stay paused and downloaded files will remain in place.",
+      "run": {
+        "backup": "Back up task list",
+        "backupActive": "Saving a copy of your previous task list…",
+        "backupDone": "Backup saved",
+        "add": "Add downloads",
+        "waiting": "Waiting for the backup",
+        "completeDescription": "Your tasks are now in Downloads, paused until you’re ready to continue.",
+        "partialDescription": "Imported tasks are paused. You can retry the remaining tasks or view your downloads.",
+        "stoppedEmptyDescription": "No tasks were added. You can try again when you’re ready.",
+        "failedEmptyDescription": "No tasks were added. Review the details, then try again.",
+        "imported": "Imported",
+        "remaining": "Remaining"
+      }
+    },
+    "importSelected": "Migrate",
+    "httpResumeDescription": "A Motrix összehasonlítja az összes letöltött tartományt a szerverrel, majd az eredeti mappában folytatja. Az ellenőrzés újra továbbítja ezeket a tartományokat; a mentett kérésbeállítások a memóriában maradnak.",
+    "httpVerifying": "Előkészítés vagy ellenőrzés…",
+    "httpOriginalFilesKept": "A meglévő fájlok megmaradtak."
+  },
+  "rendererRecovery": {
+    "title": "A felületet helyre kell állítani",
+    "description": "A letöltések a háttérben folytatódnak. Az űrlap nem mentett módosításai elveszhetnek.",
+    "recovering": "Felület helyreállítása…",
+    "recover": "Felület helyreállítása",
+    "diagnostics": "Diagnosztikai naplók megnyitása",
+    "downloads": "Letöltések megnyitása",
+    "failed": "A helyreállítás nem érhető el. Próbálja újra az alkalmazás menüjéből.",
+    "restored": "A felület helyreállt",
+    "wait": "Várakozás folytatása",
+    "routeTitle": "Az oldal nem jeleníthető meg",
+    "submissionNotice": "Az előző beküldés már befejeződhetett. Ugyanazon feladat újbóli létrehozása előtt ellenőrizze a letöltéseket."
+  },
+  "pluginOperations": {
+    "requiredField": "Kötelező mező",
+    "run": "Run operation",
+    "runAgain": "Run again",
+    "background": "Operations continue when this panel is closed.",
+    "loading": "Loading operation…",
+    "unauthorized": "This session is no longer authorized. Sign in again.",
+    "disabled": "Enable this plugin to use its operations.",
+    "blocked": "This plugin is blocked or its permissions are changing.",
+    "unsupported": "This host does not support the operation requirements.",
+    "ffmpeg": "Configure FFmpeg in Settings → Integration → Media Tools.",
+    "busy": "Another operation is using these resources. Try again after it finishes.",
+    "unavailable": "This operation is unavailable.",
+    "draftExpired": "This selection expired. Reopen the operation and select the files again.",
+    "resourceLimit": "The operation exceeds the host resource limit or available disk space.",
+    "invalidSelection": "Select completed tasks with one local file each.",
+    "invalidFile": "Choose a regular, non-empty local file.",
+    "fileType": "The selected file type does not match this field.",
+    "outputExists": "The output already exists. Choose a different name.",
+    "fileChanged": "A selected file or directory changed. Select it again.",
+    "invalidGrant": "Select the files again before starting.",
+    "sameInput": "Choose two different input files.",
+    "invalidOutput": "The plugin did not produce a valid output.",
+    "invalidRequest": "Check the operation parameters and try again.",
+    "invalidValue": "Enter a valid value.",
+    "descriptorChanged": "The plugin changed. Reopen the operation.",
+    "jobMissing": "This operation is no longer available in this session.",
+    "cancelled": "The operation was cancelled.",
+    "failed": "The operation failed. See the plugin log for details.",
+    "interrupted": "The host stopped before this operation finished. It was not restarted.",
+    "publicationUncertain": "The host could not confirm output publication. Check the destination before trying again.",
+    "cleanupWarning": "Temporary files remain for safe recovery. The host did not delete uncertain files.",
+    "status": {
+      "accepted": "Queued",
+      "preparing": "Preparing files",
+      "running": "Running",
+      "validating": "Validating result",
+      "committing": "Saving output",
+      "cleaning": "Cleaning up",
+      "cancelling": "Cancelling",
+      "succeeded": "Completed",
+      "cancelled": "Cancelled",
+      "failed": "Failed",
+      "interrupted": "Interrupted"
+    },
+    "confirmFileTitle": "Authorize file access",
+    "confirmFile": "Allow this operation to read the following file?"
+  },
   "createTorrent": {
     "title": "Torrent létrehozása",
-    "description": ".torrent fájl készítése helyi fájlból vagy mappából megosztáshoz és seedeléshez.",
     "source": "Forrás",
-    "sourcePlaceholder": "Válasszon fájlt vagy mappát…",
-    "browse": "Tallózás…",
     "trackers": "Trackerek",
     "trackersPlaceholder": "Soronként egy announce URL",
     "webSeeds": "Web seedek",
@@ -2945,15 +3532,17 @@
     "hashing": "Hashek számítása…",
     "resultName": "Név",
     "resultSize": "Méret",
-    "files": "fájl",
-    "pieces": "darab",
     "resultInfoHash": "Info hash",
     "saveFile": ".torrent mentése",
     "create": "Létrehozás",
     "savedToast": "Torrent mentve ide: {{path}}",
     "createFailed": "A torrentet nem sikerült létrehozni",
     "saveFailed": "A torrentfájlt nem sikerült menteni",
-    "invalidTracker": "Egy vagy több tracker URL érvénytelennek tűnik",
-    "openFromAddTask": "Torrent létrehozása helyi fájlból vagy mappából…"
+    "seedAfter": "Megosztás indítása mentés után",
+    "seedFailed": "A torrent mentése sikerült, de a megosztás nem indult el.",
+    "seedSubmitted": "A megosztási feladat elküldve.",
+    "invalidOptions": "Listánként legfeljebb {{limit}} érvényes URL adható meg. A privát torrenthez tracker szükséges.",
+    "sourcePlaceholder": "Válasszon fájlt vagy mappát…",
+    "menuLabel": "Torrentfájl létrehozása…"
   }
 }

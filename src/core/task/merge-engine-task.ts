@@ -1,5 +1,7 @@
+import { hasLegacyImport } from '@core/legacy-import/legacy-task-policy'
 import type { DownloadTask } from '@shared/types/task'
-import { TaskStatus, TransitionPhase } from '@shared/types/task'
+import { TaskStatus, TaskType, TransitionPhase } from '@shared/types/task'
+import { hasRetainedHttpRequestContext } from '@shared/types/task-actions'
 import { shareRatio } from '@shared/utils/share-ratio'
 import { applyTerminalTransition } from './apply-terminal-transition'
 import { unsettledBtUpload } from './bt-upload-settlement'
@@ -19,11 +21,24 @@ export function mergeEngineTask(
   engineTask: DownloadTask,
   now = Date.now()
 ): DownloadTask {
+  if (existing.storageOperation) return existing
+  if (
+    existing.engineTaskId === engineTask.engineTaskId &&
+    existing.status === TaskStatus.Error &&
+    engineTask.status === TaskStatus.Paused &&
+    hasRetainedHttpRequestContext(existing)
+  ) {
+    // Engine startup retains failed native requests paused. Only explicit Retry
+    // may validate and reopen them; polling must not offer ordinary Resume.
+    return existing
+  }
   // Engine session replay and delayed notifications cannot reopen durable
   // direct history. Explicit re-add changes ownership/state before merging.
   if (
     existing.engineTaskId === engineTask.engineTaskId &&
-    isCompletedDirectOutput(existing)
+    (isCompletedDirectOutput(existing) ||
+      (hasLegacyImport(existing) &&
+        [TaskStatus.Completed, TaskStatus.Error].includes(existing.status)))
   ) {
     return existing
   }
@@ -55,7 +70,10 @@ export function mergeEngineTask(
   // metrics, but do not let that engine snapshot publish a status ahead of
   // the application-owned transition.
   const nextStatus =
-    existing.transitionPhase !== TransitionPhase.Idle
+    existing.transitionPhase !== TransitionPhase.Idle ||
+    (hasLegacyImport(existing) &&
+      existing.type === TaskType.Http &&
+      protected_.status === TaskStatus.Completed)
       ? existing.status
       : protected_.status
   const terminalFields = applyTerminalTransition(
@@ -85,9 +103,25 @@ export function mergeEngineTask(
     uploadedBytesBaseline: existing.uploadedBytesBaseline,
     fileCount: protected_.fileCount,
     infoHash: protected_.infoHash ?? existing.infoHash,
-    uris: protected_.uris.length > 0 ? protected_.uris : existing.uris,
+    uris:
+      !hasLegacyImport(existing) && protected_.uris.length > 0
+        ? protected_.uris
+        : existing.uris,
     bt: bt
-      ? { ...bt, ratio: shareRatio(uploadedBytes, protected_.totalBytes) }
+      ? {
+          ...bt,
+          // Privacy comes from torrent metadata; engine polling may not report
+          // it. Retain it across download, finalize and restored seeding polls.
+          isPrivate: existing.bt?.isPrivate ?? bt.isPrivate,
+          ...(hasLegacyImport(existing)
+            ? {
+                selectedFiles: existing.bt?.selectedFiles ?? [],
+                announceList: existing.bt?.announceList ?? [],
+                trackers: existing.bt?.trackers ?? [],
+              }
+            : {}),
+          ratio: shareRatio(uploadedBytes, protected_.totalBytes),
+        }
       : undefined,
     updatedAt: now,
   }
@@ -123,8 +157,19 @@ export function hasEngineTaskDelta(
     before.errorCode !== after.errorCode ||
     before.finishedAt !== after.finishedAt ||
     before.infoHash !== after.infoHash ||
+    !sameValues(before.uris, after.uris) ||
+    !sameValues(before.bt?.selectedFiles, after.bt?.selectedFiles) ||
+    !sameValues(before.bt?.trackers, after.bt?.trackers) ||
+    before.bt?.comment !== after.bt?.comment ||
     before.bt?.peers !== after.bt?.peers ||
     before.bt?.seeds !== after.bt?.seeds ||
     before.bt?.ratio !== after.bt?.ratio
+  )
+}
+
+function sameValues<T>(a: readonly T[] = [], b: readonly T[] = []): boolean {
+  return (
+    a === b ||
+    (a.length === b.length && a.every((value, index) => value === b[index]))
   )
 }

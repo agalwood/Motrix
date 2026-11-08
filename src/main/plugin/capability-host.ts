@@ -135,6 +135,7 @@ export async function createElectronCapabilityHost(
     clearLog: (id) => log.clear(id),
     setLogVerbose: (id, v) => log.setVerbose(id, v),
     isLogVerbose: (id) => log.isVerbose(id),
+    getLogState: (id) => log.getState(id),
     subscribeLog: (listener) => log.subscribe(listener),
     appSnapshot: () => ({
       ...appCap.snapshot(),
@@ -151,6 +152,8 @@ export async function createElectronCapabilityHost(
     setLocale: (locale) => i18nCap.setLanguage(locale),
     onLocaleChange: (h) => i18nCap.onChange(h),
     flush: () => log.flush(),
+    releaseLog: (id) => log.release(id),
+    closeLogs: () => log.close(),
 
     // ── Plan B ──────────────────────────────────────────────────────────────
     http,

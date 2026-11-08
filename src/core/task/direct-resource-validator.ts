@@ -1,8 +1,10 @@
+import { createHash } from 'node:crypto'
 import type { Socket } from 'node:net'
 import {
   INCOMPLETE_SUFFIX,
   MAX_DEDUP_ATTEMPTS,
 } from '@shared/constants/incomplete'
+import { AppError, ErrorCode } from '@shared/errors'
 import { analyzeDownloadSource } from '@shared/lib/download-source'
 import type { DirectResourceValidator } from '@shared/schemas/direct-replay-recipe'
 import type { EngineFeatureReport } from '@shared/types/engine'
@@ -14,7 +16,11 @@ import {
 } from '../proxy/aria2-proxy-routing'
 
 const DEFAULT_TIMEOUT_MS = 3_000
+// Filename discovery is optional and should stay quick. Resume verification
+// gates an existing download, so allow the engine's default 30-second timeout.
+const DEFAULT_VERIFICATION_TIMEOUT_MS = 30_000
 const MAX_FILENAME_REDIRECTS = 5
+const MAX_LEGACY_VERIFICATION_BYTES = 1024 * 1024
 const ARIA2_REDIRECT_STATUSES = new Set([300, 301, 302, 303, 307, 308])
 const ARIA2_WANT_DIGEST = 'SHA-512;q=1, SHA-256;q=1, SHA;q=0.1'
 const MAX_FILESYSTEM_NAME_BYTES = 255
@@ -33,6 +39,7 @@ type UndiciRequestLike = typeof import('undici').request
 interface ResourceHttpResponse {
   status: number
   headers: Headers
+  bytes(signal: AbortSignal): AsyncIterable<Uint8Array>
   cancel(): Promise<void> | void
 }
 
@@ -69,6 +76,20 @@ export interface DirectResourceRequestOptions
   headers?: Readonly<Record<string, string>>
 }
 
+export interface LegacyHttpContentVerificationInput {
+  uri: string
+  totalBytes: number
+  ranges: readonly { offset: number; length: number }[]
+  read: (offset: number, length: number) => Promise<Uint8Array>
+  options?: DirectResourceRequestOptions
+  signal?: AbortSignal
+}
+
+export interface LegacyHttpContentVerificationResult {
+  validator: Extract<DirectResourceValidator, { kind: 'strong-etag' }>
+  requestHeaders: Record<string, string>
+}
+
 export type DirectResourceProxyOptionsProvider =
   () => DirectResourceProxyOptions | null
 
@@ -98,6 +119,7 @@ interface ResourceMetadata {
   finalUrl: string
   headers: Headers
   status: number
+  crossOriginRedirect: boolean
 }
 
 const REDIRECT_SAFE_HEADERS = new Set([
@@ -323,17 +345,39 @@ export type DirectResourceValidationOutcome =
 export interface DirectResourceValidationResult {
   outcome: DirectResourceValidationOutcome
   ifRange: string | null
+  /** Non-secret diagnostics for failed recovery; never include URLs or errors. */
+  reason?:
+    | 'invalid-url'
+    | 'http-client-unavailable'
+    | 'unsupported-headers'
+    | 'request-timeout'
+    | 'request-failed'
+    | 'http-status'
+    | 'validator-missing'
+    | 'invalid-content-range'
+    | 'redirect-limit'
+    | 'redirect-url-unsupported'
+    | 'redirect-headers-unsupported'
+    | 'redirect-identity-unavailable'
+  httpStatus?: number
+  networkErrorCode?: string
 }
 
+type ResourceRequestFailure = Pick<
+  DirectResourceValidationResult,
+  'reason' | 'httpStatus' | 'networkErrorCode'
+>
+type ResourceFailureReporter = (failure: ResourceRequestFailure) => void
+
 /**
- * Captures and verifies non-secret HTTP validators for URI-only direct tasks.
- * Every request uses GET like aria2 and cancels the response body immediately
- * after headers; resume verification additionally requests a one-byte range.
+ * Captures and verifies non-secret HTTP validators using GET requests like aria2.
+ * Metadata probes cancel bodies after headers. Legacy recovery additionally
+ * compares completed local bytes with bounded, conditionally requested ranges.
  */
 export class DirectResourceValidatorService {
   constructor(
     private readonly fetchImpl: FetchLike | undefined = undefined,
-    private readonly timeoutMs = DEFAULT_TIMEOUT_MS,
+    private readonly timeoutMs: number | undefined = undefined,
     private readonly now: () => number = Date.now,
     private readonly proxyHttpClientFactory: ProxyHttpClientFactory = createProxyHttpClient
   ) {}
@@ -352,7 +396,10 @@ export class DirectResourceValidatorService {
     if (client === null) return null
 
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs)
+    const timeout = setTimeout(
+      () => controller.abort(),
+      this.timeoutMs ?? DEFAULT_TIMEOUT_MS
+    )
     try {
       const metadata = await this.requestMetadata(
         initialUrl,
@@ -366,7 +413,10 @@ export class DirectResourceValidatorService {
       }
       return {
         filename: filenameFromMetadata(initialUrl, metadata),
-        validator: readMetadataValidator(metadata, this.now()),
+        validator: bindResourceUrl(
+          metadata,
+          readMetadataValidator(metadata, this.now())
+        ),
       }
     } finally {
       clearTimeout(timeout)
@@ -387,7 +437,10 @@ export class DirectResourceValidatorService {
     if (client === null) return null
 
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs)
+    const timeout = setTimeout(
+      () => controller.abort(),
+      this.timeoutMs ?? DEFAULT_TIMEOUT_MS
+    )
     try {
       const metadata = await this.requestMetadata(
         initialUrl,
@@ -399,7 +452,10 @@ export class DirectResourceValidatorService {
       if (!metadata || metadata.status < 200 || metadata.status >= 300) {
         return null
       }
-      return readMetadataValidator(metadata, this.now())
+      return bindResourceUrl(
+        metadata,
+        readMetadataValidator(metadata, this.now())
+      )
     } finally {
       clearTimeout(timeout)
       await closeHttpClient(client)
@@ -412,35 +468,70 @@ export class DirectResourceValidatorService {
     options: DirectResourceProxyOptions = {}
   ): Promise<DirectResourceValidationResult> {
     const initialUrl = parseHttpUrl(uri)
-    if (!initialUrl) return { outcome: 'unverifiable', ifRange: null }
+    if (!initialUrl) return unverifiableResource('invalid-url')
     const client = await this.resolveHttpClient(options)
-    if (client === null) return { outcome: 'unverifiable', ifRange: null }
+    if (client === null) return unverifiableResource('http-client-unavailable')
     const headers = probeHeaders(undefined, options.userAgent)
     if (!headers) {
       await closeHttpClient(client)
-      return { outcome: 'unverifiable', ifRange: null }
+      return unverifiableResource('unsupported-headers')
     }
     headers.range = 'bytes=0-0'
-    headers['if-range'] = expected.value
+    // Compare current metadata ourselves. If-Range can suppress metadata and
+    // blocks the credential-safe redirect path. The actual resumed download
+    // still receives the verified If-Range value.
 
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs)
+    const timeout = setTimeout(
+      () => controller.abort(),
+      this.timeoutMs ?? DEFAULT_VERIFICATION_TIMEOUT_MS
+    )
     try {
+      let failure: ResourceRequestFailure | undefined
       const metadata = await this.requestMetadata(
         initialUrl,
         uri,
         headers,
         client,
-        controller.signal
+        controller.signal,
+        (reported) => {
+          failure = reported
+        }
       )
-      if (!metadata || (metadata.status !== 200 && metadata.status !== 206)) {
-        return { outcome: 'unverifiable', ifRange: null }
+      if (!metadata) {
+        return unverifiableResource(
+          controller.signal.aborted
+            ? 'request-timeout'
+            : (failure?.reason ?? 'request-failed'),
+          failure?.httpStatus,
+          failure?.networkErrorCode
+        )
+      }
+      if (metadata.status !== 200 && metadata.status !== 206) {
+        return unverifiableResource('http-status', metadata.status)
       }
 
-      const current = readMetadataValidator(metadata, this.now())
-      const currentValue = validatorValueForKind(current, expected.kind)
+      if (expected.resourceUrlHash) {
+        if (hashResourceUrl(metadata.finalUrl) !== expected.resourceUrlHash) {
+          return { outcome: 'source-changed', ifRange: null }
+        }
+      } else if (metadata.crossOriginRedirect) {
+        // Old recipes do not identify the target that issued their validator.
+        // Preserve their existing cross-origin refusal: equal ETags on two
+        // different resources do not prove that the bytes are interchangeable.
+        return unverifiableResource(
+          'redirect-identity-unavailable',
+          metadata.status
+        )
+      }
+      const range = readMetadataRange(metadata)
+      if (metadata.status === 206 && (range?.start !== 0 || range.end !== 0)) {
+        return unverifiableResource('invalid-content-range', metadata.status)
+      }
+      const current = readMetadataValidator(metadata, this.now(), expected.kind)
+      const currentValue = current?.value
       if (!currentValue) {
-        return { outcome: 'unverifiable', ifRange: null }
+        return unverifiableResource('validator-missing', metadata.status)
       }
       if (currentValue !== expected.value) {
         return { outcome: 'source-changed', ifRange: null }
@@ -464,69 +555,280 @@ export class DirectResourceValidatorService {
     }
   }
 
+  /** Bind every completed legacy byte to one strong representation before reuse. */
+  async verifyLegacyContent(
+    input: LegacyHttpContentVerificationInput
+  ): Promise<LegacyHttpContentVerificationResult> {
+    const { uri, totalBytes, ranges, read, signal } = input
+    const options = input.options ?? {}
+    const initialUrl = parseHttpUrl(uri)
+    const headers = probeHeaders(options.headers, options.userAgent)
+    if (
+      !initialUrl ||
+      !headers ||
+      !Number.isSafeInteger(totalBytes) ||
+      totalBytes <= 0 ||
+      ranges.some(
+        ({ offset, length }) =>
+          !Number.isSafeInteger(offset) ||
+          !Number.isSafeInteger(length) ||
+          offset < 0 ||
+          length <= 0 ||
+          length > totalBytes - offset
+      ) ||
+      signal?.aborted
+    ) {
+      throw legacyHttpFailure('httpVerificationFailed')
+    }
+    // These request fields are owned by verification, never by legacy input.
+    headers['accept-encoding'] = 'identity'
+    delete headers['if-range']
+    delete headers['if-match']
+    const client = await this.resolveHttpClient(options)
+    if (!client) throw legacyHttpFailure('httpVerificationFailed')
+
+    const verifyRange = async (
+      offset: number,
+      length: number,
+      expectedTag?: string,
+      compareLocal = false
+    ) => {
+      const controller = new AbortController()
+      const abort = () => controller.abort()
+      signal?.addEventListener('abort', abort, { once: true })
+      if (signal?.aborted) abort()
+      const timeout = setTimeout(abort, this.timeoutMs ?? DEFAULT_TIMEOUT_MS)
+      let response: ResourceHttpResponse | undefined
+      try {
+        if (controller.signal.aborted) {
+          throw legacyHttpFailure('httpVerificationFailed')
+        }
+        const local = compareLocal
+          ? await abortable(read(offset, length), controller.signal)
+          : null
+        if (compareLocal && (!local || local.byteLength !== length)) {
+          throw legacyHttpFailure('httpVerificationFailed')
+        }
+        const requestHeaders = {
+          ...headers,
+          range: `bytes=${offset}-${offset + length - 1}`,
+          ...(expectedTag ? { 'if-match': expectedTag } : {}),
+        }
+        const resolved = await this.requestFollowingRedirects(
+          initialUrl,
+          uri,
+          requestHeaders,
+          client,
+          controller.signal,
+          true
+        )
+        if (!resolved) throw legacyHttpFailure('httpVerificationFailed')
+        response = resolved.response
+        const validator = validateLegacyRangeResponse(
+          response,
+          offset,
+          length,
+          totalBytes,
+          expectedTag,
+          this.now()
+        )
+        let received = 0
+        for await (const bytes of response.bytes(controller.signal)) {
+          if (bytes.byteLength > length - received) {
+            throw legacyHttpFailure('httpVerificationFailed')
+          }
+          if (local) {
+            for (let index = 0; index < bytes.byteLength; index++) {
+              if (bytes[index] !== local[received + index]) {
+                throw legacyHttpFailure('httpContentChanged')
+              }
+            }
+          }
+          received += bytes.byteLength
+        }
+        if (received !== length || controller.signal.aborted) {
+          throw legacyHttpFailure('httpVerificationFailed')
+        }
+        return validator
+      } finally {
+        try {
+          if (response) {
+            await abortable(
+              cancelResourceResponse(response),
+              controller.signal
+            ).catch(() => {})
+          }
+        } finally {
+          clearTimeout(timeout)
+          signal?.removeEventListener('abort', abort)
+        }
+      }
+    }
+
+    try {
+      // A new ETag alone proves nothing about legacy bytes. Establish the
+      // representation, then compare every completed checkpoint range to it.
+      const validator = await verifyRange(0, 1)
+      for (const range of ranges) {
+        for (
+          let offset = range.offset;
+          offset < range.offset + range.length;
+        ) {
+          const length = Math.min(
+            MAX_LEGACY_VERIFICATION_BYTES,
+            range.offset + range.length - offset
+          )
+          await verifyRange(offset, length, validator.value, true)
+          offset += length
+        }
+      }
+      return {
+        validator,
+        requestHeaders: {
+          'If-Match': validator.value,
+          'Accept-Encoding': 'identity',
+        },
+      }
+    } catch (error) {
+      if (error instanceof LegacyHttpVerificationError) throw error
+      // HTTP errors may contain signed URLs, proxy credentials or headers.
+      throw legacyHttpFailure('httpVerificationFailed')
+    } finally {
+      await closeHttpClient(client)
+    }
+  }
+
   private async requestMetadata(
     initialUrl: URL,
     initialRequestUrl: string,
     initialHeaders: Record<string, string>,
     client: ResourceHttpClient,
-    signal: AbortSignal
+    signal: AbortSignal,
+    onFailure?: ResourceFailureReporter
   ): Promise<ResourceMetadata | null> {
+    const resolved = await this.requestFollowingRedirects(
+      initialUrl,
+      initialRequestUrl,
+      initialHeaders,
+      client,
+      signal,
+      false,
+      onFailure
+    )
+    if (!resolved) return null
+    const { response, finalUrl, crossOriginRedirect } = resolved
+    const metadata = {
+      finalUrl,
+      crossOriginRedirect,
+      headers: response.headers,
+      status: response.status,
+    }
+    await cancelResourceResponse(response)
+    return metadata
+  }
+
+  private async requestFollowingRedirects(
+    initialUrl: URL,
+    initialRequestUrl: string,
+    initialHeaders: Record<string, string>,
+    client: ResourceHttpClient,
+    signal: AbortSignal,
+    rejectRedirects = false,
+    onFailure?: ResourceFailureReporter
+  ): Promise<{
+    response: ResourceHttpResponse
+    finalUrl: string
+    crossOriginRedirect: boolean
+  } | null> {
+    const fail = (
+      reason: NonNullable<DirectResourceValidationResult['reason']>,
+      httpStatus?: number,
+      error?: unknown
+    ): null => {
+      onFailure?.({
+        reason,
+        httpStatus,
+        networkErrorCode: safeNetworkErrorCode(error),
+      })
+      return null
+    }
     let currentUrl = initialUrl
+    let crossOriginRedirect = false
     let currentRequestUrl = requestUrlPreservingAuthority(
       initialRequestUrl,
       initialUrl
     )
-    if (!currentRequestUrl) return null
+    if (!currentRequestUrl) return fail('invalid-url')
     let headers = initialHeaders
 
     for (let redirects = 0; redirects <= MAX_FILENAME_REDIRECTS; redirects++) {
       let response: ResourceHttpResponse
       try {
-        response = await issueResourceRequest(client, currentRequestUrl, {
-          method: 'GET',
-          headers,
-          redirect: 'manual',
-          signal,
-        })
-      } catch {
-        return null
+        response = await abortable(
+          issueResourceRequest(client, currentRequestUrl, {
+            method: 'GET',
+            headers,
+            redirect: 'manual',
+            signal,
+          }).then(async (result) => {
+            if (signal.aborted) {
+              await cancelResourceResponse(result)
+              throw legacyHttpFailure('httpVerificationFailed')
+            }
+            return result
+          }),
+          signal
+        )
+      } catch (error) {
+        return fail('request-failed', undefined, error)
       }
 
+      if (rejectRedirects && response.status >= 300 && response.status < 400) {
+        // Strong entity tags belong to a resource, not a redirect chain. Two
+        // targets can legitimately share a tag while containing different bytes.
+        await abortable(cancelResourceResponse(response), signal).catch(
+          () => {}
+        )
+        throw legacyHttpFailure('httpRedirectUnsupported')
+      }
       const location = response.headers.get('location')
       if (ARIA2_REDIRECT_STATUSES.has(response.status) && location) {
-        await cancelResourceResponse(response)
-        if (redirects === MAX_FILENAME_REDIRECTS) return null
+        try {
+          await abortable(cancelResourceResponse(response), signal)
+        } catch (error) {
+          return fail('request-failed', response.status, error)
+        }
+        if (redirects === MAX_FILENAME_REDIRECTS)
+          return fail('redirect-limit', response.status)
         let nextUrl: URL
         try {
           nextUrl = new URL(location, currentUrl)
         } catch {
-          return null
+          return fail('redirect-url-unsupported', response.status)
         }
-        if (!isHttpUrl(nextUrl)) return null
+        if (!isHttpUrl(nextUrl))
+          return fail('redirect-url-unsupported', response.status)
         const nextRequestUrl = redirectRequestUrl(
           location,
           currentRequestUrl,
           nextUrl
         )
-        if (!nextRequestUrl) return null
+        if (!nextRequestUrl)
+          return fail('redirect-url-unsupported', response.status)
         const nextHeaders = redirectHeaders(headers, currentUrl, nextUrl)
-        if (!nextHeaders) return null
+        if (!nextHeaders)
+          return fail('redirect-headers-unsupported', response.status)
+        crossOriginRedirect ||= currentUrl.origin !== nextUrl.origin
         headers = nextHeaders
         currentUrl = nextUrl
         currentRequestUrl = nextRequestUrl
         continue
       }
 
-      const metadata = {
-        finalUrl: currentUrl.toString(),
-        headers: response.headers,
-        status: response.status,
-      }
-      await cancelResourceResponse(response)
-      return metadata
+      return { response, finalUrl: currentUrl.toString(), crossOriginRedirect }
     }
 
-    return null
+    return fail('redirect-limit')
   }
 
   private async resolveHttpClient(
@@ -940,11 +1242,7 @@ async function issueResourceRequest(
   if (client.request) return client.request(input, init)
   if (!client.fetch) throw new TypeError('HTTP client has no request method')
   const response = await client.fetch(input, init)
-  return {
-    status: response.status,
-    headers: response.headers,
-    cancel: () => cancelBody(response),
-  }
+  return fetchResourceResponse(response)
 }
 
 async function requestResource(
@@ -971,11 +1269,7 @@ async function requestResource(
   // Contract tests retain their Response-based seam; production takes the
   // lower-level Undici response branch and never applies Fetch defaults.
   if (response instanceof Response) {
-    return {
-      status: response.status,
-      headers: response.headers,
-      cancel: () => cancelBody(response),
-    }
+    return fetchResourceResponse(response)
   }
 
   const headers = new Headers()
@@ -989,8 +1283,121 @@ async function requestResource(
   return {
     status: response.statusCode,
     headers,
+    bytes: (signal) => responseBytes(response.body, signal),
     cancel: () => destroyResponseBody(response.body),
   }
+}
+
+function fetchResourceResponse(response: Response): ResourceHttpResponse {
+  return {
+    status: response.status,
+    headers: response.headers,
+    bytes: async function* (signal) {
+      if (!response.body) return
+      const reader = response.body.getReader()
+      try {
+        while (true) {
+          const result = await abortable(reader.read(), signal)
+          if (result.done) return
+          yield result.value
+        }
+      } finally {
+        // Do not hold up timeout/cancellation on an uncooperative body source.
+        void reader.cancel().catch(() => {})
+        reader.releaseLock()
+      }
+    },
+    cancel: () => cancelBody(response),
+  }
+}
+
+async function* responseBytes(
+  body: AsyncIterable<Uint8Array>,
+  signal: AbortSignal
+): AsyncIterable<Uint8Array> {
+  const iterator = body[Symbol.asyncIterator]()
+  try {
+    while (true) {
+      const result = await abortable(iterator.next(), signal)
+      if (result.done) return
+      yield result.value
+    }
+  } finally {
+    void iterator.return?.().catch(() => {})
+  }
+}
+
+function abortable<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => {
+      signal.removeEventListener('abort', abort)
+      reject(legacyHttpFailure('httpVerificationFailed'))
+    }
+    signal.addEventListener('abort', abort, { once: true })
+    void operation.then(resolve, reject).finally(() => {
+      signal.removeEventListener('abort', abort)
+    })
+    if (signal.aborted) abort()
+  })
+}
+
+class LegacyHttpVerificationError extends AppError {}
+
+function legacyHttpFailure(
+  key:
+    | 'httpContentChanged'
+    | 'httpRangeUnsupported'
+    | 'httpRedirectUnsupported'
+    | 'httpValidatorRequired'
+    | 'httpVerificationFailed'
+): AppError {
+  return new LegacyHttpVerificationError(
+    ErrorCode.InvalidSelection,
+    `legacyImport.errors.${key}`
+  )
+}
+
+function validateLegacyRangeResponse(
+  response: ResourceHttpResponse,
+  offset: number,
+  length: number,
+  totalBytes: number,
+  expectedTag: string | undefined,
+  capturedAt: number
+): LegacyHttpContentVerificationResult['validator'] {
+  if (response.status === 412) throw legacyHttpFailure('httpContentChanged')
+  if (response.status === 200 || response.status === 416) {
+    throw legacyHttpFailure('httpRangeUnsupported')
+  }
+  if (response.status !== 206) throw legacyHttpFailure('httpVerificationFailed')
+  const validator = readValidator(response.headers, capturedAt, totalBytes)
+  if (validator?.kind !== 'strong-etag') {
+    throw legacyHttpFailure('httpValidatorRequired')
+  }
+  if (expectedTag && validator.value !== expectedTag) {
+    throw legacyHttpFailure('httpContentChanged')
+  }
+  const match = /^bytes ([0-9]+)-([0-9]+)\/([0-9]+)$/.exec(
+    response.headers.get('content-range') ?? ''
+  )
+  const start = parseContentLength(match?.[1] ?? null)
+  const end = parseContentLength(match?.[2] ?? null)
+  const total = parseContentLength(match?.[3] ?? null)
+  if (total !== null && total !== totalBytes) {
+    throw legacyHttpFailure('httpContentChanged')
+  }
+  if (
+    start !== offset ||
+    end !== offset + length - 1 ||
+    total !== totalBytes ||
+    parseContentLength(response.headers.get('content-length')) !== length ||
+    !['', 'identity'].includes(
+      response.headers.get('content-encoding')?.trim().toLowerCase() ?? ''
+    )
+  ) {
+    throw legacyHttpFailure('httpVerificationFailed')
+  }
+  return validator
 }
 
 async function destroyResponseBody(
@@ -1022,11 +1429,13 @@ function readValidator(
   capturedAt: number,
   knownContentLength: number | null = parseContentLength(
     headers.get('content-length')
-  )
+  ),
+  expectedKind?: DirectResourceValidator['kind']
 ): DirectResourceValidator | null {
   const contentLength = knownContentLength
   const etag = headers.get('etag')?.trim()
   if (
+    expectedKind !== 'last-modified' &&
     etag &&
     // RFC entity-tag opaque bytes exclude DQUOTE, SP, controls and DEL.
     // Reject non-Latin-1 code points too: a combined duplicate header such as
@@ -1044,6 +1453,7 @@ function readValidator(
 
   const lastModified = headers.get('last-modified')?.trim()
   if (
+    expectedKind !== 'strong-etag' &&
     lastModified &&
     contentLength !== null &&
     Number.isFinite(Date.parse(lastModified)) &&
@@ -1062,14 +1472,33 @@ function readValidator(
 
 function readMetadataValidator(
   metadata: ResourceMetadata,
-  capturedAt: number
+  capturedAt: number,
+  expectedKind?: DirectResourceValidator['kind']
 ): DirectResourceValidator | null {
-  const contentRange = metadata.headers.get('content-range')
-  const totalMatch = contentRange?.match(/\/([0-9]+)$/)
-  const contentLength = totalMatch?.[1]
-    ? parseContentLength(totalMatch[1])
-    : parseContentLength(metadata.headers.get('content-length'))
-  return readValidator(metadata.headers, capturedAt, contentLength)
+  return readValidator(
+    metadata.headers,
+    capturedAt,
+    totalMetadataLength(metadata),
+    expectedKind
+  )
+}
+
+function hashResourceUrl(input: string | URL): string {
+  const url = new URL(input)
+  url.hash = ''
+  return createHash('sha256').update(url.href).digest('hex')
+}
+
+function bindResourceUrl(
+  metadata: ResourceMetadata,
+  validator: DirectResourceValidator | null
+): DirectResourceValidator | null {
+  if (!validator) return null
+  // Bind any chain that crossed origins, including one returning to its source.
+  // Purely same-origin redirects retain the existing replay contract.
+  return metadata.crossOriginRedirect
+    ? { ...validator, resourceUrlHash: hashResourceUrl(metadata.finalUrl) }
+    : validator
 }
 
 function truncateUtf8(input: string, maxBytes: number): string {
@@ -1084,11 +1513,18 @@ function truncateUtf8(input: string, maxBytes: number): string {
   return result
 }
 
-function validatorValueForKind(
-  current: DirectResourceValidator | null,
-  expectedKind: DirectResourceValidator['kind']
-): string | null {
-  return current?.kind === expectedKind ? current.value : null
+function unverifiableResource(
+  reason: NonNullable<DirectResourceValidationResult['reason']>,
+  httpStatus?: number,
+  networkErrorCode?: string
+): DirectResourceValidationResult {
+  return {
+    outcome: 'unverifiable',
+    ifRange: null,
+    reason,
+    ...(httpStatus === undefined ? {} : { httpStatus }),
+    ...(networkErrorCode === undefined ? {} : { networkErrorCode }),
+  }
 }
 
 function parseContentLength(value: string | null): number | null {
@@ -1098,12 +1534,66 @@ function parseContentLength(value: string | null): number | null {
 }
 
 function totalMetadataLength(metadata: ResourceMetadata): number | null {
-  const contentRange = metadata.headers.get('content-range')
-  const match = contentRange?.match(/\/([0-9]+)$/)
-  if (match?.[1]) return parseContentLength(match[1])
-  return metadata.status === 200
-    ? parseContentLength(metadata.headers.get('content-length'))
+  if (metadata.status !== 206)
+    return parseContentLength(metadata.headers.get('content-length'))
+  return readMetadataRange(metadata)?.total ?? null
+}
+
+function readMetadataRange(
+  metadata: ResourceMetadata
+): { start: number; end: number; total: number } | null {
+  const match = /^bytes ([0-9]+)-([0-9]+)\/([0-9]+)$/i.exec(
+    metadata.headers.get('content-range') ?? ''
+  )
+  const start = parseContentLength(match?.[1] ?? null)
+  const end = parseContentLength(match?.[2] ?? null)
+  const total = parseContentLength(match?.[3] ?? null)
+  return start !== null &&
+    end !== null &&
+    total !== null &&
+    start <= end &&
+    end < total
+    ? { start, end, total }
     : null
+}
+
+const NETWORK_ERROR_CODES = new Set([
+  'EACCES',
+  'EPERM',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'ETIMEDOUT',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'ENETDOWN',
+  'UND_ERR_CONNECT_TIMEOUT',
+  'UND_ERR_HEADERS_TIMEOUT',
+  'UND_ERR_SOCKET',
+  'UND_ERR_HEADERS_OVERFLOW',
+  'HPE_INVALID_HEADER_TOKEN',
+  'HPE_INVALID_CONSTANT',
+  'ERR_TLS_CERT_ALTNAME_INVALID',
+  'CERT_HAS_EXPIRED',
+  'DEPTH_ZERO_SELF_SIGNED_CERT',
+  'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
+])
+
+function safeNetworkErrorCode(error: unknown): string | undefined {
+  // Error messages/stacks can contain proxy credentials and signed URLs.
+  let current = error
+  for (let depth = 0; depth < 4; depth++) {
+    if (!current || typeof current !== 'object') return undefined
+    if (
+      'code' in current &&
+      typeof current.code === 'string' &&
+      NETWORK_ERROR_CODES.has(current.code)
+    )
+      return current.code
+    current = 'cause' in current ? current.cause : undefined
+  }
+  return undefined
 }
 
 function unbracketHostname(hostname: string): string {

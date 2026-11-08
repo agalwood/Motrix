@@ -9,8 +9,8 @@ import type { RegistryPluginDTO } from '@shared/schemas/registry'
 import { render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('../plugin-install-dialog', () => ({
-  PluginInstallDialog: () => null,
+vi.mock('@renderer/lib/transport', () => ({
+  transport: { invoke: vi.fn(), on: vi.fn(), off: vi.fn() },
 }))
 
 import { RegistryDetailPanel } from './registry-detail-panel'
@@ -83,6 +83,25 @@ describe('RegistryDetailPanel install affordance', () => {
     renderPanel('electron', entry({ compatible: false }))
     expect(screen.getByTestId('registry-install-btn')).toBeDisabled()
   })
+
+  it.each(['electron', 'web'] as const)(
+    'explains the required range and current host on %s',
+    (kind) => {
+      renderPanel(
+        kind,
+        entry({
+          id: 'motrix.media-merge',
+          compatible: false,
+          engines: { motrix: '>=2.0.0-beta.47 <3.0.0' },
+          hostVersion: '2.0.0-beta.46',
+        })
+      )
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'This plugin requires Motrix >=2.0.0-beta.47 <3.0.0; current version: 2.0.0-beta.46'
+      )
+      expect(screen.getByTestId('registry-install-btn')).toBeDisabled()
+    }
+  )
 
   it('shows the verified registry Install button on web', () => {
     renderPanel('web', entry())

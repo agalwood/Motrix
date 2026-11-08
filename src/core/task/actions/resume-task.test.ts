@@ -57,6 +57,19 @@ function makeDeps(
 }
 
 describe('resumeTask', () => {
+  it('checks host authorization before resuming engine work or publishing state', async () => {
+    const deps = makeDeps()
+    const onResumeRequested = vi.fn()
+    const authorizeTaskWrite = vi.fn(async () => {
+      throw new Error('revoked')
+    })
+    await expect(
+      resumeTask('t1', { ...deps, onResumeRequested, authorizeTaskWrite })
+    ).rejects.toThrow('revoked')
+    expect(deps.adapter.resumeTask).not.toHaveBeenCalled()
+    expect(deps.taskManager.set).not.toHaveBeenCalled()
+    expect(onResumeRequested).not.toHaveBeenCalled()
+  })
   it('calls adapter.resumeTask with gid', async () => {
     const deps = makeDeps()
     await resumeTask('t1', deps)

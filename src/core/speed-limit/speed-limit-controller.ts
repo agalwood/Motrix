@@ -80,7 +80,7 @@ export class SpeedLimitController {
         ? 'base'
         : 'none'
     }
-    if (settings.turtle === 'on') return 'turtle' // alt + base both active; trigger is the forced state
+    if (settings.turtle === 'on') return 'turtle'
     // turtle === 'auto'
     const { schedule, videoApp, adaptive } = settings.auto
     if (schedule.enabled && withinWindow(now, schedule)) {

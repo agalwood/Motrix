@@ -8,8 +8,11 @@ function Slider({
   value,
   min = 0,
   max = 100,
+  getAriaLabel,
+  getAriaValueText,
   ...props
-}: SliderPrimitive.Root.Props) {
+}: SliderPrimitive.Root.Props &
+  Pick<SliderPrimitive.Thumb.Props, 'getAriaLabel' | 'getAriaValueText'>) {
   const values = Array.isArray(value)
     ? value
     : value !== undefined
@@ -44,6 +47,9 @@ function Slider({
         {Array.from({ length: values.length }, (_, index) => (
           <SliderPrimitive.Thumb
             key={index}
+            index={index}
+            getAriaLabel={getAriaLabel}
+            getAriaValueText={getAriaValueText}
             data-slot="slider-thumb"
             className="block size-4 shrink-0 rounded-full border border-primary bg-background shadow-sm ring-ring/50 transition-[color,box-shadow] select-none hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50"
           />

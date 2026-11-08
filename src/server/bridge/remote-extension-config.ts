@@ -60,9 +60,12 @@ export interface EnabledRemoteExtensionConfig {
   /** Reverse-proxy prefix, empty at the authority root. */
   readonly publicWebSocketBasePath: string
   /** Canonical HTTP/HTTPS operator UI base, without a trailing slash. */
-  readonly publicOperatorBaseUrl: string
-  readonly publicOperatorAuthority: string
-  readonly publicOperatorBasePath: string
+  readonly publicOperatorBaseUrl?: string
+  readonly publicOperatorAuthority?: string
+  readonly publicOperatorBasePath?: string
+  /** Web code delivery requires an operator URL or explicit HTTP consent. */
+  readonly operatorDelivery: 'web' | 'local'
+  readonly allowInsecureOperatorHttp?: true
 }
 
 export type RemoteExtensionConfig =
@@ -345,7 +348,8 @@ function parseBooleanFlag(
  * variables, including legacy token and forwarded-host settings, are ignored.
  */
 export function parseRemoteExtensionConfig(
-  environment: RemoteExtensionEnvironment = {}
+  environment: RemoteExtensionEnvironment = {},
+  options: { requireWebOperator?: boolean } = {}
 ): RemoteExtensionConfig {
   try {
     const parsedEnvironment =
@@ -374,14 +378,19 @@ export function parseRemoteExtensionConfig(
     )
     if (!webSocket.ok) return webSocket.value
 
-    const operator = parsePublicUrl(
+    const operatorValue =
       parsedEnvironment.data[
         RemoteExtensionEnvironmentVariable.PublicOperatorUrl
-      ],
-      RemoteExtensionEnvironmentVariable.PublicOperatorUrl,
-      ['http:', 'https:']
-    )
-    if (!operator.ok) return operator.value
+      ]
+    const operator =
+      operatorValue === undefined || operatorValue.trim() === ''
+        ? null
+        : parsePublicUrl(
+            operatorValue,
+            RemoteExtensionEnvironmentVariable.PublicOperatorUrl,
+            ['http:', 'https:']
+          )
+    if (operator !== null && !operator.ok) return operator.value
 
     const allowInsecureOperatorHttp = parseBooleanFlag(
       parsedEnvironment.data[
@@ -394,12 +403,24 @@ export function parseRemoteExtensionConfig(
       return allowInsecureOperatorHttp
     }
     if (
-      operator.value.baseUrl.startsWith('http://') &&
+      operator?.value.baseUrl.startsWith('http://') &&
       !allowInsecureOperatorHttp
     ) {
       return invalid(
         RemoteExtensionEnvironmentVariable.AllowInsecureOperatorHttp,
         RemoteExtensionConfigDiagnosticCode.InsecureOperatorHttpConsentRequired
+      )
+    }
+    // NAS operators use the vendor gateway; they have no local Bearer terminal
+    // fallback for claiming a code. Do not expose an unusable pairing surface.
+    if (
+      options.requireWebOperator &&
+      operator === null &&
+      !allowInsecureOperatorHttp
+    ) {
+      return invalid(
+        RemoteExtensionEnvironmentVariable.PublicOperatorUrl,
+        RemoteExtensionConfigDiagnosticCode.MissingUrl
       )
     }
 
@@ -409,9 +430,18 @@ export function parseRemoteExtensionConfig(
         publicWebSocketBaseUrl: webSocket.value.baseUrl,
         publicWebSocketAuthority: webSocket.value.authority,
         publicWebSocketBasePath: webSocket.value.basePath,
-        publicOperatorBaseUrl: operator.value.baseUrl,
-        publicOperatorAuthority: operator.value.authority,
-        publicOperatorBasePath: operator.value.basePath,
+        ...(operator === null
+          ? {}
+          : {
+              publicOperatorBaseUrl: operator.value.baseUrl,
+              publicOperatorAuthority: operator.value.authority,
+              publicOperatorBasePath: operator.value.basePath,
+            }),
+        operatorDelivery:
+          operator !== null || allowInsecureOperatorHttp ? 'web' : 'local',
+        ...(allowInsecureOperatorHttp
+          ? { allowInsecureOperatorHttp: true as const }
+          : {}),
       })
     )
   } catch {

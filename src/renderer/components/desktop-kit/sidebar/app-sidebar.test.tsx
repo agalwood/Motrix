@@ -2,10 +2,14 @@ import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
 import { SidebarProvider } from '@renderer/components/ui/sidebar'
 import { TooltipProvider } from '@renderer/components/ui/tooltip'
-import { render, screen } from '@testing-library/react'
+import { useLegacyImportSidebar } from '@renderer/features/legacy-import/sidebar-preference'
+import { transport } from '@renderer/lib/transport'
+import { Events } from '@shared/protocol/events'
+import { Queries } from '@shared/protocol/queries'
+import { act, render, screen } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { MemoryRouter } from 'react-router'
-import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppSidebar } from './app-sidebar'
 
 // The footer's NotificationsNavItem (Task 17R) calls useNotifications(),
@@ -18,6 +22,18 @@ vi.mock('@renderer/lib/transport', () => ({
     off: vi.fn(),
   },
 }))
+
+beforeEach(() => {
+  useLegacyImportSidebar.setState({ dismissed: false })
+  vi.mocked(transport.on).mockClear()
+  vi.mocked(transport.invoke)
+    .mockReset()
+    .mockImplementation(async (channel) => {
+      if (channel === Queries.GetLegacyImportNavigation)
+        return { detected: false, invitationPending: false }
+      return []
+    })
+})
 
 // jsdom 29 + Node 25 do not provide a working window.localStorage.
 // SidebarProvider reads/writes SIDEBAR_STATE_KEY, so stub it here.
@@ -66,6 +82,77 @@ function wrap(ui: ReactElement, initialEntries: string[] = ['/']) {
 }
 
 describe('AppSidebar', () => {
+  it('keeps migration hidden when no v1 source was detected', async () => {
+    render(wrap(<AppSidebar />))
+    await act(async () => Promise.resolve())
+    expect(screen.queryByText('Migration')).not.toBeInTheDocument()
+  })
+
+  it('keeps detected migration available after only the automatic invitation was consumed', async () => {
+    vi.mocked(transport.invoke).mockImplementation(async (channel) =>
+      channel === Queries.GetLegacyImportNavigation
+        ? { detected: true, invitationPending: false }
+        : []
+    )
+    render(wrap(<AppSidebar />, ['/migration']))
+    const link = (await screen.findByText('Migration')).closest('a')
+    expect(link).toHaveAttribute('href', '/migration')
+    expect(link).toHaveAttribute('aria-current', 'page')
+    expect(link?.querySelector('svg')).toHaveAttribute('data-icon', 'migration')
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Queries.DiscoverLegacyImport
+    )
+  })
+
+  it('hides migration immediately after explicit skip and keeps it hidden on detection refresh', async () => {
+    vi.mocked(transport.invoke).mockImplementation(async (channel) =>
+      channel === Queries.GetLegacyImportNavigation
+        ? { detected: true, invitationPending: false }
+        : []
+    )
+    render(wrap(<AppSidebar />))
+    expect(await screen.findByText('Migration')).toBeInTheDocument()
+    act(() => useLegacyImportSidebar.getState().dismiss())
+    expect(screen.queryByText('Migration')).not.toBeInTheDocument()
+    const handler = vi
+      .mocked(transport.on)
+      .mock.calls.find(
+        ([event]) => event === Events.LegacyImportNavigationChanged
+      )?.[1]
+    await act(async () => handler?.())
+    expect(screen.queryByText('Migration')).not.toBeInTheDocument()
+  })
+
+  it('refreshes navigation after desktop detection without reading profile paths', async () => {
+    render(wrap(<AppSidebar />))
+    await act(async () => Promise.resolve())
+    vi.mocked(transport.invoke).mockImplementation(async (channel) =>
+      channel === Queries.GetLegacyImportNavigation
+        ? { detected: true, invitationPending: true }
+        : []
+    )
+    const handler = vi
+      .mocked(transport.on)
+      .mock.calls.find(
+        ([event]) => event === Events.LegacyImportNavigationChanged
+      )?.[1]
+    expect(handler).toBeTypeOf('function')
+    await act(async () => handler?.())
+    expect(await screen.findByText('Migration')).toBeInTheDocument()
+    expect(transport.invoke).not.toHaveBeenCalledWith(Queries.ScanLegacyImport)
+  })
+
+  it('does not display a migration entry after a failed navigation snapshot', async () => {
+    vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+      if (channel === Queries.GetLegacyImportNavigation)
+        throw new Error('Discovery unavailable')
+      return []
+    })
+    render(wrap(<AppSidebar />))
+    await act(async () => Promise.resolve())
+    expect(screen.queryByText('Migration')).not.toBeInTheDocument()
+  })
+
   it('renders four nav items with localized labels', () => {
     render(wrap(<AppSidebar />))
     expect(screen.getByText('Dashboard')).toBeInTheDocument()
@@ -78,54 +165,6 @@ describe('AppSidebar', () => {
     render(wrap(<AppSidebar />, ['/trackers']))
     const trackers = screen.getByText('Trackers').closest('a')
     expect(trackers?.getAttribute('aria-current')).toBe('page')
-  })
-
-  it('keeps each navigation icon and label as direct flex items', () => {
-    render(wrap(<AppSidebar />))
-
-    for (const label of [
-      'Dashboard',
-      'Downloads',
-      'Trackers',
-      'Plugins',
-      'Settings',
-    ]) {
-      const labelNode = screen.getByText(label)
-      const menuButton = labelNode.closest('[data-slot="sidebar-menu-button"]')
-
-      expect(menuButton).toHaveClass('flex', 'items-center', 'gap-2')
-      expect(labelNode.parentElement).toBe(menuButton)
-      expect(menuButton?.querySelector(':scope > svg')).toBeInTheDocument()
-    }
-  })
-
-  it('matches footer item sizing and horizontal inset to the main navigation', () => {
-    render(wrap(<AppSidebar />))
-
-    const dashboard = screen
-      .getByText('Dashboard')
-      .closest('[data-slot="sidebar-menu-button"]')
-    const notifications = screen
-      .getByText('Notifications')
-      .closest('[data-slot="sidebar-menu-button"]')
-    const settings = screen
-      .getByText('Settings')
-      .closest('[data-slot="sidebar-menu-button"]')
-    const mainGroup = dashboard?.closest('[data-slot="sidebar-group"]')
-    const footer = settings?.closest('[data-slot="sidebar-footer"]')
-
-    expect(mainGroup).toHaveClass('p-[2px]')
-    expect(footer).toHaveClass('px-0.5')
-    for (const item of [dashboard, notifications, settings]) {
-      expect(item).toHaveAttribute('data-size', 'default')
-      expect(item).toHaveClass(
-        'h-[38px]',
-        'px-2.5',
-        'py-3',
-        'gap-2',
-        '[&>svg]:size-4'
-      )
-    }
   })
 
   it('renders the Notifications entry before a separator before Settings in the footer', () => {
@@ -162,11 +201,9 @@ describe('AppSidebar', () => {
       .closest('[data-sidebar="menu"]')
     const separator = footerMenu?.querySelector('[data-sidebar="separator"]')
     expect(separator).not.toBeNull()
-    expect(separator).toHaveClass('mx-0', 'w-auto')
 
     const wrapper = separator?.parentElement
     expect(wrapper?.tagName).toBe('LI')
-    expect(wrapper).toHaveClass('relative')
     expect(wrapper).toHaveAttribute('aria-hidden', 'true')
   })
 

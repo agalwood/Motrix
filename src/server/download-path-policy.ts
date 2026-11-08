@@ -1,5 +1,6 @@
-import { lstat, mkdir, open, realpath, stat, unlink } from 'node:fs/promises'
+import { lstat, open, realpath, stat, unlink } from 'node:fs/promises'
 import path from 'node:path'
+import { ensureDirectory } from '@core/fs/ensure-directory'
 import { AppError, ErrorCode } from '@shared/errors'
 import type { DirectoryErrorCode } from '@shared/schemas/server-directory'
 
@@ -10,7 +11,10 @@ interface DownloadPathEnvironment {
 export interface ServerDownloadPathPolicyOptions {
   defaultSaveDir: string
   allowedSaveDirsValue?: string
+  allowedSaveDirs?: readonly string[]
   pathDelimiter?: string
+  /** Platform-provided roots must already exist; never recreate lost mounts. */
+  initialize?: boolean
 }
 
 export interface ServerDownloadPathPolicy {
@@ -82,9 +86,9 @@ function pathFailure(message: string, cause?: unknown): AppError {
   return new AppError(ErrorCode.TaskCreateFailed, message, cause)
 }
 
-async function ensureDirectory(candidate: string): Promise<void> {
+async function ensureSaveDirectory(candidate: string): Promise<void> {
   try {
-    await mkdir(candidate, { recursive: true })
+    await ensureDirectory(candidate)
     const info = await stat(candidate)
     if (!info.isDirectory()) {
       throw pathFailure(`Save directory is not a directory: ${candidate}`)
@@ -224,7 +228,7 @@ class DownloadPathPolicy implements ServerDownloadPathPolicy {
       this.checkCanonical(candidate, canonicalAncestor, matchingRoots)
     }
 
-    await ensureDirectory(candidate)
+    await ensureSaveDirectory(candidate)
     const canonical = await realpath(candidate)
     this.checkCanonical(candidate, canonical, matchingRoots)
     await ensureWritable(canonical)
@@ -251,19 +255,26 @@ export async function createServerDownloadPathPolicy(
     options.defaultSaveDir,
     'MOTRIX_DEFAULT_SAVE_DIR'
   )
-  const configuredRoots = parseAllowedSaveDirs(
-    options.allowedSaveDirsValue,
-    options.pathDelimiter ?? path.delimiter
-  )
+  const configuredRoots =
+    options.allowedSaveDirs?.map((value) =>
+      absolutePath(value, 'Allowed save directory')
+    ) ??
+    parseAllowedSaveDirs(
+      options.allowedSaveDirsValue,
+      options.pathDelimiter ?? path.delimiter
+    )
   const allowedRoots: AllowedRoot[] = []
   for (const configured of configuredRoots) {
-    await ensureDirectory(configured)
+    if (options.initialize !== false) await ensureSaveDirectory(configured)
     const canonical = await realpath(configured)
-    await ensureWritable(canonical)
+    if (!(await stat(canonical)).isDirectory())
+      throw new Error('Save root is not a directory')
+    if (options.initialize !== false) await ensureWritable(canonical)
     allowedRoots.push({ configured, canonical })
   }
 
   const policy = new DownloadPathPolicy(defaultSaveDir, allowedRoots)
+  if (options.initialize === false) return policy
   try {
     await policy.prepareSaveDir(defaultSaveDir)
   } catch (error) {

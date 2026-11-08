@@ -119,6 +119,32 @@ function makeMockRegistry(
 const startupEvent: HostActivationEvent = { kind: 'startup' }
 
 describe('ActivationDispatcher', () => {
+  it('isolates startup failures while preserving command and Hook failure propagation', async () => {
+    const registry = makeMockRegistry([
+      { manifest: makeManifest('alice.broken') },
+      { manifest: makeManifest('bob.healthy') },
+    ])
+    const host = makeMockHost({ activeIds: [], meta: [] })
+    const failure = new Error('worker failed')
+    host.activate.mockRejectedValueOnce(failure)
+    const dispatcher = new ActivationDispatcher(
+      registry as never,
+      host as never
+    )
+    await expect(dispatcher.dispatch(startupEvent)).resolves.toBeUndefined()
+    expect(host.activeIds()).toEqual(['bob.healthy'])
+    host.activate.mockRejectedValueOnce(failure)
+    await expect(
+      dispatcher.admit(['alice.broken'], {
+        kind: 'command',
+        commandId: 'alice.broken.run',
+      })
+    ).rejects.toBe(failure)
+    host.activate.mockRejectedValueOnce(failure)
+    await expect(
+      dispatcher.activateForHook('alice.broken', 'beforeCreate')
+    ).rejects.toBe(failure)
+  })
   describe('registry-backed Hook demand', () => {
     it.each(HOST_PATTERN_CONFORMANCE_CASES)(
       'matches shared host corpus: $name',

@@ -13,6 +13,8 @@ import { AppCapabilityHost } from '../capabilities/app'
 import { I18nCapabilityHost } from '../capabilities/i18n'
 import type { CapabilityHost } from '../capabilities/interface'
 import { LogCapabilityHost } from '../capabilities/log'
+import { writeInstallRecord } from '../install/install-record'
+import { OFFICIAL_ARCHIVE_FILENAME } from '../install/official-package'
 import { PluginRegistry } from '../plugin-registry'
 import { PluginStateStore } from '../state/plugin-state-store'
 import { ActivationDispatcher } from './activation-dispatcher'
@@ -228,6 +230,249 @@ describe('PluginHost', () => {
     rmSync(root, { recursive: true, force: true })
   })
 
+  it('records a missing entry bundle before worker construction and starts other plugins', async () => {
+    rmSync(path.join(root, 'plugins', 'alice.demo', 'dist', 'plugin.js'))
+    const host = new PluginHost({
+      registry,
+      stateStore,
+      capabilityHost: capHost,
+      workerScriptPath: workerPath,
+      appVersion: '2.5.0',
+      runtime: 'server',
+      hostLanguage: 'en-US',
+    })
+    try {
+      await new ActivationDispatcher(registry, host).dispatch({
+        kind: 'startup',
+      })
+      expect(stateStore.get('alice.demo')).toMatchObject({
+        errorCount: 1,
+        lastError: expect.stringContaining('plugin.runtime.activation_failed:'),
+      })
+      expect(
+        capHost
+          .getTail('alice.demo', 100)
+          .filter((entry) => entry.level === 'error')
+      ).toEqual([
+        expect.objectContaining({
+          source: 'host',
+          msg: expect.stringContaining('ENOENT'),
+        }),
+      ])
+      expect(host.isActive('bob.demo')).toBe(true)
+    } finally {
+      await host.shutdown()
+    }
+  })
+
+  it('records coalesced activation failures exactly once', async () => {
+    const failure = new Error('entry bundle is unreadable')
+    const host = new PluginHost({
+      registry,
+      stateStore,
+      capabilityHost: capHost,
+      workerScriptPath: workerPath,
+      appVersion: '2.5.0',
+      runtime: 'server',
+      hostLanguage: 'en-US',
+      readBundleSource: async () => {
+        throw failure
+      },
+    })
+    try {
+      await Promise.all([
+        expect(host.activate('alice.demo')).rejects.toBe(failure),
+        expect(host.activate('alice.demo')).rejects.toBe(failure),
+      ])
+      expect(stateStore.get('alice.demo')?.errorCount).toBe(1)
+      expect(
+        capHost
+          .getTail('alice.demo', 100)
+          .filter((entry) => entry.level === 'error')
+      ).toHaveLength(1)
+    } finally {
+      await host.shutdown()
+    }
+  })
+
+  it('does not report a cancelled activation or its late bundle failure as a runtime error', async () => {
+    let rejectRead!: (reason: Error) => void
+    const readBundleSource = vi.fn(
+      () =>
+        new Promise<string>((_, reject) => {
+          rejectRead = reject
+        })
+    )
+    const host = new PluginHost({
+      registry,
+      stateStore,
+      capabilityHost: capHost,
+      workerScriptPath: workerPath,
+      appVersion: '2.5.0',
+      runtime: 'server',
+      hostLanguage: 'en-US',
+      readBundleSource,
+    })
+    try {
+      const rejected = expect(host.activate('alice.demo')).rejects.toThrow(
+        'superseded'
+      )
+      await vi.waitFor(() => expect(readBundleSource).toHaveBeenCalled())
+      await host.deactivate('alice.demo')
+      rejectRead(new Error('late IO failure'))
+      await rejected
+      expect(stateStore.get('alice.demo')?.errorCount).toBe(0)
+      expect(
+        capHost
+          .getTail('alice.demo', 100)
+          .filter((entry) => entry.level === 'error')
+      ).toEqual([])
+    } finally {
+      await host.shutdown()
+    }
+  })
+
+  it.each(['electron', 'server'] as const)(
+    'records missing-worker startup failures in persistent plugin logs (%s)',
+    async (runtime) => {
+      const host = new PluginHost({
+        registry,
+        stateStore,
+        capabilityHost: capHost,
+        workerScriptPath: path.join(root, 'missing-worker.cjs'),
+        appVersion: '2.5.0',
+        runtime,
+        hostLanguage: 'en-US',
+      })
+      try {
+        await expect(host.activate('alice.demo')).rejects.toThrow(
+          'Cannot find module'
+        )
+        expect(stateStore.get('alice.demo')?.lastError).toMatch(
+          /^plugin\.runtime\.worker_start_failed:/
+        )
+        expect(stateStore.get('alice.demo')?.errorCount).toBe(1)
+        const entries = capHost.getTail('alice.demo', 10)
+        expect(entries.filter((entry) => entry.level === 'error')).toHaveLength(
+          1
+        )
+        expect(entries[0]).toMatchObject({
+          level: 'error',
+          source: 'host',
+          msg: expect.stringContaining('plugin.runtime.worker_start_failed:'),
+        })
+        await host.shutdown()
+        const restarted = new LogCapabilityHost({
+          pluginLogsDir: path.join(root, 'logs'),
+        })
+        expect(restarted.getTail('alice.demo', 10)).toEqual(entries)
+        await restarted.flush()
+      } finally {
+        await host.shutdown()
+      }
+    }
+  )
+
+  it('revokes a running guest without executing guest cleanup or changing user preference', async () => {
+    let revoked = false
+    vi.spyOn(registry, 'securityDecision').mockImplementation((id) =>
+      revoked && id === 'alice.demo'
+        ? { blocked: true, reason: 'malware', advisoryIds: ['MTX-TEST-1'] }
+        : undefined
+    )
+    const host = new PluginHost({
+      registry,
+      stateStore,
+      capabilityHost: capHost,
+      workerScriptPath: workerPath,
+      appVersion: '2.5.0',
+      runtime: 'server',
+      hostLanguage: 'en-US',
+    })
+    const unavailable = vi.fn().mockResolvedValue(1)
+    host.bindPluginUnavailable(unavailable)
+    try {
+      await host.activate('alice.demo')
+      await host.activate('bob.demo')
+      const bridge = host.bridgeFor('alice.demo')!
+      const guestCleanup = vi.spyOn(bridge, 'runDeactivate')
+      const checkReturnedResult = host.capturePolicyCheck('alice.demo')
+      checkReturnedResult()
+      const lease = host.acquirePolicyLease(
+        'alice.demo',
+        registry.policyGenerationFor('alice.demo')
+      )
+      revoked = true
+      const stopping = host.enforceSecurityPolicy()
+      expect(lease.signal.aborted).toBe(true)
+      expect(checkReturnedResult).toThrow(
+        expect.objectContaining({ code: ErrorCode.PluginSecurityBlocked })
+      )
+      expect(host.isActive('alice.demo')).toBe(false)
+      await expect(host.activate('alice.demo')).rejects.toMatchObject({
+        code: ErrorCode.PluginSecurityBlocked,
+      })
+      await stopping
+      expect(guestCleanup).not.toHaveBeenCalled()
+      expect(unavailable).toHaveBeenCalledWith(
+        'alice.demo',
+        'security_revoked',
+        expect.any(Number)
+      )
+      expect(stateStore.get('alice.demo')?.enabled).toBe(true)
+      expect(host.isQuiescent('alice.demo')).toBe(true)
+      expect(host.isActive('bob.demo')).toBe(true)
+      expect(
+        registry.entries().find((entry) => entry.manifest.id === 'alice.demo')
+          ?.enabled
+      ).toBe(false)
+      lease.release()
+    } finally {
+      await host.shutdown()
+    }
+  })
+
+  it('does not reopen a revoked plugin when durable retention fails', async () => {
+    vi.spyOn(registry, 'securityDecision').mockReturnValue({
+      blocked: true,
+      reason: 'vulnerability',
+      advisoryIds: ['MTX-TEST-1'],
+    })
+    const host = new PluginHost({
+      registry,
+      stateStore,
+      capabilityHost: capHost,
+      workerScriptPath: workerPath,
+      appVersion: '2.5.0',
+      runtime: 'server',
+      hostLanguage: 'en-US',
+    })
+    host.bindPluginUnavailable(async () => {
+      throw new Error('database unavailable')
+    })
+    try {
+      await expect(host.enforceSecurityPolicy()).rejects.toThrow(
+        'database unavailable'
+      )
+      await expect(host.activate('alice.demo')).rejects.toMatchObject({
+        code: ErrorCode.PluginSecurityBlocked,
+      })
+      expect(() =>
+        host.acquirePolicyLease(
+          'alice.demo',
+          registry.policyGenerationFor('alice.demo')
+        )
+      ).toThrow()
+      expect(stateStore.get('alice.demo')?.enabled).toBe(true)
+      await new ActivationDispatcher(registry, host).dispatch({
+        kind: 'startup',
+      })
+      expect(host.activeIds()).toEqual([])
+    } finally {
+      await host.shutdown()
+    }
+  })
+
   it('activates a plugin and marks it active', async () => {
     const host = new PluginHost({
       registry,
@@ -431,6 +676,58 @@ describe('PluginHost', () => {
     getSpy.mockRestore()
     await host.shutdown()
   })
+
+  it.each(['missing worker', 'worker crash', 'worker fatal'])(
+    'preserves the activation failure for coalesced callers: %s',
+    async (failure) => {
+      const failedWorkerPath = path.join(root, 'FailedWorker.cjs')
+      const message =
+        failure === 'missing worker'
+          ? `Cannot find module '${failedWorkerPath}'`
+          : 'plugin activation failed'
+      if (failure === 'worker crash') {
+        writeFileSync(failedWorkerPath, `throw new Error('${message}')`)
+      } else if (failure === 'worker fatal') {
+        writeFileSync(
+          failedWorkerPath,
+          `const { parentPort } = require('node:worker_threads')
+parentPort.on('message', (msg) => {
+  if (msg.type === 'init') {
+    parentPort.postMessage({ type: 'fatal', code: 'plugin.bundle.parse_error', message: '${message}' })
+  }
+})`
+        )
+      }
+      const host = new PluginHost({
+        registry,
+        stateStore,
+        capabilityHost: capHost,
+        workerScriptPath: failedWorkerPath,
+        deactivateBudgetMs: 20,
+        appVersion: '2.5.0',
+        runtime: 'server',
+        hostLanguage: 'en-US',
+      })
+
+      try {
+        await Promise.all([
+          expect(host.activate('alice.demo')).rejects.toMatchObject({
+            code: ErrorCode.PluginRuntimeFault,
+            message,
+          }),
+          expect(host.activate('alice.demo')).rejects.toMatchObject({
+            code: ErrorCode.PluginRuntimeFault,
+            message,
+          }),
+        ])
+        await host.deactivate('alice.demo')
+        expect(host.isQuiescent('alice.demo')).toBe(true)
+        expect(host.workerFor('alice.demo')).toBeUndefined()
+      } finally {
+        await host.shutdown()
+      }
+    }
+  )
 
   it('cancels activation blocked on bundle read without a late worker', async () => {
     let markReadStarted!: () => void
@@ -1461,7 +1758,7 @@ describe('PluginHost.activate — ffmpeg snapshot', () => {
     await host.shutdown()
   })
 
-  it('required + missing → throws ffmpeg_too_old; plugin stays inactive', async () => {
+  it('required dependencies are checked again on enable and activation', async () => {
     plantPlugin(path.join(root, 'plugins'), 'req.miss', {
       permissions: ['ffmpeg'],
     })
@@ -1472,6 +1769,7 @@ describe('PluginHost.activate — ffmpeg snapshot', () => {
       hostVersion: '2.5.0',
     })
     await registry.discover()
+    let available = false
     const host = new PluginHost({
       registry,
       stateStore,
@@ -1480,19 +1778,90 @@ describe('PluginHost.activate — ffmpeg snapshot', () => {
       appVersion: '2.5.0',
       runtime: 'server',
       hostLanguage: 'en-US',
-      ffmpegDetect: async () => ({ available: false }),
+      ffmpegDetect: async () => ({ available, version: '7.1' }),
     })
+    stateStore.setEnabled('req.miss', false)
+    registry.refreshState('req.miss')
+    await expect(host.enable('req.miss')).rejects.toMatchObject({
+      code: ErrorCode.PluginCapabilityUnavailable,
+      message: 'plugin.runtime.ffmpegUnavailable',
+    })
+    expect(stateStore.get('req.miss')?.enabled).toBe(false)
+    expect(host.isActive('req.miss')).toBe(false)
+    stateStore.setEnabled('req.miss', true)
+    registry.refreshState('req.miss')
     await expect(host.activate('req.miss')).rejects.toMatchObject({
-      message: 'plugin.manifest.engines.ffmpeg_too_old',
+      message: 'plugin.runtime.ffmpegUnavailable',
     })
     expect(host.isActive('req.miss')).toBe(false)
     expect(stateStore.get('req.miss')?.lastError).toContain(
-      'plugin.manifest.engines.ffmpeg_too_old'
+      'plugin.runtime.ffmpegUnavailable'
     )
+    available = true
+    await expect(host.enable('req.miss')).resolves.toBeUndefined()
+    expect(host.isActive('req.miss')).toBe(false)
+    await host.activate('req.miss')
+    expect(host.isActive('req.miss')).toBe(true)
+    await host.enable('req.miss')
+    expect(stateStore.get('req.miss')?.status).toBe('active')
     await host.shutdown()
   })
 
-  it('required + version below range → throws ffmpeg_too_old', async () => {
+  it.each(['disable', 'upgrade', 'uninstall', 'shutdown'] as const)(
+    'does not reopen a plugin after %s supersedes runtime detection',
+    async (mutation) => {
+      plantPlugin(path.join(root, 'plugins'), 'req.race', {
+        permissions: ['ffmpeg'],
+      })
+      registry = new PluginRegistry({
+        pluginsDir: path.join(root, 'plugins'),
+        builtinDir: path.join(root, 'builtin'),
+        stateStore,
+        hostVersion: '2.5.0',
+      })
+      await registry.discover()
+      stateStore.setEnabled('req.race', false)
+      registry.refreshState('req.race')
+      let finish!: (result: { available: boolean; version: string }) => void
+      const host = new PluginHost({
+        registry,
+        stateStore,
+        capabilityHost: capHost,
+        workerScriptPath: workerPath,
+        appVersion: '2.5.0',
+        runtime: 'server',
+        hostLanguage: 'en-US',
+        ffmpegDetect: () =>
+          new Promise((resolve) => {
+            finish = resolve
+          }),
+      })
+      const enabling = host.enable('req.race')
+      const result = enabling.catch((error) => error)
+      if (mutation === 'disable') {
+        await host.disable('req.race', 'plugin.user_disabled', 'disabled', {
+          recordError: false,
+        })
+      } else if (mutation === 'shutdown') {
+        await host.shutdown()
+      } else {
+        if (mutation === 'uninstall')
+          rmSync(path.join(root, 'plugins', 'req.race'), { recursive: true })
+        else
+          plantPlugin(path.join(root, 'plugins'), 'req.race', {
+            permissions: ['ffmpeg'],
+            version: '2.0.0',
+          })
+        await registry.discover()
+      }
+      finish({ available: true, version: '8.0' })
+      expect(await result).toMatchObject({ code: ErrorCode.PluginRuntimeFault })
+      expect(stateStore.get('req.race')?.enabled).toBe(false)
+      await host.shutdown()
+    }
+  )
+
+  it('required + version below range → reports an incompatible runtime', async () => {
     plantPlugin(path.join(root, 'plugins'), 'req.below', {
       permissions: ['ffmpeg'],
       engines: { motrix: '>=2.0.0', ffmpeg: '>=4.4' },
@@ -1519,7 +1888,7 @@ describe('PluginHost.activate — ffmpeg snapshot', () => {
       }),
     })
     await expect(host.activate('req.below')).rejects.toMatchObject({
-      message: 'plugin.manifest.engines.ffmpeg_too_old',
+      message: 'plugin.runtime.ffmpegIncompatible',
     })
     await host.shutdown()
   })
@@ -1636,112 +2005,167 @@ describe('PluginHost.activate — builtin overlay bundle read path', () => {
     rmSync(root, { recursive: true, force: true })
   })
 
-  it('sends the BUNDLE dist/plugin.js to the worker, not the tampered tree copy', async () => {
-    const builtinDir = path.join(root, 'builtin')
-    const overlayDir = path.join(root, 'builtin-updates')
+  it.each(['builtin', 'official'] as const)(
+    '%s executes the signed bundle rather than the tampered tree',
+    async (mode) => {
+      const builtinDir = path.join(root, 'builtin')
+      const overlayDir = path.join(root, 'builtin-updates')
 
-    // Seed at v1.0.0 (read-only app resources, in this fixture just a plain
-    // dir). The overlay below is v1.1.0, so arbitration picks the overlay.
-    plantPlugin(builtinDir, OVERLAY_ID)
+      // Seed at v1.0.0 (read-only app resources, in this fixture just a plain
+      // dir). The overlay below is v1.1.0, so arbitration picks the overlay.
+      if (mode === 'builtin') plantPlugin(builtinDir, OVERLAY_ID)
 
-    const { pem, sign: signFn } = keypair()
-    const overlayEntryDir = path.join(overlayDir, OVERLAY_ID)
-    mkdirSync(path.join(overlayEntryDir, 'dist'), { recursive: true })
-    const manifestJSON = JSON.stringify({
-      manifestVersion: 1,
-      id: OVERLAY_ID,
-      name: OVERLAY_ID,
-      version: '1.1.0',
-      description: 'd',
-      categories: ['integration'],
-      engines: { motrix: '>=2.0.0' },
-      main: 'dist/plugin.js',
-      permissions: [],
-      activationEvents: ['onStartup'],
-      contributes: {},
-    })
-    writeFileSync(
-      path.join(overlayEntryDir, 'motrix-plugin.json'),
-      manifestJSON
-    )
-    // Tree copy carries a TAMPERED marker — must never reach the worker once
-    // the overlay's signature is verified.
-    writeFileSync(
-      path.join(overlayEntryDir, 'dist', 'plugin.js'),
-      'globalThis.__MOTRIX_TEST_SOURCE__ = "TREE_TAMPERED"'
-    )
-
-    const bundleBytes = makeZip([
-      { name: 'motrix-plugin.json', data: Buffer.from(manifestJSON) },
-      {
-        name: 'dist/plugin.js',
-        data: Buffer.from(
-          'globalThis.__MOTRIX_TEST_SOURCE__ = "BUNDLE_VERIFIED"'
-        ),
-      },
-    ])
-    writeFileSync(path.join(overlayEntryDir, 'bundle.moext'), bundleBytes)
-    writeFileSync(
-      path.join(overlayEntryDir, '_overlay.json'),
-      JSON.stringify({
-        version: 1,
-        packageUrl: 'https://dl.motrix.app/p/overlay-demo.moext',
-        sha256: createHash('sha256').update(bundleBytes).digest('hex'),
-        signature: signFn(bundleBytes),
-        recordedAt: 1700000000000,
-      })
-    )
-
-    const registry = new PluginRegistry({
-      pluginsDir: path.join(root, 'plugins'),
-      builtinDir,
-      overlayDir,
-      stateStore,
-      hostVersion: '2.5.0',
-      signingPubkeys: [pem],
-    })
-    await registry.discover()
-    // Sanity: the entry really is overlay-backed before we assert on it.
-    expect(registry.get(OVERLAY_ID)?.overlay).toBeDefined()
-    expect(registry.get(OVERLAY_ID)?.manifest.version).toBe('1.1.0')
-
-    const host = new PluginHost({
-      registry,
-      stateStore,
-      capabilityHost: capHost,
-      workerScriptPath: workerPath,
-      appVersion: '2.5.0',
-      runtime: 'server',
-      hostLanguage: 'en-US',
-      // Same ephemeral test key the registry above verified the overlay
-      // against — production omits this and falls back to the pinned
-      // build-time key, same as PluginRegistryOptions.signingPubkeys.
-      signingPubkeys: [pem],
-    })
-
-    // Seam: CapabilityBridge sends the manifest+bundleSource to the worker
-    // via `this.worker.postMessage({ type: 'init', ..., bundleSource })`.
-    // Spying on the real Worker class's prototype (both this file and
-    // CapabilityBridge import the same 'node:worker_threads' module) lets us
-    // observe the exact string handed to the sandbox without needing the
-    // stub worker to echo anything back.
-    const postSpy = vi.spyOn(Worker.prototype, 'postMessage')
-    try {
-      await host.activate(OVERLAY_ID)
-
-      const initCall = postSpy.mock.calls.find(
-        ([msg]) => (msg as { type?: string } | undefined)?.type === 'init'
+      const { pem, sign: signFn } = keypair()
+      const overlayEntryDir = path.join(
+        mode === 'builtin' ? overlayDir : path.join(root, 'plugins'),
+        OVERLAY_ID
       )
-      expect(initCall).toBeDefined()
-      const bundleSource = (initCall as [{ bundleSource: string }])[0]
-        .bundleSource
-      expect(bundleSource).toContain('BUNDLE_VERIFIED')
-      expect(bundleSource).not.toContain('TREE_TAMPERED')
-    } finally {
-      postSpy.mockRestore()
-      await host.shutdown()
+      mkdirSync(path.join(overlayEntryDir, 'dist'), { recursive: true })
+      const manifestJSON = JSON.stringify({
+        manifestVersion: 1,
+        id: OVERLAY_ID,
+        name: OVERLAY_ID,
+        version: '1.1.0',
+        description: 'd',
+        categories: ['integration'],
+        engines: { motrix: '>=2.0.0' },
+        main: 'dist/plugin.js',
+        permissions: [],
+        activationEvents: ['onStartup'],
+        contributes: {},
+      })
+      writeFileSync(
+        path.join(overlayEntryDir, 'motrix-plugin.json'),
+        manifestJSON
+      )
+      // Tree copy carries a TAMPERED marker — must never reach the worker once
+      // the overlay's signature is verified.
+      writeFileSync(
+        path.join(overlayEntryDir, 'dist', 'plugin.js'),
+        'globalThis.__MOTRIX_TEST_SOURCE__ = "TREE_TAMPERED"'
+      )
+
+      const bundleBytes = makeZip([
+        { name: 'motrix-plugin.json', data: Buffer.from(manifestJSON) },
+        {
+          name: 'dist/plugin.js',
+          data: Buffer.from(
+            'globalThis.__MOTRIX_TEST_SOURCE__ = "BUNDLE_VERIFIED"'
+          ),
+        },
+      ])
+      writeFileSync(
+        path.join(
+          overlayEntryDir,
+          mode === 'builtin' ? 'bundle.moext' : OFFICIAL_ARCHIVE_FILENAME
+        ),
+        bundleBytes
+      )
+      writeFileSync(
+        path.join(overlayEntryDir, '_overlay.json'),
+        JSON.stringify({
+          version: 1,
+          packageUrl: 'https://dl.motrix.app/p/overlay-demo.moext',
+          sha256: createHash('sha256').update(bundleBytes).digest('hex'),
+          signature: signFn(bundleBytes),
+          recordedAt: 1700000000000,
+        })
+      )
+
+      if (mode === 'official') {
+        await writeInstallRecord(overlayEntryDir, {
+          version: 1,
+          pluginId: OVERLAY_ID,
+          source: {
+            type: 'registry',
+            url: `registry:${OVERLAY_ID}`,
+            bundleSha256: 'a'.repeat(64),
+            recordedAt: 0,
+          },
+          grants: {},
+          consentSnapshot: {
+            permissions: [],
+            optionalPermissions: [],
+            hostPermissions: [],
+            invokesCommands: [],
+            publicCommands: {},
+            requestedHeapMB: 32,
+            enginesMotrix: '>=2.0.0',
+          },
+          official: {
+            signature: signFn(bundleBytes),
+            archiveSha256: createHash('sha256')
+              .update(bundleBytes)
+              .digest('hex'),
+          },
+        })
+      }
+
+      const registry = new PluginRegistry({
+        pluginsDir: path.join(root, 'plugins'),
+        builtinDir,
+        overlayDir,
+        stateStore,
+        hostVersion: '2.5.0',
+        signingPubkeys: [pem],
+      })
+      await registry.discover()
+      // Discovery must establish the selected signed-package identity.
+      expect(
+        mode === 'builtin'
+          ? registry.get(OVERLAY_ID)?.overlay
+          : registry.get(OVERLAY_ID)?.official
+      ).toBeDefined()
+      expect(registry.get(OVERLAY_ID)?.manifest.version).toBe('1.1.0')
+
+      const host = new PluginHost({
+        registry,
+        stateStore,
+        capabilityHost: capHost,
+        workerScriptPath: workerPath,
+        appVersion: '2.5.0',
+        runtime: 'server',
+        hostLanguage: 'en-US',
+        // Same ephemeral test key the registry above verified the overlay
+        // against — production omits this and falls back to the pinned
+        // build-time key, same as PluginRegistryOptions.signingPubkeys.
+        signingPubkeys: [pem],
+      })
+
+      // Seam: CapabilityBridge sends the manifest+bundleSource to the worker
+      // via `this.worker.postMessage({ type: 'init', ..., bundleSource })`.
+      // Spying on the real Worker class's prototype (both this file and
+      // CapabilityBridge import the same 'node:worker_threads' module) lets us
+      // observe the exact string handed to the sandbox without needing the
+      // stub worker to echo anything back.
+      const postSpy = vi.spyOn(Worker.prototype, 'postMessage')
+      try {
+        await host.activate(OVERLAY_ID)
+
+        const initCall = postSpy.mock.calls.find(
+          ([msg]) => (msg as { type?: string } | undefined)?.type === 'init'
+        )
+        expect(initCall).toBeDefined()
+        const bundleSource = (initCall as [{ bundleSource: string }])[0]
+          .bundleSource
+        expect(bundleSource).toContain('BUNDLE_VERIFIED')
+        expect(bundleSource).not.toContain('TREE_TAMPERED')
+        if (mode === 'official') {
+          await host.deactivate(OVERLAY_ID)
+          writeFileSync(
+            path.join(overlayEntryDir, OFFICIAL_ARCHIVE_FILENAME),
+            Buffer.concat([bundleBytes, Buffer.from('tampered')])
+          )
+          await expect(host.activate(OVERLAY_ID)).rejects.toThrow(
+            'official_signature_invalid'
+          )
+        }
+      } finally {
+        postSpy.mockRestore()
+        await host.shutdown()
+      }
     }
-  })
+  )
 
   // Negative counterpart to the read-path test above: the overlay's
   // bundle.moext bytes are tampered with AFTER the signature was computed

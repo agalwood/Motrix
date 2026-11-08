@@ -101,7 +101,7 @@ modules:
         set -e
         output="$(src/aria2c --version)"
         printf '%s\n' "$output"
-        printf '%s\n' "$output" | grep -qF 'aria2 version 1.37.0-motrix.16'
+        printf '%s\n' "$output" | grep -qF 'aria2 version 1.37.0-motrix.23'
         for feature in \
           'Async DNS' \
           'BitTorrent' \
@@ -123,8 +123,8 @@ modules:
     sources:
       - type: git
         url: https://github.com/motrixapp/aria2.git
-        tag: v1.37.0-motrix.16
-        commit: e093973f113f0a880f9757a2ad0258cb2356295e
+        tag: v1.37.0-motrix.23
+        commit: 7d318fcff6d2f00feddbe6ce81b0c89c808dfc15
         x-checker-data:
           type: git
           tag-pattern: ^v([\d.]+-motrix\.\d+)$
@@ -136,9 +136,9 @@ modules:
         commands:
           - |
             sed -i -E \
-              's/AC_INIT\(\[aria2\],\[[^]]+\]/AC_INIT([aria2],[1.37.0-motrix.16]/' \
+              's/AC_INIT\(\[aria2\],\[[^]]+\]/AC_INIT([aria2],[1.37.0-motrix.23]/' \
               configure.ac
-            grep -qF 'AC_INIT([aria2],[1.37.0-motrix.16]' configure.ac
+            grep -qF 'AC_INIT([aria2],[1.37.0-motrix.23]' configure.ac
       - type: script
         dest-filename: autogen.sh
         commands:
@@ -161,7 +161,7 @@ modules:
         # Must track the electron version in package.json — generated-sources
         # unpacks that release's headers here, and electron-rebuild's gyp run
         # fails on a dangling path.
-        npm_config_nodedir: /run/build/motrix/flatpak-node/cache/node-gyp/44.5.0
+        npm_config_nodedir: /run/build/motrix/flatpak-node/cache/node-gyp/45.2.1
         npm_config_offline: 'true'
         CARGO_HOME: /run/build/motrix/cargo
         CARGO_NET_OFFLINE: 'true'
@@ -200,13 +200,13 @@ modules:
         pnpm_root=/run/build/motrix/flatpak-node/pnpm-cli/lib/node_modules/pnpm
         pnpm_native="$pnpm_root/node_modules/@pnpm/exe.linux-${npm_config_target_arch}"
         mkdir -p "$pnpm_native" flatpak-node/pnpm-cli/bin
-        tar -xzf flatpak-node/pnpm/pnpm-12.8.1.tgz \
+        tar -xzf flatpak-node/pnpm/pnpm-12.16.1.tgz \
           --strip-components=1 -C "$pnpm_root"
-        tar -xzf "flatpak-node/pnpm-tarballs/@pnpm__exe.linux-${npm_config_target_arch}-12.8.1.tgz" \
+        tar -xzf "flatpak-node/pnpm-tarballs/@pnpm__exe.linux-${npm_config_target_arch}-12.16.1.tgz" \
           --strip-components=1 -C "$pnpm_native"
         node "$pnpm_root/install.js"
         ln -s ../lib/node_modules/pnpm/pnpm flatpak-node/pnpm-cli/bin/pnpm
-        test "$(pnpm --version)" = '12.8.1'
+        test "$(pnpm --version)" = '12.16.1'
       # pnpm's supply-chain cooldown check fetches per-package publish times
       # from the registry even under --offline, and the sandbox has no
       # network. pnpm treats the setting as workspace-file-only (a
@@ -350,8 +350,8 @@ modules:
 
       # The Node generator prepares a pnpm store but not the pnpm CLI.
       - type: file
-        url: https://registry.npmjs.org/pnpm/-/pnpm-12.8.1.tgz
-        sha256: 90762b8105e833164186b011efe5cde13841693ac8eaf784d2974a6e1c01fba3
+        url: https://registry.npmjs.org/pnpm/-/pnpm-12.16.1.tgz
+        sha256: ca362a16f2e1c3cfa81d406f3242446179a0e4aea457ba3e9e6c39e6476aba65
         dest: flatpak-node/pnpm
 
       # Signed builtin plugins. fetch-builtins.mjs rechecks every locked

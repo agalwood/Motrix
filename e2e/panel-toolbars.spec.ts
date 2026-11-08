@@ -32,7 +32,9 @@ test('Trackers and Plugins share expandable, keyboard-accessible panel toolbars'
     await setTaskInspectorContentSize(app, page, 1100, 780)
     await page.getByRole('link', { name: 'Trackers', exact: true }).click()
     const trackers = page.getByRole('toolbar', { name: 'Trackers' })
-    const actions = page.locator('[data-slot="panel-shell-actions"]')
+    const actions = page
+      .locator('[data-slot="panel-shell-actions"]')
+      .filter({ has: page.getByRole('toolbar') })
     await expect(actions).toHaveCSS('-webkit-app-region', 'no-drag')
     const trackerSearch = trackers.getByRole('button', {
       name: 'Filter by URL…',
@@ -66,7 +68,9 @@ test('Trackers and Plugins share expandable, keyboard-accessible panel toolbars'
     await page.getByRole('link', { name: 'Plugins', exact: true }).click()
     const plugins = page.getByRole('toolbar', { name: 'Plugins' })
     await expect(actions).toHaveCSS('-webkit-app-region', 'no-drag')
-    await expect(plugins.locator('[data-slot="toolbar-glass"]')).toHaveCount(2)
+    await expect(plugins.locator('[data-slot="toolbar-glass"]')).toHaveCount(
+      process.platform === 'darwin' ? 2 : 0
+    )
     await expect(
       plugins.getByRole('button', { name: 'Add plugin' })
     ).toBeVisible()
@@ -75,11 +79,14 @@ test('Trackers and Plugins share expandable, keyboard-accessible panel toolbars'
     await search.click()
     const input = plugins.getByRole('textbox', { name: 'Find a plugin' })
     await expect(input).toBeFocused()
-    await actions.click({ position: { x: 8, y: 8 } })
+    await input.press('Tab')
     await expect(input).toHaveCount(0)
     await search.click()
     await input.fill('example')
     await plugins.getByRole('button', { name: 'Clear search' }).click()
+    await expect(
+      plugins.getByRole('button', { name: 'Clear search' })
+    ).toHaveCount(0)
     await expect(input).toBeFocused()
     await input.press('Escape')
     await expect(search).toBeFocused()

@@ -4,10 +4,10 @@ import { Events } from './events'
 export const ForwardableEvents = [
   Events.TaskUpdated,
   Events.TaskFilesUpdated,
+  Events.BtStorageProgress,
   Events.TaskActivityUpdated,
   Events.TaskInspectorActivityUpdated,
   Events.MagnetFileSelection,
-  Events.CreateTorrentProgress,
   Events.MagnetFileSelectionSettled,
   Events.StatsUpdated,
   Events.EngineDisconnected,
@@ -20,6 +20,7 @@ export const ForwardableEvents = [
   Events.PluginError,
   Events.PluginTimeout,
   Events.PluginStatusChanged,
+  Events.PluginSecurityChanged,
   Events.PluginInstalled,
   Events.PluginUninstalled,
   Events.NatStateChanged,
@@ -56,11 +57,12 @@ export const ForwardableEvents = [
   Events.SpeedLimitChanged,
   Events.NotificationAdded,
   Events.NotificationsChanged,
-  // Bridge approval events (Spec 7b) — forwarded so the web renderer's pairing
-  // toast + paired-client list work on the server shell, same as Electron IPC.
+  // Bridge pairing and session events keep the web renderer's approval UI and
+  // profile connection status synchronized, same as Electron IPC.
   BridgeEvents.PairRequested,
   BridgeEvents.Paired,
   BridgeEvents.Revoked,
+  BridgeEvents.ExtensionSessionsChanged,
   BridgeEvents.Error,
   // Pending pair request lifecycle (pending -> settled | expired) — same
   // web-shell forwarding rationale as the approval events above.

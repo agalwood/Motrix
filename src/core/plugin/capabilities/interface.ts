@@ -1,6 +1,7 @@
 // src/core/plugin/capabilities/interface.ts
 
 import type { SupportedLocale } from '@shared/constants/locales'
+import type { PluginLogState } from '@shared/schemas/plugin-logs'
 import type { PluginLogEntry } from '@shared/types/plugin'
 import type { ManifestLocaleDict } from '../manifest/i18n-resolve'
 import type { CommandsCapabilityHost } from './commands'
@@ -53,15 +54,20 @@ export interface CapabilityHost {
   // ── Plan A ────────────────────────────────────────────────────────────────
   createLog(pluginId: string): PluginLogCapability
   getTail(pluginId: string, limit: number): LogEntry[]
-  clearLog(pluginId: string): void
+  clearLog(pluginId: string): Promise<void> | void
   setLogVerbose(pluginId: string, verbose: boolean): void
   isLogVerbose(pluginId: string): boolean
+  getLogState(pluginId: string): PluginLogState
   subscribeLog(listener: LogStreamListener): () => void
   appSnapshot(): AppCapabilitySnapshot
   i18nSnapshot(pluginId: string): I18nSnapshot
   setLocale(locale: SupportedLocale): void
   onLocaleChange(handler: (lang: string) => void): () => void
   flush(): Promise<void>
+  /** Release a quiesced plugin's diagnostic writer without deleting its history. */
+  releaseLog?(pluginId: string): Promise<void>
+  /** Close all diagnostic writers during host shutdown. */
+  closeLogs?(): Promise<void>
 
   // ── Plan B ────────────────────────────────────────────────────────────────
   /** Shared outbound HTTP host (jar injected per-request by the bridge). */

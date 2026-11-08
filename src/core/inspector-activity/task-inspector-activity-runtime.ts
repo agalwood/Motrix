@@ -106,6 +106,7 @@ interface PendingReconnect {
   gapAt: number
   pollObserved: boolean
   tasks: Map<string, DownloadTask> | null
+  terminalStatuses: ReadonlyMap<string, TaskStatus>
 }
 
 export interface RecoveredAnchorOrigin {
@@ -162,6 +163,7 @@ export class TaskInspectorActivityRuntime {
       gapAt,
       pollObserved: false,
       tasks: null,
+      terminalStatuses: this.service.captureTerminalStatuses(),
     }
     this.service.markDisconnected(gapAt)
   }
@@ -419,6 +421,7 @@ export class TaskInspectorActivityRuntime {
         origin?.status === task.status &&
         TERMINAL_STATUSES.has(task.status)
       ) {
+        this.service.recordSamples([task])
         this.recoveredAnchors.add(task.id)
         continue
       }
@@ -456,6 +459,12 @@ export class TaskInspectorActivityRuntime {
     }
 
     for (const task of reconnect.tasks.values()) {
+      // Reconciliation includes the complete task list. Only tasks that were
+      // already terminal before the outage can bypass a recovered anchor.
+      if (reconnect.terminalStatuses.get(task.id) === task.status) {
+        this.recoveredAnchors.add(task.id)
+        continue
+      }
       await this.deliverRecoveredAnchor(
         task,
         reconnect.gapAt,

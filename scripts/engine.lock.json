@@ -1,50 +1,56 @@
 {
   "engine": "aria2",
   "repo": "motrixapp/aria2",
-  "tag": "v1.37.0-motrix.16",
-  "version": "1.37.0-motrix.16",
+  "tag": "v1.37.0-motrix.23",
+  "version": "1.37.0-motrix.23",
   "assets": {
     "darwin-arm64": {
-      "file": "aria2c-1.37.0-motrix.16-darwin-arm64.tar.gz",
+      "file": "aria2c-1.37.0-motrix.23-darwin-arm64.tar.gz",
       "bin": "aria2c",
-      "archiveSha256": "bb9e8abf19423e593b4d5962d98ea4a798f94fd2a8431ba214bae5838382dc68",
-      "binarySha256": "4990d1d119e2c3b42e89b5ca0e7fa062cad00037ea6d7341a6c756da57f0c053"
+      "archiveSha256": "e9aec22f19c96aa4f285f6db334926f0688754febc451668be1b93643a2e608a",
+      "binarySha256": "265a7bc6c42491d476ae394b4fe9c5af12aefbd0aecaf3463d5eedb326550ff4"
     },
     "darwin-x64": {
-      "file": "aria2c-1.37.0-motrix.16-darwin-x64.tar.gz",
+      "file": "aria2c-1.37.0-motrix.23-darwin-x64.tar.gz",
       "bin": "aria2c",
-      "archiveSha256": "c578852e975f94e8d2e163e696a4dfc81dec4457618219c09853d20d233900e0",
-      "binarySha256": "baffd6543f715494a7ae871e3e2f7ec95792fdeb13f98db7924dcaed874d0cda"
+      "archiveSha256": "d124737e2f2993c47d15d0364d0f69806ff2fdf1e75484a96388832cb1cf715a",
+      "binarySha256": "285e21954cdf2f97442df92a72d9bbf8c1e2b8e0b07e55a3a2a6420823ace808"
+    },
+    "win32-arm64": {
+      "file": "aria2c-1.37.0-motrix.23-win32-arm64.zip",
+      "bin": "aria2c.exe",
+      "archiveSha256": "92bd41b06c3fdf6e1e419f4230924b02948305b380af715d24c622f1e5c85173",
+      "binarySha256": "0efd7d885fa2845f5c6665510a01049ce50bfbcbe5c8be702fab40bc8242d69c"
     },
     "win32-x64": {
-      "file": "aria2c-1.37.0-motrix.16-win32-x64.zip",
+      "file": "aria2c-1.37.0-motrix.23-win32-x64.zip",
       "bin": "aria2c.exe",
-      "archiveSha256": "579f17351e81c9fe3ed11d9700f5983235fc362beaf20f5f02820f7a1bfe49b0",
-      "binarySha256": "b7edee5c43ff18b9e8b77983033ba7816fa220d810949d81fdb928e8b36d862f"
+      "archiveSha256": "107f5784ffd99e10eeb31297b3d71cda7f0e14f940863d27ddd5215644623825",
+      "binarySha256": "ab33a0b5249b97ce1da4a8705c27588e74449f684fd92340db5de85dfcbf5ffa"
     },
     "win32-ia32": {
-      "file": "aria2c-1.37.0-motrix.16-win32-ia32.zip",
+      "file": "aria2c-1.37.0-motrix.23-win32-ia32.zip",
       "bin": "aria2c.exe",
-      "archiveSha256": "5fe63ed9f6b5b5271ac719a089a6663171f68466b046e38fa9b393af9d28210b",
-      "binarySha256": "878c59532df2fa1e5dff04dcde3c70b570396734cf3fd662f16ecd0b77ba8535"
+      "archiveSha256": "2efc2064d2a5b91a3308e5e54c24467ee2b6d823fadaef178c55f83cf94e67d0",
+      "binarySha256": "9a873918aacc5ed18fa21dc8d5b7c3ea9cb42cc015f34f836418aaaf36308cfc"
     },
     "linux-x64": {
-      "file": "aria2c-1.37.0-motrix.16-linux-x64.tar.gz",
+      "file": "aria2c-1.37.0-motrix.23-linux-x64.tar.gz",
       "bin": "aria2c",
-      "archiveSha256": "bd48c06cbf6bebc32e1b75c2abbdad5c0787800b16266147bd0bf5904ce16e94",
-      "binarySha256": "69980468779003e058c98ad257330caf5dff6338cb1b714f8a7cd76b9bc4e693"
+      "archiveSha256": "23844251c9712ea10d5add8721f9081f9c9a53d3ff4ce5e664f7e3b27c10c7d4",
+      "binarySha256": "1f5c5100220997b186657de142bff0a43032ae7e24fb357d8f6a38bd6d0b3286"
     },
     "linux-arm64": {
-      "file": "aria2c-1.37.0-motrix.16-linux-arm64.tar.gz",
+      "file": "aria2c-1.37.0-motrix.23-linux-arm64.tar.gz",
       "bin": "aria2c",
-      "archiveSha256": "65511295a68fd3bcb002022c2a09364f46a8da6eb385d6c2c3915c5ea349692f",
-      "binarySha256": "0edfe1408394c88b5b8c91df9cbcd72886085b7373379c61d75dfdc32dc5cfc3"
+      "archiveSha256": "8aa829367cc78c69140a55393ff992281c31e42c6e76e5c4853eaa5aa79d1146",
+      "binarySha256": "53c2b1879a020c619a780de652a45deac5ad892e994f31204d315c480e1a246c"
     },
     "linux-arm": {
-      "file": "aria2c-1.37.0-motrix.16-linux-armv7l.tar.gz",
+      "file": "aria2c-1.37.0-motrix.23-linux-armv7l.tar.gz",
       "bin": "aria2c",
-      "archiveSha256": "d25727100c5f7d197079a9ad73f4698614286b9d4cc10de4c26ab8d04f9768de",
-      "binarySha256": "1db7f580677f6d8beb9ddda7f153853c9606c0abb1babc5471867c82a9c1c357"
+      "archiveSha256": "c6cf08a069658cc730d2c4039e50897d57e2ca02ba8be27367f1a871c2905ee0",
+      "binarySha256": "81fd2b866c9550c7b8dd644ae5663c86a6d1d2749ca4dd5e1cd529fe8d010d32"
     }
   }
 }

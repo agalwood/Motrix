@@ -129,6 +129,19 @@ async function calls(page: Page) {
   return page.evaluate(() => window.directoryPickerFixture.calls)
 }
 
+async function directoryCalls(page: Page) {
+  const channels: readonly string[] = [
+    Queries.GetDirectoryPreferences,
+    Queries.ListAllowedSaveDirs,
+    Queries.ListServerDirectoryLocations,
+    Queries.ListServerDirectories,
+    Queries.ValidateServerDirectory,
+    Commands.CreateServerDirectory,
+    Commands.MutateDirectoryPreferences,
+  ]
+  return (await calls(page)).filter((call) => channels.includes(call.channel))
+}
+
 test('name and modification ordering use natural ties, numeric times and missing-last without RPC', async ({
   page,
 }) => {
@@ -136,7 +149,7 @@ test('name and modification ordering use natural ties, numeric times and missing
   await seedEntries(page)
   const { picker, list } = await openPicker(page)
   await expect.poll(() => labels(list)).toEqual(natural)
-  const before = await calls(page)
+  const before = await directoryCalls(page)
   await choose(page, picker, 'Descending')
   await expect.poll(() => labels(list)).toEqual([...natural].reverse())
   await choose(page, picker, 'Date modified')
@@ -145,7 +158,7 @@ test('name and modification ordering use natural ties, numeric times and missing
   await expect.poll(() => labels(list)).toEqual(modifiedAscending)
   await choose(page, picker, 'Name')
   await expect.poll(() => labels(list)).toEqual(natural)
-  expect(await calls(page)).toEqual(before)
+  expect(await directoryCalls(page)).toEqual(before)
   await test.info().attach('sort-request-budget', {
     body: JSON.stringify({
       changes: 4,
@@ -220,9 +233,9 @@ for (const select of [false, true]) {
     })
     await expectVisibleRow(list, selected)
     if (select) await selected.click()
-    const before = await calls(page)
+    const before = await directoryCalls(page)
     await choose(page, picker, 'Descending')
-    expect(await calls(page)).toEqual(before)
+    expect(await directoryCalls(page)).toEqual(before)
     if (select) {
       await expect(selected).toHaveAttribute('aria-selected', 'true')
       await expect(selected).toHaveAttribute('aria-posinset', '200')
@@ -241,7 +254,7 @@ for (const select of [false, true]) {
     }
     const offset = await list.evaluate((element) => element.scrollTop)
     await choose(page, picker, 'Descending')
-    expect(await calls(page)).toEqual(before)
+    expect(await directoryCalls(page)).toEqual(before)
     expect(await list.evaluate((element) => element.scrollTop)).toBe(offset)
   })
 }
@@ -379,12 +392,12 @@ for (const width of [1024, 390]) {
     await expect(menu.getByText('Sort by', { exact: true })).toBeVisible()
     await expect(menu.getByText('Order', { exact: true })).toBeVisible()
     await name.focus()
-    const before = await calls(page)
+    const before = await directoryCalls(page)
     await page.keyboard.press('Control+Enter')
     await page.keyboard.press('Meta+Enter')
     await expect(menu).toBeVisible()
     await expect(name).toBeChecked()
-    expect(await calls(page)).toEqual(before)
+    expect(await directoryCalls(page)).toEqual(before)
     await page.keyboard.press('ArrowDown')
     await expect(modified).toBeFocused()
     await page.keyboard.press('Escape')

@@ -121,7 +121,7 @@ describe('buildConsentPayload', () => {
     ])
   })
 
-  it('always sets notVerified=true in Phase 1A (no signing yet)', () => {
+  it('defaults to unverified until the installer verifies an official signature', () => {
     const payload = buildConsentPayload(
       makeManifest(),
       baseSource,

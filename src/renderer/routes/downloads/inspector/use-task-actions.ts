@@ -1,30 +1,44 @@
 import { toast } from '@renderer/components/ui/toast'
 import { taskWritesAvailable } from '@renderer/features/application-menu/task-context'
-import { getTaskListSnapshot } from '@renderer/hooks/use-task-list'
+import {
+  getTaskListSnapshot,
+  invalidateTaskList,
+} from '@renderer/hooks/use-task-list'
 import { openAddTaskDialog } from '@renderer/lib/open-add-task-dialog'
+import { useOperatorSession } from '@renderer/lib/operator-auth'
 import { transport } from '@renderer/lib/transport'
 import { type CommandChannel, Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
+import {
+  type AddTaskFormValues,
+  formValuesToTaskCreateRequests,
+} from '@shared/schemas/add-task'
+import { isUriOnlyDirectReplay } from '@shared/schemas/direct-replay-recipe'
 import {
   type MoveTasksPayload,
   moveTasksResultSchema,
 } from '@shared/schemas/move-tasks'
 import type { EngineTaskOptions } from '@shared/types/engine-task-options'
-import type { DownloadTask } from '@shared/types/task'
+import { type DownloadTask, TaskInstancePhase } from '@shared/types/task'
 import type { BulkTaskCommandResult } from '@shared/types/task-actions'
 import {
   canAttemptRetry,
   canMoveInQueue,
+  canOfferRetry,
   canPause,
+  canRedownload,
   canRemove,
   canReseed,
   canResume,
+  canRetryWithParameters,
   canStopSeeding,
   getTaskRetryKind,
 } from '@shared/types/task-actions'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useRedownloadOverwriteStore } from './redownload-overwrite-store'
 import { useRemoveTasksStore } from './remove-tasks-store'
+import { useRetryParametersStore } from './retry-parameters-store'
 
 export interface RemoveDialogState {
   open: boolean
@@ -97,7 +111,7 @@ function buildPrefillFromTask(
   return {
     tab: 'links' as const,
     urls: task.uris.join('\n'),
-    saveDir: (opts?.dir as string | undefined) || task.diskPath,
+    saveDir: (opts?.dir as string | undefined) || task.saveDir,
     filename: task.finalName,
     split:
       opts?.split && typeof opts.split === 'string'
@@ -144,6 +158,7 @@ export interface TaskActionsState {
   stopSeedingCount: number
   reseedCount: number
   retryCount: number
+  redownloadCount: number
   removeCount: number
   total: number
 
@@ -154,7 +169,10 @@ export interface TaskActionsState {
   onResume: () => Promise<void>
   onStopSeeding: () => Promise<void>
   onReseed: (modifier?: { alt: boolean }) => Promise<void>
-  onRetry: (modifier?: { alt: boolean }) => Promise<void>
+  onRetry: (modifier?: { alt: boolean; sha256?: string }) => Promise<void>
+  onRedownload: (modifier?: { alt: boolean }) => Promise<void>
+  closeRedownloadOverwriteDialog: () => void
+  confirmRedownloadOverwrite: () => Promise<void>
   onRemove: (modifier?: { shift: boolean }) => void
   closeRemoveDialog: () => void
   confirmRemove: (deleteFiles: boolean) => Promise<void>
@@ -181,13 +199,15 @@ export function useTaskActions(
     let stopSeedingCount = 0
     let reseedCount = 0
     let retryCount = 0
+    let redownloadCount = 0
     let removeCount = 0
     for (const task of selected) {
       if (canPause(task)) pauseCount++
       if (canResume(task)) resumeCount++
       if (canStopSeeding(task)) stopSeedingCount++
       if (canReseed(task)) reseedCount++
-      if (canAttemptRetry(task)) retryCount++
+      if (canOfferRetry(task)) retryCount++
+      if (canRedownload(task)) redownloadCount++
       if (canRemove(task)) removeCount++
     }
     return {
@@ -197,6 +217,7 @@ export function useTaskActions(
       stopSeedingCount,
       reseedCount,
       retryCount,
+      redownloadCount,
       removeCount,
       total: selected.length,
     }
@@ -349,19 +370,217 @@ export function useTaskActions(
   )
 
   const onRetry = useCallback(
-    async (modifier?: { alt: boolean }) => {
-      if (
-        modifier?.alt &&
-        selected.length === 1 &&
-        getTaskRetryKind(selected[0]) === 'torrent-readd'
-      ) {
-        await altReAddSingle(selected[0])
+    async (modifier?: { alt: boolean; sha256?: string }) => {
+      if (!readyToWrite()) return
+      const sessionEpoch = useOperatorSession.getState().epoch
+      let targets = resolveLatest(selected)
+      if (modifier?.sha256) {
+        const [task] = targets
+        if (targets.length !== 1 || !task || !canOfferRetry(task)) return
+        try {
+          await transport.invoke(Commands.ReAddTask, {
+            taskId: task.id,
+            sha256: modifier.sha256,
+          })
+          invalidateTaskList()
+        } catch (error) {
+          reportPartial([{ ok: false, task, reason: errMsg(error) }])
+        }
         return
       }
-      await dispatchSubset(Commands.RetryTasks, canAttemptRetry)
+      const candidates = modifier?.alt
+        ? []
+        : targets.filter(
+            (task) => canRetryWithParameters(task) && !canAttemptRetry(task)
+          )
+      const nativeRetryIds = new Set<string>()
+      if (candidates.length) {
+        try {
+          for (let offset = 0; offset < candidates.length; offset += 1000) {
+            const available = await transport.invoke(
+              Queries.GetTaskHttpRetryAvailability,
+              candidates.slice(offset, offset + 1000).map((task) => task.id)
+            )
+            // Logout cancels this intent even if a new login has already completed.
+            if (sessionEpoch !== useOperatorSession.getState().epoch) return
+            if (!readyToWrite()) return
+            if (Array.isArray(available)) {
+              for (const id of available)
+                if (typeof id === 'string') nativeRetryIds.add(id)
+            }
+          }
+          targets = resolveLatest(selected)
+        } catch (error) {
+          if (sessionEpoch !== useOperatorSession.getState().epoch) return
+          reportPartial(
+            candidates.map((task) => ({
+              ok: false,
+              task,
+              reason: errMsg(error),
+            }))
+          )
+          return
+        }
+      }
+      const parameterTargets = targets.filter(
+        (task) =>
+          canRetryWithParameters(task) &&
+          ((!canAttemptRetry(task) && !nativeRetryIds.has(task.id)) ||
+            modifier?.alt)
+      )
+      if (parameterTargets.length) {
+        if (!useRetryParametersStore.getState().openWith(parameterTargets))
+          return
+        const parameterIds = new Set(parameterTargets.map((task) => task.id))
+        await dispatchSubset(
+          Commands.RetryTasks,
+          (task) =>
+            (canAttemptRetry(task) || nativeRetryIds.has(task.id)) &&
+            !parameterIds.has(task.id)
+        )
+        return
+      }
+      const retryKind = targets[0] ? getTaskRetryKind(targets[0]) : null
+      if (
+        modifier?.alt &&
+        targets.length === 1 &&
+        (retryKind === 'torrent-readd' || retryKind === 'direct-readd')
+      ) {
+        await altReAddSingle(targets[0])
+        return
+      }
+      await dispatchSubset(
+        Commands.RetryTasks,
+        (task) =>
+          canAttemptRetry(task) ||
+          (nativeRetryIds.has(task.id) && canRetryWithParameters(task))
+      )
     },
-    [selected, altReAddSingle, dispatchSubset]
+    [selected, altReAddSingle, dispatchSubset, readyToWrite, reportPartial]
   )
+
+  const checkFileExists = useCallback(
+    async (task: DownloadTask): Promise<boolean> => {
+      try {
+        const res = (await transport.invoke(Queries.CheckTaskFileExists, {
+          taskId: task.id,
+        })) as { exists: boolean }
+        return Boolean(res?.exists)
+      } catch {
+        return false
+      }
+    },
+    []
+  )
+
+  const executeRedownload = useCallback(
+    async (task: DownloadTask) => {
+      // Check whether the original task can be replayed from its URI alone.
+      const primary = task.instances.find(
+        (instance) => instance.phase === TaskInstancePhase.HttpDownload
+      )
+      const isUriOnly = primary ? isUriOnlyDirectReplay(primary.payload) : true
+
+      let opts: EngineTaskOptions | null = null
+      try {
+        opts = (await transport.invoke(
+          Queries.GetEngineTaskOptions,
+          task.engineTaskId
+        )) as EngineTaskOptions | null
+      } catch {
+        opts = null
+      }
+
+      // Let the user restore credentials when the engine no longer has them.
+      if (!isUriOnly && !opts) {
+        toast.add({
+          title: t('panel.downloads.action.redownloadCredentialsExpired'),
+          type: 'warning',
+        })
+        await altReAddSingle(task)
+        return
+      }
+
+      try {
+        const prefill = buildPrefillFromTask(task, opts)
+        const requests = formValuesToTaskCreateRequests(
+          prefill as AddTaskFormValues
+        )
+        for (const req of requests) {
+          await transport.invoke(Commands.CreateTask, req)
+        }
+        invalidateTaskList()
+        toast.add({
+          title: t('panel.downloads.action.redownloadStarted'),
+          type: 'success',
+        })
+      } catch (err) {
+        toast.add({
+          title: t('panel.downloads.action.singleTaskFailed', {
+            name: task.name,
+            reason: errMsg(err),
+          }),
+          type: 'error',
+        })
+      }
+    },
+    [altReAddSingle, t]
+  )
+
+  const onRedownload = useCallback(
+    async (modifier?: { alt: boolean }) => {
+      if (!readyToWrite()) return
+      const targets = resolveLatest(selected).filter(canRedownload)
+      if (!targets.length) return
+      const task = targets[0]
+
+      // Alt-click opens the task dialog for editing before re-downloading.
+      if (modifier?.alt) {
+        await altReAddSingle(task)
+        return
+      }
+
+      // A regular click first checks whether the destination still exists.
+      const exists = await checkFileExists(task)
+      if (exists) {
+        useRedownloadOverwriteStore.setState({
+          open: true,
+          target: task,
+          busy: false,
+        })
+        return
+      }
+
+      // Start immediately when the output file is missing.
+      await executeRedownload(task)
+    },
+    [selected, readyToWrite, altReAddSingle, checkFileExists, executeRedownload]
+  )
+
+  const confirmRedownloadOverwrite = useCallback(async () => {
+    const target = useRedownloadOverwriteStore.getState().target
+    if (!target) return
+    useRedownloadOverwriteStore.setState({ busy: true })
+    try {
+      await executeRedownload(target)
+    } finally {
+      useRedownloadOverwriteStore.setState({
+        open: false,
+        target: null,
+        busy: false,
+      })
+    }
+  }, [executeRedownload])
+
+  const closeRedownloadOverwriteDialog = useCallback(() => {
+    if (!useRedownloadOverwriteStore.getState().busy) {
+      useRedownloadOverwriteStore.setState({
+        open: false,
+        target: null,
+        busy: false,
+      })
+    }
+  }, [])
 
   const onRemove = useCallback(
     (modifier?: { shift: boolean }) => {
@@ -420,6 +639,9 @@ export function useTaskActions(
     onStopSeeding,
     onReseed,
     onRetry,
+    onRedownload,
+    closeRedownloadOverwriteDialog,
+    confirmRedownloadOverwrite,
     onRemove,
     closeRemoveDialog,
     confirmRemove,

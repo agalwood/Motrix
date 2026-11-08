@@ -1,7 +1,10 @@
 import { useIpcEvent } from '@renderer/hooks/use-ipc-event'
 import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
-import { DESKTOP_WINDOW_CHROME_HEIGHT } from '@shared/constants/window-chrome'
+import {
+  DESKTOP_WINDOW_CHROME_HEIGHT,
+  WINDOW_CONTROLS_OVERLAY_HEIGHT,
+} from '@shared/constants/window-chrome'
 import { Commands } from '@shared/protocol/commands'
 import {
   Events,
@@ -148,11 +151,7 @@ export function shouldShowDesktopWindowControls(
   platform: NodeJS.Platform | 'web',
   previewMacMenu: boolean
 ): boolean {
-  return (
-    platform === 'linux' ||
-    platform === 'win32' ||
-    (platform === 'darwin' && previewMacMenu)
-  )
+  return platform === 'win32' || (platform === 'darwin' && previewMacMenu)
 }
 
 export function WindowChrome({
@@ -185,6 +184,10 @@ export function WindowChrome({
   )
   const isOverlay = variant === 'overlay'
   const isMac = platform === 'darwin'
+  const usesWindowControlsOverlay =
+    __MOTRIX_TARGET__ === 'electron' && platform === 'linux'
+  const reserveWindowControlsOverlay =
+    usesWindowControlsOverlay && !windowState.fullscreen
   const showTrafficLight =
     __MOTRIX_TARGET__ === 'electron' &&
     isMac &&
@@ -194,17 +197,25 @@ export function WindowChrome({
     leading != null && actionsPosition === 'start'
 
   const containerStyle: React.CSSProperties = {
-    height: DESKTOP_WINDOW_CHROME_HEIGHT,
+    height: usesWindowControlsOverlay
+      ? WINDOW_CONTROLS_OVERLAY_HEIGHT
+      : DESKTOP_WINDOW_CHROME_HEIGHT,
     display: 'flex',
     alignItems: 'center',
     paddingLeft: showTrafficLight ? 94 : undefined,
     paddingRight: showTrafficLight ? 20 : undefined,
-    paddingInlineStart: showTrafficLight ? undefined : 12,
+    paddingInlineStart: showTrafficLight
+      ? undefined
+      : reserveWindowControlsOverlay
+        ? 'calc(var(--window-controls-overlay-start) + 12px)'
+        : 12,
     paddingInlineEnd: showTrafficLight
       ? undefined
-      : showDesktopControls
-        ? 0
-        : 20,
+      : reserveWindowControlsOverlay
+        ? 'calc(var(--window-controls-overlay-end) + 20px)'
+        : showDesktopControls
+          ? 0
+          : 20,
     flexShrink: 0,
     userSelect: 'none',
     ...(isOverlay && {
@@ -221,7 +232,8 @@ export function WindowChrome({
     <div
       data-slot="window-chrome-actions"
       className={cn(
-        'app-no-drag relative z-[60] flex shrink-0 items-center gap-2 pt-3.5 empty:hidden',
+        'app-no-drag relative z-[60] flex shrink-0 items-center gap-2 empty:hidden',
+        !usesWindowControlsOverlay && 'pt-3.5',
         offsetStartActionsForDesktopMenu && 'ms-1'
       )}
     >
@@ -233,15 +245,26 @@ export function WindowChrome({
     <div
       className={cn('window-chrome', !windowState.fullscreen && 'app-drag')}
       data-fullscreen={windowState.fullscreen}
+      data-window-controls-overlay={usesWindowControlsOverlay}
       style={containerStyle}
     >
       {!isOverlay && title && (
-        <div className="pt-[14px] text-[13px] font-[600]">{title}</div>
+        <div
+          className={cn(
+            'text-[13px] font-[600]',
+            !usesWindowControlsOverlay && 'pt-[14px]'
+          )}
+        >
+          {title}
+        </div>
       )}
       {leading && (
         <div
           data-slot="window-chrome-leading"
-          className="app-no-drag relative z-[60] me-1.5 flex shrink-0 items-center pt-3.5 empty:hidden"
+          className={cn(
+            'app-no-drag relative z-[60] me-1.5 flex shrink-0 items-center empty:hidden',
+            !usesWindowControlsOverlay && 'pt-3.5'
+          )}
         >
           {leading}
         </div>
@@ -250,7 +273,10 @@ export function WindowChrome({
       <div
         aria-hidden
         data-slot="window-chrome-drag-region"
-        className="min-w-16 flex-1"
+        className={cn(
+          'flex-1',
+          usesWindowControlsOverlay ? 'min-w-0' : 'min-w-16'
+        )}
       />
       {actionsPosition === 'end' && actionSlot}
       {showDesktopControls && !windowState.fullscreen && (

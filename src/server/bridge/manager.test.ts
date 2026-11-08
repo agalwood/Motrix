@@ -20,6 +20,8 @@ function makeRegistry() {
 
 function makeRuntime(): ServerBridgeRuntime {
   return {
+    cancelMedia: vi.fn(async () => {}),
+    getMediaSegmentGids: vi.fn(() => []),
     server: {} as ServerBridgeRuntime['server'],
     port: 16801,
     localToken: 'token',
@@ -36,11 +38,39 @@ function makeRuntime(): ServerBridgeRuntime {
 }
 
 describe('ServerBridgeManager', () => {
+  it('has an empty pairing inbox while the listener is disabled', async () => {
+    const manager = new ServerBridgeManager(makeRegistry(), vi.fn())
+    await expect(
+      manager.bridgeQueryHandlers[BridgeQueries.ListPendingPairRequests]()
+    ).resolves.toEqual([])
+  })
   let registry: TrustedExtensionRegistry
 
   beforeEach(async () => {
     registry = makeRegistry()
     await registry.load()
+  })
+
+  it('keeps media cancellation reachable while a disabled bridge is draining', async () => {
+    const runtime = makeRuntime()
+    let release!: () => void
+    const drain = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    vi.mocked(runtime.shutdown).mockReturnValue(drain)
+    const manager = new ServerBridgeManager(registry, async () => runtime)
+    await manager.start()
+    await manager.cancelMedia('active')
+    expect(runtime.cancelMedia).toHaveBeenCalledWith('active')
+    const stopping = manager.stop()
+    await vi.waitFor(() => expect(runtime.shutdown).toHaveBeenCalledOnce())
+    expect(manager.current).toBeNull()
+    await manager.cancelMedia('removing')
+    expect(runtime.cancelMedia).toHaveBeenCalledWith('removing')
+    release()
+    await stopping
+    await manager.cancelMedia('already-stopped')
+    expect(runtime.cancelMedia).toHaveBeenCalledTimes(2)
   })
 
   it('keeps trusted-extension management available while disabled', async () => {

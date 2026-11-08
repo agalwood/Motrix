@@ -366,6 +366,33 @@ docker compose exec server motrix-admin pairing approve ABCD-EFGH
 docker compose exec server motrix-admin pairing deny ABCD-EFGH
 ```
 
+浏览器扩展使用独立的配对码握手。若通过容器终端完成配对，启用远程扩展监听并配置
+准确的 WS/WSS 地址即可，`MOTRIX_PUBLIC_URL` 为可选项：
+
+```bash
+export MOTRIX_REMOTE_EXTENSION_ENABLED=true
+export MOTRIX_REMOTE_EXTENSION_PUBLIC_URL='ws://nas.example.lan:16801'
+```
+
+使用新环境变量重新创建容器，在扩展中发起配对，然后运行：
+
+```bash
+docker compose exec server motrix-admin extension pair
+```
+
+选择你刚发起的请求，将终端显示的配对码输入扩展。该命令要求输入、输出及错误输出
+均连接交互终端，不要使用 `-T`、管道、重定向或 `--json`。配对码不会出现在服务日志
+或普通 `pairing pending` 列表中，原有的 120 秒期限也不会延长。关闭终端视图不会
+批准或拒绝请求；若请求消失，请在扩展中确认结果。终端录制可能记录配对码，请使用
+可信的管理员会话。
+
+未配置 HTTPS 管理地址、也未显式设置 `MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP=true`
+时，WebUI 不会收到扩展配对码，请使用交互式命令。若要在 WebUI 显示配对码，需配置
+HTTPS 或明确授权可信局域网 HTTP。省略 Web 地址时，现有 Web 同源检查使用请求的
+Host 和协议。Web 与扩展地址可以使用不同主机和端口；若配置了 Web 地址，请从该
+地址访问 WebUI，以满足其事件连接的来源校验。
+
+
 先在客户端发起 pairing，再输入该客户端显示的验证码。该命令刻意不提供
 approve-latest、approve-all、远程 endpoint 或 token 参数。Web 审批仍是正常
 路径；这个入口只用于 headless 或恢复场景下的本机 operator 操作。
@@ -530,10 +557,27 @@ operator 可用的管理选项包括：
 - `MOTRIX_SECRETS_SEED`：可选的 64 位十六进制 secret，应来自编排器 secret
   store；否则会生成并持久化 `/data/secrets.lockbox`。
 
-官方镜像不包含 FFmpeg。依赖 FFmpeg 的插件需要基于官方镜像安装 Alpine
-`ffmpeg` 包，并设置 `MOTRIX_FFMPEG_PATH=/usr/bin/ffmpeg`。
+官方镜像不包含 FFmpeg。浏览器扩展的 HLS/DASH 下载、分离音视频合并，以及
+依赖 FFmpeg 的插件，都需要容器内可执行的 FFmpeg。在 **设置 → 集成 → 媒体工具**
+中点击 **下载 FFmpeg**，再点击 **下载并验证**。Server 会根据自身的操作系统和
+架构下载 Motrix 官方构建，校验签名和摘要后安装到
+`/data/binaries/ffmpeg-verified`。Web 界面会显示进度和错误，安装文件随 `/data`
+卷持久保存。安装需要该目录的写入权限，以及访问 GitHub Releases 的出站 HTTPS
+连接。校验失败时会保留此前已验证的安装。
+
+也可以基于官方镜像安装
+Alpine `ffmpeg` 包，并设置 `MOTRIX_FFMPEG_PATH=/usr/bin/ffmpeg`。也可以将
+兼容的可执行文件放在 `/data/binaries/ffmpeg`，或在 Web 界面配置自定义路径。
+在 **设置 → 集成 → 媒体工具** 中确认检测成功后，点击扩展中的 **重新扫描**。
+Server 会刷新媒体能力，无需重启；仅在浏览器所在电脑安装 FFmpeg，不会使其
+在容器内可用。
 
 ## 升级、回滚、备份与恢复
+
+**设置 → 关于** 支持检查 Server 新版本，使用与桌面版相同的稳定版和测试版发布源。
+更新通道和启动时自动检查的偏好会保存在设置中。检查以正在运行的 Server 版本为准，
+不会提示降级。发现新版本后，可以打开对应的更新日志，由管理员手动更新部署。
+Server 不会下载安装包、替换应用文件，或为安装更新而自动重启。
 
 升级前记录当前镜像 digest 并备份 `/data`。做文件系统级备份前先停止服务，
 确保 SQLite 与 aria2 session 一致：
@@ -643,7 +687,7 @@ bridge lock 的恢复会把该 ownership 记录与已绑定的 Web listener 共�
 | `MOTRIX_BIND_IP` | Compose：`0.0.0.0` | 向后兼容的共享宿主发布 fallback |
 | `MOTRIX_MDXP_HOST` | runtime：`127.0.0.1`；Compose：`0.0.0.0` | 容器内 MDXP listener，不是宿主发布地址 |
 | `MOTRIX_MDXP_PORT` | `16801` | MDXP 监听端口；`0` 表示不使用固定发布端口 |
-| `MOTRIX_PUBLIC_URL` | 未设置 | 显式设置的外部可访问 Web 审批 URL，不是 MDXP URL；不会默认为 localhost |
+| `MOTRIX_PUBLIC_URL` | 未设置 | 可选的外部可访问 Web 审批 URL，不是 MDXP URL；未设置时扩展配对使用本机终端，除非明确授权管理界面 HTTP |
 | `MOTRIX_REMOTE_EXTENSION_ENABLED` | `false` | 显式开启浏览器扩展使用的四条远程 MBP1 路由 |
 | `MOTRIX_REMOTE_EXTENSION_PUBLIC_URL` | 未设置 | Motrix Extension 中应填写的准确 WS/WSS Server 地址 |
 | `MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP` | `false` | 在可信局域网显式接受 operator 凭据和管理流量暴露风险；不可信网络绝不能开启 |

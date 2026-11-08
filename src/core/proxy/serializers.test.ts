@@ -27,7 +27,12 @@ describe('proxyToAria2Options', () => {
   it('returns options when enabled and scope on', () => {
     const r = proxyToAria2Options({
       ...enabledHttp,
-      scopes: { download: true, updateApp: false, updateTrackers: false },
+      scopes: {
+        download: true,
+        updateApp: false,
+        updateTrackers: false,
+        plugins: false,
+      },
     })
     expect(r).toEqual({ allProxy: 'http://p.example.com:8080', noProxy: '' })
   })
@@ -37,7 +42,12 @@ describe('proxyToAria2Options', () => {
       proxyToAria2Options({
         ...enabledHttp,
         protocol: 'socks5',
-        scopes: { download: true, updateApp: false, updateTrackers: false },
+        scopes: {
+          download: true,
+          updateApp: false,
+          updateTrackers: false,
+          plugins: false,
+        },
       })
     ).toBeNull()
   })
@@ -45,7 +55,12 @@ describe('proxyToAria2Options', () => {
   it('joins bypass with comma', () => {
     const r = proxyToAria2Options({
       ...enabledHttp,
-      scopes: { download: true, updateApp: false, updateTrackers: false },
+      scopes: {
+        download: true,
+        updateApp: false,
+        updateTrackers: false,
+        plugins: false,
+      },
       bypass: ['localhost', '127.0.0.1'],
     })
     expect(r?.noProxy).toBe('localhost,127.0.0.1')
@@ -56,7 +71,12 @@ describe('proxyToAria2Options', () => {
       ...enabledHttp,
       user: 'a@b',
       password: 'p:s',
-      scopes: { download: true, updateApp: false, updateTrackers: false },
+      scopes: {
+        download: true,
+        updateApp: false,
+        updateTrackers: false,
+        plugins: false,
+      },
     })
     expect(r?.allProxy).toBe('http://a%40b:p%3As@p.example.com:8080')
   })
@@ -65,7 +85,12 @@ describe('proxyToAria2Options', () => {
     const r = proxyToAria2Options({
       ...enabledHttp,
       host: '2001:db8::1',
-      scopes: { download: true, updateApp: false, updateTrackers: false },
+      scopes: {
+        download: true,
+        updateApp: false,
+        updateTrackers: false,
+        plugins: false,
+      },
     })
     expect(r?.allProxy).toBe('http://[2001:db8::1]:8080')
   })
@@ -75,14 +100,24 @@ describe('proxyToAria2Options', () => {
       proxyToAria2Options({
         ...enabledHttp,
         bypass: ['localhost\nhttp-proxy=http://evil'],
-        scopes: { download: true, updateApp: false, updateTrackers: false },
+        scopes: {
+          download: true,
+          updateApp: false,
+          updateTrackers: false,
+          plugins: false,
+        },
       })
     ).toBeNull()
     expect(
       proxyToAria2Options({
         ...enabledHttp,
         user: 'user\nhttp-proxy=http://evil',
-        scopes: { download: true, updateApp: false, updateTrackers: false },
+        scopes: {
+          download: true,
+          updateApp: false,
+          updateTrackers: false,
+          plugins: false,
+        },
       })
     ).toBeNull()
   })
@@ -96,7 +131,12 @@ describe('proxyToElectronConfig', () => {
   it('emits proxyRules with HTTP url', () => {
     const r = proxyToElectronConfig({
       ...enabledHttp,
-      scopes: { download: false, updateApp: true, updateTrackers: false },
+      scopes: {
+        download: false,
+        updateApp: true,
+        updateTrackers: false,
+        plugins: false,
+      },
     })
     expect(r?.proxyRules).toBe('http://p.example.com:8080')
   })
@@ -105,7 +145,12 @@ describe('proxyToElectronConfig', () => {
     const r = proxyToElectronConfig({
       ...enabledHttp,
       protocol: 'socks5',
-      scopes: { download: false, updateApp: true, updateTrackers: false },
+      scopes: {
+        download: false,
+        updateApp: true,
+        updateTrackers: false,
+        plugins: false,
+      },
     })
     expect(r?.proxyRules).toBe('socks5=socks5://p.example.com:8080')
   })
@@ -125,7 +170,12 @@ describe('proxyToDownloadRequestOptions', () => {
         user: 'a@b',
         password: 'p:s',
         bypass: ['localhost', '127.0.0.0/8'],
-        scopes: { download: true, updateApp: false, updateTrackers: false },
+        scopes: {
+          download: true,
+          updateApp: false,
+          updateTrackers: false,
+          plugins: false,
+        },
       })
     ).toEqual({
       proxy: 'socks5://a%40b:p%3As@p.example.com:8080',
@@ -143,7 +193,12 @@ describe('proxyToFetchUrl', () => {
     expect(
       proxyToFetchUrl({
         ...enabledHttp,
-        scopes: { download: false, updateApp: false, updateTrackers: true },
+        scopes: {
+          download: false,
+          updateApp: false,
+          updateTrackers: true,
+          plugins: false,
+        },
       })
     ).toBe('http://p.example.com:8080')
   })

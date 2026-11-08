@@ -1,7 +1,8 @@
+import { MiddleEllipsis } from '@renderer/components/desktop-kit/middle-ellipsis'
 import {
+  AddIcon,
   ChevronRightIcon,
   FavoriteIcon,
-  FolderAddIcon,
   FolderIcon,
   RemoveIcon,
 } from '@renderer/components/icons'
@@ -161,13 +162,11 @@ export function DirectoryPreferencesSection({
           return (
             <li key={path} className="flex items-center gap-2 px-2 py-1">
               <FolderIcon className="size-4 shrink-0 text-muted-foreground" />
-              <span
-                dir="ltr"
-                title={path}
-                className="min-w-0 flex-1 truncate text-xs whitespace-pre"
-              >
-                {path}
-              </span>
+              <MiddleEllipsis
+                text={path}
+                maxChars={64}
+                className="min-w-0 flex-1 font-sans! text-xs"
+              />
               {recent && (
                 <Button
                   type="button"
@@ -258,12 +257,12 @@ export function DirectoryPreferencesSection({
           <Button
             ref={add}
             type="button"
-            size="sm"
+            size="xs"
             variant="outline"
             disabled={busy || full}
             onClick={() => void addFavorite()}
           >
-            <FolderAddIcon />
+            <AddIcon />
             {t('directoryPreferences.addFavorite')}
           </Button>
         </div>
@@ -279,7 +278,7 @@ export function DirectoryPreferencesSection({
         </CollapsibleContent>
       </Collapsible>
       <Collapsible open={recentOpen} onOpenChange={setRecentOpen}>
-        <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="mb-2 flex min-h-6 items-center justify-between gap-2">
           <CollapsibleTrigger
             disabled={busy}
             className="flex min-w-0 items-center gap-1 text-xs font-medium"
@@ -295,7 +294,7 @@ export function DirectoryPreferencesSection({
           {recentOpen && (
             <Button
               type="button"
-              size="sm"
+              size="xs"
               variant="ghost"
               disabled={busy || preferences.recent.length === 0}
               onClick={() => change({ ...preferences, recent: [] })}

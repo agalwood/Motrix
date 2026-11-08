@@ -1,5 +1,10 @@
 import { toast } from '@renderer/components/ui/toast'
 import { i18n } from '@renderer/lib/i18n'
+import { useOperatorSession } from '@renderer/lib/operator-auth'
+import { webBaseUrl, webOriginHeaders } from '@renderer/lib/web-base-url'
+import type { FilePickerOptions } from '@shared/schemas/file-picker'
+import { isNasAuthMode } from '@shared/schemas/operator-auth'
+import { isFnos, pickFnosDirectory } from './fnos'
 import type { PlatformServices } from './services'
 
 const SHA256_RE = /^[0-9a-f]{64}$/
@@ -8,6 +13,7 @@ export type PickRequest = {
   id: number
   defaultPath?: string
   allowFavoriteEditing?: boolean
+  file?: FilePickerOptions
   opener: HTMLElement | null
 }
 type PickListener = (req: PickRequest) => void
@@ -30,6 +36,7 @@ export class PathPickerBus {
   request(req: {
     defaultPath?: string
     allowFavoriteEditing?: boolean
+    file?: FilePickerOptions
   }): Promise<string | null> {
     const id = ++this.latestId
     const opener =
@@ -80,7 +87,7 @@ export function createWebServices(
   options: WebServicesOptions = {}
 ): PlatformServices {
   const fetchImpl = options.fetchImpl ?? fetch.bind(globalThis)
-  const baseUrl = options.baseUrl ?? globalThis.location?.origin ?? ''
+  const baseUrl = options.baseUrl ?? webBaseUrl()
   return {
     kind: 'web',
 
@@ -91,6 +98,9 @@ export function createWebServices(
           method: 'POST',
           credentials: 'same-origin',
           headers: {
+            ...(isNasAuthMode(useOperatorSession.getState().status?.mode)
+              ? webOriginHeaders()
+              : {}),
             'content-type': 'application/vnd.motrix.moext',
             'x-motrix-file-name': encodeURIComponent(file.name),
           },
@@ -121,7 +131,12 @@ export function createWebServices(
       },
     },
 
+    pickFile(file) {
+      return __webPathPickerBus.request({ defaultPath: file.defaultPath, file })
+    },
+
     pickSaveDir(defaultPath, options) {
+      if (isFnos()) return pickFnosDirectory()
       return __webPathPickerBus.request({ defaultPath, ...options })
     },
 

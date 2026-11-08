@@ -371,3 +371,113 @@ describe('TaskManager — multi-instance engineIndex (Plan A Task 9)', () => {
     expect(tm.isEngineTaskIdRetired(cleanedUpGid)).toBe(true)
   })
 })
+
+it('quarantines durable migration GIDs after ordinary set consumes a transient reservation', () => {
+  const manager = new TaskManager()
+  const task = makeTask()
+  const gid = '1122334455667788'
+  task.engineTaskId = gid
+  task.instances = [
+    {
+      instanceId: 'legacy-i',
+      motrixId: task.id,
+      gid,
+      phase: TaskInstancePhase.BtDownload,
+      status: TaskStatus.Paused,
+      progress: 0,
+      totalBytes: 0,
+      downloadedBytes: 0,
+      uploadedBytes: 0,
+      diskPath: '/old',
+      transitionPhase: TransitionPhase.Idle,
+      uris: [],
+      uriHash: null,
+      payload: {},
+      createdAt: 0,
+      updatedAt: 0,
+    },
+  ]
+  task.instances[0].payload = {
+    legacyImport: { version: 99 },
+    legacyBtActivation: { engineTaskId: gid },
+  }
+  manager.reserveEngineTaskId(gid)
+  manager.set(task.id, task)
+  expect(manager.isEngineTaskIdRetired(gid)).toBe(true)
+  manager.clear()
+  manager.set(task.id, task)
+  expect(manager.isEngineTaskIdRetired(gid)).toBe(true)
+  task.instances[0].payload = {}
+  manager.set(task.id, task)
+  expect(manager.isEngineTaskIdRetired(gid)).toBe(false)
+  expect(manager.getByEngineTaskId(gid)?.id).toBe(task.id)
+})
+
+it('keeps deleted payload-only migration GIDs retired and refuses duplicate reservations', () => {
+  const manager = new TaskManager()
+  const gid = '1122334455667788'
+  const task = makeTask({ engineTaskId: '' })
+  task.instances = [
+    {
+      instanceId: 'pending',
+      motrixId: task.id,
+      gid: null,
+      phase: TaskInstancePhase.BtDownload,
+      status: TaskStatus.Paused,
+      progress: 0,
+      totalBytes: 0,
+      downloadedBytes: 0,
+      uploadedBytes: 0,
+      diskPath: '/old',
+      transitionPhase: TransitionPhase.Idle,
+      uris: [],
+      uriHash: null,
+      payload: {
+        legacyImport: { version: 99 },
+        legacyBtActivation: { engineTaskId: gid },
+      },
+      createdAt: 0,
+      updatedAt: 0,
+    },
+  ]
+  manager.set(task.id, task)
+  expect(() => manager.reserveEngineTaskId(gid)).toThrow('not available')
+  manager.remove(task.id)
+  expect(manager.isEngineTaskIdRetired(gid)).toBe(true)
+  expect(() => manager.reserveEngineTaskId(gid)).toThrow('not available')
+})
+it('preserves the quarantine when either duplicated durable owner is removed', () => {
+  const manager = new TaskManager()
+  const gid = '1122334455667788'
+  for (const id of ['owner-a', 'owner-b']) {
+    const task = makeTask({ id, engineTaskId: '' })
+    task.instances = [
+      {
+        instanceId: id,
+        motrixId: id,
+        gid: null,
+        phase: TaskInstancePhase.BtDownload,
+        status: TaskStatus.Paused,
+        progress: 0,
+        totalBytes: 0,
+        downloadedBytes: 0,
+        uploadedBytes: 0,
+        diskPath: '/old',
+        transitionPhase: TransitionPhase.Idle,
+        uris: [],
+        uriHash: null,
+        payload: {
+          legacyImport: { version: 99 },
+          legacyBtActivation: { engineTaskId: gid },
+        },
+        createdAt: 0,
+        updatedAt: 0,
+      },
+    ]
+    manager.set(id, task)
+  }
+  manager.remove('owner-b')
+  expect(manager.getById('owner-a')).toBeDefined()
+  expect(manager.isEngineTaskIdRetired(gid)).toBe(true)
+  expect(() => manager.reserveEngineTaskId(gid)).toThrow('not available')
+})

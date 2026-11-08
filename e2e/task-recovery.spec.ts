@@ -138,18 +138,4 @@ test.describe('task recovery', () => {
       if (fx) await fx.close()
     }
   })
-
-  // Plan A Task 10: multi-instance recovery (HLS / magnet metadata) is
-  // blocked until Plan B (magnet) and the future HLS plan introduce real
-  // multi-instance creator paths. The harness exposes only the user-
-  // facing IPC + UI; there is no test injection hook to seed a
-  // multi-instance task directly. Unit-level coverage at
-  // src/core/session/motrix-database.test.ts ("multi-instance round-trip")
-  // and src/core/session/session-manager.test.ts
-  // ("preserves all instances of a multi-instance task across restart")
-  // protects the foundation behavior in the meantime.
-  test.skip('multi-instance task survives quit+restart (pending Plan B / HLS)', async () => {
-    // Implement once Plan B ships MagnetTracker DB persistence or the
-    // future HLS plan ships segment+mux multi-instance creation.
-  })
 })

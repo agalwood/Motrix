@@ -56,7 +56,12 @@ describe('ProxyBridgeManager', () => {
       manager.resolveForDownload({
         ...enabledProxy,
         protocol: 'http',
-        scopes: { download: true, updateApp: false, updateTrackers: false },
+        scopes: {
+          download: true,
+          updateApp: false,
+          updateTrackers: false,
+          plugins: false,
+        },
       })
     ).resolves.toEqual({
       allProxy: 'http://proxy.example.com:1080',
@@ -76,7 +81,12 @@ describe('ProxyBridgeManager', () => {
         user: 'a@b',
         password: 'p:s',
         bypass: ['localhost', '127.0.0.1'],
-        scopes: { download: true, updateApp: false, updateTrackers: false },
+        scopes: {
+          download: true,
+          updateApp: false,
+          updateTrackers: false,
+          plugins: false,
+        },
       })
     ).resolves.toEqual({
       allProxy: 'http://local-user-1:local-password-1@127.0.0.1:43123',
@@ -95,7 +105,12 @@ describe('ProxyBridgeManager', () => {
     const first = {
       ...enabledProxy,
       protocol: 'socks5' as const,
-      scopes: { download: true, updateApp: false, updateTrackers: false },
+      scopes: {
+        download: true,
+        updateApp: false,
+        updateTrackers: false,
+        plugins: false,
+      },
     }
 
     await manager.resolveForDownload(first)
@@ -113,13 +128,23 @@ describe('ProxyBridgeManager', () => {
     await manager.resolveForDownload({
       ...enabledProxy,
       protocol: 'socks5',
-      scopes: { download: true, updateApp: false, updateTrackers: false },
+      scopes: {
+        download: true,
+        updateApp: false,
+        updateTrackers: false,
+        plugins: false,
+      },
     })
     await expect(
       manager.resolveForDownload({
         ...enabledProxy,
         protocol: 'socks5',
-        scopes: { download: false, updateApp: false, updateTrackers: true },
+        scopes: {
+          download: false,
+          updateApp: false,
+          updateTrackers: true,
+          plugins: false,
+        },
       })
     ).resolves.toBeNull()
 
@@ -135,7 +160,12 @@ describe('ProxyBridgeManager', () => {
       manager.resolveForFetch({
         ...enabledProxy,
         protocol: 'socks5',
-        scopes: { download: false, updateApp: false, updateTrackers: true },
+        scopes: {
+          download: false,
+          updateApp: false,
+          updateTrackers: true,
+          plugins: false,
+        },
       })
     ).resolves.toBe('http://local-user-1:local-password-1@127.0.0.1:43123')
   })
@@ -166,13 +196,23 @@ describe('ProxyBridgeManager', () => {
     await manager.resolveForDownload({
       ...enabledProxy,
       protocol: 'socks5',
-      scopes: { download: true, updateApp: false, updateTrackers: false },
+      scopes: {
+        download: true,
+        updateApp: false,
+        updateTrackers: false,
+        plugins: false,
+      },
     })
 
     const stopping = manager.reconcile({
       ...enabledProxy,
       protocol: 'http',
-      scopes: { download: true, updateApp: false, updateTrackers: true },
+      scopes: {
+        download: true,
+        updateApp: false,
+        updateTrackers: true,
+        plugins: false,
+      },
     })
     await vi.waitFor(() => expect(server.close).toHaveBeenCalledWith(true))
 
@@ -196,7 +236,12 @@ describe('ProxyBridgeManager', () => {
     const resolving = manager.resolveForDownload({
       ...enabledProxy,
       protocol: 'socks5',
-      scopes: { download: true, updateApp: false, updateTrackers: false },
+      scopes: {
+        download: true,
+        updateApp: false,
+        updateTrackers: false,
+        plugins: false,
+      },
     })
     await vi.waitFor(() => expect(server.listen).toHaveBeenCalledOnce())
     const closing = manager.close()
@@ -216,7 +261,12 @@ describe('ProxyBridgeManager', () => {
     const settings = {
       ...enabledProxy,
       protocol: 'socks5' as const,
-      scopes: { download: true, updateApp: false, updateTrackers: true },
+      scopes: {
+        download: true,
+        updateApp: false,
+        updateTrackers: true,
+        plugins: false,
+      },
     }
 
     const [downloadProxy, fetchProxy] = await Promise.all([
@@ -235,7 +285,12 @@ describe('ProxyBridgeManager', () => {
     await manager.resolveForFetch({
       ...enabledProxy,
       protocol: 'socks5',
-      scopes: { download: false, updateApp: false, updateTrackers: true },
+      scopes: {
+        download: false,
+        updateApp: false,
+        updateTrackers: true,
+        plugins: false,
+      },
     })
 
     await manager.close()

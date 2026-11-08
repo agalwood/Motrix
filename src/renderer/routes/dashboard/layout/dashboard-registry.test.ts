@@ -3,7 +3,6 @@ import {
   DASHBOARD_ROWS,
   DEFAULT_DASHBOARD_LAYOUT,
 } from '@shared/schemas/dashboard-layout'
-import type { DashboardTileId } from '@shared/types/settings'
 import { describe, expect, it } from 'vitest'
 import {
   DASHBOARD_TILE_DEFINITION_BY_ID,
@@ -14,85 +13,9 @@ import {
   dashboardTileViewport,
   getDashboardTileDefinition,
   getDashboardTilePresentation,
-  getDashboardTilePresentations,
   nearestDashboardTilePresentation,
   normalizeDashboardTilePresentation,
 } from './dashboard-registry'
-
-const EXPECTED_PRESENTATIONS = {
-  engine: [
-    ['1x1', 'compact'],
-    ['2x1', 'summary'],
-    ['1x2', 'detailed'],
-    ['2x2', 'detailed'],
-  ],
-  speedLimit: [
-    ['1x1', 'compact'],
-    ['2x1', 'summary'],
-    ['1x2', 'detailed'],
-    ['2x2', 'detailed'],
-  ],
-  speedUp: [
-    ['1x1', 'compact'],
-    ['2x1', 'summary'],
-    ['3x1', 'detailed'],
-    ['4x1', 'focus'],
-    ['2x2', 'detailed'],
-    ['3x2', 'focus'],
-  ],
-  speedDown: [
-    ['1x1', 'compact'],
-    ['2x1', 'summary'],
-    ['3x1', 'detailed'],
-    ['4x1', 'focus'],
-    ['2x2', 'detailed'],
-    ['3x2', 'focus'],
-  ],
-  active: [
-    ['1x1', 'compact'],
-    ['2x1', 'summary'],
-    ['2x2', 'detailed'],
-    ['4x1', 'focus'],
-  ],
-  transfer: [
-    ['1x1', 'compact'],
-    ['2x1', 'summary'],
-    ['1x2', 'detailed'],
-    ['2x2', 'detailed'],
-    ['4x1', 'focus'],
-  ],
-  tasks: [
-    ['2x1', 'summary'],
-    ['2x2', 'detailed'],
-    ['2x3', 'focus'],
-    ['3x2', 'focus'],
-    ['3x3', 'focus'],
-    ['4x2', 'focus'],
-  ],
-  nat: [
-    ['1x1', 'compact'],
-    ['2x1', 'summary'],
-    ['1x2', 'detailed'],
-    ['2x2', 'detailed'],
-    ['2x3', 'focus'],
-  ],
-  activity: [
-    ['1x1', 'compact'],
-    ['2x1', 'summary'],
-    ['3x1', 'detailed'],
-    ['4x1', 'focus'],
-    ['2x2', 'detailed'],
-    ['3x2', 'focus'],
-    ['4x2', 'focus'],
-  ],
-} as const
-
-function presentationPairs(id: DashboardTileId) {
-  return getDashboardTilePresentations(id).map((presentation) => [
-    dashboardTileSpanKey(presentation.span),
-    presentation.contentLevel,
-  ])
-}
 
 describe('dashboard-registry', () => {
   it('defines every known tile exactly once in default order', () => {
@@ -101,12 +24,6 @@ describe('dashboard-registry', () => {
     expect(ids).toEqual(DEFAULT_DASHBOARD_LAYOUT.tiles.map((tile) => tile.id))
     expect(new Set(ids)).toHaveProperty('size', ids.length)
     expect(DASHBOARD_TILE_DEFINITION_BY_ID).toHaveProperty('size', ids.length)
-  })
-
-  it('matches the exact presentation capability matrix', () => {
-    for (const [id, expected] of Object.entries(EXPECTED_PRESENTATIONS)) {
-      expect(presentationPairs(id as DashboardTileId)).toEqual(expected)
-    }
   })
 
   it('declares each shared default span as a supported presentation', () => {

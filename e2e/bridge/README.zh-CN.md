@@ -254,5 +254,4 @@ git worktree remove --force ../motrix-turbo-srv
   以及 Server 上由 operator gate 保护的 `POST /rpc/command/bridge:resolvePair`。
 - `remote-extension-wss.spec.ts` 与
   `remote-extension-firefox-wss.spec.ts` 是当前启用的 browser-extension WSS
-  生命周期门禁。旧的 `pair-and-submit`、`receiver-direct`、`revoke` 仍是窄范围
-  placeholder，不能作为覆盖证据。
+  生命周期门禁，通过真实浏览器覆盖配对、下载提交、重启、撤销和重新配对。

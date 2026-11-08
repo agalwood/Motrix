@@ -411,7 +411,9 @@ export async function smokeServerPackage(options) {
     }
     const exit = await stopServer(child, childState, timeoutMs)
     if (exit !== 0) {
-      throw new Error(`staged Server shutdown exited with code ${exit}`)
+      throw new Error(
+        `staged Server shutdown exited with code ${exit} (${childState.exit})`
+      )
     }
     child = undefined
     return {

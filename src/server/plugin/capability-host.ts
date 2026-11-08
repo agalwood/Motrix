@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { assertManagedFfmpegTrusted } from '@core/ffmpeg/verified-install'
 import { AppCapabilityHost } from '@core/plugin/capabilities/app'
 import { CommandsCapabilityHost } from '@core/plugin/capabilities/commands'
 import { ConfigCapabilityHost } from '@core/plugin/capabilities/config'
@@ -114,7 +115,12 @@ export async function createServerCapabilityHost(
   })
   const ffmpegResult = await detectFfmpeg()
   const ffmpegDetection = projectActiveToLegacy(ffmpegResult)
-  const ffmpeg = new FfmpegCapabilityHost({ detect: ffmpegDetection })
+  const ffmpeg = new FfmpegCapabilityHost({
+    detect: ffmpegDetection,
+    validateBinaryPath: (binaryPath) => {
+      assertManagedFfmpegTrusted(opts.userDataDir, binaryPath)
+    },
+  })
   const http = new HttpCapabilityHost() // per-plugin jar injected by Task 19 bridge
 
   return {
@@ -124,6 +130,7 @@ export async function createServerCapabilityHost(
     clearLog: (id) => log.clear(id),
     setLogVerbose: (id, v) => log.setVerbose(id, v),
     isLogVerbose: (id) => log.isVerbose(id),
+    getLogState: (id) => log.getState(id),
     subscribeLog: (listener) => log.subscribe(listener),
     appSnapshot: () => ({
       ...appCap.snapshot(),
@@ -140,6 +147,8 @@ export async function createServerCapabilityHost(
     setLocale: (locale) => i18nCap.setLanguage(locale),
     onLocaleChange: (h) => i18nCap.onChange(h),
     flush: () => log.flush(),
+    releaseLog: (id) => log.release(id),
+    closeLogs: () => log.close(),
 
     // ── Plan B ──────────────────────────────────────────────────────────────
     http,

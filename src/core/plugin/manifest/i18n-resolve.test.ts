@@ -1,4 +1,5 @@
 import type { JsonSchemaNode, PluginManifest } from '@shared/types/plugin'
+import { textOperationManifest } from '@test-utils/plugin-operation-fixture'
 import { describe, expect, it } from 'vitest'
 import { PluginManifestInvalid } from './errors'
 import { resolveManifestI18n } from './i18n-resolve'
@@ -184,4 +185,32 @@ describe('resolveManifestI18n', () => {
       resolveManifestI18n(m, { currentDict: DICT_EN, fallbackDict: DICT_EN })
     ).toThrow(PluginManifestInvalid)
   })
+})
+
+it('localizes composable presentation without changing field bindings or accepting oversized text', () => {
+  const manifest = textOperationManifest()
+  const op = manifest.contributes.operations!.items[0]
+  op.ui!.submitLabel = '%submit%'
+  op.ui!.footer = '%footer%'
+  op.fields[0].appearance = { placeholder: '%choose%', browseLabel: '%browse%' }
+  const dict = {
+    submit: 'Process',
+    footer: 'Keep originals',
+    choose: 'Choose text',
+    browse: 'Browse text',
+  }
+  const result = resolveManifestI18n(manifest, {
+    currentDict: dict,
+    fallbackDict: {},
+  })
+  const resolved = result.contributes.operations!.items[0]
+  expect(resolved.ui!.submitLabel).toBe('Process')
+  expect(resolved.fields[0].appearance?.placeholder).toBe('Choose text')
+  expect(resolved.fields[0].field).toBe('input')
+  expect(() =>
+    resolveManifestI18n(manifest, {
+      currentDict: { ...dict, choose: 'x'.repeat(10000) },
+      fallbackDict: {},
+    })
+  ).toThrow('Localized operation')
 })

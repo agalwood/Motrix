@@ -12,10 +12,12 @@
     "ISC",
     "MIT",
     "MIT AND ISC",
+    "(MIT OR CC0-1.0)",
     "MPL-2.0",
     "NOASSERTION",
     "OFL-1.1",
-    "Python-2.0"
+    "Python-2.0",
+    "PSF-2.0"
   ],
   "reviewedRepositoryLicenseFiles": {
     "THIRD_PARTY_LICENSES/MPL-2.0": "5eba353fe5076ac3432177f8ab1cf75e3afcd0584251e37c3bfead5f447d040e",
@@ -23,6 +25,9 @@
     "THIRD_PARTY_LICENSES/aria2-LICENSE.OpenSSL": "e05998a2537cddad682fb240371fbf859966ff8d9b34e55f2ebe55ecaef4333f"
   },
   "packageOverrides": {
+    "type-fest@4.41.0": {
+      "licenseConcluded": "MIT"
+    },
     "@resvg/resvg-wasm@2.6.2": {
       "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/MPL-2.0"],
       "attribution": "Copyright (c) 2021-present, yisibl (\u4e00\u4e1d)"
@@ -31,14 +36,6 @@
       "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT"],
       "attribution": "James Sumners <james.sumners@gmail.com>"
     },
-    "cross-fetch-ponyfill@1.0.3": {
-      "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT"],
-      "attribution": "ThaUnknown"
-    },
-    "data-uri-to-buffer@4.0.1": {
-      "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT"],
-      "attribution": "Copyright (c) 2014 Nathan Rajlich <nathan@tootallnate.net>"
-    },
     "lazy-val@1.0.5": {
       "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT"],
       "attribution": "Vladimir Krivosheev"
@@ -46,10 +43,6 @@
     "react-remove-scroll-bar@2.3.8": {
       "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT"],
       "attribution": "Copyright (c) 2017 Anton Korzunov"
-    },
-    "uint8-util@2.3.2": {
-      "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT"],
-      "attribution": "ThaUnknown"
     },
     "victory-vendor@37.3.6": {
       "packageLicenseFiles": [
@@ -68,6 +61,11 @@
         "lib-vendor/internmap/LICENSE"
       ],
       "attribution": "Vendored D3 modules; individual notices are preserved from the package."
+    },
+    "@trimjs/web-app@0.5.0": {
+      "licenseConcluded": "MIT",
+      "packageLicenseFiles": ["README.md"],
+      "attribution": "The @trimjs/web-app 0.5.0 package README declares MIT. Its package.json omits the license field and its archive contains no separate LICENSE file."
     }
   },
   "externalComponents": [
@@ -209,6 +207,17 @@
         "src/renderer/routes/dashboard/icons/speed-limited@2x.webp",
         "src/renderer/routes/dashboard/icons/speed-auto@1x.webp",
         "src/renderer/routes/dashboard/icons/speed-auto@2x.webp"
+      ]
+    },
+    {
+      "id": "glassmorphism-migration-import-icon",
+      "name": "Glassmorphism migration import icon",
+      "scope": "renderer migration assistant",
+      "licenseDeclared": "NOASSERTION",
+      "noticeMarker": "Glassmorphism migration import icon",
+      "paths": [
+        "src/renderer/features/legacy-import/icons/icon-import@1x.webp",
+        "src/renderer/features/legacy-import/icons/icon-import@2x.webp"
       ]
     },
     {

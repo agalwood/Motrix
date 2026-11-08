@@ -1,4 +1,4 @@
-import { I18N_RESOURCES } from '@shared/i18n-resources'
+import { I18N_RESOURCES } from '@test-utils/i18n-resources'
 import { createInstance } from 'i18next'
 import { describe, expect, it } from 'vitest'
 

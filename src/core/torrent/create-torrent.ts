@@ -1,233 +1,202 @@
 import { createHash } from 'node:crypto'
-import { createReadStream } from 'node:fs'
-import { readdir, stat } from 'node:fs/promises'
+import { constants, type Stats } from 'node:fs'
+import { lstat, open, readdir, realpath } from 'node:fs/promises'
 import path from 'node:path'
-import { type BencodeValue, bencodeEncode } from './bencode'
+import { type BInput, encode } from '@motrix/torrent'
+import { MAX_TORRENT_FILE_SIZE } from '@shared/lib/torrent-meta'
+import {
+  type CreateTorrentRequest,
+  createTorrentRequestSchema,
+} from '@shared/schemas/create-torrent'
 
-// BitTorrent v1 file creation (#459): walk the source, hash pieces with a
-// streaming SHA-1, and assemble the metainfo dict. Pure node:fs + node:crypto
-// — no new dependencies, and the event loop stays responsive because each
-// read chunk yields via setImmediate.
-
-export const PIECE_LENGTH_MIN = 16 * 1024
-export const PIECE_LENGTH_MAX = 16 * 1024 * 1024
-
-export interface CreateTorrentOptions {
-  /** Absolute path to the source file or directory. */
+export { isValidPieceLength } from '@shared/schemas/create-torrent'
+export interface CreateTorrentOptions extends Partial<CreateTorrentRequest> {
   sourcePath: string
-  /** Tracker announce URLs, one tier per entry (BEP-12). Empty → DHT-only. */
-  trackers?: string[]
-  /** Web seed (BEP-19) URLs. */
-  webSeeds?: string[]
-  comment?: string
-  private?: boolean
-  /** Power of two between PIECE_LENGTH_MIN and PIECE_LENGTH_MAX. */
-  pieceLength?: number
 }
-
-export interface CreateTorrentResult {
-  bytes: Uint8Array
-  infoHash: string
-  name: string
-  totalSize: number
-  fileCount: number
-  pieceCount: number
-  pieceLength: number
-}
-
 export interface CreateTorrentHooks {
   onProgress?: (processed: number, total: number) => void
+  signal?: AbortSignal
+  picked?: { path: string; dev: number; ino: number }
 }
+// Bound the path/stat snapshot even when a directory contains mostly empty files.
+const MAX_SOURCE_ENTRIES = 100_000
 
 interface SourceFile {
-  /** Absolute path on disk. */
   absolute: string
-  /** Path inside the torrent, split into segments (BEP-3 multi-file form). */
   segments: string[]
-  size: number
+  stat: Stats
 }
-
 export function suggestPieceLength(totalSize: number): number {
-  if (totalSize <= 64 * 1024 * 1024) return 32 * 1024
-  if (totalSize <= 512 * 1024 * 1024) return 128 * 1024
-  if (totalSize <= 2 * 1024 * 1024 * 1024) return 512 * 1024
-  if (totalSize <= 8 * 1024 * 1024 * 1024) return 2 * 1024 * 1024
-  return 8 * 1024 * 1024
+  if (totalSize <= 64 * 1024 ** 2) return 32 * 1024
+  if (totalSize <= 512 * 1024 ** 2) return 128 * 1024
+  if (totalSize <= 2 * 1024 ** 3) return 512 * 1024
+  if (totalSize <= 8 * 1024 ** 3) return 2 * 1024 ** 2
+  return 8 * 1024 ** 2
 }
-
-export function isValidPieceLength(value: number): boolean {
-  return (
-    Number.isInteger(value) &&
-    value >= PIECE_LENGTH_MIN &&
-    value <= PIECE_LENGTH_MAX &&
-    (value & (value - 1)) === 0
-  )
+function compareSegments(a: string[], b: string[]): number {
+  for (let i = 0; i < Math.min(a.length, b.length); i++) {
+    const diff = Buffer.compare(Buffer.from(a[i]), Buffer.from(b[i]))
+    if (diff !== 0) return diff
+  }
+  return a.length - b.length
 }
-
 export async function collectSourceFiles(
-  sourcePath: string
-): Promise<{ name: string; files: SourceFile[]; totalSize: number }> {
-  const base = await stat(sourcePath)
+  source: string,
+  hooks: CreateTorrentHooks = {}
+) {
+  const { signal, picked } = hooks
+  const sourcePath = await realpath(source)
+  const base = await lstat(sourcePath)
+  if (
+    picked &&
+    (sourcePath !== picked.path ||
+      base.dev !== picked.dev ||
+      base.ino !== picked.ino)
+  )
+    throw new Error('Selected source has been replaced')
   const name = path.basename(sourcePath)
+  if (!name) throw new Error('A filesystem root cannot be a torrent source')
   const files: SourceFile[] = []
-  if (base.isFile()) {
-    files.push({ absolute: sourcePath, segments: [name], size: base.size })
-    return { name, files, totalSize: base.size }
-  }
-  if (!base.isDirectory()) {
-    throw new TypeError(`unsupported source type: ${sourcePath}`)
-  }
-  const walk = async (absolute: string, segments: string[]) => {
-    const entries = await readdir(absolute, { withFileTypes: true })
-    for (const entry of entries) {
-      const child = path.join(absolute, entry.name)
-      const childSegments = [...segments, entry.name]
-      if (entry.isDirectory()) {
-        await walk(child, childSegments)
-      } else if (entry.isFile()) {
-        const info = await stat(child)
-        files.push({
-          absolute: child,
-          segments: childSegments,
-          size: info.size,
-        })
+  const directories: SourceFile[] = []
+  let totalSize = 0
+  const visit = async (absolute: string, segments: string[], stat: Stats) => {
+    signal?.throwIfAborted()
+    if (stat.isSymbolicLink()) return
+    if (files.length + directories.length >= MAX_SOURCE_ENTRIES)
+      throw new Error('Too many source entries')
+    if (path.basename(absolute).includes('\\'))
+      throw new Error('Unrepresentable torrent path')
+    if (stat.isDirectory()) {
+      directories.push({ absolute, segments, stat })
+      for (const entry of await readdir(absolute)) {
+        const child = path.join(absolute, entry)
+        await visit(child, [...segments, entry], await lstat(child))
       }
+    } else if (stat.isFile()) {
+      totalSize += stat.size
+      if (!Number.isSafeInteger(totalSize))
+        throw new Error('Source exceeds torrent creation limits')
+      files.push({ absolute, segments, stat })
     }
   }
-  await walk(sourcePath, [])
-  // BEP-3 multi-file info dicts are expected sorted by path. The canonical
-  // order compares the path arrays element-wise, each segment by UTF-8 byte
-  // order — joining with '/' would order 'a.txt' and 'a/b' differently.
+  await visit(sourcePath, base.isDirectory() ? [] : [name], base)
   files.sort((a, b) => compareSegments(a.segments, b.segments))
-  const totalSize = files.reduce((sum, file) => sum + file.size, 0)
-  return { name, files, totalSize }
+  return { name, files, directories, totalSize, directory: base.isDirectory() }
 }
-
+function unchanged(expected: Stats, actual: Stats) {
+  return (
+    actual.isFile() === expected.isFile() &&
+    actual.isDirectory() === expected.isDirectory() &&
+    expected.dev === actual.dev &&
+    expected.ino === actual.ino &&
+    expected.size === actual.size &&
+    expected.mtimeMs === actual.mtimeMs &&
+    expected.ctimeMs === actual.ctimeMs
+  )
+}
 export async function createTorrent(
   options: CreateTorrentOptions,
   hooks: CreateTorrentHooks = {}
-): Promise<CreateTorrentResult> {
-  if (
-    options.pieceLength !== undefined &&
-    !isValidPieceLength(options.pieceLength)
-  ) {
-    throw new TypeError(
-      `pieceLength must be a power of two between ${PIECE_LENGTH_MIN} and ${PIECE_LENGTH_MAX}`
-    )
-  }
-  const { name, files, totalSize } = await collectSourceFiles(
-    options.sourcePath
-  )
-  if (files.length === 0) {
-    throw new TypeError('source contains no files')
-  }
-  const pieceLength = options.pieceLength ?? suggestPieceLength(totalSize)
-
-  const hash = createHash('sha1')
-  let pieceCount = 0
-  let pieceFill = 0
+) {
+  const { sourcePath, ...raw } = options
+  const settings = createTorrentRequestSchema.parse(raw)
+  const { name, files, directories, totalSize, directory } =
+    await collectSourceFiles(sourcePath, hooks)
+  if (!files.length) throw new Error('Source contains no regular files')
+  const pieceLength = settings.pieceLength ?? suggestPieceLength(totalSize)
+  const pieceCount = Math.ceil(totalSize / pieceLength)
+  if (pieceCount * 20 > MAX_TORRENT_FILE_SIZE)
+    throw new Error('Piece table exceeds the metainfo size limit')
+  const pieces = Buffer.alloc(pieceCount * 20)
+  let hash = createHash('sha1')
+  let filled = 0
+  let index = 0
   let processed = 0
-  let lastProgressYield = 0
-  const READ_CHUNK = 1024 * 1024
-  const pieceBuffer = Buffer.alloc(pieceLength)
-
+  const finishPiece = () => {
+    pieces.set(hash.digest(), index++ * 20)
+    hash = createHash('sha1')
+    filled = 0
+  }
+  const scratch = Buffer.allocUnsafe(1024 ** 2)
+  const changed = () => new Error('Torrent source changed while hashing')
   for (const file of files) {
-    await hashFile(file.absolute, async (chunk) => {
-      let offset = 0
-      while (offset < chunk.length) {
-        const take = Math.min(pieceLength - pieceFill, chunk.length - offset)
-        chunk.copy(pieceBuffer, pieceFill, offset, offset + take)
-        pieceFill += take
-        offset += take
-        processed += take
-        if (pieceFill === pieceLength) {
-          hash.update(pieceBuffer)
-          pieceCount += 1
-          pieceFill = 0
+    hooks.signal?.throwIfAborted()
+    if ((await realpath(file.absolute)) !== file.absolute) throw changed()
+    const fd = await open(
+      file.absolute,
+      constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0)
+    )
+    try {
+      if (!unchanged(file.stat, await fd.stat())) throw changed()
+      let remaining = file.stat.size
+      while (remaining > 0) {
+        hooks.signal?.throwIfAborted()
+        const { bytesRead } = await fd.read(
+          scratch,
+          0,
+          Math.min(scratch.length, remaining),
+          null
+        )
+        if (!bytesRead) throw changed()
+        remaining -= bytesRead
+        for (let offset = 0; offset < bytesRead; ) {
+          const length = Math.min(pieceLength - filled, bytesRead - offset)
+          hash.update(scratch.subarray(offset, offset + length))
+          filled += length
+          offset += length
+          if (filled === pieceLength) finishPiece()
         }
-      }
-      if (processed - lastProgressYield >= READ_CHUNK) {
-        lastProgressYield = processed
+        processed += bytesRead
         hooks.onProgress?.(processed, totalSize)
-        // Yield so the shared main-process event loop can breathe.
-        await new Promise<void>((resolve) => setImmediate(resolve))
       }
-    })
+      if (!unchanged(file.stat, await fd.stat())) throw changed()
+    } finally {
+      await fd.close()
+    }
   }
-  if (pieceFill > 0) {
-    hash.update(pieceBuffer.subarray(0, pieceFill))
-    pieceCount += 1
+  for (const file of [...files, ...directories]) {
+    hooks.signal?.throwIfAborted()
+    if (
+      !unchanged(file.stat, await lstat(file.absolute)) ||
+      (await realpath(file.absolute)) !== file.absolute
+    )
+      throw changed()
   }
-  hooks.onProgress?.(totalSize, totalSize)
-
-  // A zero-byte source yields zero pieces; BEP-3 metainfo then carries a
-  // zero-length 'pieces' string — hashing nothing would emit sha1('')
-  // (da39…), 20 bytes of data no other client produces.
-  const pieces =
-    pieceCount === 0 ? new Uint8Array(0) : new Uint8Array(hash.digest())
-
-  const info: Record<string, BencodeValue> = {
+  if (filled) finishPiece()
+  const info: Record<string, BInput> = {
     name,
     'piece length': pieceLength,
     pieces,
   }
-  if (files.length === 1) {
-    info.length = files[0].size
-  } else {
-    // Walk seeds children with segments relative to the root, which is
-    // exactly the BEP-3 multi-file `path` list (info.name holds the root).
+  if (directory)
     info.files = files.map((file) => ({
-      length: file.size,
+      length: file.stat.size,
       path: file.segments,
     }))
-  }
-
-  const infoBytes = bencodeEncode(info)
-  const infoHash = createHash('sha1').update(infoBytes).digest('hex')
-  const meta: Record<string, BencodeValue> = {
+  else info.length = totalSize
+  if (settings.private) info.private = 1
+  const limits = { maxBytes: MAX_TORRENT_FILE_SIZE }
+  const infoHash = createHash('sha1').update(encode(info, limits)).digest('hex')
+  const meta: Record<string, BInput> = {
     info,
     'creation date': Math.floor(Date.now() / 1000),
   }
-  if (options.trackers && options.trackers.length > 0) {
-    // BEP-3 requires a single announce; mirror the first tier there.
-    meta.announce = options.trackers[0]
-    meta['announce-list'] = options.trackers.map((url) => [url])
+  if (settings.trackers.length) {
+    meta.announce = settings.trackers[0]
+    meta['announce-list'] = settings.trackers.map((url) => [url])
   }
-  if (options.webSeeds && options.webSeeds.length > 0) {
-    meta['url-list'] = [...options.webSeeds]
-  }
-  if (options.comment) meta.comment = options.comment
-  if (options.private) meta.private = 1
-
+  if (settings.webSeeds.length) meta['url-list'] = settings.webSeeds
+  if (settings.comment) meta.comment = settings.comment
+  const bytes = encode(meta, limits)
+  hooks.onProgress?.(totalSize, totalSize)
   return {
-    bytes: bencodeEncode(meta),
+    bytes,
     infoHash,
     name,
     totalSize,
+    directory,
     fileCount: files.length,
     pieceCount,
     pieceLength,
   }
-}
-
-async function hashFile(
-  absolute: string,
-  onChunk: (chunk: Buffer) => Promise<void>
-): Promise<void> {
-  const stream = createReadStream(absolute, { highWaterMark: 1024 * 1024 })
-  for await (const chunk of stream) {
-    await onChunk(chunk as Buffer)
-  }
-}
-
-function compareSegments(a: string[], b: string[]): number {
-  const length = Math.min(a.length, b.length)
-  for (let i = 0; i < length; i++) {
-    const cmp = Buffer.compare(
-      Buffer.from(a[i], 'utf8'),
-      Buffer.from(b[i], 'utf8')
-    )
-    if (cmp !== 0) return cmp
-  }
-  return a.length - b.length
 }

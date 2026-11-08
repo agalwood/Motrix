@@ -1,5 +1,6 @@
 export enum ErrorCode {
   AppUpdateManaged = 'APP_UPDATE_MANAGED',
+  AppUpdateCheckFailed = 'APP_UPDATE_CHECK_FAILED',
   EngineStartFailed = 'ENGINE_START_FAILED',
   EngineConnectionLost = 'ENGINE_CONNECTION_LOST',
   EngineTimeout = 'ENGINE_TIMEOUT',
@@ -10,10 +11,12 @@ export enum ErrorCode {
   TaskNotFound = 'TASK_NOT_FOUND',
   TaskRevealFailed = 'TASK_REVEAL_FAILED',
   TaskOpenFailed = 'TASK_OPEN_FAILED',
+  TaskOpenAppFailed = 'TASK_OPEN_APP_FAILED',
   TaskNotRetryable = 'TASK_NOT_RETRYABLE',
   TaskPathTooLong = 'TASK_PATH_TOO_LONG',
   SessionRestoreFailed = 'SESSION_RESTORE_FAILED',
   SettingsInvalid = 'SETTINGS_INVALID',
+  PluginNetworkFailed = 'PLUGIN_NETWORK_FAILED',
   PluginTimeout = 'PLUGIN_TIMEOUT',
   PluginExecutionFailed = 'PLUGIN_EXECUTION_FAILED',
   PluginLoadFailed = 'PLUGIN_LOAD_FAILED',
@@ -27,6 +30,8 @@ export enum ErrorCode {
   PluginCircuitOpen = 'PLUGIN_CIRCUIT_OPEN',
   PluginRuntimeFault = 'PLUGIN_RUNTIME_FAULT',
   PluginDirNotConfigured = 'PLUGIN_DIR_NOT_CONFIGURED',
+  PluginSecurityBlocked = 'PLUGIN_SECURITY_BLOCKED',
+  PluginSecurityPending = 'PLUGIN_SECURITY_PENDING',
   // NAT Manager
   NatDiscoveryFailed = 'NAT_DISCOVERY_FAILED',
   NatMappingFailed = 'NAT_MAPPING_FAILED',

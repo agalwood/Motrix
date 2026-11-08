@@ -8,10 +8,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@renderer/components/ui/dialog'
+import { useExitSnapshot } from '@renderer/hooks/use-exit-snapshot'
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
+import type { PluginNetworkFailure } from '@shared/schemas/plugin-network'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { formatPluginNetworkFailure } from '../lib/network-error'
 import { usePluginsStore } from '../store'
 
 interface Props {
@@ -29,6 +32,7 @@ type Phase =
 export function BuiltinUpdateDialog({ pluginId, open, onOpenChange }: Props) {
   const { t } = useTranslation()
   const [phase, setPhase] = useState<Phase>({ kind: 'working' })
+  const presentation = useExitSnapshot(open, phase)
   const startedRef = useRef(false)
   const clearUpdate = usePluginsStore((s) => s.clearUpdate)
 
@@ -44,11 +48,19 @@ export function BuiltinUpdateDialog({ pluginId, open, onOpenChange }: Props) {
       .invoke(Commands.InstallBuiltinUpdate, { pluginId })
       .then((resp) => {
         const r = resp as {
+          networkError?: PluginNetworkFailure
           needsConsent?: boolean
           stagingId?: string
           added?: string[]
           newVersion?: string
           restartRequired?: boolean
+        }
+        if (r.networkError) {
+          setPhase({
+            kind: 'error',
+            message: formatPluginNetworkFailure(t, r.networkError),
+          })
+          return
         }
         if (r.needsConsent && r.stagingId) {
           setPhase({
@@ -73,7 +85,7 @@ export function BuiltinUpdateDialog({ pluginId, open, onOpenChange }: Props) {
           message: e instanceof Error ? e.message : String(e),
         })
       })
-  }, [open, pluginId, clearUpdate])
+  }, [open, pluginId, clearUpdate, t])
 
   async function confirm() {
     if (phase.kind !== 'consent') return
@@ -113,35 +125,41 @@ export function BuiltinUpdateDialog({ pluginId, open, onOpenChange }: Props) {
       <DialogContent className="max-w-[480px]">
         <DialogHeader>
           <DialogTitle>{t('plugins.registry.builtinUpdateTitle')}</DialogTitle>
-          {phase.kind === 'consent' && (
+          {presentation.kind === 'consent' && (
             <DialogDescription>
               {t('plugins.registry.builtinConsentLead')}
             </DialogDescription>
           )}
         </DialogHeader>
 
-        {phase.kind === 'error' && (
+        {presentation.kind === 'error' && (
           <Alert variant="destructive">
-            <span className="text-xs">{phase.message}</span>
+            <span className="text-xs">
+              {presentation.message.endsWith('plugins.security.blocked')
+                ? t('plugins.security.blocked')
+                : presentation.message.endsWith('plugins.security.pending')
+                  ? t('plugins.security.pending')
+                  : presentation.message}
+            </span>
           </Alert>
         )}
-        {phase.kind === 'consent' && (
+        {presentation.kind === 'consent' && (
           <ul className="list-disc ps-5 font-mono text-xs">
-            {phase.added.map((a) => (
+            {presentation.added.map((a) => (
               <li key={a}>{a}</li>
             ))}
           </ul>
         )}
-        {phase.kind === 'done' && (
+        {presentation.kind === 'done' && (
           <p className="text-sm text-muted-foreground">
-            {phase.restartRequired
+            {presentation.restartRequired
               ? t('plugins.registry.restartRequired')
               : t('plugins.registry.updateInstalled')}
           </p>
         )}
 
         <DialogFooter>
-          {phase.kind === 'consent' ? (
+          {presentation.kind === 'consent' ? (
             <>
               <Button variant="outline" size="sm" onClick={() => void cancel()}>
                 {t('common.cancel')}

@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { TaskActivityService, type TaskActivityStore } from '@core/activity'
 import { createTaskInspectorActivityQuery } from '@core/inspector-activity'
+import { FfmpegCapabilityHost } from '@core/plugin/capabilities/ffmpeg'
 import { ErrorCode } from '@shared/errors'
 import { PROTOCOL_ENVELOPE_VERSION } from '@shared/protocol/errors'
 import { Queries } from '@shared/protocol/queries'
@@ -12,7 +13,9 @@ import {
   EngineRecoveryRecommendation,
   EngineState,
 } from '@shared/types/engine'
+import { makeDefaultBtExtension, TaskType } from '@shared/types/task'
 import { generalSettingsSnapshot } from '@test-utils/general-settings'
+import { makeDownloadTask } from '@test-utils/task'
 import { makeTaskInspectorActivitySnapshot } from '@test-utils/task-inspector-activity'
 import { ipcMain } from 'electron'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -242,24 +245,35 @@ describe('buildQueryHandlers', () => {
     expect(cliToolService.getStatus).toHaveBeenCalledOnce()
   })
 
-  it('exposes ListTasks as a handler', async () => {
-    const ctx = {
-      taskManager: { getAll: vi.fn(() => [{ id: 't1' }]) },
-      statsAggregator: { getStats: vi.fn(() => ({ down: 0, up: 0 })) },
-      supervisor: {
-        getStatus: vi.fn(),
-        diagnose: vi.fn(),
-        getFeatureReport: vi.fn(),
+  it('hydrates a slim task list while preserving full details for the inspector', async () => {
+    const bt = makeDefaultBtExtension({
+      trackers: ['udp://tracker.example:80/announce'],
+      announceList: [['udp://tracker.example:80/announce']],
+      magnetUri: 'magnet:?xt=urn:btih:abc',
+      peers: 7,
+    })
+    const task = makeDownloadTask({ id: 't1', type: TaskType.Bt, bt })
+    const original = structuredClone(task)
+    const handlers = buildQueryHandlers({
+      taskManager: {
+        getAll: () => [task],
+        getById: (id: string) => (id === task.id ? task : undefined),
       },
-      settingsManager: { get: vi.fn(() => ({})) },
-      natManager: { getStatus: vi.fn() },
-      trackerManager: { getCuratedList: vi.fn(() => []) },
-    }
-    // @ts-expect-error partial ctx
-    const handlers = buildQueryHandlers(ctx)
-    expect(handlers[Queries.ListTasks]).toBeInstanceOf(Function)
-    expect(await handlers[Queries.ListTasks]?.()).toEqual([{ id: 't1' }])
-    expect(ctx.taskManager.getAll).toHaveBeenCalled()
+    } as unknown as QueryContext)
+
+    await expect(handlers[Queries.ListTasks]?.()).resolves.toEqual([
+      {
+        ...task,
+        bt: { ...bt, trackers: [], announceList: [], magnetUri: null },
+      },
+    ])
+    await expect(handlers[Queries.GetTaskDetail]?.('t1')).resolves.toEqual(
+      original
+    )
+    expect(task).toEqual(original)
+    await expect(
+      handlers[Queries.GetTaskDetail]?.('missing')
+    ).resolves.toBeNull()
   })
 
   it('waits for startup recovery before reading tasks', async () => {
@@ -302,6 +316,20 @@ describe('buildQueryHandlers', () => {
     expect(getSyncStatus).toHaveBeenCalledOnce()
   })
 
+  it('returns the active settings file instead of inferring it from the data directory', async () => {
+    const handlers = buildQueryHandlers({
+      userDataDir: '/default/profile',
+      settingsManager: {
+        getFilePath: () => '/custom profile/settings.json',
+      },
+    } as unknown as QueryContext)
+    await expect(
+      handlers[Queries.GetSettingsFileLocation]?.()
+    ).resolves.toEqual({
+      path: '/custom profile/settings.json',
+    })
+  })
+
   it('returns the committed locale separately from a saved system preference', async () => {
     const settings = { app: { language: 'system' } }
     let resolved = 'fr'
@@ -319,53 +347,6 @@ describe('buildQueryHandlers', () => {
       resolvedLanguage: 'zh-CN',
     })
     expect(settings).toEqual({ app: { language: 'system' } })
-  })
-
-  it('returns a map with all query channels', () => {
-    const ctx = {
-      taskManager: { getAll: vi.fn(), getById: vi.fn() },
-      statsAggregator: { getStats: vi.fn() },
-      speedHistoryStore: { snapshot: vi.fn(() => []) },
-      transferStats: {
-        snapshot: vi.fn(() => TRANSFER_SNAPSHOT),
-      },
-      taskSpeedHistoryStore: { snapshot: vi.fn(() => []) },
-      supervisor: {
-        getStatus: vi.fn(),
-        diagnose: vi.fn(),
-        getFeatureReport: vi.fn(),
-      },
-      settingsManager: { get: vi.fn(() => ({ tracker: { sources: [] } })) },
-      natManager: { getStatus: vi.fn(() => ({ lastDiagnostic: null })) },
-      trackerManager: { getCuratedList: vi.fn(() => []) },
-    }
-    // @ts-expect-error partial ctx
-    const handlers = buildQueryHandlers(ctx)
-    expect(handlers[Queries.ListTasks]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetTaskDetail]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetStats]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetSpeedHistory]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetTransferStats]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetTaskActivity]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetTaskSpeedHistory]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetTaskInspectorActivity]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetSettings]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetUpdateState]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetEngineStatus]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetEngineDiagnostics]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetLinuxDefaultAssociations]).toBeInstanceOf(
-      Function
-    )
-    expect(handlers[Queries.GetWindowsDefaultAssociations]).toBeInstanceOf(
-      Function
-    )
-    expect(handlers[Queries.GetTaskFiles]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetNatStatus]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetNatDiagnostic]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetTuningRecommendation]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetTrackerList]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetTrackerSources]).toBeInstanceOf(Function)
-    expect(handlers[Queries.GetTaskBtTracker]).toBeInstanceOf(Function)
   })
 
   it('returns task speed history with the requested limit', async () => {
@@ -804,6 +785,36 @@ describe('GetFfmpegDetection handler', () => {
     mockedFfmpegFactory.mockClear()
   })
 
+  it('does not let an older detection replace a newer unavailable result', async () => {
+    const oldResult = {
+      active: { path: '/old/ffmpeg', version: '7.0' },
+      candidates: [],
+    }
+    let finish!: (result: typeof oldResult) => void
+    const probe = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finish = resolve
+          })
+      )
+      .mockResolvedValueOnce({ active: null, candidates: [] })
+    mockedFfmpegFactory.mockReturnValueOnce(probe)
+    const ffmpeg = new FfmpegCapabilityHost({ detect: { available: false } })
+    const ctx = {
+      settingsManager: {},
+      userDataDir: '/data',
+      capabilityHost: { ffmpeg },
+    } as unknown as QueryContext
+    const handlers = buildQueryHandlers(ctx)
+    const old = handlers[Queries.GetFfmpegDetection]?.()
+    await handlers[Queries.GetFfmpegDetection]?.()
+    finish(oldResult)
+    await old
+    expect(ffmpeg.available).toBe(false)
+  })
+
   it('returns the enriched detection result from the factory', async () => {
     const fakeDetection = {
       active: { path: '/u/ffmpeg', version: '6.0.1' },
@@ -833,7 +844,9 @@ describe('GetFfmpegDetection handler', () => {
     const settingsManager = {
       get: vi.fn(() => ({ media: { ffmpegBinaryPath: '/u/ffmpeg' } })),
     }
+    const ffmpeg = new FfmpegCapabilityHost({ detect: { available: false } })
     const ctx = {
+      capabilityHost: { ffmpeg },
       settingsManager,
       userDataDir: '/data',
     } as unknown as QueryContext
@@ -841,17 +854,79 @@ describe('GetFfmpegDetection handler', () => {
     const handlers = buildQueryHandlers(ctx)
     const result = await handlers[Queries.GetFfmpegDetection]?.()
     expect(result).toEqual(fakeDetection)
+    expect(ffmpeg.available).toBe(true)
+    expect(ffmpeg.version).toBe(fakeDetection.active.version)
     expect(mockedFfmpegFactory).toHaveBeenCalledWith({
       settingsManager,
       userDataDir: '/data',
     })
   })
+})
 
-  it('registers GetFfmpegDetection as a handler', () => {
+describe('plugin diagnostic state query', () => {
+  it('returns host expiry and rejects invalid plugin requests', async () => {
+    const state = { verbose: true, expiresAt: 3_610_000 }
+    const getLogState = vi.fn(() => state)
     const handlers = buildQueryHandlers({
-      settingsManager: { get: vi.fn() },
-      userDataDir: '/d',
+      capabilityHost: { getLogState },
     } as unknown as QueryContext)
-    expect(handlers[Queries.GetFfmpegDetection]).toBeInstanceOf(Function)
+    await expect(
+      handlers[Queries.GetPluginLogState]?.({ pluginId: 'alice.demo' })
+    ).resolves.toEqual(state)
+    expect(getLogState).toHaveBeenCalledWith('alice.demo')
+    getLogState.mockClear()
+    for (const payload of [null, {}, { pluginId: '' }]) {
+      await expect(
+        handlers[Queries.GetPluginLogState]?.(payload)
+      ).rejects.toThrow()
+    }
+    expect(getLogState).not.toHaveBeenCalled()
+  })
+})
+
+describe('CheckTaskFileExists query', () => {
+  it('checks output file existence through taskManager', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'motrix-check-file-test-'))
+    const existingFile = path.join(root, 'exists.txt')
+    await writeFile(existingFile, 'hello')
+    const missingFile = path.join(root, 'missing.txt')
+
+    const taskManager = {
+      getById: vi.fn((id: string) => {
+        if (id === 't-exists') {
+          return makeDownloadTask({ id: 't-exists', finalPath: existingFile })
+        }
+        if (id === 't-missing') {
+          return makeDownloadTask({ id: 't-missing', finalPath: missingFile })
+        }
+        return undefined
+      }),
+    }
+
+    const handlers = buildQueryHandlers({
+      taskManager,
+    } as unknown as QueryContext)
+
+    // The output file still exists.
+    await expect(
+      handlers[Queries.CheckTaskFileExists]?.({ taskId: 't-exists' })
+    ).resolves.toEqual({ exists: true })
+
+    // The output file has been deleted.
+    await expect(
+      handlers[Queries.CheckTaskFileExists]?.({ taskId: 't-missing' })
+    ).resolves.toEqual({ exists: false })
+
+    // The task does not exist.
+    await expect(
+      handlers[Queries.CheckTaskFileExists]?.({ taskId: 't-unknown' })
+    ).resolves.toEqual({ exists: false })
+
+    // The request payload is invalid.
+    await expect(
+      handlers[Queries.CheckTaskFileExists]?.({ taskId: '' })
+    ).rejects.toThrow()
+
+    await rm(root, { recursive: true, force: true })
   })
 })

@@ -51,3 +51,14 @@ Run every check that matches the change:
 
 Use `pnpm exec biome check --write .` only for reviewed, auto-fixable
 issues; re-run the required gate afterward.
+
+## Test Value
+
+- Prefer observable behavior, failure recovery, data integrity, permissions,
+  and compatibility boundaries over assertions that copy implementation text.
+- Do not add tests just to repeat constants, documentation wording, CSS utility
+  lists, or static presentation tables. Exercise the behavior consuming them.
+- Keep static checks when they protect a boundary that cannot be safely
+  exercised in tests, such as release credentials and publication gates.
+- CI should run each test once per relevant execution environment. Do not add
+  focused test lists before the full suite when both execute the same cases.

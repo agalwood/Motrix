@@ -132,7 +132,7 @@ export class PluginHookRuntime {
 
   pluginUnavailable(
     pluginId: string,
-    reason: 'disabled' | 'uninstalled' | 'quarantined',
+    reason: 'disabled' | 'uninstalled' | 'quarantined' | 'security_revoked',
     at: number
   ): Promise<number> {
     return this.retention.pluginUnavailable(pluginId, reason, at)
@@ -227,6 +227,14 @@ export class PluginHookRuntime {
         )
         if (!current) {
           return { kind: 'permanent', reason: 'uninstalled' }
+        }
+        const security = this.options.registry.securityDecision?.(
+          record.executable.pluginId
+        )
+        if (security) {
+          if (security.advisoryIds.length === 0)
+            throw new PolicySnapshotStaleError()
+          return { kind: 'permanent', reason: 'security_revoked' }
         }
         if (!current.enabled) {
           return { kind: 'permanent', reason: 'disabled' }

@@ -31,6 +31,17 @@ Dashboard 速度模式卡片使用新建的兔子、乌龟和松鼠几何模型�
 
 圆卷尾松鼠的轮廓依据用户提供的参考图重建，该参考图的外部作者和许可尚未确认。
 
+## 玻璃质感导入图标（Glassmorphism migration import icon）
+
+迁移助手使用新建的紫色玻璃文件夹，以及从左侧进入、指向右侧的箭头，在 Blender 中沿用所提供
+Glassmorphism 素材集 `File.blend` 的玻璃、缎面材质和摄影棚灯光渲染。
+透明无损 WebP 资源以 128px 和 256px 保存于
+`src/renderer/features/legacy-import/icons/icon-import@1x.webp` 和
+`icon-import@2x.webp`。所提供的源文件没有可确认的作者或许可证声明，
+继承的材质和灯光许可记录为 `NOASSERTION`，未重新授权为 Motrix 的 MIT 许可。
+
+文件夹与箭头的轮廓依据用户提供的参考图重建，该参考图的外部作者和许可尚未确认。
+
 本版本已移除旧版 Iconly Pro 设置图标 PNG。包含这些资源的历史版本仍遵循
 其原有的 UI8 许可条款。
 
@@ -76,8 +87,8 @@ Safari 图标是从 macOS 27.0（26A428）自带的 Safari 27.0 中 `Safari.app/
 
 桌面版随应用打包 `aria2c` 可执行文件，版本由 `scripts/engine.lock.json` 固定：
 
-- **版本：** 1.37.0-motrix.16
-- **对应源码：** <https://github.com/motrixapp/aria2/tree/v1.37.0-motrix.16>
+- **版本：** 1.37.0-motrix.23
+- **对应源码：** <https://github.com/motrixapp/aria2/tree/v1.37.0-motrix.23>
 - **许可证：** GNU General Public License v2.0 or later（`GPL-2.0-or-later`）
 - **完整许可证文本：** `THIRD_PARTY_LICENSES/aria2-COPYING`
 - **OpenSSL 例外条款 / 声明：**

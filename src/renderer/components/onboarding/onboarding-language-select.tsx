@@ -14,6 +14,7 @@ import {
   type LanguagePreference,
   SUPPORTED_LOCALES,
 } from '@shared/constants/locales'
+import { WINDOW_CONTROLS_OVERLAY_HEIGHT } from '@shared/constants/window-chrome'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import { useEffect, useRef, useState } from 'react'
@@ -26,6 +27,8 @@ const LANGUAGE_OPTIONS = SUPPORTED_LOCALES.map(({ code, nativeName }) => ({
 
 export function OnboardingLanguageSelect() {
   const { i18n, t } = useTranslation()
+  const usesWindowControlsOverlay =
+    __MOTRIX_TARGET__ === 'electron' && transport.platform === 'linux'
   const [preference, setPreference] = useState<LanguagePreference | null>(null)
   const revision = useRef(0)
   const languageOptions = [
@@ -87,7 +90,16 @@ export function OnboardingLanguageSelect() {
         >
           <SelectValue />
         </SelectTrigger>
-        <SelectContent align="end">
+        <SelectContent
+          align="end"
+          position={usesWindowControlsOverlay ? 'popper' : 'item-aligned'}
+          sideOffset={
+            usesWindowControlsOverlay
+              ? ({ anchor }) =>
+                  (WINDOW_CONTROLS_OVERLAY_HEIGHT - anchor.height) / 2 + 4
+              : undefined
+          }
+        >
           <SelectGroup>
             {languageOptions.map((option) => (
               <SelectItem key={option.value} value={option.value}>

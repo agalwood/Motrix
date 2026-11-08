@@ -1,3 +1,4 @@
+import { transport } from '@renderer/lib/transport'
 import { Events } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
 import type { AppSettings } from '@shared/types/settings'
@@ -14,5 +15,5 @@ export function useLiquidGlass(): boolean {
       if (!stale()) setEnabled(settings?.app?.liquidGlassEffect === true)
     },
   })
-  return enabled
+  return transport.platform === 'darwin' && enabled
 }

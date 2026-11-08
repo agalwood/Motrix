@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import {
   access,
@@ -27,7 +28,7 @@ afterEach(async () => {
 })
 
 describe('assembleReleaseArtifacts', () => {
-  it('flattens five targets and merges both macOS updater files', async () => {
+  it('flattens six targets and merges architecture-specific updater files', async () => {
     const fixture = await createFixture()
 
     const result = await assembleReleaseArtifacts({
@@ -42,6 +43,7 @@ describe('assembleReleaseArtifacts', () => {
       'linux-x64',
       'linux-arm64',
       'win32-x64',
+      'win32-arm64',
     ])
     expect(result.manifests).toHaveLength(8)
     expect(await readdir(fixture.output)).toEqual(
@@ -126,6 +128,93 @@ describe('assembleReleaseArtifacts', () => {
       ],
     })
     await expect(access(fixture.paths.macArm64Zip)).resolves.toBeUndefined()
+  })
+
+  it.each(['2.0.0', '2.0.0-beta.52'])(
+    'preserves x64 updates while routing Windows ARM64 for %s',
+    async (version) => {
+      const fixture = await createFixture(version)
+      if (version.includes('-beta.')) {
+        for (const target of await readdir(fixture.input)) {
+          const directory = path.join(fixture.input, target, 'release')
+          for (const file of await readdir(directory)) {
+            if (file.startsWith('latest'))
+              await unlink(path.join(directory, file))
+          }
+        }
+      }
+      await assembleReleaseArtifacts({
+        inputDirectory: fixture.input,
+        outputDirectory: fixture.output,
+        version,
+      })
+      const name = version.includes('-beta.') ? 'beta.yml' : 'latest.yml'
+      const manifest = load(
+        await readFile(path.join(fixture.output, name), 'utf8')
+      ) as {
+        path: string
+        sha512: string
+        files: Array<{ url: string; sha512: string }>
+      }
+      expect(manifest.files.map((file) => file.url)).toEqual([
+        fixture.names.windowsExe,
+        fixture.names.windowsArm64Exe,
+      ])
+      expect(manifest.path).toBe(fixture.names.windowsExe)
+      expect(manifest.sha512).toBe(sha512(fixture.contents.windowsExe))
+      // Run the installed updater's real selector under both process architectures.
+      for (const arch of ['x64', 'arm64']) {
+        const result = spawnSync(
+          process.execPath,
+          [
+            '-e',
+            `
+          Object.defineProperty(process, 'arch', { value: ${JSON.stringify(arch)} });
+          const { findFile } = require('electron-updater/out/providers/Provider');
+          const files = JSON.parse(process.argv[1]).map(info => ({ info, url: new URL(info.url, 'https://dl.motrix.app/releases/') }));
+          process.stdout.write(findFile(files, 'exe').info.url);
+        `,
+            JSON.stringify(manifest.files),
+          ],
+          { encoding: 'utf8' }
+        )
+        expect(result.status, result.stderr).toBe(0)
+        expect(result.stdout).toBe(
+          arch === 'arm64'
+            ? fixture.names.windowsArm64Exe
+            : fixture.names.windowsExe
+        )
+      }
+      await expect(
+        verifyUpdateArtifacts({
+          directory: fixture.output,
+          version,
+          requireAll: true,
+        })
+      ).resolves.toBeDefined()
+      // A complete publication must not quietly lose the new architecture.
+      manifest.files.pop()
+      await writeFile(path.join(fixture.output, name), dump(manifest))
+      await expect(
+        verifyUpdateArtifacts({
+          directory: fixture.output,
+          version,
+          requireAll: true,
+        })
+      ).rejects.toThrow('Windows updates must list x64 then arm64')
+    }
+  )
+
+  it('rejects a missing Windows ARM64 installer', async () => {
+    const fixture = await createFixture()
+    await unlink(fixture.paths.windowsArm64Exe)
+    await expect(
+      assembleReleaseArtifacts({
+        inputDirectory: fixture.input,
+        outputDirectory: fixture.output,
+        version: VERSION,
+      })
+    ).rejects.toThrow('win32-arm64: required release asset')
   })
 
   it('rejects conflicting duplicate macOS manifest entries', async () => {
@@ -230,6 +319,7 @@ describe('assembleReleaseArtifacts', () => {
       'linux-x64',
       'linux-arm64',
       'win32-x64',
+      'win32-arm64',
     ]) {
       const directory = path.join(
         fixture.input,
@@ -694,6 +784,7 @@ async function createFixture(version = VERSION) {
     macX64Dmg: `Motrix-${version}-x64.dmg`,
     macX64Zip: `Motrix-${version}-x64.zip`,
     windowsExe: `Motrix-Setup-${version}.exe`,
+    windowsArm64Exe: `Motrix-Setup-${version}-arm64.exe`,
   }
   const linuxArm64AppImageContent = Buffer.from('Linux arm64 AppImage')
   const linuxX64AppImageContent = Buffer.from('Linux x64 AppImage')
@@ -720,6 +811,7 @@ async function createFixture(version = VERSION) {
     macX64Dmg: Buffer.from('macOS x64 DMG'),
     macX64Zip: Buffer.from('macOS x64 ZIP'),
     windowsExe: Buffer.from('Windows x64 installer'),
+    windowsArm64Exe: Buffer.from('Windows ARM64 installer'),
   }
 
   const darwinArm64 = await makeTarget(input, 'darwin-arm64')
@@ -913,6 +1005,25 @@ async function createFixture(version = VERSION) {
     names.windowsExe
   )
 
+  const windowsArm64 = await makeTarget(input, 'win32-arm64')
+  await writeAsset(
+    windowsArm64,
+    names.windowsArm64Exe,
+    contents.windowsArm64Exe
+  )
+  const windowsArm64Zip = await writeAsset(
+    windowsArm64,
+    `Motrix-${version}-win-arm64.zip`
+  )
+  for (const manifest of ['latest.yml', 'beta.yml']) {
+    await writeManifest(
+      path.join(windowsArm64, manifest),
+      version,
+      [{ name: names.windowsArm64Exe, content: contents.windowsArm64Exe }],
+      names.windowsArm64Exe
+    )
+  }
+
   return {
     contents,
     input,
@@ -937,6 +1048,8 @@ async function createFixture(version = VERSION) {
       linuxX64Manifest,
       macArm64Manifest,
       macArm64Zip: macArm64Zip.path,
+      windowsArm64Exe: path.join(windowsArm64, names.windowsArm64Exe),
+      windowsArm64Zip: windowsArm64Zip.path,
       windowsExe: path.join(windows, names.windowsExe),
       windowsManifest,
       windowsZip: windowsZip.path,

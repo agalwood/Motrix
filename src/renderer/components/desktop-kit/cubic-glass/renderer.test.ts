@@ -112,7 +112,11 @@ describe('cubic glass renderer', () => {
       () => root
     )
     try {
+      expect(root.dataset.renderer).not.toBe('webgl2')
+      expect(canvas.dataset.ready).not.toBe('true')
       flushFrame(16)
+      expect(root.dataset.renderer).toBe('webgl2')
+      expect(canvas.dataset.ready).toBe('true')
       pointerMove(1500, 500)
       flushFrame(32)
       expect(sceneMock.render.mock.lastCall?.[0].offsetX).not.toBe(0)

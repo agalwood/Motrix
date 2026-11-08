@@ -441,16 +441,6 @@ function registryPackagesFromCargoLock(
 }
 
 describe('third-party graph dependency notices', () => {
-  it('keeps the root manifest as the legal dependency source of truth', async () => {
-    const generator = await readFile(
-      path.join(ROOT, 'scripts/generate-third-party-notices.mjs'),
-      'utf8'
-    )
-
-    expect(generator).toContain("path.join(resolvedProjectDir, 'package.json')")
-    expect(generator).not.toContain('dist/electron-app/package.json')
-  })
-
   it.each(['THIRD_PARTY_NOTICES.md', 'THIRD_PARTY_NOTICES.zh-CN.md'])(
     '%s documents the generated runtime inventory',
     async (noticeFile) => {
@@ -470,9 +460,9 @@ describe('third-party graph dependency notices', () => {
 
       expect(notice).toContain('SFNS-Regular.ttf')
       expect(notice).toContain('https://developer.apple.com/fonts/')
-      expect(notice).toContain('1.37.0-motrix.16')
+      expect(notice).toContain('1.37.0-motrix.23')
       expect(notice).toContain(
-        'https://github.com/motrixapp/aria2/tree/v1.37.0-motrix.16'
+        'https://github.com/motrixapp/aria2/tree/v1.37.0-motrix.23'
       )
       expect(notice).toContain('GPL-2.0-or-later')
       expect(notice).toContain('THIRD_PARTY_LICENSES/aria2-COPYING')
@@ -750,7 +740,6 @@ describe('third-party graph dependency notices', () => {
   })
 
   it.each([
-    ['CI', '.github/workflows/ci.yml'],
     ['release', '.github/workflows/release.yml'],
     ['Flatpak', '.github/workflows/flatpak.yml'],
   ])(

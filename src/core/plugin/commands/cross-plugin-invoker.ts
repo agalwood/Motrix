@@ -54,6 +54,7 @@ export interface CrossPluginInvokerOptions {
 
 interface PublicCommand {
   id: string
+  execution?: 'operation'
   public?: boolean
 }
 
@@ -199,9 +200,9 @@ export class FullCrossPluginInvoker implements CrossPluginInvoker {
       const publicCmds = (callee?.manifest.contributes.commands ??
         []) as ReadonlyArray<PublicCommand>
       const cmd = publicCmds.find((c) => c.id === commandId)
-      if (!cmd?.public) {
-        auditFail('plugin.command.not_public')
-      }
+      if (cmd?.execution === 'operation')
+        auditFail('plugin.command.access_denied')
+      if (!cmd?.public) auditFail('plugin.command.not_public')
 
       // 5d. caller_throttled
       if (this.throttle.isBlocked(callerId)) {

@@ -35,7 +35,11 @@ export function FilesTab({ task }: { task: DownloadTask }) {
   const { formatBytes } = useByteFormat()
   const isMedia = task.kind === TaskKind.Hls || task.kind === TaskKind.Mux
   const isActive = ACTIVE_DOWNLOAD.has(task.status)
-  const { files } = useTaskFiles(task.id, isActive)
+  const { files } = useTaskFiles(
+    task.id,
+    isActive && task.status !== TaskStatus.Seeding,
+    task.engineTaskId
+  )
   const initial = task.bt?.selectedFiles ?? []
   const [draft, setDraft] = useState<number[]>(initial)
   // Direct HTTP/FTP and single-file tasks have no file selection to make.

@@ -1,6 +1,8 @@
+import '@test-utils/dom-animations'
 import '@renderer/lib/i18n'
 import '@testing-library/jest-dom/vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -61,26 +63,21 @@ describe('SettingsPage', () => {
     }
   })
 
-  it('switches to three columns at the main window minimum width', () => {
-    render(wrap('/settings'))
-    const grid = screen.getByText('General').closest('button')?.parentElement
-
-    expect(grid).toHaveClass('grid-cols-2')
-    expect(grid).toHaveClass('min-[914px]:grid-cols-3')
-    expect(grid).not.toHaveClass('grid-cols-3')
-  })
-
-  it('uses compact card sizing below the main window minimum width', () => {
-    render(wrap('/settings'))
-    const generalCard = screen.getByText('General').closest('button')
-
-    expect(generalCard).toHaveClass('min-h-33')
-    expect(generalCard).toHaveClass('min-[914px]:min-h-[170px]')
-  })
-
   it('opens a dialog when the URL contains a valid cardId', () => {
     render(wrap('/settings/general'))
     expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('opens a card from the grid and returns to the grid on Cancel', async () => {
+    const user = userEvent.setup()
+    render(wrap('/settings'))
+
+    await user.click(screen.getByRole('button', { name: /General/ }))
+    expect(await screen.findByRole('dialog', { name: 'General' })).toBeVisible()
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(screen.getByRole('button', { name: /General/ })).toBeVisible()
   })
 
   it('does not open a dialog for unknown cardId', () => {

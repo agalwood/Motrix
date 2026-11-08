@@ -2,12 +2,11 @@ import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
 import { Switch } from '@renderer/components/ui/switch'
-import { transport } from '@renderer/lib/transport'
-import { Commands } from '@shared/protocol/commands'
 import type { PluginListDTO } from '@shared/types/plugin'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
+import { usePluginEnabled } from '../hooks/use-plugin-enabled'
 import {
   computePluginAudience,
   type PrimaryActionKind,
@@ -16,6 +15,7 @@ import {
 import { usePluginsStore } from '../store'
 import { PluginAudienceBadge } from './plugin-audience-badge'
 import { PluginAvatar } from './plugin-avatar'
+import { PluginSecurityNotice } from './plugin-security-notice'
 import { PluginStatusDot } from './plugin-status-dot'
 
 interface Props {
@@ -33,7 +33,7 @@ const PRIMARY_ACTION_TAB: Partial<Record<PrimaryActionKind, string>> = {
 export function PluginCard({ plugin, hasSchema }: Props) {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const applyStatus = usePluginsStore((s) => s.applyStatus)
+  const { toggleEnabled, pending } = usePluginEnabled(plugin.id)
   // Real grants — store is hydrated by usePlugins via Queries.ListPluginGrants.
   // Without this the audience falsely flags every plugin-with-optional-perms
   // as needing "Grant access" (deriveTone treats `undefined` grants as
@@ -49,15 +49,13 @@ export function PluginCard({ plugin, hasSchema }: Props) {
   )
   const oneLine = truncateOneLine(plugin.description, 90)
 
-  async function toggleEnabled(next: boolean) {
-    await transport.invoke(
-      next ? Commands.EnablePlugin : Commands.DisablePlugin,
-      plugin.id
+  function handleCardClick(event: ReactMouseEvent) {
+    // Disabled switches do not dispatch their own click handler.
+    if (
+      event.target instanceof Element &&
+      event.target.closest('[role="switch"]')
     )
-    applyStatus(plugin.id, next ? 'inactive' : 'disabled', undefined, next)
-  }
-
-  function handleCardClick() {
+      return
     navigate(`/plugins/${plugin.id}`)
   }
 
@@ -85,7 +83,10 @@ export function PluginCard({ plugin, hasSchema }: Props) {
         <div className="min-w-0">
           <h3 className="flex items-center gap-2 truncate text-sm font-medium leading-5">
             {plugin.name}
-            <PluginStatusDot status={plugin.status} enabled={plugin.enabled} />
+            <PluginStatusDot
+              status={plugin.status}
+              enabled={plugin.enabled && !plugin.security}
+            />
             {update && (
               <Badge variant="secondary" className="shrink-0">
                 {t('plugins.registry.updateAvailable')}
@@ -99,7 +100,8 @@ export function PluginCard({ plugin, hasSchema }: Props) {
         </div>
 
         <Switch
-          checked={plugin.enabled}
+          checked={plugin.enabled && !plugin.security}
+          disabled={pending || !!plugin.security}
           aria-label={t('plugins.detail.enabled')}
           onClick={stopPropagation}
           onCheckedChange={toggleEnabled}
@@ -107,17 +109,22 @@ export function PluginCard({ plugin, hasSchema }: Props) {
       </div>
 
       <p className="line-clamp-2 text-xs text-muted-foreground">{oneLine}</p>
-      {audience.tone !== 'safe' && audience.tone !== 'off' && (
-        <p className="line-clamp-2 text-xs text-muted-foreground">
-          {audience.plain}
-        </p>
-      )}
+      {plugin.security && <PluginSecurityNotice decision={plugin.security} />}
+      {!plugin.security &&
+        audience.tone !== 'safe' &&
+        audience.tone !== 'off' && (
+          <p className="line-clamp-2 text-xs text-muted-foreground">
+            {audience.plain}
+          </p>
+        )}
 
       <div className="flex flex-wrap items-center gap-2 border-t pt-3">
         <Button variant="outline" size="sm" onClick={handlePrimary}>
           {audience.primaryAction.label}
         </Button>
-        {plugin.enabled && <PluginAudienceBadge tone={audience.tone} />}
+        {plugin.enabled && !plugin.security && (
+          <PluginAudienceBadge tone={audience.tone} />
+        )}
         {plugin.errorCount > 0 && (
           <Badge variant="destructive">
             {t('plugins.errors', { count: plugin.errorCount })}

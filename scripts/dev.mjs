@@ -3,11 +3,11 @@
 //
 // Responsibilities:
 //   1. Start Vite's dev server for the renderer at a fixed port.
-//   2. Run `vite build --watch` for the main and preload configs.
-//   3. Once BOTH main and preload have produced their initial bundle,
+//   2. Run `vite build --watch` for the main, preload, and plugin worker configs.
+//   3. Once all three have produced their initial bundle,
 //      spawn Electron with VITE_DEV_SERVER_URL pointing at the dev
 //      server so the main process routes the main window to Vite.
-//   4. On subsequent main/preload rebuilds, relaunch Electron so the
+//   4. On subsequent main/preload/worker rebuilds, relaunch Electron so the
 //      new bundle takes effect. Renderer-side hot reloads are handled
 //      by Vite's built-in HMR — no restart needed.
 //
@@ -33,6 +33,7 @@ const ELECTRON_SHUTDOWN_TIMEOUT_MS = 45_000
 const DEV_SHUTDOWN_MESSAGE = 'motrix:dev-shutdown'
 
 let electronProcess = null
+let initialBuildComplete = false
 let shuttingDown = false
 let intentionalKill = false
 let restartTimer = null
@@ -103,7 +104,7 @@ function watchBuild(configName, name, onFirst, onRebuild) {
 }
 
 function startElectron() {
-  if (electronProcess || shuttingDown) return
+  if (electronProcess || shuttingDown || !initialBuildComplete) return
   electronProcess = spawn(electronBinary, ['.'], {
     stdio: ['inherit', 'inherit', 'inherit', 'ipc'],
     cwd: projectRoot,
@@ -215,7 +216,17 @@ async function main() {
     ).catch(reject)
   })
 
-  await Promise.all([mainReady, preloadReady])
+  const workerReady = new Promise((resolve, reject) => {
+    watchBuild(
+      'vite.worker.config.ts',
+      'worker',
+      resolve,
+      scheduleRestart
+    ).catch(reject)
+  })
+
+  await Promise.all([mainReady, preloadReady, workerReady])
+  initialBuildComplete = true
   log('initial build complete — launching electron')
   startElectron()
 }

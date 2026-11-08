@@ -1,3 +1,4 @@
+import { MiddleEllipsis } from '@renderer/components/desktop-kit/middle-ellipsis'
 import {
   CheckIcon,
   DirectoryPreferencesIcon,
@@ -96,28 +97,25 @@ export function DirectoryHistoryMenu({
           onKeyDownCapture={containSubmitShortcut}
           onKeyDown={(event) => event.stopPropagation()}
         >
-          {open && (
-            <>
-              {kind === 'web' ? (
-                <ServerHistoryItems
-                  currentPath={currentPath}
-                  onSelect={onSelect}
-                  popup={popup}
-                />
-              ) : (
-                <AppHistoryItems
-                  currentPath={currentPath}
-                  onSelect={onSelect}
-                  popup={popup}
-                />
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={openManager}>
-                <DirectoryPreferencesIcon aria-hidden="true" />
-                {t('directoryPreferences.manage')}
-              </DropdownMenuItem>
-            </>
+          {/* The portal keeps content mounted through the exit animation. */}
+          {kind === 'web' ? (
+            <ServerHistoryItems
+              currentPath={currentPath}
+              onSelect={onSelect}
+              popup={popup}
+            />
+          ) : (
+            <AppHistoryItems
+              currentPath={currentPath}
+              onSelect={onSelect}
+              popup={popup}
+            />
           )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={openManager}>
+            <DirectoryPreferencesIcon aria-hidden="true" />
+            {t('directoryPreferences.manage')}
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <DirectoryPreferencesDialog
@@ -209,9 +207,11 @@ function HistoryItems({
                 <span className="size-4 shrink-0">
                   {path === currentPath && <CheckIcon aria-hidden="true" />}
                 </span>
-                <span className="min-w-0 whitespace-pre-wrap break-all">
-                  {path}
-                </span>
+                <MiddleEllipsis
+                  text={path}
+                  maxChars={72}
+                  className="font-sans!"
+                />
               </DropdownMenuItem>
             ))}
           </DropdownMenuGroup>

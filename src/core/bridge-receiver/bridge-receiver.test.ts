@@ -1,4 +1,6 @@
 import { NOOP_TASK_ACTIVITY_RECORDER } from '@core/activity'
+import { principalKey } from '@core/bridge/credential-store'
+import type { MdxpSessionContext } from '@core/bridge/mdxp-session-context'
 import type { SegmentAria2 } from '@core/download/segment-downloader'
 import { MediaTaskCoordinator } from '@core/task/media-task-coordinator'
 import { TaskManager } from '@core/task/task-manager'
@@ -823,6 +825,52 @@ describe('BridgeReceiver', () => {
       const r2 = await r.handle(submitParams('key-bbbbbbbb'), extCtx)
       expect(createTask).toHaveBeenCalledTimes(1)
       expect(r2.taskId).toBe(r1.taskId)
+    })
+
+    it('isolates same-key submissions and notification metadata between installations, while reconnect retries deduplicate', async () => {
+      let n = 0
+      const createTask = vi.fn(async () => ({
+        gid: 'g',
+        taskId: `task-${++n}`,
+      }))
+      const r = new BridgeReceiver(
+        fakeDeps({ createTask: createTask as never }) as never
+      )
+      const context = (clientInstallationId: string): MdxpSessionContext => ({
+        ...(extCtx as MdxpSessionContext),
+        sessionKey: principalKey({
+          browser: 'chromium',
+          verifiedOrigin: 'chrome-extension://e',
+          clientInstallationId,
+        }),
+      })
+      const a = context('profile-a')
+      const b = context('profile-b')
+      const first = await r.handle(submitParams('shared-key'), a)
+      const second = await r.handle(submitParams('shared-key'), b)
+      const retry = await r.handle(
+        submitParams('shared-key'),
+        context('profile-a')
+      )
+      expect(first.taskId).not.toBe(second.taskId)
+      expect(retry).toEqual(first)
+      expect(createTask).toHaveBeenCalledTimes(2)
+      expect(createTask).toHaveBeenNthCalledWith(
+        1,
+        expect.anything(),
+        undefined,
+        expect.objectContaining({
+          sourceMeta: expect.objectContaining({ sessionKey: a.sessionKey }),
+        })
+      )
+      expect(createTask).toHaveBeenNthCalledWith(
+        2,
+        expect.anything(),
+        undefined,
+        expect.objectContaining({
+          sourceMeta: expect.objectContaining({ sessionKey: b.sessionKey }),
+        })
+      )
     })
 
     it('different keys create independent tasks', async () => {

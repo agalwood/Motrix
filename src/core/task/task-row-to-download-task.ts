@@ -1,8 +1,11 @@
 import type { TaskInstanceRow, TaskRow } from '@core/session/motrix-database'
+import { legacyTaskMetadataSchema } from '@shared/schemas/legacy-import'
 import {
   type DownloadTask,
   makeDefaultBtExtension,
+  TaskKind,
   TaskStatus,
+  TaskType,
   TransitionPhase,
 } from '@shared/types/task'
 import { isTorrentLikeType } from '@shared/types/task-actions'
@@ -10,6 +13,16 @@ import { shareRatio } from '@shared/utils/share-ratio'
 import { unsettledBtUpload } from './bt-upload-settlement'
 import { restoreMediaProgress } from './media-task-progress'
 import { restoreTaskSaveDirectory } from './task-save-directory'
+
+/** Older HTTP/FTP history can predate the first file metadata poll. */
+export function restoredTaskFileCount(task: TaskRow): number {
+  return task.fileCount === 0 &&
+    task.kind === TaskKind.Direct &&
+    task.aggStatus === TaskStatus.Completed &&
+    (task.taskType === TaskType.Http || task.taskType === TaskType.Ftp)
+    ? 1
+    : task.fileCount
+}
 
 /** Build a generic DownloadTask domain object from canonical TaskRow data.
  *
@@ -44,6 +57,11 @@ export function taskRowToDownloadTask(
       })
     : undefined
 
+  const legacy = legacyTaskMetadataSchema.safeParse(
+    primary?.payload.legacyImport
+  )
+  if (bt && legacy.success) bt.selectedFiles = legacy.data.selectedFiles
+
   return restoreMediaProgress({
     id: task.motrixId,
     engineTaskId: primary?.gid ?? '',
@@ -65,7 +83,7 @@ export function taskRowToDownloadTask(
     uris: primary?.uris ?? [],
     uploadedBytes,
     uploadedBytesBaseline: task.uploadedBytesBaseline,
-    fileCount: task.fileCount,
+    fileCount: restoredTaskFileCount(task),
     connections: 0,
     pieceLength: task.pieceLength,
     infoHash: task.infoHash,

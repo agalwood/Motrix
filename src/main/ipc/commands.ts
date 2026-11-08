@@ -1,4 +1,4 @@
-import { realpath, writeFile } from 'node:fs/promises'
+import { realpath } from 'node:fs/promises'
 import path from 'node:path'
 import { BridgeReceiverError } from '@core/bridge-receiver/errors'
 import type { AdaptedMux } from '@core/bridge-receiver/submit-download-adapter'
@@ -30,6 +30,9 @@ import {
 } from '@core/plugin/install/registry-expectation'
 import type { SourceInput } from '@core/plugin/install/source-resolver'
 import { downloadUrlMoext } from '@core/plugin/install/url-fetcher'
+import { PluginEngineVersionTooOld } from '@core/plugin/manifest/errors'
+import { PluginNetworkError } from '@core/plugin/network/plugin-network-error'
+import type { OperationService } from '@core/plugin/operations/operation-service'
 import type { PluginRegistry } from '@core/plugin/plugin-registry'
 import type { RegistryClient } from '@core/plugin/registry/registry-client'
 import { downloadRegistryMoext } from '@core/plugin/registry/registry-fetcher'
@@ -40,6 +43,7 @@ import {
   type AppliedDownloadProxyPolicy,
   UNAVAILABLE_APPLIED_DOWNLOAD_PROXY_POLICY,
 } from '@core/proxy/applied-download-proxy-policy'
+import type { DurableFinalizeRuntime } from '@core/session/durable-finalize-runtime'
 import type { MotrixDatabase } from '@core/session/motrix-database'
 import type { SessionManager } from '@core/session/session-manager'
 import { applySavedSettings } from '@core/settings/apply-saved-settings'
@@ -71,6 +75,10 @@ import {
 } from '@core/task/bt-duplicate-policy'
 import { parseBtFileLayout } from '@core/task/bt-storage-layout'
 import {
+  authorizeBtDirectory,
+  BtStorageService,
+} from '@core/task/bt-storage-service'
+import {
   type CreateTaskDeps,
   handleCreateTask,
 } from '@core/task/create-task-handler'
@@ -86,7 +94,6 @@ import {
 import { createTaskDirectoryHistory } from '@core/task/task-directory-history'
 import type { TaskManager } from '@core/task/task-manager'
 import type { TorrentMetaStore } from '@core/task/torrent-meta-store'
-import { createTorrent } from '@core/torrent/create-torrent'
 import { MagnetSelectionTimeout } from '@core/torrent/magnet-selection-timeout'
 import type { MagnetTracker } from '@core/torrent/magnet-tracker'
 import { swapMagnetMetadataForBt } from '@core/torrent/swap-magnet-metadata-for-bt'
@@ -97,28 +104,33 @@ import nativeMessagingExtensions from '@shared/config/native-messaging-extension
 import { AppError, ErrorCode } from '@shared/errors'
 import { EXTERNAL_URLS } from '@shared/external-urls'
 import { Commands } from '@shared/protocol/commands'
+import {
+  makeProtocolFailure,
+  makeProtocolSuccess,
+} from '@shared/protocol/errors'
 import { Events } from '@shared/protocol/events'
 import type { CommandHandlerMap } from '@shared/protocol/handler-types'
+import { OPERATION_CHANNELS } from '@shared/protocol/operation-channels'
 import {
   type TaskCreateCommandResult,
   taskCreateRequestSchema,
   torrentBatchCreateOptionsSchema,
 } from '@shared/schemas/add-task'
 import { appImageNativeHostActionSchema } from '@shared/schemas/appimage-native-host'
+import { btStorageRequestSchema } from '@shared/schemas/bt-storage'
 import {
+  reAddTaskPayloadSchema,
   removeTasksPayloadSchema,
   taskIdsPayloadSchema,
 } from '@shared/schemas/bulk-task-command'
 import { closeCurrentWindowSchema } from '@shared/schemas/close-current-window'
-import {
-  type CreateTorrentProgressPayload,
-  createTorrentRequestSchema,
-  saveTorrentFileRequestSchema,
-} from '@shared/schemas/create-torrent'
+import { filePickerOptionsSchema } from '@shared/schemas/file-picker'
 import { moveTasksPayloadSchema } from '@shared/schemas/move-tasks'
+import { PluginLogVerboseRequestSchema } from '@shared/schemas/plugin-logs'
 import { checkPluginUpdatesPayloadSchema } from '@shared/schemas/plugin-update'
 import { REGISTRY_PLUGIN_ID_RE } from '@shared/schemas/registry'
 import { removeTaskPayloadSchema } from '@shared/schemas/remove-task'
+import { rendererSubmissionSchema } from '@shared/schemas/renderer-submission'
 import { showAddTaskWindowSchema } from '@shared/schemas/show-add-task-window'
 import {
   taskTrackerApplySchema,
@@ -129,6 +141,7 @@ import {
   type CliInstallRequest,
 } from '@shared/types/cli-tool'
 import { EngineRecoveryAction, EngineState } from '@shared/types/engine'
+import type { PluginInstallCompatibilityFailure } from '@shared/types/plugin-install'
 import type { ProxySettings } from '@shared/types/settings'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
@@ -140,7 +153,6 @@ import {
   dialog,
   ipcMain,
   type OpenDialogOptions,
-  type SaveDialogOptions,
   shell,
 } from 'electron'
 import { z } from 'zod'
@@ -158,11 +170,15 @@ import {
 } from '../platform/appimage-integration-host'
 import { syncAutoLaunch } from '../platform/auto-launch'
 import { setLinuxDefaultTorrentHandler } from '../platform/linux-default-apps'
+import { getPortableProfile } from '../platform/portable-profile'
 import type { createProtocolManager } from '../platform/protocol-manager'
 import { resolveWindowsDefaultAppsSettingsUrl } from '../platform/windows-default-apps'
+import { desktopOperationHandlers } from '../plugin/operation-commands'
 import { installManagedFfmpeg } from '../plugin/verified-ffmpeg-electron'
 import type { createMainProxyApplier } from '../proxy/wiring'
+import type { createRendererRecoveryRuntime } from '../window/renderer-recovery-runtime'
 import type { WindowManager } from '../window/window-manager'
+import { torrentCreatorHandlers } from './commands/create-torrent'
 import { createOpenTaskFileHandler } from './commands/open-task-file'
 import { createRevealInFolderHandler } from './commands/reveal-in-folder'
 import { createSetSelectedFilesHandler } from './commands/set-selected-files'
@@ -175,6 +191,17 @@ const cliInstallRequestSchema = z
   .strict()
 
 export interface CommandContext {
+  btStorageRuntime?: Pick<
+    DurableFinalizeRuntime,
+    'commit' | 'withArtifactLease' | 'hasPendingFinalization'
+  >
+  persistBtStorage?: (
+    task: DownloadTask,
+    sourceRoot: string,
+    targetRoot: string
+  ) => Promise<void>
+  rendererRecovery?: ReturnType<typeof createRendererRecoveryRuntime>
+  operationService?: OperationService
   cliToolService: Pick<CliToolService, 'install'>
   supervisor: EngineSupervisor
   /** Session latch of the auto DNS fallback — reset when dnsMode changes. */
@@ -185,7 +212,7 @@ export interface CommandContext {
    * paths cannot drift. Called synchronously during handler construction.
    */
   bindTaskRetry?: (fn: (taskId: string) => Promise<unknown>) => void
-  recoverFinalization?: (taskId: string) => Promise<void>
+  recoverFinalization?: (taskId: string, sha256?: string) => Promise<void>
   sessionManager: SessionManager
   settingsManager: SettingsManager
   applyLocale?: (language: string) => Promise<void>
@@ -220,6 +247,7 @@ export interface CommandContext {
   pluginStateStore: PluginStateStore
   pluginHost: PluginHost
   pluginInstaller: PluginInstaller
+  pluginFetch: typeof fetch
   registryClient: RegistryClient
   hostVersion: string
   builtinUpdater: BuiltinUpdater
@@ -262,18 +290,22 @@ export interface CommandContext {
 }
 
 function sendToAddTaskWindow(
-  windowManager: WindowManager,
+  ctx: CommandContext,
   channel: string,
   ...args: unknown[]
 ): void {
-  windowManager.open('add-task')
-  const win = windowManager.get('add-task')
-  if (win && !win.isDestroyed()) {
-    // Delay to ensure window renderer has attached event listeners
-    setTimeout(() => {
-      win.webContents.send(channel, ...args)
-    }, 100)
-  }
+  ctx.windowManager.open('add-task')
+  if (
+    ctx.rendererRecovery?.intents.deliver(
+      'add-task',
+      channel,
+      undefined,
+      () => args[0]
+    )
+  )
+    return
+  const win = ctx.windowManager.get('add-task')
+  if (win && !win.isDestroyed()) win.webContents.send(channel, ...args)
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: sender is typed at registration
@@ -312,6 +344,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     pluginStateStore,
     pluginHost,
     pluginInstaller,
+    pluginFetch,
     registryClient,
     hostVersion,
     builtinUpdater,
@@ -469,7 +502,38 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     directResourceProxyPolicy:
       appliedDownloadProxyPolicy ?? UNAVAILABLE_APPLIED_DOWNLOAD_PROXY_POLICY,
   }
+  const btStorage =
+    ctx.btStorageRuntime && ctx.persistBtStorage
+      ? new BtStorageService({
+          ...reAddDeps,
+          runtime: ctx.btStorageRuntime,
+          persistStorage: ctx.persistBtStorage,
+          authorizeDirectory: authorizeBtDirectory,
+        })
+      : null
   createDeps.reuseExistingBt = (taskId) => reAddTask(taskId, reAddDeps)
+  if (btStorage)
+    createDeps.relocateExistingBt = async (taskId, directory, name) => {
+      const result = await btStorage.run(
+        { taskId, mode: 'locate', directory, name, resume: true },
+        true
+      )
+      if ('error' in result)
+        throw new AppError(
+          ErrorCode.TaskNotRetryable,
+          `task.storage.errors.${result.error}`
+        )
+      if (!result.verification.complete)
+        throw new AppError(
+          ErrorCode.TaskNotRetryable,
+          'task.storage.incomplete'
+        )
+      if (result.resumeFailed)
+        throw new AppError(
+          ErrorCode.TaskNotRetryable,
+          'task.storage.resumeFailed'
+        )
+    }
   // The DNS fallback consumer retries through the same deps bundle as
   // Commands.ReAddTasks so the automatic and user-initiated paths match.
   bindTaskRetry?.((id) => reAddTask(id, reAddDeps))
@@ -572,12 +636,12 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
           downloadDir,
           `${spec.owner}-${spec.repo}-${Date.now()}.moext`
         )
-        await downloadGithubMoext(spec, target)
+        await downloadGithubMoext(spec, target, pluginFetch)
         return target
       }
       case 'url': {
         const target = path.join(downloadDir, `download-${Date.now()}.moext`)
-        await downloadUrlMoext(p.url, target)
+        await downloadUrlMoext(p.url, target, pluginFetch)
         return target
       }
       case 'local':
@@ -650,7 +714,6 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     },
   })
   const saveDirPickersInFlight = new WeakSet<WebContents>()
-  let createTorrentInFlight = false
 
   const directoryPreferences =
     createDirectoryPreferencesHandlers(settingsManager)
@@ -661,6 +724,54 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
   })
 
   return {
+    ...(ctx.operationService
+      ? desktopOperationHandlers(ctx.operationService)
+      : {}),
+    [Commands.PickFile]: async (sender: WebContents, value: unknown) => {
+      const params = filePickerOptionsSchema.parse(value)
+      if (saveDirPickersInFlight.has(sender)) return null
+      saveDirPickersInFlight.add(sender)
+      try {
+        const parent = BrowserWindow.fromWebContents(sender)
+        if (params.kind === 'save') {
+          const options = {
+            defaultPath: params.defaultPath,
+            filters: params.extensions?.length
+              ? [
+                  {
+                    name: i18n.t('directoryPicker.files'),
+                    extensions: params.extensions,
+                  },
+                ]
+              : undefined,
+          }
+          const result =
+            parent && !parent.isDestroyed()
+              ? await dialog.showSaveDialog(parent, options)
+              : await dialog.showSaveDialog(options)
+          return result.canceled ? null : (result.filePath ?? null)
+        }
+        const options: OpenDialogOptions = {
+          properties: ['openFile'],
+          defaultPath: params.defaultPath,
+          filters: params.extensions?.length
+            ? [
+                {
+                  name: i18n.t('directoryPicker.files'),
+                  extensions: params.extensions,
+                },
+              ]
+            : undefined,
+        }
+        const result =
+          parent && !parent.isDestroyed()
+            ? await dialog.showOpenDialog(parent, options)
+            : await dialog.showOpenDialog(options)
+        return result.canceled ? null : (result.filePaths[0] ?? null)
+      } finally {
+        saveDirPickersInFlight.delete(sender)
+      }
+    },
     [Commands.InstallCliTool]: async (payload: unknown) =>
       cliToolService.install(
         cliInstallRequestSchema.parse(payload) as CliInstallRequest
@@ -715,7 +826,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       name: string
     }) => {
       const meta = await torrentParser.parse(base64)
-      sendToAddTaskWindow(windowManager, Events.ProtocolTorrentFile, {
+      sendToAddTaskWindow(ctx, Events.ProtocolTorrentFile, {
         payload: { name, dataBase64: base64 },
         meta,
       })
@@ -735,6 +846,17 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     // Plural task commands (option C): one IPC request per multi-select
     // action. Per-task outcomes come back IPC-safe; the bulk close inside
     // runBulkTaskAction forces one immediate snapshot flush.
+    [Commands.ChangeBtStorage]: async (rawPayload: unknown) => {
+      const request = btStorageRequestSchema.parse(rawPayload)
+      await supervisor.waitUntilReady(ENGINE_READY_TIMEOUT_MS)
+      await waitForTasksReady?.()
+      return btStorage ? btStorage.run(request) : { error: 'unavailable' }
+    },
+    [Commands.CancelBtStorage]: async (taskId: unknown) => {
+      btStorage?.cancel(z.string().min(1).parse(taskId))
+      return { ok: true }
+    },
+
     [Commands.MoveTasks]: async (rawPayload: unknown) =>
       moveTasks(moveTasksPayloadSchema.parse(rawPayload), pauseResumeDeps),
 
@@ -813,8 +935,9 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       return { ok: true }
     },
 
-    [Commands.ReAddTask]: async (taskId: string) => {
-      await reAddTask(taskId, reAddDeps)
+    [Commands.ReAddTask]: async (rawPayload: unknown) => {
+      const { taskId, sha256 } = reAddTaskPayloadSchema.parse(rawPayload)
+      await reAddTask(taskId, reAddDeps, sha256)
       return { ok: true }
     },
 
@@ -831,6 +954,15 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       return { ok: true }
     },
 
+    ...torrentCreatorHandlers(
+      (sender) =>
+        windowManager.getWindowIdBySender(sender) === 'create-torrent',
+      directoryHistory.wrap(async (request) => {
+        await activatePluginsForTask('bt', '')
+        return createAndPersist(request)
+      }),
+      () => ctx.rendererRecovery?.supervisor.enterModal()
+    ),
     [Commands.CreateTask]: directoryHistory.wrap(async (request: unknown) => {
       try {
         request = admitTaskCreateRequest(request)
@@ -910,7 +1042,10 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
                     infoHash: layout.infoHash,
                     saveDir: req.saveDir,
                     selectedFiles: req.selectedFiles,
-                    duplicatePolicy: req.duplicatePolicy,
+                    duplicatePolicy:
+                      req.duplicatePolicy === 'use-existing'
+                        ? 'reuse'
+                        : req.duplicatePolicy,
                     excludeTaskId: req.existingTaskId,
                   })
                 : { action: 'create' as const }
@@ -942,7 +1077,10 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
                     selectedFiles: req.selectedFiles,
                     saveDir: req.saveDir,
                     name: req.displayName,
-                    duplicatePolicy: req.duplicatePolicy,
+                    duplicatePolicy:
+                      req.duplicatePolicy === 'use-existing'
+                        ? 'reuse'
+                        : req.duplicatePolicy,
                   },
                   {
                     db: motrixDatabase,
@@ -1015,6 +1153,13 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
         },
       }
     ),
+
+    [Commands.OpenSettingsDirectory]: async (payload: unknown) => {
+      z.undefined().parse(payload)
+      shell.showItemInFolder(settingsManager.getFilePath())
+      // The native reveal API does not report a completion result.
+      return true
+    },
 
     [Commands.UpdateSettings]: async (partial: unknown) => {
       const oldFull = settingsManager.get()
@@ -1314,7 +1459,11 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
           protocolManager.resetDialogState()
         }
         windowManager.closeAndRecycle(id)
-        if (options.showMain) {
+        if (
+          options.showMain === true ||
+          (options.showMain === 'if-visible' &&
+            windowManager.get('main')?.isVisible())
+        ) {
           windowManager.show('main')
         }
         if (options.navigateMainTo) {
@@ -1382,104 +1531,6 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       }
     },
 
-    [Commands.PickTorrentSource]: async (sender: WebContents) => {
-      const options: OpenDialogOptions = {
-        // Both kinds: a single file and a whole folder are valid sources.
-        properties: ['openFile', 'openDirectory'],
-      }
-      const parent = BrowserWindow.fromWebContents(sender)
-      const result =
-        parent && !parent.isDestroyed()
-          ? await dialog.showOpenDialog(parent, options)
-          : await dialog.showOpenDialog(options)
-      if (result.canceled || result.filePaths.length === 0) return null
-      const selected = await realpath(result.filePaths[0]).catch(() => null)
-      return selected ? { path: selected } : null
-    },
-
-    [Commands.SaveTorrentFile]: async (
-      sender: WebContents,
-      params: unknown
-    ) => {
-      const parsed = saveTorrentFileRequestSchema.parse(params)
-      const options: SaveDialogOptions = {
-        defaultPath: parsed.suggestedSaveName,
-        filters: [{ name: 'BitTorrent', extensions: ['torrent'] }],
-      }
-      const parent = BrowserWindow.fromWebContents(sender)
-      const result =
-        parent && !parent.isDestroyed()
-          ? await dialog.showSaveDialog(parent, options)
-          : await dialog.showSaveDialog(options)
-      if (result.canceled || !result.filePath) return null
-      await writeFile(
-        result.filePath,
-        Buffer.from(parsed.torrentBase64, 'base64')
-      )
-      const selected = await realpath(result.filePath).catch(() => null)
-      return { path: selected ?? result.filePath }
-    },
-
-    // Create-torrent hashing runs in the main process; the read loop yields
-    // per chunk so the shared event loop keeps servicing IPC meanwhile.
-    // One operation at a time — a second request while one runs is rejected.
-    [Commands.CreateTorrent]: async (payload: unknown) => {
-      if (createTorrentInFlight) {
-        throw new AppError(
-          ErrorCode.TorrentCreateFailed,
-          'A torrent is already being created'
-        )
-      }
-      const parsed = createTorrentRequestSchema.parse(payload)
-      const sourceStat = await realpath(parsed.sourcePath).catch(() => null)
-      if (!sourceStat) {
-        throw new AppError(
-          ErrorCode.TorrentCreateFailed,
-          'Source path does not exist'
-        )
-      }
-      createTorrentInFlight = true
-      let lastEmit = 0
-      try {
-        const result = await createTorrent(
-          {
-            sourcePath: sourceStat,
-            trackers: parsed.trackers,
-            webSeeds: parsed.webSeeds,
-            comment: parsed.comment,
-            private: parsed.private,
-            pieceLength: parsed.pieceLength,
-          },
-          {
-            onProgress: (processed, total) => {
-              const now = Date.now()
-              if (processed !== total && now - lastEmit < 400) return
-              lastEmit = now
-              const progress: CreateTorrentProgressPayload = {
-                operationId: 'create-torrent',
-                processedBytes: processed,
-                totalBytes: total,
-                fraction: total === 0 ? 1 : Math.min(1, processed / total),
-              }
-              ctx.eventBus.emit(Events.CreateTorrentProgress, progress)
-            },
-          }
-        )
-        return {
-          torrentBase64: Buffer.from(result.bytes).toString('base64'),
-          infoHash: result.infoHash,
-          name: result.name,
-          totalSize: result.totalSize,
-          fileCount: result.fileCount,
-          pieceCount: result.pieceCount,
-          pieceLength: result.pieceLength,
-          suggestedSaveName: `${result.name}.torrent`,
-        }
-      } finally {
-        createTorrentInFlight = false
-      }
-    },
-
     // ResizeWindow needs event.sender — the wrapper in registerCommandHandlers
     // passes sender as the first arg so this handler can resolve the BrowserWindow.
     [Commands.ResizeWindow]: async (
@@ -1505,18 +1556,11 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
 
     [Commands.ShowAddTaskWindow]: async (rawPayload: unknown) => {
       const { prefill } = showAddTaskWindowSchema.parse(rawPayload ?? {})
-      const win = windowManager.open('add-task')
-      const showPayload = prefill ?? { mode: 'links' }
-      const sendShow = () => {
-        if (!win.isDestroyed()) {
-          win.webContents.send(Events.SetAddTaskMode, showPayload)
-        }
-      }
-      if (win.webContents.isLoading()) {
-        win.webContents.once('did-finish-load', sendShow)
-      } else {
-        sendShow()
-      }
+      sendToAddTaskWindow(
+        ctx,
+        Events.SetAddTaskMode,
+        prefill ?? { mode: 'links' }
+      )
       return { ok: true }
     },
 
@@ -1555,6 +1599,11 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       }),
 
     [Commands.RequestDefaultTorrentHandler]: async () => {
+      if (getPortableProfile())
+        throw new AppError(
+          ErrorCode.SettingsInvalid,
+          i18n.t('settings.portable.integrationUnavailable')
+        )
       if (process.platform === 'darwin') {
         // macOS has no central default-apps panel. The previous implementation
         // opened the General preference pane, which is unrelated to file
@@ -1673,18 +1722,15 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     }),
 
     [Commands.EnablePlugin]: async (id: string) => {
-      pluginStateStore.setEnabled(id, true)
-      // Sync the in-memory IndexedPlugin.state so Queries.ListPlugins and
-      // downstream gating (PluginHost.activate, ActivationDispatcher,
-      // CrossPluginInvoker) see the new enabled flag without a process
-      // restart.
-      pluginRegistry.refreshState(id)
+      await pluginHost.enable(id)
       const state = pluginStateStore.get(id)
-      eventBus.emit(Events.PluginStatusChanged, {
-        id,
-        status: state?.status ?? 'inactive',
-        enabled: true,
-      })
+      if (state) {
+        eventBus.emit(Events.PluginStatusChanged, {
+          id,
+          status: state.status,
+          enabled: state.enabled,
+        })
+      }
       eventBus.emit(Events.ContributionIndexChanged)
       return { ok: true }
     },
@@ -1775,91 +1821,118 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     },
 
     [Commands.InstallPlugin]: async (payload: unknown) => {
-      const parsed = installPluginPayloadSchema.parse(payload)
-      let moextPath: string
-      let expect: RegistryExpectation | undefined
-      if (parsed.sourceType === 'registry') {
-        const entry = await registryClient.get(parsed.pluginId, hostVersion)
-        if (!entry) {
-          throw new AppError(
-            ErrorCode.PluginManifestInvalid,
-            'plugin.install.registry_entry_missing'
+      try {
+        const parsed = installPluginPayloadSchema.parse(payload)
+        let moextPath: string
+        let expect: RegistryExpectation | undefined
+        if (parsed.sourceType === 'registry') {
+          const entry = await registryClient.get(parsed.pluginId, hostVersion)
+          if (!entry) {
+            const failure = registryClient.status().error
+            if (failure) throw new PluginNetworkError(failure)
+            throw new AppError(
+              ErrorCode.PluginManifestInvalid,
+              'plugin.install.registry_entry_missing'
+            )
+          }
+          // The UI disables the button; main still enforces the gate
+          // (viewable-but-not-installable is a contract, not a style).
+          if (!entry.compatible) {
+            throw new PluginEngineVersionTooOld(
+              entry.engines.motrix,
+              hostVersion
+            )
+          }
+          moextPath = path.join(
+            userDataDir,
+            'plugin-downloads',
+            `registry-${parsed.pluginId}-${Date.now()}.moext`
           )
+          await downloadRegistryMoext(entry, moextPath, pluginFetch)
+          expect = buildRegistryExpectation(entry)
+        } else {
+          moextPath = await materializeMoext(parsed)
         }
-        // The UI disables the button; main still enforces the gate
-        // (viewable-but-not-installable is a contract, not a style).
-        if (!entry.compatible) {
-          throw new AppError(
-            ErrorCode.PluginManifestInvalid,
-            'plugin.install.registry_incompatible'
-          )
-        }
-        moextPath = path.join(
-          userDataDir,
-          'plugin-downloads',
-          `registry-${parsed.pluginId}-${Date.now()}.moext`
+        const result = await pluginInstaller.stage(
+          moextPath,
+          toSourceInput(parsed),
+          { expect, runtimeHost: pluginHost }
         )
-        await downloadRegistryMoext(entry, moextPath)
-        expect = buildRegistryExpectation(entry)
-      } else {
-        moextPath = await materializeMoext(parsed)
+        if (result.committed && result.pluginId) {
+          eventBus.emit(Events.PluginInstalled, { pluginId: result.pluginId })
+        } else {
+          eventBus.emit(Events.PluginInstallConsentRequested, {
+            stagingId: result.stagingId,
+            consent: result.consent,
+          })
+        }
+        return result
+      } catch (error) {
+        if (error instanceof PluginNetworkError)
+          return { networkError: error.failure }
+        if (error instanceof PluginEngineVersionTooOld) {
+          return {
+            incompatible: {
+              required: error.required,
+              hostVersion: error.hostVersion,
+            },
+          } satisfies PluginInstallCompatibilityFailure
+        }
+        throw error
       }
-      const result = await pluginInstaller.stage(
-        moextPath,
-        toSourceInput(parsed),
-        { expect, runtimeHost: pluginHost }
-      )
-      if (result.committed && result.pluginId) {
-        eventBus.emit(Events.PluginInstalled, { pluginId: result.pluginId })
-      } else {
-        eventBus.emit(Events.PluginInstallConsentRequested, {
-          stagingId: result.stagingId,
-          consent: result.consent,
-        })
-      }
-      return result
     },
 
     [Commands.CheckPluginUpdates]: async (payload: unknown) => {
       const parsed = checkPluginUpdatesPayloadSchema.parse(payload)
+      await pluginHost.refreshSecurityPolicy?.(parsed?.force)
       if (parsed?.force) await registryClient.refresh()
       const entries = await registryClient.list(hostVersion)
       return scanForUpdates(pluginRegistry.list(), entries)
     },
 
     [Commands.InstallBuiltinUpdate]: async (payload: unknown) => {
-      const parsed = builtinUpdatePayloadSchema.parse(payload)
-      const entry = await registryClient.get(parsed.pluginId, hostVersion)
-      if (entry?.origin !== 'builtin') {
-        throw new AppError(
-          ErrorCode.PluginManifestInvalid,
-          'plugin.update.builtin_entry_missing'
+      try {
+        const parsed = builtinUpdatePayloadSchema.parse(payload)
+        const entry = await registryClient.get(parsed.pluginId, hostVersion)
+        if (!entry) {
+          const failure = registryClient.status().error
+          if (failure) throw new PluginNetworkError(failure)
+        }
+        if (entry?.origin !== 'builtin') {
+          throw new AppError(
+            ErrorCode.PluginManifestInvalid,
+            'plugin.update.builtin_entry_missing'
+          )
+        }
+        const effective = pluginRegistry.get(parsed.pluginId)?.manifest
+        if (!effective) {
+          throw new AppError(
+            ErrorCode.PluginManifestInvalid,
+            'plugin.update.builtin_entry_missing'
+          )
+        }
+        const staged = await builtinUpdater.stage(entry, effective)
+        if (staged.trustChanged) {
+          return { needsConsent: true, ...staged }
+        }
+        const wasActive = pluginHost.isActive(parsed.pluginId)
+        await builtinUpdater.commit(staged.stagingId)
+        const restartRequired = await reactivateBuiltin(
+          parsed.pluginId,
+          wasActive
         )
+        // Same event ConfirmPluginInstall emits after a community install
+        // commits: usePlugins.onLifecycle refetches ListPlugins so the
+        // plugin's version/status/source.type (builtin -> builtin-update)
+        // update live, without a remount. Only on the committed path — a
+        // needsConsent return above has not touched disk yet.
+        eventBus.emit(Events.PluginInstalled, { pluginId: parsed.pluginId })
+        return { ok: true, restartRequired }
+      } catch (error) {
+        if (error instanceof PluginNetworkError)
+          return { networkError: error.failure }
+        throw error
       }
-      const effective = pluginRegistry.get(parsed.pluginId)?.manifest
-      if (!effective) {
-        throw new AppError(
-          ErrorCode.PluginManifestInvalid,
-          'plugin.update.builtin_entry_missing'
-        )
-      }
-      const staged = await builtinUpdater.stage(entry, effective)
-      if (staged.trustChanged) {
-        return { needsConsent: true, ...staged }
-      }
-      const wasActive = pluginHost.isActive(parsed.pluginId)
-      await builtinUpdater.commit(staged.stagingId)
-      const restartRequired = await reactivateBuiltin(
-        parsed.pluginId,
-        wasActive
-      )
-      // Same event ConfirmPluginInstall emits after a community install
-      // commits: usePlugins.onLifecycle refetches ListPlugins so the
-      // plugin's version/status/source.type (builtin -> builtin-update)
-      // update live, without a remount. Only on the committed path — a
-      // needsConsent return above has not touched disk yet.
-      eventBus.emit(Events.PluginInstalled, { pluginId: parsed.pluginId })
-      return { ok: true, restartRequired }
     },
 
     [Commands.ConfirmBuiltinUpdate]: async (payload: unknown) => {
@@ -1938,16 +2011,14 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
 
     [Commands.ClearPluginLogs]: async (payload: unknown) => {
       const parsed = z.object({ pluginId: z.string().min(1) }).parse(payload)
-      capabilityHost.clearLog(parsed.pluginId)
+      await capabilityHost.clearLog(parsed.pluginId)
       return { ok: true }
     },
 
     [Commands.SetPluginLogVerbose]: async (payload: unknown) => {
-      const parsed = z
-        .object({ pluginId: z.string().min(1), verbose: z.boolean() })
-        .parse(payload)
+      const parsed = PluginLogVerboseRequestSchema.parse(payload)
       capabilityHost.setLogVerbose(parsed.pluginId, parsed.verbose)
-      return { ok: true }
+      return capabilityHost.getLogState(parsed.pluginId)
     },
   }
 }
@@ -1987,6 +2058,27 @@ export function registerCommandHandlers(ctx: CommandContext): () => void {
     selectionTimeout.start()
   }
 
+  if (ctx.rendererRecovery) {
+    const recovery = ctx.rendererRecovery
+    channels.push(Commands.ExecuteRendererSubmission)
+    registerTrustedIpcHandler(
+      Commands.ExecuteRendererSubmission,
+      (event, raw: unknown) => {
+        const request = rendererSubmissionSchema.parse(raw)
+        const id = recovery.supervisor.validate(
+          event.sender,
+          request.generation
+        )
+        const handler = handlers[request.channel]
+        if (!handler) throw new Error('Submission handler is unavailable')
+        return recovery.submissions.execute(id, request, () => {
+          recovery.intents.clear(id)
+          return invoke(() => handler(...request.args))
+        })
+      }
+    )
+  }
+
   for (const [channel, handler] of Object.entries(handlers)) {
     // Window-bound commands need event.sender — pass it as the first arg.
     if (
@@ -1995,16 +2087,34 @@ export function registerCommandHandlers(ctx: CommandContext): () => void {
       channel === Commands.ToggleMaximizeCurrentWindow ||
       channel === Commands.PickSaveDir ||
       channel === Commands.PickTorrentSource ||
+      channel === Commands.CreateTorrent ||
       channel === Commands.SaveTorrentFile ||
+      OPERATION_CHANNELS.has(channel) ||
+      channel === Commands.PickFile ||
       channel === Commands.ResizeWindow ||
       channel === Commands.UpdateMenuContext
     ) {
-      registerTrustedIpcHandler(channel, (event, ...args) =>
-        invoke(() =>
+      registerTrustedIpcHandler(channel, (event, ...args) => {
+        const leaveModal =
+          channel === Commands.PickSaveDir || channel === Commands.PickFile
+            ? ctx.rendererRecovery?.supervisor.enterModal()
+            : undefined
+        return invoke(() =>
           // biome-ignore lint/suspicious/noExplicitAny: sender forwarded explicitly
           (handler as any)(event.sender, ...args)
-        )
-      )
+        ).finally(() => leaveModal?.())
+      })
+    } else if (channel === Commands.OpenTaskFile) {
+      registerTrustedIpcHandler(channel, async (_event, ...args) => {
+        try {
+          await invoke(() => handler(...args))
+          return makeProtocolSuccess(null)
+        } catch (error) {
+          // Electron serializes thrown errors as messages, dropping the code
+          // needed to distinguish filesystem failures from OS app failures.
+          return makeProtocolFailure(error)
+        }
+      })
     } else {
       registerTrustedIpcHandler(channel, async (_event, ...args) =>
         invoke(() => handler(...args))

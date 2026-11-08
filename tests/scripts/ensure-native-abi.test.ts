@@ -1,6 +1,16 @@
 import { spawnSync } from 'node:child_process'
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 // @ts-expect-error — .mjs without types
 import { decideAbi, probeRuntime } from '../../scripts/ensure-native-abi.mjs'
@@ -82,22 +92,69 @@ describe('probeRuntime', () => {
 })
 
 describe('ensure-native-abi.mjs subprocess probe', () => {
-  it('does not crash the parent when the child is killed by signal', () => {
-    const here = path.dirname(fileURLToPath(import.meta.url))
-    const script = path.resolve(here, '../../scripts/ensure-native-abi.mjs')
-    const r = spawnSync(
-      process.execPath,
-      [
-        '-e',
-        `const {spawnSync}=require('node:child_process');
-         const probe=spawnSync(process.execPath,['-e','process.kill(process.pid, "SIGKILL")']);
-         process.stdout.write(JSON.stringify({status:probe.status,signal:probe.signal}));`,
-      ],
-      { encoding: 'utf8' }
-    )
-    expect(r.status).toBe(0)
-    const parsed = JSON.parse(r.stdout)
-    expect(parsed.signal).toBe('SIGKILL')
-    expect(typeof script).toBe('string')
-  })
+  it.skipIf(process.platform === 'win32')(
+    'rebuilds after a killed native load, removes the stale binary, and propagates rebuild failure',
+    () => {
+      const root = realpathSync(
+        mkdtempSync(path.join(tmpdir(), 'motrix-abi-signal-'))
+      )
+      try {
+        const script = path.join(root, 'ensure-native-abi.mjs')
+        copyFileSync(
+          path.resolve(
+            import.meta.dirname,
+            '../../scripts/ensure-native-abi.mjs'
+          ),
+          script
+        )
+        const dependency = path.join(root, 'node_modules/better-sqlite3')
+        const staleBinary = path.join(
+          dependency,
+          'build/Release/better_sqlite3.node'
+        )
+        mkdirSync(path.dirname(staleBinary), { recursive: true })
+        writeFileSync(staleBinary, 'stale native binary')
+        writeFileSync(
+          path.join(dependency, 'index.js'),
+          `module.exports = class Database {
+  constructor() { process.kill(process.pid, 'SIGKILL') }
+}\n`
+        )
+        const bin = path.join(root, 'bin')
+        const rebuildLog = path.join(root, 'rebuild.json')
+        mkdirSync(bin)
+        writeFileSync(
+          path.join(bin, 'pnpm'),
+          `#!/usr/bin/env node
+require('node:fs').writeFileSync(process.env.REBUILD_LOG, JSON.stringify(process.argv.slice(2)))
+process.exit(7)
+`,
+          { mode: 0o755 }
+        )
+
+        const result = spawnSync(process.execPath, [script, 'node'], {
+          cwd: root,
+          env: {
+            ...process.env,
+            PATH: `${bin}${path.delimiter}${process.env.PATH ?? ''}`,
+            REBUILD_LOG: rebuildLog,
+          },
+          encoding: 'utf8',
+          timeout: 10_000,
+        })
+
+        expect(result.error).toBeUndefined()
+        expect(result.signal).toBeNull()
+        expect(result.status, result.stdout + result.stderr).toBe(7)
+        expect(result.stderr).toContain('probe terminated abnormally')
+        expect(JSON.parse(readFileSync(rebuildLog, 'utf8'))).toEqual([
+          'rebuild',
+          'better-sqlite3',
+        ])
+        expect(existsSync(staleBinary)).toBe(false)
+      } finally {
+        rmSync(root, { recursive: true, force: true })
+      }
+    }
+  )
 })

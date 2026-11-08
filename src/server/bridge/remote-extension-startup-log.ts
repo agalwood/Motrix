@@ -25,7 +25,15 @@ export function logRemoteExtensionPairingReady(
   }
 
   const extensionServerAddress = config.publicWebSocketBaseUrl
-  if (config.publicOperatorBaseUrl.startsWith('http://')) {
+  if (config.operatorDelivery === 'local') {
+    log.info(
+      'Extension pairing codes are available through the local interactive command: motrix-admin extension pair. Configure an HTTPS MOTRIX_PUBLIC_URL or explicitly allow operator HTTP to display codes in the Web UI.'
+    )
+  }
+  if (
+    config.operatorDelivery === 'web' &&
+    !config.publicOperatorBaseUrl?.startsWith('https://')
+  ) {
     log.warn({ operatorTransport: 'http' }, INSECURE_OPERATOR_WARNING)
   }
   log.info(

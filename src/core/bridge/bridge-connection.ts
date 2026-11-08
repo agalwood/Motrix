@@ -18,7 +18,7 @@ import {
 export type { Browser } from '@shared/protocol/bridge'
 
 export interface BridgeSessionMeta {
-  /** `${browser}:${extensionId}`, used as the session map key. */
+  /** Stable authenticated installation key, also used for task notifications. */
   sessionKey: string
   extensionId: string
   browser: Browser

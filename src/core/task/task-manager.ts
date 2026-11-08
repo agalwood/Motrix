@@ -1,3 +1,4 @@
+import { getLegacyQuarantinedGids } from '@core/legacy-import/legacy-task-policy'
 import type { DownloadTask } from '@shared/types/task'
 import { normalizeTerminalRuntimeMetrics } from './normalize-terminal-runtime-metrics'
 import { collectTaskGids } from './task-instance'
@@ -5,6 +6,8 @@ import { collectTaskGids } from './task-instance'
 const MAX_RETIRED_ENGINE_GIDS = 4_096
 
 export class TaskManager {
+  private legacyGidOwners = new Map<string, Set<string>>()
+  private indexedLegacyGids = new Map<string, Set<string>>()
   private tasks = new Map<string, DownloadTask>()
   // Secondary index: every instance gid (and the legacy engineTaskId for
   // back-compat) maps to the parent task's motrixId. Multi-instance tasks
@@ -40,6 +43,12 @@ export class TaskManager {
   // set(), so the "existing" object may already contain the new gid and can
   // no longer tell us which old keys it contributed.
   private deindex(id: string): void {
+    for (const gid of this.indexedLegacyGids.get(id) ?? []) {
+      const owners = this.legacyGidOwners.get(gid)
+      owners?.delete(id)
+      if (owners?.size === 0) this.legacyGidOwners.delete(gid)
+    }
+    this.indexedLegacyGids.delete(id)
     const gids = this.indexedGids.get(id)
     if (!gids) return
     for (const gid of gids) {
@@ -111,10 +120,20 @@ export class TaskManager {
     // bypasses the usual action commit helpers (restore/adoption/recovery).
     normalizeTerminalRuntimeMetrics(task)
 
-    const previousGids = new Set(this.indexedGids.get(id) ?? [])
+    const previousGids = new Set([
+      ...(this.indexedGids.get(id) ?? []),
+      ...(this.indexedLegacyGids.get(id) ?? []),
+    ])
     if (this.tasks.has(id)) this.deindex(id)
 
     this.tasks.set(id, task)
+    const legacyGids = getLegacyQuarantinedGids(task)
+    for (const gid of legacyGids) {
+      const owners = this.legacyGidOwners.get(gid) ?? new Set<string>()
+      owners.add(id)
+      this.legacyGidOwners.set(gid, owners)
+    }
+    if (legacyGids.size) this.indexedLegacyGids.set(id, legacyGids)
 
     const gids = collectTaskGids(task)
     for (const gid of previousGids) {
@@ -143,7 +162,10 @@ export class TaskManager {
   }
 
   remove(id: string): boolean {
-    const gids = new Set(this.indexedGids.get(id) ?? [])
+    const gids = new Set([
+      ...(this.indexedGids.get(id) ?? []),
+      ...(this.indexedLegacyGids.get(id) ?? []),
+    ])
     if (this.tasks.has(id)) this.deindex(id)
     for (const gid of gids) this.retireEngineGid(gid)
     return this.tasks.delete(id)
@@ -151,6 +173,8 @@ export class TaskManager {
 
   clear(): void {
     this.tasks.clear()
+    this.legacyGidOwners.clear()
+    this.indexedLegacyGids.clear()
     this.engineIndex.clear()
     this.indexedGids.clear()
     this.reservedEngineGids.clear()
@@ -165,6 +189,7 @@ export class TaskManager {
 
   isEngineTaskIdRetired(engineTaskId: string): boolean {
     return (
+      this.legacyGidOwners.has(engineTaskId) ||
       this.reservedEngineGids.has(engineTaskId) ||
       this.retiredEngineGids.has(engineTaskId)
     )
@@ -180,6 +205,7 @@ export class TaskManager {
     if (
       engineTaskId.length === 0 ||
       this.engineIndex.has(engineTaskId) ||
+      this.legacyGidOwners.has(engineTaskId) ||
       this.reservedEngineGids.has(engineTaskId) ||
       this.retiredEngineGids.has(engineTaskId)
     ) {

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { readdir, readFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { Page } from '@playwright/test'
 import { Commands } from '@shared/protocol/commands'
@@ -159,5 +159,187 @@ test('unlimited BT seeding, inspector metrics and re-seeding survive engine rest
   } finally {
     await restarted?.close()
     await fixture.close()
+  }
+})
+
+test('completed BT files can move, relocate and recheck without losing the task', async ({
+  electronApp,
+  mainWindow,
+  userDataDir,
+  rpcPort,
+}, testInfo) => {
+  test.setTimeout(120_000)
+  let page = mainWindow
+  let restarted: Awaited<ReturnType<typeof launchMotrix>> | undefined
+  try {
+    await waitForEngineReady(page)
+    const directories = ['original', 'moved', 'external'].map((name) =>
+      path.join(userDataDir, name)
+    )
+    for (const directory of directories)
+      await mkdir(directory, { recursive: true })
+    const payload = Buffer.from('verified torrent content')
+    const metadata = Buffer.concat([
+      Buffer.from(
+        `d4:infod6:lengthi${payload.length}e4:name8:seed.bin12:piece lengthi16384e6:pieces20:`
+      ),
+      createHash('sha1').update(payload).digest(),
+      Buffer.from('7:privatei1eee'),
+    ]).toString('base64')
+    await writeFile(path.join(directories[0], 'seed.bin'), payload)
+    const invoke = (
+      channel:
+        | (typeof Commands)[keyof typeof Commands]
+        | (typeof Queries)[keyof typeof Queries],
+      value?: unknown
+    ) =>
+      page.evaluate(
+        ({ channel, value }) => window.motrix.invoke(channel, value),
+        { channel, value }
+      )
+    await invoke(Commands.UpdateSettings, {
+      engine: { seedTime: 0, seedRatio: 0 },
+    })
+    const request = {
+      type: 'bt',
+      payload: { kind: 'torrent-base64', base64: metadata },
+      selectedFiles: [0],
+      saveDir: directories[0],
+    }
+    expect(await invoke(Commands.CreateTask, request)).toMatchObject({
+      outcome: 'conflict',
+      conflict: { reason: 'existing-files' },
+    })
+    const created = (await invoke(Commands.CreateTask, {
+      ...request,
+      duplicatePolicy: 'use-existing',
+    })) as { taskId: string }
+    const readTask = async () =>
+      ((await invoke(Queries.ListTasks)) as DownloadTask[]).find(
+        (task) => task.id === created.taskId
+      )!
+    await expect.poll(async () => (await readTask())?.status).toBe('seeding')
+    const original = await readTask()
+    await page.getByRole('link', { name: 'Downloads', exact: true }).click()
+    const openStorage = async (label: string) => {
+      await page
+        .locator(`[data-task-id="${original.id}"]`)
+        .click({ button: 'right' })
+      await page.getByRole('menuitem', { name: label, exact: true }).click()
+      return page.getByRole('dialog', { name: label, exact: true })
+    }
+    let dialog = await openStorage('Move files…')
+    await electronApp.evaluate(({ dialog }, directory) => {
+      dialog.showOpenDialog = async () => ({
+        canceled: false,
+        filePaths: [directory],
+      })
+    }, directories[1])
+    await dialog.getByRole('button', { name: 'Browse…', exact: true }).click()
+    await expect(dialog.getByLabel('Folder', { exact: true })).toHaveValue(
+      directories[1]
+    )
+    await dialog
+      .getByRole('button', { name: 'Move files…', exact: true })
+      .click()
+    await expect(dialog.getByText('Seeding has resumed.')).toBeVisible({
+      timeout: 30_000,
+    })
+    await expect
+      .poll(async () => (await readTask()).finalPath)
+      .toBe(path.join(directories[1], 'seed.bin'))
+    await expect(
+      readFile(path.join(directories[0], 'seed.bin'))
+    ).rejects.toMatchObject({ code: 'ENOENT' })
+    await dialog
+      .getByRole('button', { name: 'Close', exact: true })
+      .last()
+      .click()
+    await invoke(Commands.StopSeedingTask, original.id)
+    await expect.poll(async () => (await readTask()).status).toBe('completed')
+    await rename(
+      path.join(directories[1], 'seed.bin'),
+      path.join(directories[2], 'renamed.bin')
+    )
+    dialog = await openStorage('Find existing files…')
+    await electronApp.evaluate(({ dialog }, directory) => {
+      dialog.showOpenDialog = async () => ({
+        canceled: false,
+        filePaths: [directory],
+      })
+    }, directories[2])
+    await dialog.getByRole('button', { name: 'Browse…', exact: true }).click()
+    await expect(dialog.getByLabel('Folder', { exact: true })).toHaveValue(
+      directories[2]
+    )
+    await dialog
+      .getByLabel('File or folder name', { exact: true })
+      .fill('renamed.bin')
+    await dialog
+      .getByRole('button', { name: 'Find existing files…', exact: true })
+      .click()
+    await expect(dialog.getByText('Seeding has resumed.')).toBeVisible({
+      timeout: 30_000,
+    })
+    await expect.poll(async () => (await readTask()).status).toBe('seeding')
+    expect(await readTask()).toMatchObject({
+      id: original.id,
+      createdAt: original.createdAt,
+      finalPath: path.join(directories[2], 'renamed.bin'),
+    })
+    await page.screenshot({
+      path: testInfo.outputPath('relocated-seeding.png'),
+    })
+    // Publishable dialog evidence uses sample paths instead of the test profile.
+    await dialog.evaluate((element, privateRoot) => {
+      for (const paragraph of element.querySelectorAll('p')) {
+        if (paragraph.textContent?.includes(privateRoot))
+          paragraph.textContent = paragraph.textContent.replaceAll(
+            privateRoot,
+            '/Downloads'
+          )
+      }
+      for (const input of element.querySelectorAll('input')) {
+        input.value = input.value.replaceAll(privateRoot, '/Downloads')
+        if (input.title)
+          input.title = input.title.replaceAll(privateRoot, '/Downloads')
+      }
+    }, userDataDir)
+    await dialog.screenshot({
+      path: testInfo.outputPath('relocation-dialog-public.png'),
+    })
+    await dialog
+      .getByRole('button', { name: 'Close', exact: true })
+      .last()
+      .click()
+    await electronApp.close()
+    restarted = await launchMotrix({ userDataDir, rpcPort })
+    page = await restarted.firstWindow()
+    await waitForEngineReady(page)
+    await expect.poll(async () => (await readTask())?.status).toBe('seeding')
+    expect(await readTask()).toMatchObject({
+      id: original.id,
+      createdAt: original.createdAt,
+      finalPath: path.join(directories[2], 'renamed.bin'),
+    })
+    await page.getByRole('link', { name: 'Downloads', exact: true }).click()
+    await invoke(Commands.StopSeedingTask, original.id)
+    const corrupted = Buffer.alloc(payload.length, 0x78)
+    await writeFile(path.join(directories[2], 'renamed.bin'), corrupted)
+    dialog = await openStorage('Check files…')
+    await dialog
+      .getByRole('button', { name: 'Check files…', exact: true })
+      .click()
+    await expect(
+      dialog.getByText(/Some files are missing or incomplete/)
+    ).toBeVisible({
+      timeout: 30_000,
+    })
+    expect(await readFile(path.join(directories[2], 'renamed.bin'))).toEqual(
+      corrupted
+    )
+    expect((await readTask()).status).toBe('error')
+  } finally {
+    await restarted?.close()
   }
 })

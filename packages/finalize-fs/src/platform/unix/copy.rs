@@ -26,7 +26,7 @@ fn copy_timestamps(source: RawFd, target: RawFd) -> io::Result<()> {
         .map_err(|error| native_error(error.into(), "futimens(copy_timestamps)", None))
 }
 
-fn copy_file_contents(source: RawFd, target: RawFd) -> io::Result<()> {
+pub(super) fn copy_file_contents(source: RawFd, target: RawFd) -> io::Result<()> {
     if unsafe { libc::lseek(source, 0, libc::SEEK_SET) } < 0 {
         return Err(io::Error::last_os_error());
     }
@@ -160,7 +160,9 @@ pub(crate) fn copy_opened(
     target: &RootHandle,
     target_relative: &str,
 ) -> io::Result<()> {
-    if artifact.opened_tree.is_none() && artifact.opened_file_sha256.is_none() {
+    if artifact.metadata_removal
+        || (artifact.opened_tree.is_none() && artifact.opened_file_sha256.is_none())
+    {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             "rename-only handle cannot copy or remove an artifact",

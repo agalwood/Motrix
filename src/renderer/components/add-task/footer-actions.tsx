@@ -2,6 +2,7 @@ import { Button } from '@renderer/components/ui/button'
 import { useTranslation } from 'react-i18next'
 
 interface FooterActionsProps {
+  submitLabel?: string
   submitting: boolean
   canSubmit: boolean
   torrentQueue?: { current: number; total: number }
@@ -11,6 +12,7 @@ interface FooterActionsProps {
 }
 
 export function FooterActions({
+  submitLabel,
   submitting,
   canSubmit,
   torrentQueue,
@@ -63,7 +65,7 @@ export function FooterActions({
               ? t('task.add.adding')
               : torrentQueue && torrentQueue.current < torrentQueue.total
                 ? t('task.add.downloadAndContinue')
-                : t('common.download')}
+                : (submitLabel ?? t('common.download'))}
           </span>
         </Button>
       </div>

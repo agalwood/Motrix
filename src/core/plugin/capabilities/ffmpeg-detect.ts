@@ -23,7 +23,10 @@ import path from 'node:path'
 // Types
 // ---------------------------------------------------------------------------
 
-export type FfmpegDetectionFailureReason = 'missing' | 'untrusted'
+export type FfmpegDetectionFailureReason =
+  | 'missing'
+  | 'untrusted'
+  | 'verification_unavailable'
 
 export interface FfmpegDetection {
   available: boolean
@@ -154,6 +157,7 @@ export type CandidateState =
   | 'missing'
   | 'untrusted'
   | 'unconfigured'
+  | 'verification_unavailable'
   | 'version_mismatch'
 
 export interface FfmpegDetectionResult {
@@ -205,6 +209,8 @@ export function ffmpegCandidatesInOrder(
  *  - Probe succeeds but a higher-priority candidate already won →
  *    `'available'` (still includes version).
  *  - Probe reports `failureReason: 'untrusted'` → `'untrusted'`.
+ *  - Temporarily unavailable verification → `'verification_unavailable'`;
+ *    keep looking for another usable candidate.
  *  - Any other probe failure → `'missing'`.
  *  - `'version_mismatch'` is reserved for a future semver gate; this
  *    function never emits it.
@@ -251,7 +257,7 @@ export async function detectInOrder(
       candidates.push({
         kind: entry.kind,
         path: checkedPath,
-        state: result.failureReason === 'untrusted' ? 'untrusted' : 'missing',
+        state: result.failureReason ?? 'missing',
       })
     }
   }

@@ -45,14 +45,18 @@ import {
 } from '@renderer/components/ui/select'
 import { Separator } from '@renderer/components/ui/separator'
 import { Switch } from '@renderer/components/ui/switch'
+import { usePortableMode } from '@renderer/hooks/use-portable-mode'
 import { pickDirty } from '@renderer/lib/form-utils'
 import { saveSettings } from '@renderer/lib/settings-save'
+import { LEGACY_MIGRATION_SETTINGS_ROUTE } from '@shared/lib/legacy-import-navigation'
 import { DEFAULT_ENGINE_SETTINGS } from '@shared/schemas'
 import type { EngineSettings } from '@shared/types/settings'
 import { generateRpcSecret } from '@shared/utils/rpc-secret'
 import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router'
 import type { SettingsCardDialogProps } from './card-types'
+import { SettingsFileSection } from './settings-file-section'
 import { advancedFormSchema } from './settings-form-schemas'
 
 type HistoryRetentionMode = 'all' | 'limited' | 'session'
@@ -82,6 +86,8 @@ export function AdvancedDialog({
   labelKey,
 }: SettingsCardDialogProps) {
   const { t } = useTranslation()
+  const portable = usePortableMode()
+  const navigate = useNavigate()
   const [historyModeOverride, setHistoryModeOverride] =
     useState<HistoryRetentionMode | null>(null)
   const historyModeRef = useRef<HistoryRetentionMode | null>(null)
@@ -316,7 +322,11 @@ export function AdvancedDialog({
                               {t('settings.advanced.persistence.dbPath')}
                             </FormLabel>
                             <FormDescription className="text-xs">
-                              {t('settings.advanced.persistence.dbPathDesc')}
+                              {t(
+                                portable
+                                  ? 'settings.portable.enginePathDescription'
+                                  : 'settings.advanced.persistence.dbPathDesc'
+                              )}
                             </FormDescription>
                           </div>
                           <FormControl>
@@ -327,8 +337,9 @@ export function AdvancedDialog({
                                 'settings.advanced.persistence.dbPathPlaceholder'
                               )}
                               disabled={
-                                !persistenceOn &&
-                                !form.formState.errors.sqlite3DbPath
+                                portable ||
+                                (!persistenceOn &&
+                                  !form.formState.errors.sqlite3DbPath)
                               }
                               value={field.value}
                               onChange={field.onChange}
@@ -494,6 +505,31 @@ export function AdvancedDialog({
                   </fieldset>
                 </form>
               </Form>
+              <Separator className="my-4" />
+              <SettingsFileSection />
+              {__MOTRIX_TARGET__ === 'electron' && (
+                <>
+                  <Separator className="my-4" />
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <h3 className="text-sm font-medium">
+                        {t('legacyImport.settingsTitle')}
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        {t('legacyImport.settingsDescription')}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => navigate(LEGACY_MIGRATION_SETTINGS_ROUTE)}
+                    >
+                      {t('legacyImport.settingsAction')}
+                    </Button>
+                  </div>
+                </>
+              )}
             </ScrollAreaContent>
           </ScrollAreaViewport>
           <ScrollBar />

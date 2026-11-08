@@ -149,8 +149,9 @@ describe.runIf(process.platform !== 'win32' && existsSync(binary))(
         )
         const [persisted] = await s.repository.listRecoverable()
         await expect(s.recovery.recover(persisted)).rejects.toThrow(
-          'quarantined'
+          'survivor is unavailable'
         )
+        expect(await s.repository.listRecoverable()).toHaveLength(1)
         const survivors = [
           s.plan.sourcePath,
           s.plan.targetPath,
@@ -298,6 +299,14 @@ describe.runIf(process.platform !== 'win32' && existsSync(binary))(
         expect(
           await readFile(pending.removalIntent!.quarantinePath, 'utf8')
         ).toBe('the only complete payload')
+        if (mutation === 'missing') {
+          await expect(s.recovery.recoverAll()).resolves.toBeUndefined()
+          expect(await s.repository.listRecoverable()).toHaveLength(1)
+          expect(
+            await readFile(pending.removalIntent!.quarantinePath, 'utf8')
+          ).toBe('the only complete payload')
+          return
+        }
         await s.recovery.recoverAll()
         expect(
           s.db

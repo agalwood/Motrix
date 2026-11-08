@@ -1,0 +1,30 @@
+{
+  "nodeVersion": "24.18.0",
+  "node": {
+    "x64": {
+      "url": "https://nodejs.org/dist/v24.18.0/node-v24.18.0-linux-x64.tar.xz",
+      "sha256": "55aa7153f9d88f28d765fcdad5ae6945b5c0f98a36881703817e4c450fa76742",
+      "binarySha256": "41a74efb34cbde5c7632cdac0cf8bd1a14d0b8d73dc1e82755014d9a9ce70f5c"
+    },
+    "arm64": {
+      "url": "https://nodejs.org/dist/v24.18.0/node-v24.18.0-linux-arm64.tar.xz",
+      "sha256": "58c9520501f6ae2b52d5b210444e24b9d0c029a58c5011b797bc1fe7105886f6",
+      "binarySha256": "6bf69d0eda41a12030d5f28d958cd09ce323bc0c13f1ab4d8bb426933aa08812"
+    }
+  },
+  "fnpackVersion": "1.2.1",
+  "fnpack": {
+    "linux-x64": {
+      "url": "https://static2.fnnas.com/fnpack/fnpack-1.2.1-linux-amd64",
+      "sha256": "72d2a4095da676b64510b023731a227b369d80f8079bc45ff8a2f802ec0480c1"
+    },
+    "linux-arm64": {
+      "url": "https://static2.fnnas.com/fnpack/fnpack-1.2.1-linux-arm64",
+      "sha256": "aad9e16b101267d30017f39ab969e3c085fbce209716f8bd3b1e167eaf15e0cf"
+    },
+    "darwin-arm64": {
+      "url": "https://static2.fnnas.com/fnpack/fnpack-1.2.1-darwin-arm64",
+      "sha256": "36c798c434277dda8c52996e3f0a69a73b583458b2600d1d0374b9078805fb7a"
+    }
+  }
+}

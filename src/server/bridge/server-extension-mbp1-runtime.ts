@@ -21,6 +21,12 @@ import type {
   ResolvePairParams,
   ResolvePairResult,
 } from '@shared/protocol/bridge'
+import {
+  type NasAccountAuthority,
+  NasClientAuthorization,
+} from '../platform/nas/client-authorization'
+import { NasExtensionBindings } from '../platform/nas/extension-bindings'
+import { nasPairingFile } from '../platform/nas/pairing-file'
 import { ServerExtensionPairingPromptAdapter } from './extension-pairing-prompt-adapter'
 
 const CREDENTIAL_SWEEP_INTERVAL_MS = 10 * 60 * 1000
@@ -36,6 +42,7 @@ function identityMatchesWitness(
 }
 
 export interface ServerExtensionMbp1RuntimeOptions {
+  readonly nasAccounts?: NasAccountAuthority
   readonly dataDir: string
   readonly bus: BridgeEventBus
   readonly publicAuthority: string
@@ -54,6 +61,8 @@ export class ServerExtensionMbp1Runtime {
   readonly extensionPairings: ExtensionPairingProjectionService
   readonly prompts: ServerExtensionPairingPromptAdapter
   readonly identityResolver: ExtensionIdentityResolver
+  readonly nasBindings?: NasExtensionBindings
+  readonly authorization?: NasClientAuthorization
 
   private readonly asyncWork = new AsyncWorkTracker()
   private readonly sweepTimer: NodeJS.Timeout
@@ -63,6 +72,8 @@ export class ServerExtensionMbp1Runtime {
     private readonly bus: BridgeEventBus,
     state: {
       instanceId: string
+      nasBindings?: NasExtensionBindings
+      authorization?: NasClientAuthorization
       credentials: Mbp1CredentialStore
       extensionPairings: ExtensionPairingProjectionService
       prompts: ServerExtensionPairingPromptAdapter
@@ -70,6 +81,8 @@ export class ServerExtensionMbp1Runtime {
       credentialSweepIntervalMs: number
     }
   ) {
+    this.nasBindings = state.nasBindings
+    this.authorization = state.authorization
     this.instanceId = state.instanceId
     this.credentials = state.credentials
     this.extensionPairings = state.extensionPairings
@@ -88,6 +101,14 @@ export class ServerExtensionMbp1Runtime {
     const credentials = await Mbp1CredentialStore.load(
       join(options.dataDir, 'mbp1-credentials.json')
     )
+    const nasBindings = options.nasAccounts
+      ? new NasExtensionBindings(
+          credentials,
+          options.nasAccounts,
+          nasPairingFile(join(options.dataDir, 'nas-extension-bindings.json'))
+        )
+      : undefined
+    await nasBindings?.load()
     const extensionPairings = new ExtensionPairingProjectionService(
       new FileExtensionPairingProjectionStore(
         join(options.dataDir, 'extension-pairings.json')
@@ -95,6 +116,11 @@ export class ServerExtensionMbp1Runtime {
     )
     await extensionPairings.load()
     return new ServerExtensionMbp1Runtime(options.bus, {
+      nasBindings,
+      authorization:
+        nasBindings && options.nasAccounts
+          ? new NasClientAuthorization(nasBindings, options.nasAccounts)
+          : undefined,
       instanceId: await loadOrCreateBridgeInstanceId(
         join(options.dataDir, 'server-instance-id')
       ),
@@ -102,6 +128,7 @@ export class ServerExtensionMbp1Runtime {
       extensionPairings,
       prompts: new ServerExtensionPairingPromptAdapter(options.bus, {
         publicAuthority: options.publicAuthority,
+        nasBindings,
       }),
       identityResolver: createExtensionIdentityResolver({
         environment: 'production',

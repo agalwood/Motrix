@@ -6,6 +6,7 @@ import {
   InputGroupAddon,
   InputGroupTextarea,
 } from '@renderer/components/ui/input-group'
+import { Spinner } from '@renderer/components/ui/spinner'
 import {
   Tooltip,
   TooltipContent,
@@ -18,7 +19,13 @@ import {
   type PluginInstallFileReference,
   useOptionalPlatformServices,
 } from '@renderer/platform/services'
-import { type ChangeEvent, useCallback, useRef, useState } from 'react'
+import {
+  type ChangeEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import { getAudienceTone } from '../lib/audience'
 import {
@@ -46,19 +53,36 @@ export function PluginInputGroup({ onCheck, checking }: Props) {
   const [input, setInput] = useState('')
   const [fileError, setFileError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const mountedRef = useRef(true)
+  const preparingRef = useRef(false)
+  const [preparing, setPreparing] = useState(false)
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
+  const busy = checking || preparing
 
   const detected: DetectedSource = detectInstallSource(input)
-  const canCheck = !!detected && !checking && detected !== 'local'
+  const canCheck = !!detected && !busy && detected !== 'local'
 
   const acceptFile = useCallback(
     async (file: File) => {
-      if (checking || !fileCapability) return
+      if (checking || preparingRef.current || !fileCapability) return
+      preparingRef.current = true
+      setPreparing(true)
       setFileError(null)
       setInput(file.name)
       try {
-        await onCheck(await fileCapability.prepare(file))
+        const source = await fileCapability.prepare(file)
+        if (mountedRef.current) await onCheck(source)
       } catch (cause) {
-        setFileError(cause instanceof Error ? cause.message : String(cause))
+        if (mountedRef.current)
+          setFileError(cause instanceof Error ? cause.message : String(cause))
+      } finally {
+        preparingRef.current = false
+        if (mountedRef.current) setPreparing(false)
       }
     },
     [onCheck, checking, fileCapability]
@@ -66,7 +90,7 @@ export function PluginInputGroup({ onCheck, checking }: Props) {
 
   const onFilesDrop = useCallback(
     (files: FileList) => {
-      if (!fileCapability || checking) return
+      if (!fileCapability || checking || preparingRef.current) return
       const file = files[0]
       if (file) void acceptFile(file)
     },
@@ -78,11 +102,12 @@ export function PluginInputGroup({ onCheck, checking }: Props) {
 
   function onLocalChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
+    e.target.value = ''
     if (file) void acceptFile(file)
   }
 
   async function triggerCheck() {
-    if (!detected) return
+    if (!detected || busy) return
     if (detected === 'github') {
       await onCheck({ sourceType: 'github', spec: input.trim() })
     } else if (detected === 'url') {
@@ -110,6 +135,7 @@ export function PluginInputGroup({ onCheck, checking }: Props) {
         <InputGroupTextarea
           value={input}
           rows={2}
+          disabled={busy}
           onChange={(e) => setInput(e.target.value)}
           placeholder={t('plugins.install.placeholder')}
           className="min-h-[60px] px-4 pt-4 pb-2 text-sm leading-6 focus-visible:border-input focus-visible:ring-0"
@@ -129,7 +155,7 @@ export function PluginInputGroup({ onCheck, checking }: Props) {
                         variant="ghost"
                         size="icon-xs"
                         className="rounded-full"
-                        disabled={!fileCapability || checking}
+                        disabled={!fileCapability || busy}
                         onClick={() => fileInputRef.current?.click()}
                         aria-label={t(
                           fileCapability
@@ -165,15 +191,27 @@ export function PluginInputGroup({ onCheck, checking }: Props) {
             )}
           </div>
 
-          {detected !== 'local' && (
+          {(detected !== 'local' || busy) && (
             <Button
-              size="icon-xs"
-              className="rounded-full"
+              size={busy ? 'sm' : 'icon-xs'}
+              className={busy ? undefined : 'rounded-full'}
               disabled={!canCheck}
               onClick={triggerCheck}
-              aria-label={t('plugins.install.checkAriaLabel')}
+              aria-label={t(
+                busy
+                  ? 'plugins.install.preparing'
+                  : 'plugins.install.checkAriaLabel'
+              )}
+              aria-busy={busy}
             >
-              <SearchIcon />
+              {busy ? (
+                <>
+                  <Spinner aria-hidden="true" />
+                  {t('plugins.install.preparing')}
+                </>
+              ) : (
+                <SearchIcon />
+              )}
             </Button>
           )}
         </InputGroupAddon>

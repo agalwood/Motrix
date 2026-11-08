@@ -82,7 +82,7 @@ export class ActivationDispatcher {
         skipped.push({ id: dto.id, reason: 'no registry entry' })
         continue
       }
-      if (!reg.state.enabled) {
+      if (!reg.state.enabled || dto.security) {
         skipped.push({ id: dto.id, reason: 'disabled' })
         continue
       }
@@ -210,14 +210,21 @@ export class ActivationDispatcher {
     }
   }
 
-  private activateForEvent(
+  private async activateForEvent(
     pluginId: string,
     event: HostActivationEvent
   ): Promise<void> {
     if (event.kind === 'hookDemand') {
       return this.host.activate(pluginId, { waitForDeactivation: true })
     }
-    return this.host.activate(pluginId)
+    try {
+      await this.host.activate(pluginId)
+    } catch (error) {
+      if (event.kind !== 'startup') throw error
+      // The host records the plugin failure. Keep the application available
+      // so users can inspect its logs or disable it, and start other plugins.
+      log.warn({ pluginId, err: error }, 'startup plugin activation failed')
+    }
   }
 
   /**

@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 2,
+  "dsmVersion": "7.2.2-72806",
+  "glibc": "2.36",
+  "revision": 13,
+  "targets": {
+    "x64": {
+      "infoArch": "x86_64",
+      "dockerPlatform": "linux/amd64",
+      "machine": 62,
+      "sysroot": "x86_64-pc-linux-gnu/x86_64-pc-linux-gnu/sys-root",
+      "loader": "lib/ld-linux-x86-64.so.2",
+      "platforms": {
+        "geminilake": {
+          "toolchain": {
+            "url": "https://global.synologydownload.com/download/ToolChain/toolchain/7.2-72806/Intel%20x86%20Linux%204.4.302%20%28GeminiLake%29/geminilake-gcc1220_glibc236_x86_64-GPL.txz",
+            "sha256": "9ffb02cbaa206fe822f437d78058e10755f03c5b974e0be3a5b61b44f49c8ee0"
+          },
+          "digestSource": "https://github.com/SynoCommunity/spksrc/blob/master/toolchain/syno-geminilake-7.2/digests"
+        },
+        "apollolake": {
+          "toolchain": {
+            "url": "https://global.synologydownload.com/download/ToolChain/toolchain/7.2-72806/Intel%20x86%20Linux%204.4.180%20%28Apollolake%29/apollolake-gcc1220_glibc236_x86_64-GPL.txz",
+            "sha256": "025b1c0f16bac1bd2e369b0012ce2b3c310c740c7a00a2b3cf92c3f982347bb0"
+          },
+          "digestSource": "https://github.com/SynoCommunity/spksrc/blob/master/toolchain/syno-apollolake-7.2/digests"
+        }
+      }
+    },
+    "arm64": {
+      "dockerPlatform": "linux/arm64",
+      "machine": 183,
+      "sysroot": "aarch64-unknown-linux-gnu/aarch64-unknown-linux-gnu/sysroot",
+      "loader": "lib/ld-linux-aarch64.so.1",
+      "cpu": "cortex-a53",
+      "platforms": {
+        "rtd1296": {
+          "toolchain": {
+            "url": "https://global.synologydownload.com/download/ToolChain/toolchain/7.2-72806/Realtek%20RTD129x%20Linux%204.4.302/rtd1296-gcc1220_glibc236_armv8-GPL.txz",
+            "sha256": "a4613ecf97679a510f1d2dff78560e30b1371fd711fc498fbca39bc2a47ac3a0"
+          },
+          "digestSource": "https://github.com/SynoCommunity/spksrc/blob/master/toolchain/syno-rtd1296-7.2/digests"
+        },
+        "armada37xx": {
+          "toolchain": {
+            "url": "https://global.synologydownload.com/download/ToolChain/toolchain/7.2-72806/Marvell%20Armada%2037xx%20Linux%204.4.302/armada37xx-gcc1220_glibc236_armv8-GPL.txz",
+            "sha256": "ef07b681fab0e7b5c94dd596fa949803d87dc2ac1c74e6623ec46d68bb515f39"
+          },
+          "digestSource": "https://github.com/SynoCommunity/spksrc/blob/master/toolchain/syno-armada37xx-7.2/digests"
+        },
+        "rtd1619b": {
+          "toolchain": {
+            "url": "https://global.synologydownload.com/download/ToolChain/toolchain/7.2-72806/Realtek%20RTD16xxb%20Linux%205.10.55/rtd1619b-gcc1220_glibc236_armv8-GPL.txz",
+            "sha256": "016f4c36fc366319811962d3bde936000c2034c29acf04d1d4c4259c36681a30"
+          },
+          "digestSource": "https://github.com/SynoCommunity/spksrc/blob/master/toolchain/syno-rtd1619b-7.2/digests"
+        }
+      }
+    }
+  }
+}

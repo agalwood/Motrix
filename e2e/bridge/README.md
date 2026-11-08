@@ -284,5 +284,5 @@ git worktree remove --force ../motrix-turbo-srv
   server.
 - `remote-extension-wss.spec.ts` and
   `remote-extension-firefox-wss.spec.ts` are the active browser-extension WSS
-  lifecycle gates. The older `pair-and-submit`, `receiver-direct`, and `revoke`
-  files remain narrow placeholder scenarios and are not used as coverage proof.
+  lifecycle gates, covering pairing, download submission, restart, revocation,
+  and re-pairing through real browsers.

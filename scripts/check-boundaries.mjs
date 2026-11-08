@@ -48,7 +48,13 @@ const rules = [
       'add-task UI must not import transport or protocol commands (except the IPC-aware hook/dialog/form)',
     pattern: `from ['"](@renderer/lib/transport|@shared/protocol/commands)['"]`,
     dir: 'src/renderer/components/add-task/',
-    except: ['use-external-hydration.ts', 'drop-zone.tsx', 'add-task-form.tsx'],
+    except: [
+      'use-external-hydration.ts',
+      'drop-zone.tsx',
+      'add-task-form.tsx',
+      // The form's integration tests assert its IPC contract.
+      'add-task-form.test.tsx',
+    ],
   },
   {
     label: 'web-services must not reference Electron-only command symbols',

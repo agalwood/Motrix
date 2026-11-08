@@ -5,7 +5,6 @@ import {
 } from '@renderer/components/settings-kit/use-settings-form'
 import { i18n } from '@renderer/lib/i18n'
 import { transport } from '@renderer/lib/transport'
-import { EXTERNAL_URLS } from '@shared/external-urls'
 import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
@@ -80,7 +79,7 @@ function mockInstallStatus(status: Partial<FfmpegInstallStatus>) {
 }
 
 describe('MediaToolsSection', () => {
-  it.each(['darwin', 'linux'])(
+  it.each(['darwin', 'linux', 'web'])(
     'offers verified one-click install on %s only after consent',
     async (platform) => {
       Object.defineProperty(transport, 'platform', {
@@ -116,6 +115,13 @@ describe('MediaToolsSection', () => {
           'Verified and installed.'
         )
       )
+      if (platform === 'web') {
+        expect(
+          screen.queryByText(
+            'Restart Motrix for active plugins to detect the installation.'
+          )
+        ).not.toBeInTheDocument()
+      }
       expect(
         screen.queryByRole('button', { name: 'Download and verify' })
       ).not.toBeInTheDocument()
@@ -438,6 +444,10 @@ describe('MediaToolsSection', () => {
   })
 
   it('places the FFmpeg download action before refresh without a separate card', async () => {
+    Object.defineProperty(transport, 'platform', {
+      configurable: true,
+      value: 'web',
+    })
     vi.mocked(transport.invoke).mockResolvedValue({
       active: null,
       candidates: [],
@@ -445,20 +455,47 @@ describe('MediaToolsSection', () => {
     render(<TestForm />)
 
     const card = await screen.findByTestId('media-detection-card')
-    const download = within(card).getByRole('link', {
+    const download = within(card).getByRole('button', {
       name: 'Download FFmpeg',
     })
     const refresh = within(card).getByRole('button', { name: 'Refresh' })
 
-    expect(download).toHaveAttribute(
-      'href',
-      EXTERNAL_URLS.github.ffmpegStaticReleases
-    )
+    expect(download).not.toHaveAttribute('href')
     expect(
       download.compareDocumentPosition(refresh) &
         Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy()
     expect(screen.queryByText('Motrix static FFmpeg')).not.toBeInTheDocument()
+  })
+
+  it('restores server installation progress in the browser and refreshes it after reconnect', async () => {
+    const status = mockInstallStatus({})
+    Object.defineProperty(transport, 'platform', {
+      configurable: true,
+      value: 'web',
+    })
+    const onConnectionChange = vi.fn()
+    Object.defineProperty(transport, 'onConnectionChange', {
+      configurable: true,
+      value: onConnectionChange,
+    })
+    const view = render(<TestForm />)
+    expect(
+      await screen.findByRole('button', { name: 'Downloading FFmpeg… 50%' })
+    ).toBeDisabled()
+    status.bytesReceived = 80
+    status.percent = 0.8
+    await act(async () =>
+      onConnectionChange.mock.calls[0][0]({ state: 'connected' })
+    )
+    expect(
+      await screen.findByRole('button', { name: 'Downloading FFmpeg… 80%' })
+    ).toBeDisabled()
+    view.unmount()
+    Object.defineProperty(transport, 'onConnectionChange', {
+      configurable: true,
+      value: undefined,
+    })
   })
 
   it('copies the complete Motrix data FFmpeg path when clicked', async () => {
@@ -595,6 +632,97 @@ describe('MediaToolsSection', () => {
       )
     ).not.toBeInTheDocument()
   })
+
+  it('shows a retryable initial detection failure and recovers on Refresh without a macOS blocked warning', async () => {
+    let unavailable = true
+    vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+      if (channel === Queries.GetFfmpegDetection && unavailable)
+        throw new Error('FFMPEG_RELEASE_UNAVAILABLE')
+      return {
+        active: { path: '/legacy/ffmpeg', version: '9.0.2' },
+        candidates: [
+          { kind: 'userData', path: '/legacy/ffmpeg', state: 'active' },
+        ],
+      }
+    })
+    render(<TestForm />)
+    expect(
+      await screen.findByText(/Couldn’t refresh FFmpeg detection/)
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByText('FFmpeg was blocked by macOS')
+    ).not.toBeInTheDocument()
+    unavailable = false
+    fireEvent.click(screen.getByRole('button', { name: /^Refresh$/ }))
+    expect(await screen.findByText('FFmpeg 9.0.2')).toBeInTheDocument()
+    expect(
+      screen.queryByText(/Couldn’t refresh FFmpeg detection/)
+    ).not.toBeInTheDocument()
+  })
+
+  it('does not let a late initial failure overwrite a successful retry', async () => {
+    let rejectInitial!: (error: Error) => void
+    const initial = new Promise((_, reject) => {
+      rejectInitial = reject
+    })
+    let calls = 0
+    vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+      if (channel === Queries.GetFfmpegDetection && ++calls === 1)
+        return initial
+      return {
+        active: { path: '/legacy/ffmpeg', version: '9.0.2' },
+        candidates: [
+          { kind: 'userData', path: '/legacy/ffmpeg', state: 'active' },
+        ],
+      }
+    })
+    render(<TestForm />)
+    fireEvent.click(screen.getByRole('button', { name: /^Refresh$/ }))
+    expect(await screen.findByText('FFmpeg 9.0.2')).toBeInTheDocument()
+    await act(async () => rejectInitial(new Error('old request timed out')))
+    expect(
+      screen.queryByText(/Couldn’t refresh FFmpeg detection/)
+    ).not.toBeInTheDocument()
+  })
+
+  it.each(['manual', 'path', 'none'])(
+    'shows incomplete verification while preserving the %s detection result',
+    async (source) => {
+      vi.mocked(transport.invoke).mockResolvedValue({
+        active:
+          source === 'none'
+            ? null
+            : { path: '/custom/ffmpeg', version: '9.0.2' },
+        candidates: [
+          ...(source === 'none'
+            ? []
+            : [{ kind: source, path: '/custom/ffmpeg', state: 'active' }]),
+          {
+            kind: 'userData',
+            path: '/legacy/ffmpeg',
+            state: 'verification_unavailable',
+          },
+        ],
+      })
+      render(<TestForm />)
+      expect(
+        await screen.findByText(/Couldn’t refresh FFmpeg detection/)
+      ).toBeInTheDocument()
+      expect(
+        screen.queryByText('FFmpeg was blocked by macOS')
+      ).not.toBeInTheDocument()
+      if (source !== 'none')
+        expect(screen.getByText('FFmpeg 9.0.2')).toBeInTheDocument()
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Show detection details' })
+      )
+      expect(
+        within(screen.getByTestId('candidate-row-userData')).getByText(
+          'Verification unavailable'
+        )
+      ).toBeInTheDocument()
+    }
+  )
 
   it('shows a macOS trust failure instead of reporting the file as missing', async () => {
     vi.mocked(transport.invoke).mockResolvedValue({

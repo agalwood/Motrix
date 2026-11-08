@@ -63,6 +63,7 @@ function fixtureContract() {
       'darwin-x64',
       'linux-arm64',
       'linux-x64',
+      'win32-arm64',
       'win32-x64',
     ],
     common: ['@scope/pkg', 'alpha', 'gamma'],
@@ -132,6 +133,7 @@ async function createNativeFixture(): Promise<string> {
     'darwin-x64',
     'linux-arm64',
     'linux-x64',
+    'win32-arm64',
     'win32-x64',
   ]) {
     const separator = target.lastIndexOf('-')
@@ -422,7 +424,7 @@ describe('stageElectronApp', () => {
       stageElectronApp({
         repoRoot: root,
         platform: 'win32',
-        arch: 'arm64',
+        arch: 'ia32',
         strict: true,
         contract: fixtureContract(),
       })
@@ -453,6 +455,7 @@ describe('stageElectronApp', () => {
     ['darwin', 'x64'],
     ['linux', 'arm64'],
     ['linux', 'x64'],
+    ['win32', 'arm64'],
     ['win32', 'x64'],
   ])('filters native and WASM content for %s-%s', async (platform, arch) => {
     const root = await createNativeFixture()

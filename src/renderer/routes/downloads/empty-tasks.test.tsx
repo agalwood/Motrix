@@ -67,7 +67,7 @@ function renderWithMotionSync(ui: ReactElement) {
 }
 
 describe('EmptyTasks', () => {
-  it('renders the "no tasks" message when total tasks is zero', () => {
+  it('renders the "no tasks" message before the motion controls load', async () => {
     const { container } = renderWithMotionSync(
       <EmptyTasks
         filter="all"
@@ -81,7 +81,7 @@ describe('EmptyTasks', () => {
       container.querySelector('[data-slot="cubic-glass-gradient"]')
     ).toHaveAttribute('data-preset', 'blue-pink')
     expect(
-      screen.getByRole('button', { name: /tune glass motion/i })
+      await screen.findByRole('button', { name: /tune glass motion/i })
     ).toBeInTheDocument()
   })
 
@@ -98,7 +98,9 @@ describe('EmptyTasks', () => {
       '[data-slot="cubic-glass-gradient"]'
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /tune glass motion/i }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: /tune glass motion/i })
+    )
     fireEvent.click(
       await screen.findByRole('switch', { name: /breathing light/i })
     )
@@ -163,7 +165,9 @@ describe('EmptyTasks', () => {
       />
     )
     const canvas = container.querySelector('canvas')
-    fireEvent.click(screen.getByRole('button', { name: /tune glass motion/i }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: /tune glass motion/i })
+    )
     const master = await screen.findByRole('switch', {
       name: /motion effects/i,
     })
@@ -190,7 +194,9 @@ describe('EmptyTasks', () => {
         onClearSearch={() => {}}
       />
     )
-    fireEvent.click(screen.getByRole('button', { name: /tune glass motion/i }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: /tune glass motion/i })
+    )
     const master = await screen.findByRole('switch', {
       name: /motion effects/i,
     })
@@ -233,7 +239,9 @@ describe('EmptyTasks', () => {
         onClearSearch={() => {}}
       />
     )
-    fireEvent.click(screen.getByRole('button', { name: /tune glass motion/i }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: /tune glass motion/i })
+    )
     const master = await screen.findByRole('switch', {
       name: /motion effects/i,
     })

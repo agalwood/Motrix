@@ -6,6 +6,7 @@
  * Using reverse-DNS style: motrix.<domain>.<verb>.
  */
 export const CommandIds = {
+  AppRecoverInterface: 'app.recoverInterface',
   // App
   AppShowAbout: 'motrix.app.showAbout',
   AppOpenPreferences: 'motrix.app.openPreferences',
@@ -14,6 +15,7 @@ export const CommandIds = {
   AppQuit: 'motrix.app.quit',
 
   // Task
+  CreateTorrentFile: 'motrix.torrent.create',
   TaskNew: 'motrix.task.new',
   TaskNewBt: 'motrix.task.newBt',
   TaskOpenFile: 'motrix.task.openFile',

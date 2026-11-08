@@ -654,3 +654,39 @@ describe('NativeMessagingInstaller.syncManifests (win32)', () => {
     await installer.unregister()
   })
 })
+
+it('leaves installed browser manifests and registry entries untouched in portable mode', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'motrix-portable-nm-'))
+  const registryWriter = vi.fn()
+  const registryDeleter = vi.fn()
+  const installer = new NativeMessagingInstaller({
+    platform: 'win32',
+    registrationMode: 'disabled',
+    hostBinaryPath: 'E:\\Motrix\\resources\\bin\\motrix-native-host.exe',
+    manifestRoot: directory,
+    windowsRoamingAppData: directory,
+    registryWriter,
+    registryDeleter,
+  })
+  const sentinel = join(
+    directory,
+    'Motrix',
+    'bridge',
+    'manifests',
+    'chrome.json'
+  )
+  await mkdir(dirname(sentinel), { recursive: true })
+  await writeFile(sentinel, 'installed profile')
+  try {
+    await installer.syncManifests({
+      chromium: ['extension-id'],
+      firefox: ['id'],
+    })
+    await installer.unregister()
+    expect(registryWriter).not.toHaveBeenCalled()
+    expect(registryDeleter).not.toHaveBeenCalled()
+    expect(await readFile(sentinel, 'utf8')).toBe('installed profile')
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})

@@ -20,7 +20,9 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { PluginCard } from './components/plugin-card'
 import { PluginGuidance } from './components/plugin-guidance'
+import { RegistryNetworkNotice } from './components/registry-network-notice'
 import { RegistryPluginCard } from './components/registry-plugin-card'
+import { useCallGraphPreload } from './hooks/use-call-graph-preload'
 import { usePlugins } from './hooks/use-plugins'
 import { useRegistryPlugins, useRegistryUpdates } from './hooks/use-registry'
 import { matchesRegistrySearch } from './lib/registry-text'
@@ -30,6 +32,7 @@ import { usePluginsStore } from './store'
 export function PluginsPage() {
   const { t, i18n } = useTranslation()
   const plugins = usePlugins()
+  const preloadDiagnostics = useCallGraphPreload()
   const pluginsLoaded = usePluginsStore((state) => state.loaded)
   const [installOpen, setInstallOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -80,6 +83,9 @@ export function PluginsPage() {
             <ToolbarLink
               label={diagnosticsLabel}
               render={<Link to="/plugins/diagnostics" />}
+              onPointerEnter={preloadDiagnostics}
+              onFocus={preloadDiagnostics}
+              onPointerDown={preloadDiagnostics}
             >
               <CallGraphIcon aria-hidden="true" />
             </ToolbarLink>
@@ -139,6 +145,7 @@ export function PluginsPage() {
               </div>
             ) : (
               <div className="flex w-full flex-col gap-4">
+                <RegistryNetworkNotice retry={refresh} pending={refreshing} />
                 <PluginGuidance hasUserManagedPlugin={hasUserManagedPlugin} />
 
                 {plugins.length === 0 ? null : filtered.length === 0 ? (

@@ -5,10 +5,36 @@ import {
   SUPPORTED_LOCALE_CODES,
   SUPPORTED_LOCALES,
 } from '@shared/constants/locales'
-import { describe, expect, it } from 'vitest'
+import { I18N_RESOURCE_LOADERS } from '@shared/i18n-resources'
+import { describe, expect, it, vi } from 'vitest'
 import { applyDocumentLocaleMetadata, applyRendererLocale, i18n } from './i18n'
 
 describe('renderer i18n', () => {
+  it('keeps a newer language selection when an earlier chunk finishes late', async () => {
+    let finish!: (
+      value: Awaited<ReturnType<typeof I18N_RESOURCE_LOADERS.ar>>
+    ) => void
+    const original = I18N_RESOURCE_LOADERS.ar
+    const loader = vi.spyOn(I18N_RESOURCE_LOADERS, 'ar').mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        })
+    )
+    try {
+      const older = applyRendererLocale('ar')
+      await vi.waitFor(() => expect(loader).toHaveBeenCalledOnce())
+      await applyRendererLocale('en-US')
+      finish(await original())
+      await older
+      expect(i18n.resolvedLanguage).toBe('en-US')
+      expect(document.documentElement).toHaveAttribute('lang', 'en-US')
+      expect(document.documentElement).toHaveAttribute('dir', 'ltr')
+    } finally {
+      loader.mockRestore()
+    }
+  })
+
   it('derives supported and fallback locales from the shared catalog', () => {
     expect(i18n.options.supportedLngs).toEqual(
       expect.arrayContaining([...SUPPORTED_LOCALE_CODES])

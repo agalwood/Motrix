@@ -37,7 +37,7 @@ async function openPicker(
   page: Page,
   mac = false,
   query = '',
-  entry: 'links' | 'torrent' | 'general' = 'links'
+  entry: 'links' | 'torrent' | 'downloads' = 'links'
 ) {
   await page.addInitScript((isMac) => {
     Object.defineProperty(navigator, 'platform', {
@@ -55,12 +55,12 @@ async function openPicker(
       ? 'Open download dialog'
       : entry === 'torrent'
         ? 'Open torrent dialog'
-        : 'Open General settings'
+        : 'Open Downloads settings'
   await tabTo(page, page.getByRole('button', { name: launchName }))
   await page.keyboard.press('Enter')
   await expect(page.getByRole('dialog')).toHaveCSS('opacity', '1')
   const opener = page.getByRole('button', {
-    name: entry === 'general' ? 'Browse…' : 'Change directory',
+    name: entry === 'downloads' ? 'Browse…' : 'Change directory',
     exact: true,
   })
   await tabTo(page, opener)
@@ -442,41 +442,45 @@ test('torrent save directory uses the same picker without submitting a download'
   expect(await calls(page, Commands.UpdateSettings)).toHaveLength(0)
 })
 
-test('General settings retains its own Cancel and Save boundary after selection', async ({
+test('Downloads settings retains its own Cancel and Save boundary after selection', async ({
   page,
 }) => {
-  const { picker, opener } = await openPicker(page, false, '', 'general')
+  const { picker, opener } = await openPicker(page, false, '', 'downloads')
   await picker.getByRole('option', { name: 'Movies', exact: true }).click()
   await picker
     .getByRole('button', { name: 'Select folder', exact: true })
     .click()
   await expect(picker).not.toBeVisible()
   await expect(opener).toBeFocused()
-  const general = page.getByRole('dialog', { name: 'General', exact: true })
-  await expect(general.getByRole('textbox')).toHaveValue('/downloads/Movies')
-  expect(await calls(page, Commands.SaveGeneralSettings)).toHaveLength(0)
+  const downloads = page.getByRole('dialog', { name: 'Downloads', exact: true })
+  const folder = downloads.getByRole('textbox', {
+    name: 'Default download folder',
+    exact: true,
+  })
+  await expect(folder).toHaveValue('/downloads/Movies')
+  expect(await calls(page, Commands.SaveDownloadsSettings)).toHaveLength(0)
   expect(await calls(page, Commands.MutateDirectoryPreferences)).toHaveLength(0)
-  await general.getByRole('button', { name: 'Cancel', exact: true }).click()
-  await page.getByRole('button', { name: 'Open General settings' }).click()
-  await expect(general.getByRole('textbox')).toHaveValue('/downloads')
-  await general.getByRole('button', { name: 'Browse…', exact: true }).click()
+  await downloads.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await page.getByRole('button', { name: 'Open Downloads settings' }).click()
+  await expect(folder).toHaveValue('/downloads')
+  await downloads.getByRole('button', { name: 'Browse…', exact: true }).click()
   await expect(picker).toBeVisible()
   await picker.getByRole('option', { name: 'Music', exact: true }).click()
   await picker
     .getByRole('button', { name: 'Select folder', exact: true })
     .click()
-  await expect(general.getByRole('textbox')).toHaveValue('/downloads/Music')
-  expect(await calls(page, Commands.SaveGeneralSettings)).toHaveLength(0)
+  await expect(folder).toHaveValue('/downloads/Music')
+  expect(await calls(page, Commands.SaveDownloadsSettings)).toHaveLength(0)
   expect(await calls(page, Commands.MutateDirectoryPreferences)).toHaveLength(0)
-  await general.getByRole('button', { name: 'Save', exact: true }).click()
-  await expect(general).not.toBeVisible()
-  expect(await calls(page, Commands.SaveGeneralSettings)).toEqual([
+  await downloads.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(downloads).not.toBeVisible()
+  expect(await calls(page, Commands.SaveDownloadsSettings)).toEqual([
     {
-      channel: Commands.SaveGeneralSettings,
+      channel: Commands.SaveDownloadsSettings,
       args: [
         {
           expectedRevision: expect.any(String),
-          app: { defaultSaveDir: '/downloads/Music' },
+          settings: { app: { defaultSaveDir: '/downloads/Music' } },
           directories: {
             addFavorites: [],
             removeFavorites: [],
@@ -486,8 +490,8 @@ test('General settings retains its own Cancel and Save boundary after selection'
       ],
     },
   ])
-  await page.getByRole('button', { name: 'Open General settings' }).click()
-  await expect(general.getByRole('textbox')).toHaveValue('/downloads/Music')
+  await page.getByRole('button', { name: 'Open Downloads settings' }).click()
+  await expect(folder).toHaveValue('/downloads/Music')
 })
 
 test('desktop selection keeps the complete target path visible', async ({

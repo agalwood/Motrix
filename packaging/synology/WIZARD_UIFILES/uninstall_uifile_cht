@@ -1,0 +1,20 @@
+[
+  {
+    "step_title": "Motrix",
+    "items": [
+      {
+        "desc": "預設保留任務、設定和配對資訊。下載檔案一律保留。"
+      },
+      {
+        "type": "multiselect",
+        "subitems": [
+          {
+            "key": "wizard_delete_data",
+            "desc": "刪除任務、設定和配對資訊",
+            "defaultValue": false
+          }
+        ]
+      }
+    ]
+  }
+]

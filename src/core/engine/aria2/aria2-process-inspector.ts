@@ -55,6 +55,11 @@ export class Aria2ProcessInspector {
   async inspectListeningPort(port: number): Promise<InspectedProcess | null> {
     const pid = await this.findListeningPid(port)
     if (pid === null) return null
+    return this.inspectPid(pid)
+  }
+
+  async inspectPid(pid: number): Promise<InspectedProcess | null> {
+    if (!Number.isSafeInteger(pid) || pid <= 0) return null
 
     if (this.platform === 'win32') {
       return this.inspectWindowsProcess(pid)

@@ -31,6 +31,8 @@ function receiver(): ServerExtensionReceiver {
   return {
     handle: vi.fn(async () => ({ taskId: 'wss-task' })),
     cancel: vi.fn(async () => {}),
+    cancelMedia: vi.fn(async () => {}),
+    getMediaSegmentGids: vi.fn(() => []),
     restoreInflight: vi.fn(async () => {}),
     start: vi.fn(),
     stopAndDrain: vi.fn(async () => {}),

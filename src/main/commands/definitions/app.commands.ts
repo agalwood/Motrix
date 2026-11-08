@@ -51,5 +51,12 @@ export function registerAppCommands(
       deps.windowManager.show('main')
     },
   })
+  registry.register({
+    id: CommandIds.AppRecoverInterface,
+    title: 'rendererRecovery.recover',
+    run: ({ deps }) => {
+      deps.recoverInterface?.()
+    },
+  })
   // AppQuit is an Electron role; no command registration.
 }

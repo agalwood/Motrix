@@ -20,10 +20,12 @@ export const EXTERNAL_URLS = {
     repository: 'https://github.com/agalwood/Motrix/',
     author: 'https://github.com/agalwood/',
     issues: 'https://github.com/agalwood/Motrix/issues/',
+    releases: 'https://github.com/agalwood/Motrix/releases',
     ffmpegStaticReleases:
       'https://github.com/motrixapp/ffmpeg-static/releases/latest',
   },
   motrix: {
+    updateFeed: 'https://dl.motrix.app/releases/',
     home: 'https://motrix.app/',
     acknowledgments: 'https://motrix.app/acknowledgments',
     plugins: 'https://motrix.app/plugins',

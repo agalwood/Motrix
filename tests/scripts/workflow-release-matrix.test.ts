@@ -25,6 +25,12 @@ import { RELEASE_TARGETS } from '../../scripts/assemble-release-artifacts.mjs'
 // @ts-expect-error -- JavaScript build hook intentionally has no declarations
 import stagedDependenciesBoundary from '../../scripts/before-build-use-staged-dependencies.mjs'
 // @ts-expect-error -- JavaScript release script intentionally has no declarations
+import {
+  CONTAINER_REPOSITORIES,
+  containerImageTags,
+  resolveContainerReleaseMetadata,
+} from '../../scripts/container-release-metadata.mjs'
+// @ts-expect-error -- JavaScript release script intentionally has no declarations
 import { resolveReleaseMetadata } from '../../scripts/release-metadata.mjs'
 
 interface LooseRecord {
@@ -43,9 +49,9 @@ const ROOT = process.cwd()
 const WORKFLOW_DIRECTORY = path.join(ROOT, '.github/workflows')
 const require = createRequire(import.meta.url)
 const parseYaml = require('js-yaml').load as (source: string) => unknown
-const PNPM_VERSION = '12.8.1'
+const PNPM_VERSION = '12.16.1'
 const PNPM_PACKAGE_MANAGER =
-  'pnpm@12.8.1+sha512.f64ba907507f5ceafe06c8d38e6052d0179444580ec1279ddd5bfc11cb48aa8a2644b66598e07e761da84872a9fc57d5f902b87fa49d024198d558612aabbe45'
+  'pnpm@12.16.1+sha512.091d1dee7927575661b25dab3c2ae31cafc1c54d6b71ed6a6600cf0c1cb10434a447eae14015f1b23e2e6bedeed79df94a932e2164d2832280dce3fb32f656d1'
 const ELECTRON_BUILDER_CUSTOM_DIR_ENVIRONMENT_VARIABLES = [
   'NPM_CONFIG_ELECTRON_BUILDER_BINARIES_CUSTOM_DIR',
   'npm_config_electron_builder_binaries_custom_dir',
@@ -53,6 +59,13 @@ const ELECTRON_BUILDER_CUSTOM_DIR_ENVIRONMENT_VARIABLES = [
   'ELECTRON_BUILDER_BINARIES_CUSTOM_DIR',
 ] as const
 const EXPECTED_ACTION_PINS = new Map([
+  [
+    'actions/cache',
+    {
+      sha: 'caa296126883cff596d87d8935842f9db880ef25',
+      comment: 'v5',
+    },
+  ],
   [
     'actions/checkout',
     {
@@ -63,22 +76,22 @@ const EXPECTED_ACTION_PINS = new Map([
   [
     'actions/setup-node',
     {
-      sha: '820762786026740c76f36085b0efc47a31fe5020',
-      comment: 'v7.0.0',
+      sha: '949feb2413d6458794dcd2491c4babbbce0c15c1',
+      comment: 'v7.1.0',
     },
   ],
   [
     'actions/upload-artifact',
     {
-      sha: '043fb46d1a93c77aae656e7c1c64a875d1fc6a0a',
-      comment: 'v7.0.1',
+      sha: 'cf430e030ddbb5b0abf93d22962f4752f3646cd9',
+      comment: 'v7.0.2',
     },
   ],
   [
     'actions/download-artifact',
     {
-      sha: '3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c',
-      comment: 'v8.0.1',
+      sha: '9000827ccba6bdab643e8b6fd33ac0654aef8333',
+      comment: 'v8.0.2',
     },
   ],
   [
@@ -91,15 +104,15 @@ const EXPECTED_ACTION_PINS = new Map([
   [
     'dtolnay/rust-toolchain',
     {
-      sha: '4cda84d5c5c54efe2404f9d843567869ab1699d4',
+      sha: '686976e191b89faba57d3206551f0f330d8cb249',
       comment: 'stable',
     },
   ],
   [
     'softprops/action-gh-release',
     {
-      sha: '3d0d9888cb7fd7b750713d6e236d1fcb99157228',
-      comment: 'v3.0.2',
+      sha: 'efb35369e0ad2afab669f228072c1b0d510eae64',
+      comment: 'v3.0.3',
     },
   ],
   [
@@ -112,8 +125,8 @@ const EXPECTED_ACTION_PINS = new Map([
   [
     'flatpak/flatpak-github-actions/flatpak-builder',
     {
-      sha: '401fe28a8384095fc1531b9d320b292f0ee45adb',
-      comment: 'v6.7',
+      sha: '79327416609af08178ad73b352877e51450790b3',
+      comment: 'v6.8',
     },
   ],
   [
@@ -126,8 +139,8 @@ const EXPECTED_ACTION_PINS = new Map([
   [
     'docker/setup-buildx-action',
     {
-      sha: 'bb05f3f5519dd87d3ba754cc423b652a5edd6d2c',
-      comment: 'v4.2.0',
+      sha: 'f87e5991a6d7451dcb8d9637bfbc97413f497069',
+      comment: 'v4.4.1',
     },
   ],
   [
@@ -140,8 +153,8 @@ const EXPECTED_ACTION_PINS = new Map([
   [
     'docker/build-push-action',
     {
-      sha: '53b7df96c91f9c12dcc8a07bcb9ccacbed38856a',
-      comment: 'v7.3.0',
+      sha: 'c3c9e263c25d99ce0380d002d59b67737d91b0dc',
+      comment: 'v7.4.0',
     },
   ],
   [
@@ -189,6 +202,13 @@ const EXPECTED_TARGETS: ExpectedTarget[] = [
     arch: 'x64',
     rustTarget: 'x86_64-pc-windows-msvc',
   },
+  {
+    key: 'win32-arm64',
+    os: 'windows-11-arm',
+    platform: 'win32',
+    arch: 'arm64',
+    rustTarget: 'aarch64-pc-windows-msvc',
+  },
 ]
 const EXPECTED_APP_PATHS = new Map([
   ['darwin-arm64', 'release/mac-arm64/Motrix.app'],
@@ -196,6 +216,7 @@ const EXPECTED_APP_PATHS = new Map([
   ['linux-arm64', 'release/linux-arm64-unpacked'],
   ['linux-x64', 'release/linux-unpacked'],
   ['win32-x64', 'release/win-unpacked'],
+  ['win32-arm64', 'release/win-arm64-unpacked'],
 ])
 
 const ciSource = readFileSync(
@@ -230,10 +251,6 @@ const cargoConfigSource = readFileSync(
   path.join(ROOT, '.cargo/config.toml'),
   'utf8'
 )
-const nativeHostCargoManifestSource = readFileSync(
-  path.join(ROOT, 'packages/native-host/Cargo.toml'),
-  'utf8'
-)
 const windowsDependencyVerifierSource = readFileSync(
   path.join(ROOT, 'scripts/verify-windows-native-host-dependencies.ps1'),
   'utf8'
@@ -253,7 +270,7 @@ describe('CI and release target matrix contract', () => {
     ['CI', ciWorkflow],
     ['release', releaseWorkflow],
   ] as const)(
-    '%s matrix contains exactly the five supported targets',
+    '%s matrix contains exactly the six supported targets',
     (_, workflow) => {
       const { entries } = targetMatrix(workflow)
       const actual = entries
@@ -374,13 +391,47 @@ describe('CI and release target matrix contract', () => {
           : step.name === 'Upload target release input'
       )
       const uploadInputs = asRecord(upload?.with, `${label} report upload`)
+      if (label === 'CI') {
+        // A failed verifier still writes a report; preserve it without masking
+        // the failure or trying to upload files after an earlier build failure.
+        expect(stringField(upload as LooseRecord, 'if')).toBe(
+          `\${{ !cancelled() && hashFiles('release/size-reports/*.json') != '' }}`
+        )
+        expect(steps[verifierIndex]?.['continue-on-error']).not.toBe(true)
+      }
       expect(stringField(uploadInputs, 'path')).toContain(
-        `release/size-reports/\${{ matrix.target }}.json`
+        label === 'CI'
+          ? `release/size-reports/\${{ matrix.target }}*.json`
+          : `release/size-reports/\${{ matrix.target }}.json`
       )
       expect(stringField(uploadInputs, 'if-no-files-found')).toBe('error')
       expect(steps.indexOf(upload as LooseRecord)).toBeGreaterThan(
         verifierIndex
       )
+    }
+  )
+
+  it.each([
+    ['CI', ciWorkflow],
+    ['release', releaseWorkflow],
+  ] as const)(
+    '%s executes Windows packages on native runners before publishing',
+    (_, workflow) => {
+      const steps = jobSteps(targetMatrix(workflow).job)
+      const step = steps.find(
+        (entry) => entry.name === 'Smoke test native Windows Electron runtime'
+      )
+      expect(step).toBeDefined()
+      expect(stringField(step as LooseRecord, 'if')).toBe(
+        "matrix.platform == 'win32'"
+      )
+      expect(stringField(step as LooseRecord, 'run')).toContain(
+        'pnpm run smoke:electron-package --'
+      )
+      expect(stringField(step as LooseRecord, 'run')).toContain(
+        `--arch \${{ matrix.arch }}`
+      )
+      expect(step?.['continue-on-error']).not.toBe(true)
     }
   )
 
@@ -490,130 +541,6 @@ describe('CI and release target matrix contract', () => {
     ]) {
       expect(windowsDependencyVerifierSource).toContain(runtime)
     }
-  })
-})
-
-describe('general CI native-host split contract', () => {
-  it('blocks on the shared allowlist and JavaScript packaging tests', () => {
-    const jobs = workflowJobs(ciWorkflow)
-    const ciJob = asRecord(jobs.ci, 'CI job')
-    const steps = jobSteps(ciJob)
-    const lint = steps.find((step) => step.name === 'Lint')
-    const tooling = steps.find(
-      (step) => step.name === 'Native host JavaScript tooling tests'
-    )
-    const contracts = steps.find(
-      (step) => step.name === 'Release and packaging contracts'
-    )
-
-    // Lint runs through the package script so the workflow, the local
-    // commit gate, and biome.json cannot drift apart. The repo-wide
-    // `biome check .` keeps the native-host tooling scripts covered —
-    // the guarantee the previous explicit path list existed for.
-    expect(lint).toBeDefined()
-    const lintCommand = stringField(lint as LooseRecord, 'run')
-    expect(lintCommand.trim()).toBe('pnpm run lint')
-    const packageJson = JSON.parse(
-      readFileSync(path.join(ROOT, 'package.json'), 'utf8')
-    ) as { scripts?: Record<string, string> }
-    expect(packageJson.scripts?.lint).toBe('biome check .')
-
-    const fingerprint = steps.find(
-      (step) => step.name === 'Biome toolchain fingerprint'
-    )
-    expect(fingerprint).toBeDefined()
-    expect(stringField(fingerprint as LooseRecord, 'run')).toContain(
-      'biome --version'
-    )
-
-    expect(tooling).toBeDefined()
-    const toolingCommand = stringField(tooling as LooseRecord, 'run')
-    expect(toolingCommand).toContain('packages/native-host/build.test.mjs')
-    expect(toolingCommand).toContain(
-      'packages/native-host/package-flatpak-companion.test.mjs'
-    )
-
-    expect(contracts).toBeDefined()
-    const contractCommand = stringField(contracts as LooseRecord, 'run')
-    expect(contractCommand).toContain(
-      'src/main/bridge/native-messaging-extensions.test.ts'
-    )
-    expect(contractCommand).toContain(
-      'tests/scripts/flatpak-native-host.test.ts'
-    )
-    for (const test of [
-      'tests/scripts/appimage-artifact.test.ts',
-      'tests/scripts/electron-package-contract.test.ts',
-      'tests/scripts/finalize-appimage-artifact.test.ts',
-      'tests/scripts/native-binary-target.test.ts',
-      'tests/scripts/release-signing-input.test.ts',
-      'tests/scripts/stage-electron-app.test.ts',
-      'tests/scripts/verify-electron-package.test.ts',
-      'tests/scripts/verify-appimage-artifact.test.ts',
-    ]) {
-      expect(contractCommand).toContain(test)
-    }
-  })
-
-  it('compiles every declared native-host binary on host and target runners', () => {
-    for (const binary of [
-      'motrix-native-host',
-      'motrix-flatpak-native-host',
-      'motrix-native-host-broker',
-    ]) {
-      expect(nativeHostCargoManifestSource).toContain(`name = "${binary}"`)
-    }
-
-    const jobs = workflowJobs(ciWorkflow)
-    const rustQuality = asRecord(jobs['rust-quality'], 'rust-quality job')
-    const rustTests = jobSteps(rustQuality).find(
-      (step) => step.name === 'Tests'
-    )
-    expect(stringField(rustTests as LooseRecord, 'run')).toContain(
-      '--all-targets'
-    )
-
-    const targetTests = jobSteps(targetMatrix(ciWorkflow).job).find(
-      (step) => step.name === 'Tests (native target)'
-    )
-    expect(stringField(targetTests as LooseRecord, 'run')).toContain(
-      '--all-targets'
-    )
-  })
-
-  it('smoke-packages companions only on Linux', () => {
-    const smoke = jobSteps(targetMatrix(ciWorkflow).job).find(
-      (step) => step.name === 'Package Flatpak native host companion smoke'
-    )
-
-    expect(smoke).toBeDefined()
-    expect(stringField(smoke as LooseRecord, 'if')).toContain(
-      "matrix.platform == 'linux'"
-    )
-    const command = stringField(smoke as LooseRecord, 'run')
-    expect(command).toContain('package:flatpak-native-host')
-    expect(command).toContain('--arch "$COMPANION_ARCH"')
-    expect(command).toContain('--output-dir "$COMPANION_OUTPUT"')
-    expect(command).toContain('tar -tzf "$archive"')
-  })
-
-  it('keeps Flatpak-only binaries out of every ordinary Electron package', () => {
-    const steps = jobSteps(targetMatrix(ciWorkflow).job)
-    const packagingIndex = steps.findIndex((step) =>
-      stringField(step, 'run', '').includes('electron-builder')
-    )
-    const verificationIndex = steps.findIndex(
-      (step) => step.name === 'Verify packaged resources'
-    )
-    expect(packagingIndex).toBeGreaterThanOrEqual(0)
-    expect(verificationIndex).toBeGreaterThan(packagingIndex)
-
-    const command = stringField(steps[verificationIndex] as LooseRecord, 'run')
-    expect(command).toContain("path.join('bin', host)")
-    expect(command).toMatch(/path\.join\(\s*'extra'/)
-    expect(command).toContain('motrix-flatpak-native-host')
-    expect(command).toContain('motrix-native-host-broker')
-    expect(command).toContain('Flatpak-only native host leaked into package')
   })
 })
 
@@ -1153,6 +1080,102 @@ describe('release workflow publication contract', () => {
     ])
   })
 
+  // The production alias step runs in Bash on a Linux runner.
+  it.skipIf(process.platform === 'win32')(
+    'promotes every stable container alias and rejects a mismatched digest',
+    () => {
+      const jobs = workflowJobs(releaseWorkflow)
+      const promoteJob = asRecord(
+        jobs['promote-container-aliases'],
+        'container alias promotion job'
+      )
+      const aliasCommand = stringField(
+        jobSteps(promoteJob).find(
+          (step) =>
+            step.name === 'Promote and verify stable container aliases last'
+        ) as LooseRecord,
+        'run'
+      )
+      const metadata = resolveContainerReleaseMetadata('2.0.0')
+      const floatingTags = containerImageTags(metadata.floatingTags) as string[]
+      const digest = `sha256:${'a'.repeat(64)}`
+      const fixture = realpathSync(
+        mkdtempSync(path.join(tmpdir(), 'motrix-container-aliases-'))
+      )
+      const callsPath = path.join(fixture, 'docker-calls.jsonl')
+      writeFileSync(
+        path.join(fixture, 'docker'),
+        [
+          `#!${process.execPath}`,
+          "const fs = require('node:fs')",
+          'const args = process.argv.slice(2)',
+          "fs.appendFileSync(process.env.MOTRIX_FAKE_DOCKER_CALLS, JSON.stringify(args) + '\\n')",
+          "if (args[0] !== 'buildx' || args[1] !== 'imagetools') process.exit(2)",
+          "if (args[2] === 'create') process.exit(0)",
+          "if (args[2] !== 'inspect') process.exit(2)",
+          "const digest = args[3] === process.env.MOTRIX_FAKE_MISMATCH_TAG ? 'sha256:' + 'b'.repeat(64) : process.env.PUBLISHED_DIGEST",
+          'process.stdout.write(JSON.stringify({ manifest: { digest } }))',
+        ].join('\n'),
+        { mode: 0o755 }
+      )
+      writeFileSync(
+        path.join(fixture, 'jq'),
+        [
+          `#!${process.execPath}`,
+          "const fs = require('node:fs')",
+          "if (process.argv[2] !== '-er' || process.argv[3] !== '.manifest.digest') process.exit(2)",
+          "process.stdout.write(JSON.parse(fs.readFileSync(0, 'utf8')).manifest.digest + '\\n')",
+        ].join('\n'),
+        { mode: 0o755 }
+      )
+      const runPromotion = (mismatchTag = '') => {
+        writeFileSync(callsPath, '')
+        return spawnSync('bash', ['-c', aliasCommand], {
+          encoding: 'utf8',
+          env: {
+            ...process.env,
+            DOCKERHUB_REPOSITORY: CONTAINER_REPOSITORIES.dockerHub,
+            GHCR_REPOSITORY: CONTAINER_REPOSITORIES.ghcr,
+            FLOATING_TAGS: floatingTags.join('\n'),
+            MOTRIX_FAKE_DOCKER_CALLS: callsPath,
+            MOTRIX_FAKE_MISMATCH_TAG: mismatchTag,
+            PATH: `${fixture}:${process.env.PATH ?? ''}`,
+            PUBLISHED_DIGEST: digest,
+          },
+        })
+      }
+
+      try {
+        const promoted = runPromotion()
+        expect(promoted.stderr).toBe('')
+        expect(promoted.status).toBe(0)
+        const calls = readFileSync(callsPath, 'utf8')
+          .trim()
+          .split('\n')
+          .map((line) => JSON.parse(line) as string[])
+        expect(calls.filter((args) => args[2] === 'create')).toEqual(
+          Object.values(CONTAINER_REPOSITORIES).map((repository) => [
+            'buildx',
+            'imagetools',
+            'create',
+            ...['2.0', '2', 'stable', 'latest'].flatMap((tag) => [
+              '--tag',
+              `${repository}:${tag}`,
+            ]),
+            `${repository}@${digest}`,
+          ])
+        )
+        expect(
+          calls.filter((args) => args[2] === 'inspect').map((args) => args[3])
+        ).toEqual(floatingTags)
+
+        expect(runPromotion(floatingTags.at(-1)).status).toBe(1)
+      } finally {
+        rmSync(fixture, { force: true, recursive: true })
+      }
+    }
+  )
+
   it('bounds anonymous signature visibility retries and still fails closed', () => {
     const jobs = workflowJobs(releaseWorkflow)
     const containerJob = asRecord(
@@ -1365,6 +1388,17 @@ describe('release workflow publication contract', () => {
     expect(verificationCommand).toContain('release/*.deb')
     expect(verificationCommand).toContain('release/*.rpm')
     expect(verificationCommand).toContain('release/*.AppImage')
+    expect(verificationCommand).toContain(
+      `dpkg-deb --field "\${debs[0]}" Package`
+    )
+    expect(verificationCommand).toContain("rpm -qp --queryformat '%{NAME}'")
+    expect(verificationCommand).toContain(
+      'for field in Provides Conflicts Replaces'
+    )
+    expect(verificationCommand).toContain(
+      'for relation in provides conflicts obsoletes'
+    )
+    expect(verificationCommand).toContain('motrix-turbo')
 
     const appImageVerification = jobSteps(buildJob).find(
       (step) => step.name === 'Verify AppImage artifact'
@@ -1459,7 +1493,7 @@ describe('release workflow publication contract', () => {
         asRecord(packageJson.devDependencies, 'dev dependencies'),
         'electron-builder'
       )
-    ).toBe('26.15.7')
+    ).toBe('26.18.1')
   })
 
   it('publishes required Flatpak companions outside updater manifests', () => {
@@ -1521,6 +1555,66 @@ describe('release workflow publication contract', () => {
     }
   })
 
+  it('finalizes Windows assets with the names required by release assembly', () => {
+    const sign = asRecord(workflowJobs(releaseWorkflow).sign, 'sign job')
+    require('app-builder-lib')
+    const { WinPackager } = require('app-builder-lib/out/winPackager')
+    const {
+      NsisTarget,
+    } = require('app-builder-lib/out/targets/nsis/NsisTarget')
+    const {
+      ArchiveTarget,
+    } = require('app-builder-lib/out/targets/ArchiveTarget')
+    const {
+      AppPackageHelper,
+      CopyElevateHelper,
+    } = require('app-builder-lib/out/targets/nsis/nsisUtil')
+    const version = '2.0.0-beta.52'
+    for (const entry of matrixEntries(sign, 'sign')) {
+      if (entry.platform !== 'win32') continue
+      const config = JSON.parse(signingConfigSource)
+      const args = stringField(entry, 'electron_builder_args')
+      // The quoted macros must survive PowerShell unchanged. Apply exactly
+      // those reviewed overrides to the installed builder's real targets.
+      for (const [, section, pattern] of args.matchAll(
+        /'-c\.(nsis|win)\.artifactName=([^']+)'/g
+      )) {
+        config[section!].artifactName = pattern
+      }
+      const packager = new WinPackager({
+        config,
+        metadata: { name: 'motrix', version },
+      })
+      const nsis = new NsisTarget(
+        packager,
+        '/release',
+        'nsis',
+        new AppPackageHelper(new CopyElevateHelper())
+      )
+      const zip = new ArchiveTarget('zip', '/release', packager)
+      const arch = entry.arch === 'arm64' ? 3 : 1
+      expect(nsis.shouldBuildUniversalInstaller).toBe(false)
+      const actual = [
+        packager.expandArtifactNamePattern(nsis.options, 'exe', arch),
+        packager.expandArtifactNamePattern(
+          zip.options,
+          'zip',
+          arch,
+          `\${productName}-\${version}-win.\${ext}`,
+          false
+        ),
+      ]
+      const target = RELEASE_TARGETS.find(
+        (candidate: { name: string }) => candidate.name === entry.target
+      )
+      expect(actual).toEqual(target.assetNames(version))
+      if (entry.arch === 'arm64') {
+        expect(args).toContain("'-c.nsis.artifactName=")
+        expect(args).toContain("'-c.win.artifactName=")
+      }
+    }
+  })
+
   it('isolates signing credentials behind platform-specific environments', () => {
     const jobs = workflowJobs(releaseWorkflow)
     const build = asRecord(jobs.build, 'build job')
@@ -1536,7 +1630,7 @@ describe('release workflow publication contract', () => {
     )
     const entries = matrixEntries(sign, 'sign')
     expect(entries.map((entry) => stringField(entry, 'target')).sort()).toEqual(
-      ['darwin-arm64', 'darwin-x64', 'win32-x64']
+      ['darwin-arm64', 'darwin-x64', 'win32-arm64', 'win32-x64']
     )
     for (const entry of entries) {
       expect(stringField(entry, 'electron_sha256')).toMatch(/^[0-9a-f]{64}$/)
@@ -1977,7 +2071,7 @@ describe('release workflow publication contract', () => {
       'utf8'
     )
     expect(macCodeSignSource).toContain(
-      '["set-key-partition-list", "-S", "apple-tool:,apple:", "-s", "-k", password, keychainFile]'
+      '["set-key-partition-list", "-S", "apple-tool:,apple:", "-s", "-k", keychainPassword, keychainFile]'
     )
     expect(macPackagerSource).toContain('process.env.CSC_KEYCHAIN || null')
 
@@ -2218,12 +2312,12 @@ describe('release workflow publication contract', () => {
     }
   })
 
-  it('uses the locked 26.15.7 hook to preserve staged dependency placements', async () => {
+  it('uses the locked 26.18.1 hook to preserve staged dependency placements', async () => {
     const packageMetadata = asRecord(
       require('app-builder-lib/package.json') as unknown,
       'app-builder-lib package metadata'
     )
-    expect(stringField(packageMetadata, 'version')).toBe('26.15.7')
+    expect(stringField(packageMetadata, 'version')).toBe('26.18.1')
     const signingConfig = asRecord(
       JSON.parse(signingConfigSource) as unknown,
       'restricted signing config'
@@ -2494,7 +2588,7 @@ describe('release workflow publication contract', () => {
     }
   })
 
-  it('restores canonical 26.15.7 NSIS URLs after custom directories are unset', async () => {
+  it('restores canonical 26.18.1 NSIS URLs after custom directories are unset', async () => {
     const signingToolPackages = asRecord(
       asRecord(
         JSON.parse(signingToolLockSource) as unknown,
@@ -2506,13 +2600,13 @@ describe('release workflow publication contract', () => {
       signingToolPackages['node_modules/app-builder-lib'],
       'locked app-builder-lib package'
     )
-    expect(stringField(lockedAppBuilder, 'version')).toBe('26.15.7')
+    expect(stringField(lockedAppBuilder, 'version')).toBe('26.18.1')
 
     const packageMetadata = asRecord(
       require('app-builder-lib/package.json') as unknown,
       'app-builder-lib package metadata'
     )
-    expect(stringField(packageMetadata, 'version')).toBe('26.15.7')
+    expect(stringField(packageMetadata, 'version')).toBe('26.18.1')
 
     const electronGetPath = require.resolve(
       'app-builder-lib/out/util/electronGet.js'
@@ -2671,7 +2765,7 @@ describe('release workflow publication contract', () => {
       stringField(asRecord(config.directories, 'signing directories'), 'app')
     ).toBe('dist/electron-app')
     expect(stringField(config, 'electronDist')).toBe('trusted/electron.zip')
-    expect(stringField(config, 'electronVersion')).toBe('44.5.0')
+    expect(stringField(config, 'electronVersion')).toBe('45.2.1')
     expect(signingInputSource).toContain(
       "config.directories?.app !== 'dist/electron-app'"
     )
@@ -2696,7 +2790,7 @@ describe('release workflow publication contract', () => {
         asRecord(tool.dependencies, 'signing tool dependencies'),
         'electron-builder'
       )
-    ).toBe('26.15.7')
+    ).toBe('26.18.1')
     const lock = asRecord(
       JSON.parse(signingToolLockSource) as unknown,
       'signing tool lock'
@@ -2737,7 +2831,7 @@ describe('release workflow publication contract', () => {
       asRecord(metadata.devDependencies, 'dev dependencies'),
       'electron'
     )
-    expect(version).toBe('44.5.0')
+    expect(version).toBe('45.2.1')
     expect(
       stringField(
         asRecord(
@@ -2769,7 +2863,7 @@ describe('release workflow publication contract', () => {
     expect(checked).toBeGreaterThan(0)
   })
 
-  it('pins the packaged macOS baseline to Electron 44 support', () => {
+  it('pins the packaged macOS baseline to Electron 45 support', () => {
     const builderConfig = asRecord(
       JSON.parse(
         readFileSync(path.join(ROOT, 'electron-builder.json'), 'utf8')
@@ -3037,7 +3131,19 @@ function targetMatrix(workflow: LooseRecord): {
       if (job.strategy === undefined) return []
       const strategy = asRecord(job.strategy, `${jobName} strategy`)
       if (strategy.matrix === undefined) return []
-      const matrix = asRecord(strategy.matrix, `${jobName} matrix`)
+      const matrix =
+        workflow === ciWorkflow && jobName === 'package-targets'
+          ? (() => {
+              expect(strategy.matrix).toBe(
+                `\${{ fromJSON(needs.plan.outputs.package_matrix) }}`
+              )
+              return {
+                include: JSON.parse(
+                  readFileSync('.github/ci-package-targets.json', 'utf8')
+                ),
+              }
+            })()
+          : asRecord(strategy.matrix, `${jobName} matrix`)
       if (!Array.isArray(matrix.include)) return []
       const entries = matrix.include.map((entry) =>
         asRecord(entry, `${jobName} matrix entry`)

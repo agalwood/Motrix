@@ -4,6 +4,7 @@ import type { EngineAdapter } from '@core/engine/engine-adapter'
 import type { EngineSupervisor } from '@core/engine/engine-supervisor'
 import { getTuningRecommendation } from '@core/engine/get-tuning-recommendation'
 import { getFfmpegInstallStatus } from '@core/ffmpeg/verified-install'
+import { pathExists } from '@core/fs/path-exists'
 import type { GeoIPManager } from '@core/geoip/geo-ip-manager'
 import { createGetGeoIPStatusHandler } from '@core/geoip/get-geo-ip-status'
 import type { CapabilityHost } from '@core/plugin/capabilities/interface'
@@ -30,6 +31,7 @@ import type {
   TaskSpeedHistoryStore,
   TransferStatsRuntime,
 } from '@core/stats'
+import { createGetTaskHttpRetryAvailabilityHandler } from '@core/task/direct-task-retry'
 import { createGetTaskPeersHandler } from '@core/task/get-task-peers'
 import { createGetTaskPiecesHandler } from '@core/task/get-task-pieces'
 import type { MediaMetaStore } from '@core/task/media-meta-store'
@@ -45,6 +47,8 @@ import {
 } from '@shared/protocol/errors'
 import type { QueryHandlerMap } from '@shared/protocol/handler-types'
 import { Queries } from '@shared/protocol/queries'
+import { checkTaskFileExistsPayloadSchema } from '@shared/schemas/check-task-file'
+import { PluginLogRequestSchema } from '@shared/schemas/plugin-logs'
 import { parseTaskInspectorActivitySnapshot } from '@shared/schemas/task-inspector-activity'
 import { taskTrackerRequestSchema } from '@shared/schemas/task-tracker'
 import type { GetTransferStatsParams } from '@shared/types/stats'
@@ -179,6 +183,9 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
       createDirectoryPreferencesHandlers(settingsManager).get,
 
     [Queries.GetSystemAccentColor]: async () => getSystemAccentColor(),
+    [Queries.GetSettingsFileLocation]: async () => ({
+      path: settingsManager.getFilePath(),
+    }),
     [Queries.GetSettings]: async () => {
       return {
         ...settingsManager.get(),
@@ -227,6 +234,8 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
 
     [Queries.GetSpeedLimitState]: async () => speedLimitController.getState(),
 
+    [Queries.GetTaskHttpRetryAvailability]:
+      createGetTaskHttpRetryAvailabilityHandler(taskManager, engineAdapter),
     [Queries.GetTaskFiles]: createGetTaskFilesHandler({
       mediaMetaStore: ctx.mediaMetaStore,
       db: motrixDatabase,
@@ -280,7 +289,8 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
       return getFfmpegInstallStatus(userDataDir)
     },
 
-    [Queries.GetFfmpegDetection]: async () => detectFfmpeg(),
+    [Queries.GetFfmpegDetection]: async () =>
+      capabilityHost.ffmpeg.refreshDetection(detectFfmpeg),
 
     [Queries.GetTaskBtTracker]: createGetTaskBtTrackerHandler({
       engineAdapter,
@@ -295,6 +305,8 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
     [Queries.GetPluginManifest]: async (id: string) =>
       pluginRegistry.get(id)?.manifest ?? null,
 
+    [Queries.GetRegistryStatus]: async () => registryClient.status(),
+
     [Queries.ListRegistryPlugins]: async () => registryClient.list(hostVersion),
 
     [Queries.GetRegistryPlugin]: async (id: string) =>
@@ -304,6 +316,11 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
       readCommandGraph(
         path.join(pluginsDir, '_audit', 'command-invokes.ndjson')
       ),
+
+    [Queries.GetPluginLogState]: async (payload: unknown) => {
+      const { pluginId } = PluginLogRequestSchema.parse(payload)
+      return capabilityHost.getLogState(pluginId)
+    },
 
     [Queries.GetPluginLogs]: async (params: {
       pluginId: string
@@ -338,6 +355,16 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
         params.pluginId,
         params.hook
       ),
+
+    [Queries.CheckTaskFileExists]: async (payload: unknown) => {
+      const { taskId } = checkTaskFileExistsPayloadSchema.parse(payload)
+      const task = taskManager.getById(taskId)
+      if (!task) return { exists: false }
+      const outputPath = task.finalPath || task.diskPath
+      if (!outputPath || typeof outputPath !== 'string')
+        return { exists: false }
+      return { exists: await pathExists(outputPath) }
+    },
   }
 }
 

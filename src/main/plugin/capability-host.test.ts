@@ -124,6 +124,8 @@ describe('createElectronCapabilityHost', () => {
     })
 
     expect(host.http).toBeInstanceOf(HttpCapabilityHost)
+    expect(host.releaseLog).toBeTypeOf('function')
+    expect(host.closeLogs).toBeTypeOf('function')
   })
 
   it('does not initialize native notification support while wiring capabilities', async () => {

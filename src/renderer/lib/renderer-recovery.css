@@ -1,0 +1,144 @@
+/* Bundled as text with the recovery code, independent of the app stylesheet. */
+#renderer-recovery {
+  --recovery-background: light-dark(#fafafa, #18181b);
+  --recovery-foreground: light-dark(#18181b, #fafafa);
+  --recovery-muted: light-dark(#63636e, #a1a1aa);
+  --recovery-secondary: light-dark(#eeeeef, #2b2b30);
+  --recovery-secondary-hover: light-dark(#e4e4e7, #35353c);
+  box-sizing: border-box;
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: flex;
+  overflow: auto;
+  padding: 56px 24px 40px;
+  background: var(--recovery-background);
+  color: var(--recovery-foreground);
+  color-scheme: light dark;
+  font:
+    14px / 1.5 -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  -webkit-app-region: no-drag;
+}
+
+.light #renderer-recovery {
+  color-scheme: light;
+}
+
+.dark #renderer-recovery {
+  color-scheme: dark;
+}
+
+#renderer-recovery[data-desktop="true"]::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto;
+  height: 40px;
+  -webkit-app-region: drag;
+}
+
+#renderer-recovery .recovery-content {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 360px;
+  min-width: 0;
+  margin: auto;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+#renderer-recovery .recovery-brand {
+  margin: 0 0 24px;
+  color: var(--recovery-muted);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+#renderer-recovery h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 650;
+  line-height: 1.35;
+  text-wrap: balance;
+}
+
+#renderer-recovery .recovery-description {
+  margin: 12px 0 0;
+  color: var(--recovery-muted);
+  font-size: 13px;
+  line-height: 1.7;
+  text-wrap: pretty;
+}
+
+#renderer-recovery .recovery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+#renderer-recovery button {
+  box-sizing: border-box;
+  appearance: none;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 36px;
+  margin: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 8px 14px;
+  background: var(--recovery-secondary);
+  color: var(--recovery-foreground);
+  font:
+    500 13px / 1.4 -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  overflow-wrap: anywhere;
+  cursor: default;
+  -webkit-app-region: no-drag;
+}
+
+#renderer-recovery button[data-primary] {
+  background: var(--recovery-foreground);
+  color: var(--recovery-background);
+}
+
+@media (hover: hover) {
+  #renderer-recovery button:not(:disabled):hover {
+    background: var(--recovery-secondary-hover);
+  }
+
+  #renderer-recovery button[data-primary]:not(:disabled):hover {
+    background: light-dark(#35353b, #dedee3);
+  }
+}
+
+#renderer-recovery button:focus-visible {
+  outline: 2px solid light-dark(#7388a3, #97aac4);
+  outline-offset: 3px;
+}
+
+#renderer-recovery button:active:not(:disabled) {
+  opacity: 0.8;
+}
+
+#renderer-recovery button:disabled {
+  opacity: 0.5;
+}
+
+@media (max-width: 375px) {
+  #renderer-recovery .recovery-actions {
+    flex-direction: column;
+  }
+}
+
+@media (forced-colors: active) {
+  #renderer-recovery button {
+    border-color: ButtonText;
+  }
+}

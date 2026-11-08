@@ -20,12 +20,20 @@ export function __clearPiecesCacheForTests(): void {
   piecesCache.clear()
 }
 
-export function useTaskPieces(taskId: string | null, enabled = true) {
+export function useTaskPieces(
+  taskId: string | null,
+  enabled = true,
+  engineTaskId?: string
+) {
   const pieces = usePolledQuery<TaskPiecesResult>(
     Queries.GetTaskPieces,
-    taskId,
+    taskId === null
+      ? null
+      : engineTaskId === undefined
+        ? taskId
+        : `${taskId}:${engineTaskId}`,
     taskId !== null ? { taskId } : null,
-    { cache: piecesCache, equals: piecesEqual, enabled }
+    { cache: piecesCache, equals: piecesEqual, enabled, intervalMs: 1_000 }
   )
   return { pieces }
 }

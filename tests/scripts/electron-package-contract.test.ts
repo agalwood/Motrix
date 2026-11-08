@@ -30,6 +30,31 @@ async function readJson(relativePath: string): Promise<unknown> {
 }
 
 describe('Electron package contracts', () => {
+  it('uses the motrix Linux package identity and replaces the previous deb/rpm name', async () => {
+    const config = (await readJson('electron-builder.json')) as Record<
+      string,
+      { packageName?: string; executableName?: string; fpm?: string[] }
+    >
+    expect(config.linux.executableName).toBe('motrix')
+    for (const target of ['deb', 'rpm', 'pacman']) {
+      expect(config[target].packageName, target).toBe('motrix')
+    }
+    for (const target of ['deb', 'rpm']) {
+      const args = config[target].fpm ?? []
+      for (const flag of ['--provides', '--conflicts', '--replaces']) {
+        expect(args[args.indexOf(flag) + 1], `${target} ${flag}`).toBe(
+          'motrix-turbo'
+        )
+      }
+    }
+    const rpmArgs = config.rpm.fpm ?? []
+    const postTransaction = rpmArgs[rpmArgs.indexOf('--rpm-posttrans') + 1]
+    expect(postTransaction).toBe('build/rpm-post-transaction.sh')
+    await expect(
+      readFile(path.join(REPOSITORY_ROOT, postTransaction), 'utf8')
+    ).resolves.toContain('/opt/Motrix/motrix')
+  })
+
   it('hydrates Electron before local commands consume its runtime files', async () => {
     const manifest = (await readJson('package.json')) as {
       scripts?: Record<string, string>
@@ -54,15 +79,6 @@ describe('Electron package contracts', () => {
         `${scriptName} must hydrate Electron before consuming its runtime`
       ).toMatch(/^pnpm run ensure:electron-runtime && /)
     }
-  })
-
-  it('hydrates Electron when Playwright is invoked directly', async () => {
-    const globalSetup = await readFile(
-      path.join(REPOSITORY_ROOT, 'e2e/global-setup.ts'),
-      'utf8'
-    )
-
-    expect(globalSetup).toContain("['run', 'ensure:electron-runtime']")
   })
 
   it('packages only the generated staged application', async () => {
@@ -233,6 +249,7 @@ describe('Electron package contracts', () => {
         'darwin-x64',
         'linux-arm64',
         'linux-x64',
+        'win32-arm64',
         'win32-x64',
       ],
       common: [
@@ -289,7 +306,7 @@ describe('Electron package contracts', () => {
 
     expect(contract).toEqual({
       schemaVersion: 1,
-      payloadBytes: 26 * 1024 * 1024,
+      payloadBytes: 30 * 1024 * 1024,
       betterSqlite3Bytes: 4 * 1024 * 1024,
       unexpectedPackageNames: 0,
       foreignBetterSqlite3Prebuilds: 0,

@@ -32,7 +32,11 @@ const MIXED_UPDATES = [
 
 describe('useRegistryUpdates', () => {
   beforeEach(() => {
-    usePluginsStore.setState({ updates: {}, registry: [] })
+    usePluginsStore.setState({
+      updates: {},
+      registry: [],
+      registryStatus: null,
+    })
     mockInvoke.mockReset()
     mockInvoke.mockImplementation((channel: string) => {
       if (channel === Commands.CheckPluginUpdates) {
@@ -43,6 +47,35 @@ describe('useRegistryUpdates', () => {
       }
       return Promise.resolve(undefined)
     })
+  })
+
+  it('exposes cached refresh errors and clears them after recovery', async () => {
+    let status = {
+      cached: true,
+      lastSuccessAt: 123,
+      error: {
+        reason: 'timeout',
+        route: 'proxy',
+        targetHost: 'dl.motrix.app',
+        proxyEndpoint: '127.0.0.1:7897',
+      } as unknown,
+    }
+    const original = mockInvoke.getMockImplementation()
+    mockInvoke.mockImplementation((channel: string) =>
+      channel === Queries.GetRegistryStatus
+        ? Promise.resolve(status)
+        : original?.(channel)
+    )
+    const { result } = renderHook(() => useRegistryUpdates(true))
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(usePluginsStore.getState().registryStatus?.error?.reason).toBe(
+      'timeout'
+    )
+    status = { ...status, error: null }
+    await act(async () => result.current.refresh())
+    expect(usePluginsStore.getState().registryStatus?.error).toBeNull()
   })
 
   it('never invokes CheckPluginUpdates when enabled=false, even via refresh()', async () => {
@@ -64,7 +97,8 @@ describe('useRegistryUpdates', () => {
       await Promise.resolve()
     })
 
-    expect(mockInvoke).toHaveBeenCalledTimes(1)
+    expect(mockInvoke).toHaveBeenCalledTimes(2)
+    expect(mockInvoke).toHaveBeenCalledWith(Queries.GetRegistryStatus)
     expect(mockInvoke).toHaveBeenCalledWith(Commands.CheckPluginUpdates, {})
     expect(usePluginsStore.getState().updates).toEqual({
       'acme.speed-boost': { latestVersion: '1.1.0', channel: 'community' },

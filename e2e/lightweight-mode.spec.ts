@@ -78,6 +78,7 @@ test.describe('lightweight mode', () => {
         onboarding: { disclaimerAccepted: true },
         tracker: { autoSync: false },
         app: {
+          language: 'en-US',
           lightweightMode: true,
           runMode: RunMode.TrayOnly,
         },

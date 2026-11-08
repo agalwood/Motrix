@@ -1,9 +1,17 @@
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
+import { registryStatusSchema } from '@shared/schemas/plugin-network'
 import type { RegistryPluginDTO } from '@shared/schemas/registry'
 import { useEffect, useState } from 'react'
 import { type UpdateChannel, usePluginsStore } from '../store'
+
+async function readRegistryStatus(): Promise<void> {
+  const result = registryStatusSchema.safeParse(
+    await transport.invoke(Queries.GetRegistryStatus)
+  )
+  if (result.success) usePluginsStore.getState().setRegistryStatus(result.data)
+}
 
 /**
  * Remote-registry directory for the marketplace list. The main process
@@ -16,10 +24,14 @@ export function useRegistryPlugins(): RegistryPluginDTO[] {
 
   useEffect(() => {
     let cancelled = false
-    void transport.invoke(Queries.ListRegistryPlugins).then((resp) => {
-      if (cancelled) return
-      setRegistry((resp as RegistryPluginDTO[]) ?? [])
-    })
+    void transport
+      .invoke(Queries.ListRegistryPlugins)
+      .then(async (resp) => {
+        if (cancelled) return
+        setRegistry((resp as RegistryPluginDTO[]) ?? [])
+        await readRegistryStatus()
+      })
+      .catch(() => undefined)
     return () => {
       cancelled = true
     }
@@ -51,10 +63,15 @@ export function useRegistryEntry(id: string): {
   useEffect(() => {
     if (fromStore) return
     let cancelled = false
-    void transport.invoke(Queries.GetRegistryPlugin, id).then((resp) => {
-      if (cancelled) return
-      setFetched({ id, entry: (resp as RegistryPluginDTO | null) ?? null })
-    })
+    void transport
+      .invoke(Queries.GetRegistryPlugin, id)
+      .then(async (resp) => {
+        if (cancelled) return
+        await readRegistryStatus()
+        if (!cancelled)
+          setFetched({ id, entry: (resp as RegistryPluginDTO | null) ?? null })
+      })
+      .catch(() => undefined)
     return () => {
       cancelled = true
     }
@@ -99,10 +116,14 @@ export function useRegistryUpdates(enabled: boolean): {
   useEffect(() => {
     if (!enabled) return
     let cancelled = false
-    void transport.invoke(Commands.CheckPluginUpdates, {}).then((resp) => {
-      if (cancelled) return
-      setUpdates(toUpdatesMap(resp))
-    })
+    void transport
+      .invoke(Commands.CheckPluginUpdates, {})
+      .then(async (resp) => {
+        if (cancelled) return
+        setUpdates(toUpdatesMap(resp))
+        await readRegistryStatus()
+      })
+      .catch(() => undefined)
     return () => {
       cancelled = true
     }
@@ -118,6 +139,7 @@ export function useRegistryUpdates(enabled: boolean): {
       const entries = await transport.invoke(Queries.ListRegistryPlugins)
       setUpdates(toUpdatesMap(updates))
       setRegistry((entries as RegistryPluginDTO[]) ?? [])
+      await readRegistryStatus()
     } catch {
       // Silent degrade per the registry client contract: last-good data
       // keeps serving; a failed manual refresh must not surface as an

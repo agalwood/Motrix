@@ -328,9 +328,94 @@ describe('Aria2ProcessManager', () => {
       expect(mockLogInfo).toHaveBeenCalledWith(
         {
           data: 'RPC-DIAG CUID#7 first WebSocket response queued: bytes=42',
+          stream: 'stdout',
+          cuid: '7',
+          enginePid: 12345,
         },
         'aria2 RPC diagnostic'
       )
+    })
+
+    it('retains the actual HTTP error when stdout arrives in separate chunks', async () => {
+      const child = createMockChildProcess()
+      mockSpawnFn.mockReturnValue(child)
+      await manager.spawn('/usr/bin/aria2c', [])
+      const data = child.stdout.on.mock.calls.find(
+        ([event]) => event === 'data'
+      )?.[1]
+      data(
+        Buffer.from(
+          '10/14 00:09:21 [ERROR] CUID#17 - Download aborted. URI=https://cdn.example/?t=priv'
+        )
+      )
+      expect(mockLogError).not.toHaveBeenCalled()
+      data(
+        Buffer.from(
+          'ate-token\r\nException: [AbstractCommand.cc:351] errorCode=22\r\n'
+        )
+      )
+      data(
+        Buffer.from(
+          '  -> [HttpSkipResponseCommand.cc:240] errorCode=22 The response status is not successful. status=403\r\n'
+        )
+      )
+      expect(mockLogError).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          enginePid: 12345,
+          stream: 'stdout',
+          cuid: '17',
+          aria2ErrorCode: 22,
+          httpStatus: 403,
+        }),
+        'aria2 engine diagnostic'
+      )
+      expect(JSON.stringify(mockLogError.mock.calls)).not.toContain(
+        'private-token'
+      )
+    })
+
+    it('drains pipe output after exit and flushes an unterminated line once on close', async () => {
+      const child = createMockChildProcess()
+      mockSpawnFn.mockReturnValue(child)
+      await manager.spawn('/usr/bin/aria2c', [])
+      const data = child.stdout.on.mock.calls.find(
+        ([event]) => event === 'data'
+      )?.[1]
+      const end = child.stdout.on.mock.calls.find(
+        ([event]) => event === 'end'
+      )?.[1]
+      data(Buffer.from('10/14 00:09:21 [ERROR] CUID#17 failed\n'))
+      child._emit('exit', 22, null)
+      data(Buffer.from('Exception: [source:1] errorCode=22 status=429'))
+      end()
+      child._emit('close', 22, null)
+      expect(mockLogError).toHaveBeenCalledTimes(2)
+      expect(mockLogError).toHaveBeenLastCalledWith(
+        expect.objectContaining({ httpStatus: 429, cuid: '17' }),
+        'aria2 engine diagnostic'
+      )
+    })
+
+    it('does not mix a previous process stderr tail into a restarted engine', async () => {
+      const first = createMockChildProcess()
+      const second = createMockChildProcess()
+      mockSpawnFn.mockReturnValueOnce(first).mockReturnValueOnce(second)
+      await manager.spawn('/usr/bin/aria2c', [])
+      const firstData = first.stderr.on.mock.calls.find(
+        ([event]) => event === 'data'
+      )?.[1]
+      firstData(Buffer.from('old process partial error'))
+      first._emit('exit', 1, null)
+      await manager.spawn('/usr/bin/aria2c', [])
+      first._emit('close', 1, null)
+      expect(manager.getRecentStderr()).toBe('')
+      const secondData = second.stderr.on.mock.calls.find(
+        ([event]) => event === 'data'
+      )?.[1]
+      secondData(Buffer.from('new process error'))
+      second._emit('exit', 1, null)
+      second._emit('close', 1, null)
+      expect(manager.getRecentStderr()).toBe('new process error\n')
     })
 
     it('calls onExit when process exits', async () => {
@@ -422,7 +507,7 @@ describe('Aria2ProcessManager', () => {
       const firstStderrHandler = firstChild.stderr.on.mock.calls[0]?.[1]
       firstStderrHandler?.(
         Buffer.from(
-          `database disk image is malformed: ${sensitiveArgs.join(' ')}`
+          `database disk image is malformed: ${sensitiveArgs.join(' ')}\n`
         )
       )
       expect(manager.getRecentStderr()).toContain(

@@ -1,12 +1,6 @@
-# Motrix Turbo — General CI
-#
-# Validates plugin manifest schema parity (host façade of the published
-# @motrix/plugin-manifest-schema), lint, type-check, unit tests, and the
-# standalone Rust native-messaging host.
-#
-# Security note: this workflow does not consume any GitHub event payload
-# (issue titles, PR bodies, commit messages) in run: steps, so there is
-# no injection surface.
+# Complete tests on every PR; presentation-only changes use three native
+# desktop targets. Main, nightly and manual runs validate all six targets and
+# both distribution formats. The stable `ci` job checks every selected result.
 
 name: CI
 
@@ -15,26 +9,52 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  merge_group:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  ci:
+  plan:
+    name: Select validation scope
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      profile: ${{ steps.plan.outputs.profile }}
+      package_matrix: ${{ steps.plan.outputs.package_matrix }}
+      distributions: ${{ steps.plan.outputs.distributions }}
+      installers: ${{ steps.plan.outputs.installers }}
+      filesystems: ${{ steps.plan.outputs.filesystems }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Select checks from the complete Git diff
+        id: plan
+        run: node scripts/ci-plan.mjs
+
+  quality:
+    name: Static checks
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
-          version: 12.8.1
+          version: 12.16.1
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: pnpm
@@ -54,99 +74,12 @@ jobs:
       - name: i18n catalog and translation contract
         run: pnpm run check:i18n
 
-      - name: Locale runtime contracts
-        run: >-
-          pnpm exec vitest run
-          src/shared/constants/locales.test.ts
-          src/shared/i18n-resources.test.ts
-          src/shared/schemas/locale.test.ts
-          src/shared/protocol/forwardable-events.test.ts
-          src/core/i18n/locale-coordinator.test.ts
-          src/core/settings/settings-manager.test.ts
-          src/core/plugin/plugin-registry.test.ts
-          src/core/plugin/capabilities/i18n.test.ts
-          src/core/plugin/host/plugin-host.test.ts
-          src/core/plugin/host/quick-js-worker.locale.test.ts
-          src/main/ipc/events.test.ts
-          src/main/ipc/disclaimer.test.ts
-          src/main/ipc/queries.test.ts
-          src/server/ipc/queries.test.ts
-          src/shared/schemas/app-settings.test.ts
-          src/main/plugin/capability-host.test.ts
-          src/main/plugin/host-language.test.ts
-          src/main/window/window-manager.test.ts
-          src/server/plugin/capability-host.test.ts
-          src/preload/preload.test.ts
-          src/renderer/lib/bootstrap-locale.test.ts
-          src/renderer/lib/i18n.test.ts
-          src/renderer/components/ui/primitives-i18n.test.tsx
-          src/renderer/components/language-sync.test.tsx
-          src/renderer/components/locale-direction-provider.test.tsx
-          src/renderer/components/onboarding/onboarding-language-select.test.tsx
-          src/renderer/routes/plugins/hooks/use-plugin-detail.test.tsx
-          src/renderer/routes/plugins/hooks/use-plugins.test.tsx
-          src/renderer/routes/settings/cards/appearance-dialog.test.tsx
-          tests/scripts/check-i18n.test.ts
-
-      - name: Marketplace registry contracts
-        run: >-
-          pnpm exec vitest run
-          src/shared/schemas/registry.test.ts
-          src/core/plugin/registry/registry-client.test.ts
-          src/renderer/routes/plugins/lib/registry-text.test.ts
-          src/renderer/routes/plugins/plugins-page.test.tsx
-          src/renderer/routes/plugins/components/registry-plugin-card.test.tsx
-          src/renderer/routes/plugins/components/registry-detail-panel.test.tsx
-          src/core/plugin/registry/registry-fetcher.test.ts
-          src/core/plugin/registry/update-scan.test.ts
-          src/core/plugin/install/e2e-install.test.ts
-          src/core/plugin/install/registry-expectation.test.ts
-          src/core/plugin/update/builtin-updater.test.ts
-          src/core/plugin/update/signature.test.ts
-
-      # The runtime test repeats the real loopback proxy probe under Electron's
-      # embedded Node via ELECTRON_RUN_AS_NODE; keep the hydrated runtime above.
-      - name: Undici proxy compatibility (Node + Electron)
-        run: >-
-          pnpm exec vitest run
-          src/core/engine/aria2/aria2-adapter.test.ts
-          src/core/engine/aria2/aria2-config-builder.test.ts
-          src/core/engine/aria2/aria2-process-manager.test.ts
-          src/core/engine/aria2/aria2-trust-store.test.ts
-          src/core/engine/engine-supervisor.test.ts
-          src/core/proxy/applied-download-proxy-policy.test.ts
-          src/core/proxy/applier.test.ts
-          src/core/proxy/aria2-proxy-routing.test.ts
-          src/core/proxy/serializers.test.ts
-          src/core/session/session-manager.test.ts
-          src/core/task/actions/re-add-task.test.ts
-          src/core/task/create-task-handler.test.ts
-          src/core/task/direct-resource-validator.test.ts
-          src/core/task/direct-resource-validator.proxy-contract.test.ts
-          src/core/task/direct-resource-validator.proxy.test.ts
-          src/core/tracker/tracker-prober.test.ts
-          src/core/tracker/tracker-syncer.test.ts
-          src/main/ipc/commands.test.ts
-          src/server/ipc/commands.test.ts
-        env:
-          MOTRIX_REQUIRE_ELECTRON_PROXY_TEST: '1'
-
-      - name: Undici response and dispatcher lifecycle
-        run: >-
-          pnpm exec vitest run
-          src/core/geoip/geo-ip-downloader.test.ts
-          src/core/media/manifest-fetcher.test.ts
-          src/core/plugin/capabilities/http.proxy-lifecycle.test.ts
-          src/core/plugin/install/github-fetcher.test.ts
-          src/core/plugin/install/url-fetcher.test.ts
-          src/core/plugin/registry/registry-client.test.ts
-          src/server/plugin/install-service.test.ts
-
       - name: Schema parity check
         run: pnpm run check:schema-parity
 
       - name: Third-party notice contract
-        run: pnpm run check:third-party-notices
+        # The verifier tests run once in the root test shards.
+        run: node scripts/generate-third-party-notices.mjs --check
 
       - name: File naming conventions
         run: pnpm run check:file-names
@@ -154,19 +87,16 @@ jobs:
       - name: Architecture and icon import boundaries
         run: pnpm run check:boundaries
 
-      # Fingerprint the resolved Biome first: lint verdicts have disagreed
-      # between runs with identical inputs before, and the version line is
-      # the fastest way to tell a toolchain drift from a real finding.
       - name: Biome toolchain fingerprint
         run: |
           pnpm exec biome --version
           pnpm ls @biomejs/biome
 
-      # Single source of truth for lint scope: package.json's `lint` script
-      # (`biome check .`), bounded by biome.json. Keep this in lockstep with
-      # the local commit gate in .claude/rules/commit-and-quality.md.
       - name: Lint
         run: pnpm run lint
+
+      - name: Type-check (root)
+        run: pnpm exec tsc --noEmit
 
       - name: Native host JavaScript tooling tests
         run: >-
@@ -174,74 +104,116 @@ jobs:
           packages/native-host/build.test.mjs
           packages/native-host/package-flatpak-companion.test.mjs
 
-      - name: Release and packaging contracts
+  tests:
+    name: Tests / ${{ matrix.shard }} of 4
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 12.16.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          MOTRIX_SKIP_ELECTRON_REBUILD: '1'
+          MOTRIX_SKIP_ENGINE_FETCH: '1'
+      - name: Ensure Electron runtime payload
+        run: node node_modules/electron/install.js
+      - name: Setup Rust for native test fixtures
+        uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
+        with:
+          toolchain: 1.94.1
+      - name: Prepare native filesystem test fixture
+        # These suites inspect binary availability during collection. Preparing
+        # it here removes their former dependency on another test's beforeAll.
+        run: |
+          cargo build --manifest-path packages/finalize-fs/Cargo.toml --locked
+          test -x packages/finalize-fs/target/debug/motrix-finalize-fs
+      - name: Run complete test partition
+        # pnpm test preserves the Node ABI pretest hook. No changed-file filter
+        # or relaxed isolation: every root test belongs to exactly one shard.
         run: >-
-          pnpm exec vitest run
-          src/main/bridge/native-messaging-installer.test.ts
-          src/main/bridge/bootstrap-lifecycle.test.ts
-          src/main/bridge/native-host-path.test.ts
-          src/main/bridge/native-messaging-extensions.test.ts
-          src/main/bridge/snap-environment.test.ts
-          tests/scripts/assemble-release-artifacts.test.ts
-          tests/scripts/app-deep-link-registration.test.ts
-          tests/scripts/appimage-artifact.test.ts
-          tests/scripts/before-pack-verify.test.ts
-          tests/scripts/compose-server.test.ts
-          tests/scripts/container-platform-metadata.test.ts
-          tests/scripts/container-publication-state.test.ts
-          tests/scripts/container-release-metadata.test.ts
-          tests/scripts/docker-server-docs.test.ts
-          tests/scripts/electron-package-contract.test.ts
-          tests/scripts/flatpak-native-host.test.ts
-          tests/scripts/finalize-appimage-artifact.test.ts
-          tests/scripts/native-binary-target.test.ts
-          tests/scripts/obsidian-docs.test.ts
-          tests/scripts/release-metadata.test.ts
-          tests/scripts/release-signing-input.test.ts
-          tests/scripts/release-version-contract.test.ts
-          tests/scripts/snap-artifact.test.ts
-          tests/scripts/snap-build-set-release.test.ts
-          tests/scripts/snap-project.test.ts
-          tests/scripts/snap-store-channel.test.ts
-          tests/scripts/stage-electron-app.test.ts
-          tests/scripts/audit-server-runtime.test.ts
-          tests/scripts/docker-server-runtime.test.ts
-          tests/scripts/server-runtime-workflow.test.ts
-          tests/scripts/smoke-server-package.test.ts
-          tests/scripts/stage-server-app.test.ts
-          tests/scripts/verify-electron-package.test.ts
-          tests/scripts/verify-appimage-artifact.test.ts
-          tests/scripts/verify-pacman-artifact.test.ts
-          tests/scripts/verify-container-publication.test.ts
-          tests/scripts/verify-server-package.test.ts
-          tests/scripts/verify-update-artifacts.test.ts
-          tests/scripts/workflow-release-matrix.test.ts
-          tests/scripts/workflow-flatpak-release.test.ts
-          tests/scripts/workflow-snap.test.ts
+          pnpm test --shard=${{ matrix.shard }}/4
+          --reporter=default --reporter=json
+          --outputFile=output/ci/reports/shard-${{ matrix.shard }}.json
+        env:
+          MOTRIX_REQUIRE_ELECTRON_PROXY_TEST: '1'
+      - name: Upload test partition report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: root-tests-${{ matrix.shard }}
+          path: output/ci/reports/shard-${{ matrix.shard }}.json
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 7
 
-      - name: Type-check (root)
-        run: pnpm exec tsc --noEmit
+  test-reports:
+    name: Verify complete test coverage
+    needs: tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 12.16.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          MOTRIX_SKIP_ELECTRON_REBUILD: '1'
+          MOTRIX_SKIP_ENGINE_FETCH: '1'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: root-tests-*
+          path: output/ci/reports
+          merge-multiple: true
+      - name: Check every discovered test file ran exactly once
+        run: |
+          pnpm exec vitest list --filesOnly --json=output/ci/test-files.json
+          node scripts/verify-ci-test-reports.mjs
 
-      - name: Verified FFmpeg installation contracts
-        run: >-
-          pnpm exec vitest run
-          src/core/ffmpeg/verified-install.test.ts
-          src/core/plugin/capabilities/ffmpeg.test.ts
-          src/main/plugin/ffmpeg-fetch-electron.test.ts
-          src/main/plugin/ffmpeg-macos-trust.test.ts
-          src/main/plugin/ffmpeg-probe-managed.test.ts
-          src/main/plugin/ffmpeg-probe-electron.test.ts
-          src/renderer/routes/settings/cards/integration/media-tools-section.test.tsx
-
-      - name: Tests (root)
-        # Temporarily non-blocking. Known pre-existing failures (unrelated to
-        # Plan G — all confirmed on main):
-        #   - src/renderer/layouts/app-layout.test.tsx (1)
-        #   - src/renderer/routes/dashboard/tiles/engine-tile.test.tsx (2)
-        #   - src/core/geoip/geo-ip-manager.test.ts (intermittent ENOTEMPTY)
-        # Remove continue-on-error once each is resolved.
-        continue-on-error: true
-        run: pnpm test
+  torrent-browser:
+    name: Torrent / Chromium, Firefox, WebKit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 12.16.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          MOTRIX_SKIP_ELECTRON_REBUILD: '1'
+          MOTRIX_SKIP_ENGINE_FETCH: '1'
+      - name: Install torrent conformance browsers
+        run: pnpm exec playwright install --with-deps chromium firefox webkit
+      - name: Torrent conformance on HTTP without WebCrypto
+        run: pnpm test:browser:torrent
 
   server-runtime:
     name: Server runtime / ${{ matrix.target }}
@@ -259,8 +231,10 @@ jobs:
             docker_arch: arm64
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
 
@@ -285,7 +259,7 @@ jobs:
           --image motrix-server-ci:${{ matrix.target }}
 
       - name: Upload Server size report
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: server-size-report-${{ matrix.target }}
           path: release/size-reports/server-${{ matrix.target }}.json
@@ -298,9 +272,11 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
         with:
           toolchain: 1.94.1
           components: rustfmt, clippy
@@ -326,7 +302,9 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
         with:
           toolchain: 1.94.1
           components: rustfmt, clippy
@@ -337,6 +315,7 @@ jobs:
           cargo test --manifest-path packages/native-host/Cargo.toml --all-targets --all-features --locked
 
   package-targets:
+    needs: plan
     name: Package smoke / ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
@@ -350,66 +329,53 @@ jobs:
       MACOSX_DEPLOYMENT_TARGET: ${{ matrix.platform == 'darwin' && '13.0' || '' }}
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - target: darwin-arm64
-            os: macos-26
-            platform: darwin
-            arch: arm64
-            rust_target: aarch64-apple-darwin
-            electron_builder_args: --mac --arm64
-            resources_dir: release/mac-arm64/Motrix.app/Contents/Resources
-            app_path: release/mac-arm64/Motrix.app
-          - target: darwin-x64
-            os: macos-26-intel
-            platform: darwin
-            arch: x64
-            rust_target: x86_64-apple-darwin
-            electron_builder_args: --mac --x64
-            resources_dir: release/mac/Motrix.app/Contents/Resources
-            app_path: release/mac/Motrix.app
-          - target: linux-x64
-            os: ubuntu-22.04
-            platform: linux
-            arch: x64
-            rust_target: x86_64-unknown-linux-musl
-            electron_builder_args: --linux --x64
-            resources_dir: release/linux-unpacked/resources
-            app_path: release/linux-unpacked
-          - target: linux-arm64
-            os: ubuntu-22.04-arm
-            platform: linux
-            arch: arm64
-            rust_target: aarch64-unknown-linux-musl
-            electron_builder_args: --linux --arm64
-            resources_dir: release/linux-arm64-unpacked/resources
-            app_path: release/linux-arm64-unpacked
-          - target: win32-x64
-            os: windows-2025
-            platform: win32
-            arch: x64
-            rust_target: x86_64-pc-windows-msvc
-            electron_builder_args: --win --x64
-            resources_dir: release/win-unpacked/resources
-            app_path: release/win-unpacked
+      matrix: ${{ fromJSON(needs.plan.outputs.package_matrix) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
-          version: 12.8.1
+          version: 12.16.1
           run_install: false
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: pnpm
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
         with:
           toolchain: 1.94.1
           targets: ${{ matrix.rust_target }}
+
+      - name: Cache native compilation
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            packages/native-host/target
+            packages/finalize-fs/target
+          key: native-v1-${{ runner.os }}-${{ runner.arch }}-${{ matrix.rust_target }}-1.94.1-${{ hashFiles('.cargo/**', 'packages/*/Cargo.lock', 'packages/*/Cargo.toml') }}-${{ hashFiles('packages/native-host/src/**', 'packages/finalize-fs/src/**') }}
+          restore-keys: |
+            native-v1-${{ runner.os }}-${{ runner.arch }}-${{ matrix.rust_target }}-1.94.1-${{ hashFiles('.cargo/**', 'packages/*/Cargo.lock', 'packages/*/Cargo.toml') }}-
+
+      - name: Identify Swift toolchain
+        if: matrix.platform == 'darwin'
+        id: swift
+        run: echo "version=$(xcrun swift --version | shasum -a 256 | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Safari helper compilation
+        if: matrix.platform == 'darwin'
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: packages/safari-bootstrap/.build
+          key: safari-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.swift.outputs.version }}-1.94.1-${{ hashFiles('.cargo/**', 'packages/native-host/Cargo.*', 'packages/native-host/src/**', 'packages/native-host/include/**', 'packages/safari-bootstrap/Package.swift', 'packages/safari-bootstrap/Package.resolved', 'packages/safari-bootstrap/Sources/**', 'packages/safari-bootstrap/Tests/**', 'packages/safari-bootstrap/Native/**', 'packages/safari-bootstrap/Executables/**', 'packages/safari-bootstrap/configuration.json', 'packages/safari-bootstrap/build.mjs') }}
+          restore-keys: |
+            safari-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.swift.outputs.version }}-1.94.1-
 
       # Every matrix entry uses a runner with the same native architecture as
       # rust_target. Tests therefore execute the target binary directly; no
@@ -457,11 +423,19 @@ jobs:
           pnpm run build:native-host -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
           pnpm run build:finalize-fs -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
 
-      - name: Finalize filesystem runtime integration
+      - name: Native runtime integration
         env:
+          MOTRIX_ARIA2_TEST_BIN: ${{ github.workspace }}/extra/${{ matrix.platform }}/${{ matrix.arch }}/${{ matrix.platform == 'win32' && 'aria2c.exe' || 'aria2c' }}
+          MOTRIX_REQUIRE_HTTP_RETRY_TEST: '1'
+          MOTRIX_LEGACY_CHECKPOINT_ENGINE: ${{ github.workspace }}/extra/${{ matrix.platform }}/${{ matrix.arch }}/${{ matrix.platform == 'win32' && 'aria2c.exe' || 'aria2c' }}
           MOTRIX_FINALIZE_FS_TEST_BIN: packages/finalize-fs/dist/${{ matrix.platform }}-${{ matrix.arch }}/${{ matrix.platform == 'win32' && 'motrix-finalize-fs.exe' || 'motrix-finalize-fs' }}
         run: >-
           pnpm exec vitest run
+          src/core/task/direct-task-retry.integration.test.ts
+          src/core/task/http-finalize.integration.test.ts
+          src/core/engine/aria2/aria2-session-identity-recovery.integration.test.ts
+          src/core/engine/aria2/aria2-parent-lifecycle.integration.test.ts
+          src/core/legacy-import/http-activation.integration.test.ts
           src/core/plugin/finalize/native-artifact-operations.integration.test.ts
           src/core/plugin/finalize/finalize-adversarial.integration.test.ts
           src/core/plugin/finalize/finalize-smb-recovery.integration.test.ts
@@ -514,6 +488,16 @@ jobs:
           ${{ matrix.electron_builder_args }}
           --dir
           --publish never
+
+      # Explicit archive targets override --dir in electron-builder. Keep them
+      # out of ordinary smoke builds; full validation also exercises installers.
+      - name: Build Windows installers
+        if: matrix.platform == 'win32' && needs.plan.outputs.installers == 'true'
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: >-
+          pnpm exec electron-builder --win nsis zip --${{ matrix.arch }}
+          --prepackaged "${{ matrix.app_path }}" --publish never
 
       - name: Install Arch packaging tools
         if: matrix.platform == 'linux'
@@ -620,6 +604,15 @@ jobs:
             }
           }
 
+      - name: Smoke test native Windows Electron runtime
+        if: matrix.platform == 'win32'
+        run: >-
+          pnpm run smoke:electron-package --
+          --app-dir "${{ matrix.app_path }}"
+          --platform ${{ matrix.platform }}
+          --arch ${{ matrix.arch }}
+          --report "release/size-reports/${{ matrix.target }}-runtime.json"
+
       - name: Verify staged Windows aria2 WebSocket contract
         if: matrix.platform == 'win32'
         env:
@@ -631,9 +624,73 @@ jobs:
           --reporter=verbose
 
       - name: Upload Electron size report
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() && hashFiles('release/size-reports/*.json') != '' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: electron-size-report-${{ matrix.target }}-${{ github.run_attempt }}
-          path: release/size-reports/${{ matrix.target }}.json
+          path: release/size-reports/${{ matrix.target }}*.json
           if-no-files-found: error
           retention-days: 14
+
+  flatpak:
+    needs: plan
+    if: needs.plan.outputs.distributions == 'true'
+    uses: ./.github/workflows/flatpak.yml
+
+  snap:
+    permissions:
+      contents: read
+      actions: read
+    needs: plan
+    if: needs.plan.outputs.distributions == 'true'
+    uses: ./.github/workflows/snap.yml
+
+  finalize-filesystems:
+    needs: plan
+    if: needs.plan.outputs.filesystems == 'true'
+    uses: ./.github/workflows/finalize-filesystems.yml
+
+  finalize-nfs:
+    needs: plan
+    if: needs.plan.outputs.filesystems == 'true'
+    uses: ./.github/workflows/finalize-nfs.yml
+
+  finalize-smb:
+    needs: plan
+    if: needs.plan.outputs.filesystems == 'true'
+    uses: ./.github/workflows/finalize-smb.yml
+
+  finalize-exfat:
+    needs: plan
+    if: needs.plan.outputs.filesystems == 'true'
+    uses: ./.github/workflows/finalize-exfat.yml
+
+  ci:
+    name: ci
+    if: ${{ always() }}
+    needs:
+      - plan
+      - quality
+      - tests
+      - test-reports
+      - torrent-browser
+      - server-runtime
+      - rust-quality
+      - safari-native-host
+      - package-targets
+      - flatpak
+      - snap
+      - finalize-filesystems
+      - finalize-nfs
+      - finalize-smb
+      - finalize-exfat
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Require success from every selected check
+        env:
+          CI_NEEDS: ${{ toJSON(needs) }}
+        run: node scripts/ci-gate.mjs

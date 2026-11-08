@@ -1,3 +1,4 @@
+import type { CreateDownloadParams } from '@core/engine/engine-adapter'
 import {
   admitDownloadSources,
   DownloadSourceError,
@@ -17,6 +18,9 @@ import {
 //   - enrich / audit throwing -> chain continues (fail-open with isolation).
 //     The throwing plugin's staged effects are dropped via removeFromPlugin so
 //     they cannot poison the merged result.
+//   - Filename templating beforeFinalize is optional despite its pre-resolve
+//     ordering: failure preserves the previously accepted target path.
+//   Activation failures follow the same policy as invocation failures.
 //
 // Architecture contract:
 //   - MUST NOT import from electron, @main/, @server/, @renderer/.
@@ -73,6 +77,7 @@ export interface OrchestratorOptions {
   pluginStorageRootFor: (pluginId: string) => string
   /** Production task-filesystem and metadata context for every Hook. */
   capabilityHost?: Pick<CapabilityHost, 'fsTaskFor' | 'metadata'>
+  createLog?: CapabilityHost['createLog']
   /** ffmpeg per-(plugin, task) staging quota in bytes. */
   ffmpegStagingQuotaBytes?: number
   /** Optional NDJSON audit log; T15 wires the real instance. */
@@ -91,6 +96,8 @@ export interface BeforeCreateHttpResult {
   aborted?: false
   /** Merged DTO ready for engine handoff. */
   final: BeforeCreateHttpContextDTO
+  /** Bound to this invocation's participants; no task-global diagnostic state. */
+  recordEngineDispatch?: (params: CreateDownloadParams) => void
   /** Plugin attribution for the final headers / proxy / uris choices. */
   contributors: MergedHttp['contributors']
   /** Caller (TaskManager) commits this store inside its DB transaction. */
@@ -120,7 +127,15 @@ export interface ChainAborted {
 interface ChainEntry {
   id: string
   role: RoleBand
-  info: ActivePluginInfo
+}
+
+function abortsChainOnFailure(hook: SeriesHook, entry: ChainEntry): boolean {
+  // This builtin chooses a display name, not the file contents. Its early
+  // ordering must not make a downloaded artifact depend on a healthy worker.
+  if (hook === 'beforeFinalize' && entry.id === 'motrix.filename-template') {
+    return false
+  }
+  return isMostCritical(entry.role)
 }
 
 function roleFromManifest(
@@ -154,6 +169,24 @@ export class HookOrchestrator {
     this.breaker = opts.breaker ?? new RealCircuitBreaker()
   }
 
+  private recordHttpDiagnostic(
+    pluginId: string,
+    taskId: string,
+    stage: string,
+    fields: Record<string, unknown>
+  ): void {
+    try {
+      this.opts.createLog?.(pluginId).info(`HTTP task: ${stage}`, {
+        ...fields,
+        taskId,
+        stage,
+        source: 'host',
+      })
+    } catch {
+      // Diagnostic capture must never change hook or download behavior.
+    }
+  }
+
   // -------------------------------------------------------------------------
   // beforeCreate (HTTP)
   // -------------------------------------------------------------------------
@@ -162,7 +195,7 @@ export class HookOrchestrator {
     initial: BeforeCreateHttpContextDTO,
     taskId: string
   ): Promise<BeforeCreateHttpResult | ChainAborted> {
-    const chain = await this.eligiblePlugins(
+    const chain = this.eligiblePlugins(
       'beforeCreate',
       initial.uris[0],
       initial.type
@@ -187,6 +220,7 @@ export class HookOrchestrator {
     const staged = new StagedEffectStore()
     const timeout = this.opts.hookTimeoutMs.series
     let working = cloneBeforeCreate(initial)
+    const diagnosticPluginIds: string[] = []
 
     for (const entry of chain) {
       if (this.breaker.isOpen(entry.id, 'beforeCreate')) {
@@ -203,9 +237,20 @@ export class HookOrchestrator {
         continue
       }
 
-      const abort = newHookAbort(timeout)
+      let abort: ReturnType<typeof newHookAbort> | undefined
+      diagnosticPluginIds.push(entry.id)
+      this.recordHttpDiagnostic(entry.id, taskId, 'beforeCreate.input', {
+        sourceUrl: working.sourceUrl,
+        uris: working.uris,
+        headers: working.headers,
+        proxy: working.proxy,
+      })
 
       try {
+        await this.activateForHook(entry, 'beforeCreate')
+        abort = newHookAbort(timeout)
+        const check = this.opts.host.capturePolicyCheck?.(entry.id)
+        if (check) staged.bindPolicyCheck(entry.id, check)
         const metadataSnapshot = await this.metadataSnapshot(taskId, entry.id)
         await this.opts.host.invokeHook(entry.id, 'beforeCreate', {
           taskId,
@@ -228,12 +273,19 @@ export class HookOrchestrator {
           'http',
           'https',
         ]).map((source) => source.sourceUrl)
+        this.recordHttpDiagnostic(entry.id, taskId, 'beforeCreate.output', {
+          uris: working.uris,
+          headers: working.headers,
+          proxy: working.proxy,
+        })
         this.breaker.success(entry.id, 'beforeCreate')
       } catch (e) {
         if (e instanceof DownloadSourceError) throw e
-        this.breaker.failure(entry.id, 'beforeCreate')
-        await this.maybeDisable(entry.id, 'beforeCreate')
+        await this.recordPluginFailure(entry.id, 'beforeCreate')
         const message = (e as Error).message
+        this.recordHttpDiagnostic(entry.id, taskId, 'beforeCreate.error', {
+          error: message,
+        })
         await this.opts.auditLog?.log({
           type: 'chain.plugin_error',
           hook: 'beforeCreate',
@@ -243,7 +295,7 @@ export class HookOrchestrator {
           error: message,
         })
 
-        if (isMostCritical(entry.role)) {
+        if (abortsChainOnFailure('beforeCreate', entry)) {
           await this.opts.auditLog?.log({
             type: 'chain.abort',
             hook: 'beforeCreate',
@@ -259,7 +311,7 @@ export class HookOrchestrator {
         staged.removeFromPlugin(entry.id)
         working = mergeBeforeCreateWorking(initial, staged)
       } finally {
-        abort.dispose()
+        abort?.dispose()
       }
     }
 
@@ -293,7 +345,22 @@ export class HookOrchestrator {
       contributors: merged.contributors,
     })
 
-    return { final, contributors: merged.contributors, staged }
+    staged.assertPolicyCurrent()
+    return {
+      final,
+      contributors: merged.contributors,
+      staged,
+      recordEngineDispatch: (params) => {
+        for (const pluginId of diagnosticPluginIds) {
+          this.recordHttpDiagnostic(pluginId, taskId, 'engine.dispatch', {
+            uris: params.uris,
+            headers: params.headers,
+            proxy: params.proxy,
+            gid: params.gid,
+          })
+        }
+      },
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -304,7 +371,7 @@ export class HookOrchestrator {
     initial: BeforeFinalizeContextDTO,
     taskId: string
   ): Promise<BeforeFinalizeResult | ChainAborted> {
-    const chain = await this.eligiblePlugins(
+    const chain = this.eligiblePlugins(
       'beforeFinalize',
       undefined,
       initial.task.type
@@ -353,8 +420,12 @@ export class HookOrchestrator {
       staged.appendStaging(entry.id, staging)
       const previousFinalizePath = staged.pendingFinalizePath
 
-      const abort = newHookAbort(timeout)
+      let abort: ReturnType<typeof newHookAbort> | undefined
       try {
+        await this.activateForHook(entry, 'beforeFinalize')
+        abort = newHookAbort(timeout)
+        const check = this.opts.host.capturePolicyCheck?.(entry.id)
+        if (check) staged.bindPolicyCheck(entry.id, check)
         const metadataSnapshot = await this.metadataSnapshot(taskId, entry.id)
         await this.opts.host.invokeHook(entry.id, 'beforeFinalize', {
           taskId,
@@ -387,8 +458,7 @@ export class HookOrchestrator {
         }
         this.breaker.success(entry.id, 'beforeFinalize')
       } catch (e) {
-        this.breaker.failure(entry.id, 'beforeFinalize')
-        await this.maybeDisable(entry.id, 'beforeFinalize')
+        await this.recordPluginFailure(entry.id, 'beforeFinalize')
         const message = (e as Error).message
         await this.opts.auditLog?.log({
           type: 'chain.plugin_error',
@@ -399,7 +469,7 @@ export class HookOrchestrator {
           error: message,
         })
 
-        if (isMostCritical(entry.role)) {
+        if (abortsChainOnFailure('beforeFinalize', entry)) {
           await this.opts.auditLog?.log({
             type: 'chain.abort',
             hook: 'beforeFinalize',
@@ -410,6 +480,10 @@ export class HookOrchestrator {
           })
           return { aborted: true, reason: `${entry.id}: ${message}` }
         }
+        log.warn(
+          { taskId, pluginId: entry.id, error: message },
+          'optional beforeFinalize plugin failed; keeping the accepted target'
+        )
         staged.removeFromPlugin(entry.id)
         staged.restoreFinalizePath(previousFinalizePath)
         working = {
@@ -418,7 +492,7 @@ export class HookOrchestrator {
           targetFilePath: previousFinalizePath ?? initial.targetFilePath,
         }
       } finally {
-        abort.dispose()
+        abort?.dispose()
       }
     }
 
@@ -453,6 +527,7 @@ export class HookOrchestrator {
       stagingBytesDiscarded: 0,
     })
 
+    staged.assertPolicyCurrent()
     return { final, finalFilePath, replacement, staged }
   }
 
@@ -465,7 +540,7 @@ export class HookOrchestrator {
     ctxDto: AfterCompleteContextDTO | OnErrorContextDTO,
     taskId: string
   ): Promise<void> {
-    const chain = await this.eligiblePlugins(hook)
+    const chain = this.eligiblePlugins(hook)
     if (chain.length === 0) return
 
     const timeout = this.opts.hookTimeoutMs.parallel
@@ -482,9 +557,11 @@ export class HookOrchestrator {
         return
       }
 
-      const abort = newHookAbort(timeout)
+      let abort: ReturnType<typeof newHookAbort> | undefined
 
       try {
+        await this.activateForHook(entry, hook)
+        abort = newHookAbort(timeout)
         const metadataSnapshot = await this.metadataSnapshot(taskId, entry.id)
         await this.opts.host.invokeHook(entry.id, hook, {
           taskId,
@@ -503,8 +580,7 @@ export class HookOrchestrator {
         })
         this.breaker.success(entry.id, hook)
       } catch (e) {
-        this.breaker.failure(entry.id, hook)
-        await this.maybeDisable(entry.id, hook)
+        await this.recordPluginFailure(entry.id, hook)
         await this.opts.auditLog?.log({
           type: 'chain.plugin_error',
           hook,
@@ -514,7 +590,7 @@ export class HookOrchestrator {
           error: (e as Error).message,
         })
       } finally {
-        abort.dispose()
+        abort?.dispose()
       }
     })
 
@@ -526,16 +602,14 @@ export class HookOrchestrator {
   // -------------------------------------------------------------------------
 
   /**
-   * Internal — collect every active plugin whose manifest declares the hook
-   * and (for before* hooks) whose hostPermissions accept the task URL. Result
-   * is sorted by role band ascending so the chain runs resolve before enrich
-   * before audit.
+   * Discover candidates without starting workers. Each entry activates inside
+   * its own failure boundary after the circuit-breaker check.
    */
-  private async eligiblePlugins(
+  private eligiblePlugins(
     hook: AnyHook,
     url?: string,
     taskType?: 'http' | 'bt' | 'magnet' | 'ftp' | 'metalink'
-  ): Promise<ChainEntry[]> {
+  ): ChainEntry[] {
     const out: ChainEntry[] = []
     const descriptors = this.opts.activationDispatcher?.candidatesForHook(
       hook,
@@ -545,32 +619,14 @@ export class HookOrchestrator {
       }
     )
     if (descriptors) {
-      for (const descriptor of descriptors) {
-        await this.opts.activationDispatcher?.activateForHook(
-          descriptor.id,
-          hook
-        )
-        const info = this.opts.host
-          .allActive()
-          .find((active) => active.id === descriptor.id)
-        if (!info) {
-          throw new Error(
-            `hook demand activation completed without active plugin ${descriptor.id}`
-          )
-        }
-        const role = roleFromManifest(info, hook)
-        if (role) out.push({ id: info.id, role, info })
-      }
       return sortByBand(
-        out.map((entry) => ({
-          pluginId: entry.id,
-          role: entry.role,
-          info: entry.info,
+        descriptors.map((descriptor) => ({
+          pluginId: descriptor.id,
+          role: descriptor.role,
         }))
       ).map((entry) => ({
         id: entry.pluginId,
         role: entry.role,
-        info: entry.info,
       }))
     }
 
@@ -605,11 +661,31 @@ export class HookOrchestrator {
       )
       if (!eligible) continue
       if (!role) continue
-      out.push({ id: info.id, role, info })
+      out.push({ id: info.id, role })
     }
-    return sortByBand(
-      out.map((e) => ({ pluginId: e.id, role: e.role, info: e.info }))
-    ).map((e) => ({ id: e.pluginId, role: e.role, info: e.info }))
+    return sortByBand(out.map((e) => ({ pluginId: e.id, role: e.role }))).map(
+      (e) => ({ id: e.pluginId, role: e.role })
+    )
+  }
+
+  private async activateForHook(
+    entry: ChainEntry,
+    hook: AnyHook
+  ): Promise<void> {
+    if (!this.opts.activationDispatcher) return
+    await this.opts.activationDispatcher.activateForHook(entry.id, hook)
+    const active = this.opts.host
+      .allActive()
+      .find((plugin) => plugin.id === entry.id)
+    if (!active) {
+      throw new Error(
+        `hook demand activation completed without active plugin ${entry.id}`
+      )
+    }
+    const role = roleFromManifest(active, hook)
+    if (!role)
+      throw new Error(`active plugin ${entry.id} no longer declares ${hook}`)
+    entry.role = role
   }
 
   /**
@@ -627,6 +703,17 @@ export class HookOrchestrator {
       // swallowed — the breaker keeps the plugin closed for future chains
       // and the chain's own fail-mode handling continues normally.
     }
+  }
+
+  private async recordPluginFailure(
+    pluginId: string,
+    hook: AnyHook
+  ): Promise<void> {
+    // Host-enforced cancellation must not trip the plugin's error breaker or
+    // overwrite the user's enabled preference.
+    if (this.opts.host.isSecurityRestricted?.(pluginId)) return
+    this.breaker.failure(pluginId, hook)
+    await this.maybeDisable(pluginId, hook)
   }
 
   private metadataSnapshot(

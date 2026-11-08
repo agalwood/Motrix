@@ -18,6 +18,10 @@ import type { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
 import type { ActivationDispatcher } from '@core/plugin/host/activation-dispatcher'
 import type { PluginHost } from '@core/plugin/host/plugin-host'
 import type { PluginInstaller } from '@core/plugin/install/plugin-installer'
+import { PluginEngineVersionTooOld } from '@core/plugin/manifest/errors'
+import { PluginNetworkError } from '@core/plugin/network/plugin-network-error'
+import { operationHandlers } from '@core/plugin/operations/operation-handlers'
+import type { OperationService } from '@core/plugin/operations/operation-service'
 import type { PluginRegistry } from '@core/plugin/plugin-registry'
 import type { RegistryClient } from '@core/plugin/registry/registry-client'
 import { scanForUpdates } from '@core/plugin/registry/update-scan'
@@ -26,6 +30,7 @@ import {
   type AppliedDownloadProxyPolicy,
   UNAVAILABLE_APPLIED_DOWNLOAD_PROXY_POLICY,
 } from '@core/proxy/applied-download-proxy-policy'
+import type { DurableFinalizeRuntime } from '@core/session/durable-finalize-runtime'
 import type { MotrixDatabase } from '@core/session/motrix-database'
 import type { SessionManager } from '@core/session/session-manager'
 import { applySavedSettings } from '@core/settings/apply-saved-settings'
@@ -56,6 +61,7 @@ import {
   taskCreateConflictResult,
 } from '@core/task/bt-duplicate-policy'
 import { parseBtFileLayout } from '@core/task/bt-storage-layout'
+import { BtStorageService } from '@core/task/bt-storage-service'
 import {
   type CreateTaskDeps,
   handleCreateTask,
@@ -81,12 +87,15 @@ import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
 import type { CommandHandlerMap } from '@shared/protocol/handler-types'
 import { taskCreateRequestSchema } from '@shared/schemas/add-task'
+import { btStorageRequestSchema } from '@shared/schemas/bt-storage'
 import {
+  reAddTaskPayloadSchema,
   removeTasksPayloadSchema,
   taskIdsPayloadSchema,
 } from '@shared/schemas/bulk-task-command'
 import { languagePreferenceSchema } from '@shared/schemas/locale'
 import { moveTasksPayloadSchema } from '@shared/schemas/move-tasks'
+import { PluginLogVerboseRequestSchema } from '@shared/schemas/plugin-logs'
 import { checkPluginUpdatesPayloadSchema } from '@shared/schemas/plugin-update'
 import { removeTaskPayloadSchema } from '@shared/schemas/remove-task'
 import {
@@ -94,6 +103,7 @@ import {
   taskTrackerEditSchema,
 } from '@shared/schemas/task-tracker'
 import { EngineRecoveryAction } from '@shared/types/engine'
+import type { PluginInstallCompatibilityFailure } from '@shared/types/plugin-install'
 import type { ProxySettings } from '@shared/types/settings'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
@@ -101,12 +111,34 @@ import { canRetryMagnetMetadata } from '@shared/types/task-actions'
 import type { TaskActivityRecorder } from '@shared/types/task-activity'
 import type { TaskOccurrence } from '@shared/types/task-occurrence'
 import { z } from 'zod'
+import type { ServerUpdateService } from '../app-update-service'
 import type { ServerDownloadPathPolicy } from '../download-path-policy'
+import { makeServerFfmpegDetect } from '../plugin/ffmpeg-detect-server'
 import type { ServerPluginInstallService } from '../plugin/install-service'
+import { installServerFfmpeg } from '../plugin/verified-ffmpeg-server'
 import type { createServerProxyApplier } from '../proxy/wiring'
 import type { ServerDirectoryService } from '../server-directory-service'
+import { unsupportedLegacyImportCommands } from './legacy-import'
 
 export interface ServerCommandContext {
+  updateService: Pick<ServerUpdateService, 'check' | 'setChannel'>
+  userDataDir: string
+  trackAsyncWork?: <T>(operation: () => Promise<T>) => Promise<T>
+  authorizeTaskWrite?: (task: DownloadTask) => Promise<void>
+  authorizeTaskRemoval?: (task: DownloadTask) => Promise<void>
+  authorizeOutputWrite?: (output: string) => Promise<void>
+  authorizeRecheck?: (task: DownloadTask) => Promise<void>
+  prepareStorageBinding?: import('@core/task/bt-storage-service').BtStorageServiceDeps['prepareStorageBinding']
+  btStorageRuntime?: Pick<
+    DurableFinalizeRuntime,
+    'commit' | 'withArtifactLease' | 'hasPendingFinalization'
+  >
+  persistBtStorage?: (
+    task: DownloadTask,
+    sourceRoot: string,
+    targetRoot: string
+  ) => Promise<void>
+  operationService?: OperationService
   supervisor: EngineSupervisor
   settingsManager: SettingsManager
   applyLocale?: (language: string) => Promise<void>
@@ -119,7 +151,7 @@ export interface ServerCommandContext {
    * paths cannot drift. Called synchronously during handler construction.
    */
   bindTaskRetry?: (fn: (taskId: string) => Promise<unknown>) => void
-  recoverFinalization?: (taskId: string) => Promise<void>
+  recoverFinalization?: (taskId: string, sha256?: string) => Promise<void>
   rpcClient: Aria2RpcClient
   adapter: EngineAdapter
   trackerManager: TrackerManager
@@ -127,12 +159,15 @@ export interface ServerCommandContext {
     setEnabled(enabled: boolean): Promise<void>
     restart(): Promise<void>
   }
+  getMediaSegmentGids?: (taskId: string) => string[]
+  cancelMedia?: (taskId: string) => Promise<void>
   aria2BinaryPath: string
   finalNamePicker: FinalNamePicker
   mediaMetaStore: MediaMetaStore
   torrentMetaStore: TorrentMetaStore
   taskManager: TaskManager
   fileCleanupService: FileCleanupService
+  fileCleanupForTask?: (task: DownloadTask) => FileCleanupService
   eventBus: EventBus
   proxyApplier: ReturnType<typeof createServerProxyApplier>
   appliedDownloadProxyPolicy: AppliedDownloadProxyPolicy
@@ -289,6 +324,8 @@ export function buildServerCommandHandlers(
   // Shared by the singular AND plural task command handlers below — one
   // deps bundle per action family so the two arities cannot drift.
   const pauseResumeDeps = {
+    authorizeTaskWrite: ctx.authorizeTaskWrite,
+    getMediaSegmentGids: ctx.getMediaSegmentGids,
     onPauseRequested: (taskId: string) =>
       trackerManager.noteTaskControl?.(taskId, true),
     onResumeRequested: (taskId: string) =>
@@ -319,6 +356,8 @@ export function buildServerCommandHandlers(
     publishTaskUpdateNow,
   }
   const reAddDeps = {
+    authorizeTaskWrite: ctx.authorizeTaskWrite,
+    authorizeTaskRemoval: ctx.authorizeTaskRemoval,
     recoverFinalization: ctx.recoverFinalization,
     taskManager,
     adapter,
@@ -341,11 +380,49 @@ export function buildServerCommandHandlers(
     directResourceProxyPolicy:
       appliedDownloadProxyPolicy ?? UNAVAILABLE_APPLIED_DOWNLOAD_PROXY_POLICY,
   }
+  const btStorage =
+    ctx.btStorageRuntime && ctx.persistBtStorage
+      ? new BtStorageService({
+          authorizeOutputWrite: ctx.authorizeOutputWrite,
+          prepareStorageBinding: ctx.prepareStorageBinding,
+          authorizeRecheck: ctx.authorizeRecheck,
+          ...reAddDeps,
+          runtime: ctx.btStorageRuntime,
+          persistStorage: ctx.persistBtStorage,
+          authorizeDirectory: async (directory: string) =>
+            downloadPathPolicy.prepareSaveDir(directory),
+        })
+      : null
   createDeps.reuseExistingBt = (taskId) => reAddTask(taskId, reAddDeps)
+  if (btStorage)
+    createDeps.relocateExistingBt = async (taskId, directory, name) => {
+      const result = await btStorage.run(
+        { taskId, mode: 'locate', directory, name, resume: true },
+        true
+      )
+      if ('error' in result)
+        throw new AppError(
+          ErrorCode.TaskNotRetryable,
+          `task.storage.errors.${result.error}`
+        )
+      if (!result.verification.complete)
+        throw new AppError(
+          ErrorCode.TaskNotRetryable,
+          'task.storage.incomplete'
+        )
+      if (result.resumeFailed)
+        throw new AppError(
+          ErrorCode.TaskNotRetryable,
+          'task.storage.resumeFailed'
+        )
+    }
   // The DNS fallback consumer retries through the same deps bundle as
   // Commands.ReAddTasks so the automatic and user-initiated paths match.
   bindTaskRetry?.((id) => reAddTask(id, reAddDeps))
   const removeDeps = {
+    authorizeTaskRemoval: ctx.authorizeTaskRemoval,
+    fileCleanupForTask: ctx.fileCleanupForTask,
+    cancelMedia: ctx.cancelMedia,
     taskManager,
     adapter,
     log,
@@ -397,9 +474,45 @@ export function buildServerCommandHandlers(
   })
 
   return {
+    ...(ctx.operationService ? operationHandlers(ctx.operationService) : {}),
+    ...unsupportedLegacyImportCommands(),
+    [Commands.OpenSettingsDirectory]: async (payload: unknown) => {
+      z.undefined().parse(payload)
+      return false
+    },
+    [Commands.CheckForUpdates]: async (payload: unknown) => {
+      z.undefined().parse(payload)
+      const operation = () => ctx.updateService.check()
+      await (ctx.trackAsyncWork ? ctx.trackAsyncWork(operation) : operation())
+      return { ok: true }
+    },
+    [Commands.DownloadUpdate]: async () => {
+      throw new AppError(
+        ErrorCode.AppUpdateManaged,
+        'settings.about.webVersionNote'
+      )
+    },
+    [Commands.InstallUpdate]: async () => {
+      throw new AppError(
+        ErrorCode.AppUpdateManaged,
+        'settings.about.webVersionNote'
+      )
+    },
     [Commands.InstallFfmpeg]: async (payload: unknown) => {
       z.undefined().parse(payload)
-      return { ok: false, error: 'unsupported' }
+      const operation = async () => {
+        const result = await installServerFfmpeg(ctx.userDataDir, (status) =>
+          eventBus.emit(Events.FfmpegInstallStatusChanged, status)
+        )
+        if (result.ok) {
+          // Detection failure must not overwrite an already committed install.
+          await capabilityHost.ffmpeg
+            .refreshDetection(makeServerFfmpegDetect(ctx))
+            .catch(() => {})
+        }
+        return result
+      }
+      return ctx.trackAsyncWork ? ctx.trackAsyncWork(operation) : operation()
     },
     [Commands.CreateServerDirectory]: async (request: unknown) =>
       ctx.serverDirectoryService.create(request),
@@ -532,7 +645,10 @@ export function buildServerCommandHandlers(
                     infoHash: layout.infoHash,
                     saveDir,
                     selectedFiles: req.selectedFiles,
-                    duplicatePolicy: req.duplicatePolicy,
+                    duplicatePolicy:
+                      req.duplicatePolicy === 'use-existing'
+                        ? 'reuse'
+                        : req.duplicatePolicy,
                     excludeTaskId: req.existingTaskId,
                   })
                 : { action: 'create' as const }
@@ -564,7 +680,10 @@ export function buildServerCommandHandlers(
                     selectedFiles: req.selectedFiles,
                     saveDir,
                     name: req.displayName,
-                    duplicatePolicy: req.duplicatePolicy,
+                    duplicatePolicy:
+                      req.duplicatePolicy === 'use-existing'
+                        ? 'reuse'
+                        : req.duplicatePolicy,
                   },
                   {
                     db: motrixDatabase,
@@ -616,6 +735,16 @@ export function buildServerCommandHandlers(
 
     // Plural task commands (option C): one IPC request per multi-select
     // action from the web renderer. Same handlers as desktop.
+    [Commands.ChangeBtStorage]: async (rawPayload: unknown) => {
+      const request = btStorageRequestSchema.parse(rawPayload)
+      await supervisor.waitUntilReady(ENGINE_READY_TIMEOUT_MS)
+      return btStorage ? btStorage.run(request) : { error: 'unavailable' }
+    },
+    [Commands.CancelBtStorage]: async (taskId: unknown) => {
+      btStorage?.cancel(z.string().min(1).parse(taskId))
+      return { ok: true }
+    },
+
     [Commands.MoveTasks]: async (rawPayload: unknown) =>
       moveTasks(moveTasksPayloadSchema.parse(rawPayload), pauseResumeDeps),
 
@@ -664,6 +793,7 @@ export function buildServerCommandHandlers(
         await runBulkTaskAction(taskIds, reAddDeps, async (id) => {
           const task = taskManager.getById(id)
           if (task && canRetryMagnetMetadata(task)) {
+            await ctx.authorizeTaskWrite?.(task)
             await magnetTracker.retryMetadata(id)
             return
           }
@@ -687,8 +817,9 @@ export function buildServerCommandHandlers(
       return { ok: true }
     },
 
-    [Commands.ReAddTask]: async (taskId: string) => {
-      await reAddTask(taskId, reAddDeps)
+    [Commands.ReAddTask]: async (rawPayload: unknown) => {
+      const { taskId, sha256 } = reAddTaskPayloadSchema.parse(rawPayload)
+      await reAddTask(taskId, reAddDeps, sha256)
       return { ok: true }
     },
 
@@ -700,6 +831,7 @@ export function buildServerCommandHandlers(
     },
 
     [Commands.SetSelectedFiles]: createSetSelectedFilesHandler({
+      authorizeTaskWrite: ctx.authorizeTaskWrite,
       taskManager,
       engine: adapter,
       db: motrixDatabase,
@@ -832,6 +964,10 @@ export function buildServerCommandHandlers(
             await supervisor.applyDefaultSaveDir(newFull.app.defaultSaveDir)
           }
 
+          if (oldFull.app.updateChannel !== newFull.app.updateChannel) {
+            ctx.updateService.setChannel(settingsManager.getApp().updateChannel)
+          }
+
           if (
             oldFull.app.browserBridgeEnabled !==
             newFull.app.browserBridgeEnabled
@@ -939,18 +1075,15 @@ export function buildServerCommandHandlers(
     },
 
     [Commands.EnablePlugin]: async (id: string) => {
-      pluginStateStore.setEnabled(id, true)
-      // Sync the in-memory IndexedPlugin.state so Queries.ListPlugins and
-      // downstream gating (PluginHost.activate, ActivationDispatcher,
-      // CrossPluginInvoker) see the new enabled flag without a process
-      // restart.
-      pluginRegistry.refreshState(id)
+      await pluginHost.enable(id)
       const state = pluginStateStore.get(id)
-      eventBus.emit(Events.PluginStatusChanged, {
-        id,
-        status: state?.status ?? 'inactive',
-        enabled: true,
-      })
+      if (state) {
+        eventBus.emit(Events.PluginStatusChanged, {
+          id,
+          status: state.status,
+          enabled: state.enabled,
+        })
+      }
       eventBus.emit(Events.ContributionIndexChanged)
       return { ok: true }
     },
@@ -1018,6 +1151,7 @@ export function buildServerCommandHandlers(
 
     [Commands.CheckPluginUpdates]: async (payload: unknown) => {
       const parsed = checkPluginUpdatesPayloadSchema.parse(payload)
+      await pluginHost.refreshSecurityPolicy?.(parsed?.force)
       if (parsed?.force) await registryClient.refresh()
       const entries = await registryClient.list(hostVersion)
       return scanForUpdates(pluginRegistry.list(), entries).filter(
@@ -1026,16 +1160,30 @@ export function buildServerCommandHandlers(
     },
 
     [Commands.InstallPlugin]: async (payload: unknown) => {
-      const result = await pluginInstallService.stage(payload, pluginHost)
-      if (result.committed && result.pluginId) {
-        eventBus.emit(Events.PluginInstalled, { pluginId: result.pluginId })
-      } else {
-        eventBus.emit(Events.PluginInstallConsentRequested, {
-          stagingId: result.stagingId,
-          consent: result.consent,
-        })
+      try {
+        const result = await pluginInstallService.stage(payload, pluginHost)
+        if (result.committed && result.pluginId) {
+          eventBus.emit(Events.PluginInstalled, { pluginId: result.pluginId })
+        } else {
+          eventBus.emit(Events.PluginInstallConsentRequested, {
+            stagingId: result.stagingId,
+            consent: result.consent,
+          })
+        }
+        return result
+      } catch (error) {
+        if (error instanceof PluginNetworkError)
+          return { networkError: error.failure }
+        if (error instanceof PluginEngineVersionTooOld) {
+          return {
+            incompatible: {
+              required: error.required,
+              hostVersion: error.hostVersion,
+            },
+          } satisfies PluginInstallCompatibilityFailure
+        }
+        throw error
       }
-      return result
     },
 
     [Commands.ConfirmPluginInstall]: async (payload: unknown) => {
@@ -1084,16 +1232,14 @@ export function buildServerCommandHandlers(
 
     [Commands.ClearPluginLogs]: async (payload: unknown) => {
       const parsed = z.object({ pluginId: z.string().min(1) }).parse(payload)
-      capabilityHost.clearLog(parsed.pluginId)
+      await capabilityHost.clearLog(parsed.pluginId)
       return { ok: true }
     },
 
     [Commands.SetPluginLogVerbose]: async (payload: unknown) => {
-      const parsed = z
-        .object({ pluginId: z.string().min(1), verbose: z.boolean() })
-        .parse(payload)
+      const parsed = PluginLogVerboseRequestSchema.parse(payload)
       capabilityHost.setLogVerbose(parsed.pluginId, parsed.verbose)
-      return { ok: true }
+      return capabilityHost.getLogState(parsed.pluginId)
     },
 
     [Commands.MarkNotificationRead]: async (id: string) =>

@@ -6,15 +6,23 @@ import {
   stripAria2ProxyCredentials,
 } from '@core/proxy/aria2-proxy-routing'
 import type { Aria2ProxyOptions } from '@core/proxy/serializers'
+import { MAX_TORRENT_RPC_BODY_LIMIT_BYTES } from '@shared/lib/torrent-meta'
 import { torrentRpcBodyLimitSchema } from '@shared/schemas/torrent-request-limits'
 import type { EngineSettings } from '@shared/types/settings'
 import writeFileAtomic from 'write-file-atomic'
 import { dnsModeToAsyncDns } from './dns-fallback'
 
 export interface Aria2ConfigBuilderOptions {
+  /** Shell-owned persistence location, isolated when a portable profile moves. */
+  persistenceDirectory?: string
   rpcListenAll?: boolean
   /** Server HTTP and engine RPC must use the same torrent upload budget. */
   rpcMaxRequestSizeBytes?: number
+  /**
+   * Host process aria2 must not outlive. aria2 exits on its own once this
+   * process disappears, covering host crashes that skip graceful shutdown.
+   */
+  supervisorPid?: number
 }
 
 export class Aria2ConfigBuilder {
@@ -24,7 +32,9 @@ export class Aria2ConfigBuilder {
   private readonly dhtFilePath: string
   private readonly dht6FilePath: string
   private readonly rpcListenAll: boolean
-  private readonly rpcMaxRequestSizeBytes?: number
+  private readonly rpcMaxRequestSizeBytes: number
+  private readonly supervisorPid?: number
+  private readonly persistenceDirectory?: string
   private configuredInputFile = false
   private runtimeConfPath: string
 
@@ -35,15 +45,31 @@ export class Aria2ConfigBuilder {
   ) {
     this.userConfPath = path.join(userConfigDir, 'aria2.conf')
     this.runtimeConfPath = this.userConfPath
-    this.defaultDbPath = path.join(userConfigDir, 'aria2.db')
-    this.saveSessionPath = path.join(userConfigDir, 'aria2.session')
+    this.persistenceDirectory = options.persistenceDirectory
+    this.defaultDbPath = path.join(
+      options.persistenceDirectory ?? userConfigDir,
+      'aria2.db'
+    )
+    this.saveSessionPath = path.join(
+      options.persistenceDirectory ?? userConfigDir,
+      'aria2.session'
+    )
     this.dhtFilePath = path.join(userConfigDir, 'dht.dat')
     this.dht6FilePath = path.join(userConfigDir, 'dht6.dat')
     this.rpcListenAll = options.rpcListenAll ?? false
     this.rpcMaxRequestSizeBytes =
       options.rpcMaxRequestSizeBytes === undefined
-        ? undefined
+        ? MAX_TORRENT_RPC_BODY_LIMIT_BYTES
         : torrentRpcBodyLimitSchema.parse(options.rpcMaxRequestSizeBytes)
+    if (options.supervisorPid !== undefined) {
+      if (
+        !Number.isSafeInteger(options.supervisorPid) ||
+        options.supervisorPid < 1
+      ) {
+        throw new TypeError('supervisorPid must be a positive integer')
+      }
+      this.supervisorPid = options.supervisorPid
+    }
   }
 
   async ensureUserConfig(): Promise<string> {
@@ -89,7 +115,9 @@ export class Aria2ConfigBuilder {
   }
 
   resolveSqliteDbPath(settings: Pick<EngineSettings, 'sqlite3DbPath'>): string {
-    return settings.sqlite3DbPath?.trim() || this.defaultDbPath
+    return this.persistenceDirectory
+      ? this.defaultDbPath
+      : settings.sqlite3DbPath?.trim() || this.defaultDbPath
   }
 
   /**
@@ -214,7 +242,7 @@ export class Aria2ConfigBuilder {
       args.push('--input-file=')
     }
     if (hasSqlitePersistence) {
-      const dbPath = settings.sqlite3DbPath?.trim() || this.defaultDbPath
+      const dbPath = this.resolveSqliteDbPath(settings)
       args.push(
         `--enable-sqlite3-persistence=${settings.sqlite3Persistence}`,
         `--sqlite3-db-path=${dbPath}`,
@@ -271,10 +299,13 @@ export class Aria2ConfigBuilder {
     )
 
     // ── L1 product-contract invariants — DO NOT REMOVE without spec change ──
-    if (this.rpcMaxRequestSizeBytes !== undefined) {
-      args.push(
-        `--rpc-max-request-size=${this.rpcMaxRequestSizeBytes / (1024 * 1024)}M`
-      )
+    // Desktop accepts up to 50 MiB of Base64 plus per-file output mappings.
+    // Never inherit aria2's 2 MiB default or an older copied config value.
+    args.push(
+      `--rpc-max-request-size=${this.rpcMaxRequestSizeBytes / (1024 * 1024)}M`
+    )
+    if (this.supervisorPid !== undefined) {
+      args.push(`--stop-with-process=${this.supervisorPid}`)
     }
     args.push(
       '--bt-save-metadata=true',

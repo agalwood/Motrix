@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { JsonRpcProtocol } from './json-rpc-protocol'
+import {
+  JsonRpcProtocol,
+  JsonRpcRequestTooLargeError,
+} from './json-rpc-protocol'
 import type { WebSocketTransport } from './web-socket-transport'
 
 class FakeTransport {
@@ -62,6 +65,96 @@ describe('JsonRpcProtocol', () => {
   })
 
   describe('call', () => {
+    it('rejects the complete UTF-8 request before sending or creating a timeout', async () => {
+      const params = [
+        'small torrent',
+        [],
+        { 'index-out': ['1=目录/文件.bin'.repeat(20)] },
+      ]
+      const request = JSON.stringify({
+        jsonrpc: '2.0',
+        id: '1',
+        method: 'aria2.addTorrent',
+        params,
+      })
+      const bytes = Buffer.byteLength(request)
+      const limited = new JsonRpcProtocol(
+        transport as unknown as WebSocketTransport,
+        { maxRequestBytes: bytes - 1 }
+      )
+      await expect(
+        limited.call('aria2.addTorrent', params)
+      ).rejects.toBeInstanceOf(JsonRpcRequestTooLargeError)
+      expect(transport.sent).toHaveLength(0)
+      expect(vi.getTimerCount()).toBe(0)
+      const exact = new JsonRpcProtocol(
+        transport as unknown as WebSocketTransport,
+        { maxRequestBytes: bytes }
+      )
+      const accepted = exact.call('aria2.addTorrent', params)
+      transport._respondTo('1', 'gid')
+      await expect(accepted).resolves.toBe('gid')
+    })
+
+    it('reports an uncorrelated parse error immediately when there is only one pending call', async () => {
+      const result = protocol.call('aria2.addTorrent', ['torrent'])
+      transport._receive(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: null,
+          error: { code: -32700, message: 'Parse error.' },
+        })
+      )
+      await expect(result).rejects.toThrow(
+        'JSON-RPC peer reported -32700: Parse error.'
+      )
+      expect(vi.getTimerCount()).toBe(0)
+    })
+
+    it('does not attribute a null-id error to successful concurrent calls', async () => {
+      const failed = protocol.call('aria2.addTorrent', ['torrent'])
+      const healthy = protocol.call('aria2.getVersion', [])
+      transport._receive(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: null,
+          error: { code: -32700, message: 'Parse error.' },
+        })
+      )
+      transport._respondTo('2', 'version')
+      await expect(healthy).resolves.toBe('version')
+      const failure = expect(failed).rejects.toThrow(
+        /Parse error.*outcome is unknown/
+      )
+      await vi.advanceTimersByTimeAsync(5001)
+      await failure
+      expect(vi.getTimerCount()).toBe(0)
+    })
+
+    it('allows a longer add deadline without extending ordinary control calls', async () => {
+      const add = protocol.call('aria2.addTorrent', ['torrent'], {
+        timeoutMs: 60_000,
+      })
+      const control = protocol.call('aria2.getGlobalStat', [])
+      const controlFailure = expect(control).rejects.toThrow(
+        'timed out after 5000ms'
+      )
+      await vi.advanceTimersByTimeAsync(10_001)
+      await controlFailure
+      transport._respondTo('1', 'gid')
+      await expect(add).resolves.toBe('gid')
+    })
+
+    it('cleans pending state and the timer when sending fails', async () => {
+      vi.spyOn(transport, 'send').mockImplementationOnce(() => {
+        throw new Error('not connected')
+      })
+      await expect(protocol.call('aria2.addTorrent', [])).rejects.toThrow(
+        'not connected'
+      )
+      expect(vi.getTimerCount()).toBe(0)
+    })
+
     it('sends a JSON-RPC 2.0 request and resolves on response', async () => {
       const resultPromise = protocol.call<string>('aria2.getVersion', [])
       expect(transport.sent).toHaveLength(1)

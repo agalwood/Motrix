@@ -27,6 +27,7 @@ function makeDeps(over: Partial<SpeedLimitSettings> = {}) {
     emit,
   })
   return {
+    settings,
     controller,
     applyLimits,
     emit,
@@ -37,6 +38,34 @@ function makeDeps(over: Partial<SpeedLimitSettings> = {}) {
 }
 
 describe('SpeedLimitController', () => {
+  it('hot-applies a higher low speed profile and restores standard limits on switching back', async () => {
+    const { controller, settings, applyLimits, emit } = makeDeps({
+      base: { download: 100_000, upload: 0 },
+      alt: { download: 512_000, upload: 0 },
+    })
+    await controller.recompute()
+    settings.turtle = 'on'
+    await controller.recompute()
+    expect(applyLimits).toHaveBeenLastCalledWith({
+      download: 512_000,
+      upload: 0,
+    })
+    expect(controller.getState().effective.download).toBe(512_000)
+    expect(emit).toHaveBeenLastCalledWith(
+      'event:speedLimitChanged',
+      expect.objectContaining({
+        turtle: 'on',
+        effective: { download: 512_000, upload: 0 },
+      })
+    )
+    settings.turtle = 'off'
+    await controller.recompute()
+    expect(applyLimits).toHaveBeenLastCalledWith({
+      download: 100_000,
+      upload: 0,
+    })
+    expect(applyLimits).toHaveBeenCalledTimes(3)
+  })
   it('getEffective reflects an off-turtle base limit', () => {
     const { controller } = makeDeps({
       turtle: 'off',

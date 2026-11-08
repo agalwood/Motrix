@@ -1,13 +1,16 @@
 import { invalidateTaskList } from '@renderer/hooks/use-task-list'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { version as uuidVersion } from 'uuid'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
 import { readTorrentFile } from '@renderer/lib/parse-torrent-file'
 import type { PlatformServices } from '@renderer/platform/services'
 import { PlatformServicesProvider } from '@renderer/platform/services'
+import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
+import { holdExitAnimation } from '@test-utils/hold-exit-animation'
 import { AddTaskForm } from './add-task-form'
 
 const { recordRecentMock, invokeMock } = vi.hoisted(() => ({
@@ -68,6 +71,130 @@ function renderForm(props = {}, services: PlatformServices = mockServices) {
 }
 
 describe('AddTaskForm', () => {
+  it('explains an unnamed header and allows removing it before submission', async () => {
+    renderForm({
+      defaultValues: {
+        tab: 'links',
+        urls: 'https://example.com/archive.zip',
+        saveDir: '/new/downloads',
+      },
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Advanced' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Add header' }))
+    await userEvent.type(screen.getByLabelText('Header value'), 'fresh-value')
+    await userEvent.click(screen.getByRole('button', { name: 'Download' }))
+    expect(
+      await screen.findByText('Enter a header name or remove this header.')
+    ).toBeVisible()
+    expect(screen.getByLabelText('Header name')).toHaveAccessibleDescription(
+      'Enter a header name or remove this header.'
+    )
+    expect(
+      invokeMock.mock.calls.filter(
+        ([channel]) => channel === Commands.CreateTask
+      )
+    ).toHaveLength(0)
+    await userEvent.click(screen.getByRole('button', { name: 'Remove header' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Download' }))
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith(
+        Commands.CreateTask,
+        expect.objectContaining({ headers: [] })
+      )
+    )
+  })
+
+  it('keeps migration guidance visible while editing and submits only newly entered request settings', async () => {
+    renderForm({
+      defaultValues: {
+        tab: 'links',
+        urls: 'https://example.com/archive.zip',
+        saveDir: '/new/downloads',
+        legacyRequestOptions: ['header', 'all-proxy'],
+      },
+    })
+    expect(screen.getByRole('button', { name: 'Advanced' })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    )
+    expect(
+      screen.getByText('Saved request settings: header, all-proxy')
+    ).toBeVisible()
+    expect(screen.getByLabelText('Cookie')).toHaveValue('')
+    expect(
+      invokeMock.mock.calls.filter(
+        ([channel]) => channel === Commands.CreateTask
+      )
+    ).toHaveLength(0)
+    await userEvent.click(screen.getByRole('button', { name: 'Add header' }))
+    await userEvent.type(screen.getByLabelText('Header name'), 'X-Download-Key')
+    await userEvent.type(screen.getByLabelText('Header value'), 'fresh-value')
+    await userEvent.type(screen.getByLabelText('Cookie'), 'session=fresh')
+    await userEvent.type(
+      screen.getByLabelText('Proxy'),
+      'http://localhost:8080'
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Advanced' }))
+    expect(
+      screen.getByText('The old request settings were not copied.', {
+        exact: false,
+      })
+    ).toBeVisible()
+    await userEvent.click(screen.getByRole('button', { name: 'Download' }))
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith(
+        Commands.CreateTask,
+        expect.objectContaining({
+          headers: [
+            { name: 'X-Download-Key', value: 'fresh-value' },
+            { name: 'Cookie', value: 'session=fresh' },
+          ],
+          proxy: 'http://localhost:8080',
+        })
+      )
+    )
+    const request = invokeMock.mock.calls.find(
+      ([channel]) => channel === Commands.CreateTask
+    )?.[1]
+    expect(request).not.toHaveProperty('legacyRequestOptions')
+  })
+
+  it('hydrates a migration reminder without names and removes it for the next ordinary draft', async () => {
+    const { transport } = await import('@renderer/lib/transport')
+    renderForm({ subscribeEvents: true })
+    const setModeListener = vi
+      .mocked(transport.on)
+      .mock.calls.find(([channel]) => channel === Events.SetAddTaskMode)?.[1]
+    await act(async () => {
+      setModeListener?.({
+        tab: 'links',
+        urls: 'https://example.com/archive.zip',
+        saveDir: '/new/downloads',
+        legacyRequestOptions: [],
+      })
+    })
+    expect(screen.getByRole('button', { name: 'Advanced' })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    )
+    expect(
+      screen.getByText('The old request settings were not copied.', {
+        exact: false,
+      })
+    ).toBeVisible()
+    await act(async () => {
+      setModeListener?.({
+        tab: 'links',
+        urls: 'https://example.com/ordinary.zip',
+      })
+    })
+    expect(
+      screen.queryByText('The old request settings were not copied.', {
+        exact: false,
+      })
+    ).not.toBeInTheDocument()
+  })
+
   it('submits only valid lines and retains rejected input', async () => {
     const onSubmitSuccess = vi.fn()
     renderForm({
@@ -119,6 +246,8 @@ describe('AddTaskForm', () => {
       .filter(([channel]) => channel === 'command:createTask')
       .map(([, request]) => request)
     expect(submitted).toHaveLength(3)
+    for (const request of submitted)
+      expect(uuidVersion(request.requestId)).toBe(7)
     expect(submitted[0].requestId).not.toBe(submitted[1].requestId)
     expect(submitted[1].requestId).toBe(submitted[2].requestId)
     expect(submitted[2].uris).toEqual(['https://a/second'])
@@ -215,22 +344,6 @@ describe('AddTaskForm', () => {
       'scroll-area-viewport'
     )
     expect(content?.parentElement).toHaveAttribute('tabindex', '-1')
-  })
-
-  it('keeps the footer inside an in-page dialog', () => {
-    const { container } = renderForm({ presentation: 'dialog' })
-    const body = container.querySelector('[data-slot="add-task-form-body"]')
-    const footer = container.querySelector('[data-slot="add-task-form-footer"]')
-
-    expect(body).toHaveClass('min-h-0', 'flex-auto')
-    expect(footer).not.toHaveClass('fixed', 'bottom-0', 'left-0')
-  })
-
-  it('keeps the footer fixed in the standalone Electron window', () => {
-    const { container } = renderForm()
-    const footer = container.querySelector('[data-slot="add-task-form-footer"]')
-
-    expect(footer).toHaveClass('fixed', 'bottom-0', 'left-0')
   })
 
   it('disables submit when urls are empty', () => {
@@ -911,6 +1024,28 @@ describe('AddTaskForm', () => {
     )
   })
 
+  it('keeps a closing draft visible without accepting click or global shortcut submissions', async () => {
+    const { transport } = await import('@renderer/lib/transport')
+    renderForm({
+      active: false,
+      defaultValues: {
+        tab: 'links',
+        urls: 'https://example.test/closing.zip',
+        saveDir: '/d',
+      },
+    })
+    expect(screen.getByRole('textbox')).toHaveValue(
+      'https://example.test/closing.zip'
+    )
+    fireEvent.keyDown(window, { key: 'Enter', ctrlKey: true })
+    fireEvent.keyDown(window, { key: 'Enter', metaKey: true })
+    await userEvent.click(screen.getByRole('button', { name: /download/i }))
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      'command:createTask',
+      expect.anything()
+    )
+  })
+
   it('requires confirmation before creating a renamed torrent copy', async () => {
     const onSubmitSuccess = vi.fn()
     const user = userEvent.setup()
@@ -953,6 +1088,9 @@ describe('AddTaskForm', () => {
       })
     ).toBeInTheDocument()
     expect(recordRecentMock).not.toHaveBeenCalled()
+    const conflictDialog = screen.getByRole('alertdialog')
+    const conflictContent = conflictDialog.textContent
+    const finishExit = holdExitAnimation(conflictDialog)
     await user.click(
       screen.getByRole('button', { name: 'Create separate copy' })
     )
@@ -965,5 +1103,7 @@ describe('AddTaskForm', () => {
     )
     expect(onSubmitSuccess).toHaveBeenCalledWith('copy-task')
     expect(recordRecentMock).not.toHaveBeenCalled()
+    expect(conflictDialog.textContent).toBe(conflictContent)
+    await finishExit()
   })
 })

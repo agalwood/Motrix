@@ -2,14 +2,17 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { TaskActivityService, type TaskActivityStore } from '@core/activity'
+import { getFfmpegInstallStatus } from '@core/ffmpeg/verified-install'
 import { createTaskInspectorActivityQuery } from '@core/inspector-activity'
 import { NotificationCenter } from '@core/notifications/notification-center'
+import { FfmpegCapabilityHost } from '@core/plugin/capabilities/ffmpeg'
 import { MotrixDatabase } from '@core/session/motrix-database'
 import { ErrorCode } from '@shared/errors'
 import { Queries } from '@shared/protocol/queries'
 import { generalSettingsSnapshot } from '@test-utils/general-settings'
 import { makeDownloadTask } from '@test-utils/task'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { makeServerFfmpegDetect } from '../plugin/ffmpeg-detect-server'
 import { buildServerQueryHandlers, type ServerQueryContext } from './queries'
 
 vi.mock('../plugin/ffmpeg-detect-server', () => ({
@@ -17,6 +20,10 @@ vi.mock('../plugin/ffmpeg-detect-server', () => ({
     active: null,
     candidates: [],
   })),
+}))
+
+vi.mock('@core/ffmpeg/verified-install', () => ({
+  getFfmpegInstallStatus: vi.fn(),
 }))
 
 const NOW = 1_800_000_000_000
@@ -163,6 +170,33 @@ function makeCtx(over: Record<string, unknown> = {}) {
 }
 
 describe('buildServerQueryHandlers — allowed save directories', () => {
+  it('returns the Server update snapshot', async () => {
+    const state = {
+      phase: 'available',
+      currentVersion: '2.2.0',
+      availableVersion: '2.3.0',
+      updateAuthority: 'administrator',
+    }
+    const updateService = { getState: vi.fn(() => state) }
+    const handlers = buildServerQueryHandlers(
+      makeCtx({ updateService }) as unknown as ServerQueryContext
+    )
+    await expect(handlers[Queries.GetUpdateState]?.()).resolves.toEqual(state)
+  })
+  it('returns the server settings path for custom profiles', async () => {
+    const handlers = buildServerQueryHandlers(
+      makeCtx({
+        userDataDir: '/data',
+        settingsManager: { getFilePath: () => '/config/settings.json' },
+      }) as unknown as ServerQueryContext
+    )
+    await expect(
+      handlers[Queries.GetSettingsFileLocation]?.()
+    ).resolves.toEqual({
+      path: '/config/settings.json',
+    })
+  })
+
   it('returns the same committed system locale for settings and onboarding', async () => {
     const settings = { app: { language: 'system' } }
     const handlers = buildServerQueryHandlers(
@@ -417,12 +451,6 @@ describe('buildServerQueryHandlers — GetTaskActivity parity', () => {
 })
 
 describe('buildServerQueryHandlers — GetTaskDetail parity', () => {
-  it('exposes GetTaskDetail (mirrors the Electron shell)', () => {
-    // @ts-expect-error partial ctx for test
-    const handlers = buildServerQueryHandlers(makeCtx())
-    expect(handlers[Queries.GetTaskDetail]).toBeInstanceOf(Function)
-  })
-
   it('returns the task by id', async () => {
     const task = { id: 't1' }
     const ctx = makeCtx({
@@ -758,5 +786,82 @@ describe('directory location query validation', () => {
     ).toEqual({ ok: false, error: { code: 'invalidPath' } })
     expect(getApp).not.toHaveBeenCalled()
     expect(locations).not.toHaveBeenCalled()
+  })
+})
+
+describe('plugin diagnostic state query', () => {
+  it('returns host expiry and rejects invalid plugin requests', async () => {
+    const state = { verbose: true, expiresAt: 3_610_000 }
+    const getLogState = vi.fn(() => state)
+    const handlers = buildServerQueryHandlers({
+      capabilityHost: { getLogState },
+    } as unknown as ServerQueryContext)
+    await expect(
+      handlers[Queries.GetPluginLogState]?.({ pluginId: 'alice.demo' })
+    ).resolves.toEqual(state)
+    expect(getLogState).toHaveBeenCalledWith('alice.demo')
+    getLogState.mockClear()
+    for (const payload of [null, {}, { pluginId: '' }]) {
+      await expect(
+        handlers[Queries.GetPluginLogState]?.(payload)
+      ).rejects.toThrow()
+    }
+    expect(getLogState).not.toHaveBeenCalled()
+  })
+})
+
+describe('server FFmpeg detection refresh', () => {
+  it('returns the live installation snapshot and rejects unexpected payloads', async () => {
+    const status = {
+      phase: 'downloading',
+      bytesReceived: 50,
+      bytesTotal: 100,
+      percent: 0.5,
+      releaseVersion: null,
+      directory: null,
+      error: null,
+    }
+    vi.mocked(getFfmpegInstallStatus).mockReturnValue(
+      status as ReturnType<typeof getFfmpegInstallStatus>
+    )
+    const handlers = buildServerQueryHandlers(
+      makeCtx({ userDataDir: '/data' }) as unknown as ServerQueryContext
+    )
+    await expect(handlers[Queries.GetFfmpegInstallStatus]?.()).resolves.toEqual(
+      status
+    )
+    expect(getFfmpegInstallStatus).toHaveBeenCalledWith('/data')
+    await expect(
+      handlers[Queries.GetFfmpegInstallStatus]?.({ path: '/other' })
+    ).rejects.toThrow()
+  })
+  it('updates the operation capability after explicit detection and when FFmpeg disappears', async () => {
+    const ffmpeg = new FfmpegCapabilityHost({ detect: { available: false } })
+    const detected = {
+      active: { path: '/media/ffmpeg', version: '8.0' },
+      candidates: [],
+    }
+    vi.mocked(makeServerFfmpegDetect).mockReturnValueOnce(async () => detected)
+    const handlers = buildServerQueryHandlers(
+      makeCtx({
+        capabilityHost: { ffmpeg },
+      }) as unknown as ServerQueryContext
+    )
+    await expect(handlers[Queries.GetFfmpegDetection]?.()).resolves.toEqual(
+      detected
+    )
+    expect(ffmpeg.available).toBe(true)
+    expect(ffmpeg.version).toBe('8.0')
+    vi.mocked(makeServerFfmpegDetect).mockReturnValueOnce(async () => ({
+      active: null,
+      candidates: [],
+    }))
+    const missing = buildServerQueryHandlers(
+      makeCtx({
+        capabilityHost: { ffmpeg },
+      }) as unknown as ServerQueryContext
+    )
+    await missing[Queries.GetFfmpegDetection]?.()
+    expect(ffmpeg.available).toBe(false)
   })
 })

@@ -38,7 +38,12 @@ const FIXTURE = {
     user: '',
     password: '',
     bypass: [],
-    scopes: { download: false, updateApp: false, updateTrackers: false },
+    scopes: {
+      download: false,
+      updateApp: false,
+      updateTrackers: false,
+      plugins: false,
+    },
   },
   nat: {
     enabled: true,
@@ -271,8 +276,38 @@ describe('<NetworkDialog>', () => {
       await screen.findByRole('menuitemcheckbox', { name: 'File downloads' })
     ).toHaveAttribute('aria-checked', 'true')
     expect(
-      screen.getByText('BT peers, DHT and UDP trackers connect directly.')
+      screen.getByText(/BT peers, DHT and UDP trackers connect directly\./)
     ).toBeVisible()
+  })
+
+  it('saves plugin proxying independently of the other uses', async () => {
+    render(<NetworkDialog open onClose={vi.fn()} labelKey="" descKey="" />)
+    const user = userEvent.setup()
+    await user.click(
+      await screen.findByRole('button', { name: /import from system/i })
+    )
+    await user.click(screen.getByRole('button', { name: 'Use proxy for' }))
+    const plugins = await screen.findByRole('menuitemcheckbox', {
+      name: 'Plugin installation and updates',
+    })
+    expect(plugins).toHaveAttribute('aria-checked', 'false')
+    await user.click(plugins)
+    expect(plugins).toHaveAttribute('aria-checked', 'true')
+    expect(
+      screen.getByRole('menuitemcheckbox', { name: 'File downloads' })
+    ).toHaveAttribute('aria-checked', 'false')
+    await user.keyboard('{Escape}')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(transport.invoke).toHaveBeenCalledWith(
+        Commands.UpdateSettings,
+        expect.objectContaining({
+          proxy: expect.objectContaining({
+            scopes: { plugins: true },
+          }),
+        })
+      )
+    )
   })
 
   it('shows an actionable error for an enabled proxy without a server', async () => {

@@ -8,6 +8,7 @@ import {
   FormLabel,
 } from '@renderer/components/ui/form'
 import { Switch } from '@renderer/components/ui/switch'
+import { usePortableMode } from '@renderer/hooks/use-portable-mode'
 import { useTransportMirror } from '@renderer/hooks/use-transport-mirror'
 import { transport } from '@renderer/lib/transport'
 import { EXTERNAL_URLS } from '@shared/external-urls'
@@ -63,6 +64,7 @@ export function SystemProtocolsSection({
   refreshRevision = 0,
 }: SystemProtocolsSectionProps) {
   const { t } = useTranslation()
+  const portable = usePortableMode()
   const form = useFormContext<IntegrationFormValues>()
   const isWindows = transport.platform === 'win32'
   const isLinux = transport.platform === 'linux'
@@ -193,6 +195,13 @@ export function SystemProtocolsSection({
   const isAppImageRepair =
     linuxAssociations?.packageKind === 'appimage' && showLinuxButton
   const linuxCanSet = linuxAssociations?.canSetTorrentDefault === true
+
+  if (portable)
+    return (
+      <p className="text-xs text-muted-foreground">
+        {t('settings.portable.integrationUnavailable')}
+      </p>
+    )
 
   return (
     <div className="space-y-4">

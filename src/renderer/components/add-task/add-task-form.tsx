@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { RendererSubmissionNotice } from '@renderer/components/renderer-recovery-notice'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,6 +22,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@renderer/components/ui/tabs'
+import { useExitSnapshot } from '@renderer/hooks/use-exit-snapshot'
 import { invalidateTaskList } from '@renderer/hooks/use-task-list'
 import type { ParsedTorrentFile } from '@renderer/lib/parse-torrent-file'
 import { transport } from '@renderer/lib/transport'
@@ -41,7 +43,13 @@ import {
   type TorrentBatchCreateResult,
   type TorrentQueueAdvanceResult,
 } from '@shared/schemas/add-task'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react'
 import {
   type DeepPartial,
   FormProvider,
@@ -51,7 +59,7 @@ import {
   useWatch,
 } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { v4 as uuid } from 'uuid'
+import { v7 as uuidv7 } from 'uuid'
 import { AddTaskLayoutProvider } from './add-task-layout-context'
 import { FooterActions } from './footer-actions'
 import { LinksTabPanel } from './links-tab-panel'
@@ -76,6 +84,12 @@ import {
 } from './use-external-hydration'
 
 interface AddTaskFormProps {
+  /** Re-download forms use HTTP fields and create a separate task. */
+  purpose?: 'create' | 'redownload'
+  /** Separate a new download intent from the original task's pending receipt. */
+  createRequestScope?: string
+  /** A closing dialog retains its draft but must stop accepting submissions. */
+  active?: boolean
   initialTorrentFiles?: ParsedTorrentFile[]
   onDraftStateChange?: (dirty: boolean, busy: boolean) => void
   defaultValues?: DeepPartial<AddTaskFormValues>
@@ -106,6 +120,15 @@ function notifyTaskCreateFailure(
   notify: PlatformServices['notify'],
   reason: string | null
 ): void {
+  if (
+    reason &&
+    /^task\.storage\.(incomplete|resumeFailed|errors\.(unavailable|busy|destination|conflict|engine|failed|cancelled))$/.test(
+      reason
+    )
+  ) {
+    notify('error', reason)
+    return
+  }
   if (!reason) {
     notify('error', 'task.add.createFailed')
     return
@@ -127,6 +150,9 @@ function notifyTaskCreateFailure(
 }
 
 export function AddTaskForm({
+  purpose = 'create',
+  createRequestScope,
+  active = true,
   defaultValues,
   initialTorrentFiles,
   onDraftStateChange,
@@ -138,6 +164,8 @@ export function AddTaskForm({
 }: AddTaskFormProps) {
   const platform = usePlatformServices()
   const { t } = useTranslation()
+  const bodyRef = useRef<HTMLDivElement>(null)
+  const footerRef = useRef<HTMLDivElement>(null)
   const [submitting, setSubmitting] = useState(false)
   const [initialSubmissionInputs] = useState(readPendingCreates)
   const submissionInputs = useRef(initialSubmissionInputs)
@@ -154,6 +182,10 @@ export function AddTaskForm({
     draft?: string
     line?: number
   } | null>(null)
+  const conflictPresentation = useExitSnapshot(
+    duplicateConflict !== null,
+    duplicateConflict
+  )
 
   const form = useForm<AddTaskFormValues>({
     resolver: zodResolver(addTaskFormSchema) as Resolver<AddTaskFormValues>,
@@ -162,7 +194,8 @@ export function AddTaskForm({
   })
 
   const dirty = form.formState.isDirty
-  useEffect(() => {
+  // Publish draft protection before the next key can close the host surface.
+  useLayoutEffect(() => {
     onDraftStateChange?.(
       dirty,
       submitting || batchSubmitting || advancingTorrent
@@ -393,7 +426,7 @@ export function AddTaskForm({
   }, [advanceTorrentQueue, hasNextQueuedTorrent, onCancel])
 
   const handleDownloadAllTorrents = useCallback(async () => {
-    if (!hasNextQueuedTorrent()) return
+    if (!active || !hasNextQueuedTorrent()) return
     setBatchSubmitting(true)
     try {
       const parsedValues = addTaskFormSchema.safeParse(form.getValues())
@@ -492,11 +525,18 @@ export function AddTaskForm({
     } finally {
       setBatchSubmitting(false)
     }
-  }, [form, hasNextQueuedTorrent, localTorrentQueue, onSubmitSuccess, platform])
+  }, [
+    active,
+    form,
+    hasNextQueuedTorrent,
+    localTorrentQueue,
+    onSubmitSuccess,
+    platform,
+  ])
 
   const onSubmit = useCallback(
     async (values: AddTaskFormValues) => {
-      if (submitting || advancingTorrent || batchSubmitting) return
+      if (!active || submitting || advancingTorrent || batchSubmitting) return
       setSubmitting(true)
       try {
         form.clearErrors('urls')
@@ -511,10 +551,14 @@ export function AddTaskForm({
           ).values(),
         ]
         const inputs = requests.map((request) => {
-          const identity = createInputIdentity(request)
+          const identity = createInputIdentity(
+            createRequestScope === undefined
+              ? request
+              : { scope: createRequestScope, request }
+          )
           const index = unused.findIndex((input) => input.identity === identity)
           return index < 0
-            ? { id: uuid(), identity }
+            ? { id: uuidv7(), identity }
             : unused.splice(index, 1)[0]
         })
         submissionInputs.current = inputs
@@ -624,9 +668,11 @@ export function AddTaskForm({
       }
     },
     [
+      active,
       advancingTorrent,
       batchSubmitting,
       completeCurrentSubmission,
+      createRequestScope,
       platform,
       submitting,
       form,
@@ -655,40 +701,58 @@ export function AddTaskForm({
     [duplicateConflict, form, completeCurrentSubmission]
   )
 
-  const createSeparateCopy = useCallback(async () => {
-    if (!duplicateConflict) return
-    setSubmitting(true)
-    try {
-      const result = (await transport.invoke(Commands.CreateTask, {
-        ...duplicateConflict.request,
-        duplicatePolicy: 'create-copy',
-      })) as TaskCreateCommandResult
-      if (result.outcome === 'invalid-source') {
+  const createSeparateCopy = useCallback(
+    async (policy: 'create-copy' | 'use-existing' = 'create-copy') => {
+      if (!active || !duplicateConflict) return
+      setSubmitting(true)
+      try {
+        const result = (await transport.invoke(Commands.CreateTask, {
+          ...duplicateConflict.request,
+          duplicatePolicy: policy,
+        })) as TaskCreateCommandResult
+        if (result.outcome === 'invalid-source') {
+          platform.notify(
+            'error',
+            `task.add.sourceErrors.${result.failure.diagnostic.reason}`
+          )
+          return
+        }
+        if (result.outcome === 'conflict') {
+          setDuplicateConflict({ ...duplicateConflict, result })
+          return
+        }
+        invalidateTaskList()
+        setDuplicateConflict(null)
         platform.notify(
-          'error',
-          `task.add.sourceErrors.${result.failure.diagnostic.reason}`
+          'info',
+          policy === 'use-existing'
+            ? 'task.storage.resumed'
+            : 'task.add.createdCopy'
         )
-        return
+        await completeConflict(result.taskId)
+      } catch (error) {
+        console.error(error)
+        notifyTaskCreateFailure(platform.notify, taskCreateFailureReason(error))
+      } finally {
+        setSubmitting(false)
       }
-      if (result.outcome === 'conflict') {
-        setDuplicateConflict({ ...duplicateConflict, result })
-        return
-      }
-      invalidateTaskList()
-      setDuplicateConflict(null)
-      platform.notify('info', 'task.add.createdCopy')
-      await completeConflict(result.taskId)
-    } catch (error) {
-      console.error(error)
-      notifyTaskCreateFailure(platform.notify, taskCreateFailureReason(error))
-    } finally {
-      setSubmitting(false)
-    }
-  }, [completeConflict, duplicateConflict, platform])
+    },
+    [active, completeConflict, duplicateConflict, platform]
+  )
 
-  // ⌘↵ / Ctrl+Enter submit
+  // Submit only the focused form, never a draft underneath another dialog.
   useEffect(() => {
+    if (!active) return
     const handler = (e: KeyboardEvent) => {
+      const focused = document.activeElement
+      if (
+        e.defaultPrevented ||
+        !(
+          bodyRef.current?.contains(focused) ||
+          footerRef.current?.contains(focused)
+        )
+      )
+        return
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault()
         const values = form.getValues()
@@ -702,12 +766,13 @@ export function AddTaskForm({
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [form, onSubmit])
+  }, [active, form, onSubmit])
 
   return (
     <AddTaskLayoutProvider onAdvancedOpenChange={onAdvancedOpenChange}>
       <FormProvider {...form}>
         <ScrollArea
+          ref={bodyRef}
           data-slot="add-task-form-body"
           className={cn(presentation === 'dialog' ? 'flex-auto' : 'flex-1')}
         >
@@ -723,14 +788,20 @@ export function AddTaskForm({
               )}
               style={{ minWidth: '100%' }}
             >
-              <TabsSection
-                onTorrentFilesLoaded={handleLocalTorrentFilesLoaded}
-              />
+              <RendererSubmissionNotice className="mb-3 mt-1" />
+              {purpose === 'redownload' ? (
+                <LinksTabPanel advancedDefaultOpen />
+              ) : (
+                <TabsSection
+                  onTorrentFilesLoaded={handleLocalTorrentFilesLoaded}
+                />
+              )}
             </ScrollAreaContent>
           </ScrollAreaViewport>
           <ScrollBar />
         </ScrollArea>
         <div
+          ref={footerRef}
           data-slot="add-task-form-footer"
           className={cn(
             'w-full shrink-0 border-t-[0.5px] border-border bg-background px-4 py-3',
@@ -738,6 +809,11 @@ export function AddTaskForm({
           )}
         >
           <FooterActionsBridge
+            submitLabel={
+              purpose === 'redownload'
+                ? t('panel.downloads.action.redownload')
+                : undefined
+            }
             onCancel={() => void handleCancel()}
             onDownloadAll={handleDownloadAllTorrents}
             onSubmit={() => void form.handleSubmit(onSubmit)()}
@@ -756,22 +832,25 @@ export function AddTaskForm({
               </AlertDialogTitle>
               <AlertDialogDescription>
                 {t(
-                  `task.add.duplicate.${duplicateConflict?.result.conflict.reason}`,
+                  `task.add.duplicate.${conflictPresentation?.result.conflict.reason}`,
                   {
                     name:
-                      duplicateConflict?.result.conflict.existingTaskName ??
+                      conflictPresentation?.result.conflict.existingTaskName ??
                       t('task.add.duplicate.filesOnDisk'),
                   }
                 )}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-              {duplicateConflict?.result.conflict.existingTaskId && (
+              <AlertDialogCancel disabled={submitting}>
+                {t('common.cancel')}
+              </AlertDialogCancel>
+              {conflictPresentation?.result.conflict.existingTaskId && (
                 <AlertDialogAction
+                  disabled={!duplicateConflict || submitting}
                   onClick={() => {
                     const taskId =
-                      duplicateConflict.result.conflict.existingTaskId
+                      duplicateConflict?.result.conflict.existingTaskId
                     setDuplicateConflict(null)
                     if (taskId) void completeConflict(taskId)
                   }}
@@ -779,8 +858,30 @@ export function AddTaskForm({
                   {t('task.add.duplicate.showExisting')}
                 </AlertDialogAction>
               )}
-              {duplicateConflict?.result.conflict.canCreateCopy && (
-                <AlertDialogAction onClick={() => void createSeparateCopy()}>
+              {conflictPresentation?.request.type === 'bt' &&
+                !conflictPresentation.request.existingTaskId &&
+                conflictPresentation.request.payload.kind ===
+                  'torrent-base64' &&
+                conflictPresentation.result.conflict.reason ===
+                  'existing-files' && (
+                  <AlertDialogAction
+                    disabled={!duplicateConflict || submitting}
+                    onClick={(event) => {
+                      event.preventDefault()
+                      void createSeparateCopy('use-existing')
+                    }}
+                  >
+                    {t('task.storage.useExisting')}
+                  </AlertDialogAction>
+                )}
+              {conflictPresentation?.result.conflict.canCreateCopy && (
+                <AlertDialogAction
+                  disabled={!duplicateConflict || submitting}
+                  onClick={(event) => {
+                    event.preventDefault()
+                    void createSeparateCopy()
+                  }}
+                >
                   {t('task.add.duplicate.createCopy')}
                 </AlertDialogAction>
               )}
@@ -831,12 +932,14 @@ function TabsSection({
 }
 
 function FooterActionsBridge({
+  submitLabel,
   onCancel,
   onDownloadAll,
   onSubmit,
   submitting,
   torrentQueue,
 }: {
+  submitLabel?: string
   onCancel: () => void
   onDownloadAll: () => void
   onSubmit: () => void
@@ -864,6 +967,7 @@ function FooterActionsBridge({
 
   return (
     <FooterActions
+      submitLabel={submitLabel}
       submitting={submitting}
       canSubmit={canSubmit}
       torrentQueue={

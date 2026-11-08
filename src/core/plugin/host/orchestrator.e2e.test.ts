@@ -94,6 +94,7 @@ async function makeHarness(
   input: {
     dispatcher?: Dispatcher
     config?: Record<string, Record<string, unknown>>
+    workerScriptPath?: string
   } = {}
 ): Promise<Harness> {
   const root = await realpath(
@@ -157,7 +158,7 @@ async function makeHarness(
     registry,
     stateStore,
     capabilityHost,
-    workerScriptPath: WORKER_SCRIPT_PATH,
+    workerScriptPath: input.workerScriptPath ?? WORKER_SCRIPT_PATH,
     idleDisposeMs: 1,
     appVersion: '2.5.0',
     runtime: 'server',
@@ -564,6 +565,50 @@ describe('locked builtin bundles through PluginHost + QuickJS Hooks', () => {
       host: 'commons.wikimedia.org',
     })
   }, 30_000)
+
+  it('filename-template preserves the download target when the worker bundle is missing', async () => {
+    const harness = await makeHarness({
+      workerScriptPath: path.join(
+        os.tmpdir(),
+        randomUUID(),
+        'missing-worker.cjs'
+      ),
+    })
+    enableOnly(harness, 'motrix.filename-template')
+    const taskId = 'missing-filename-worker'
+    const saveDir = path.join(harness.root, 'downloads')
+    await mkdir(saveDir)
+    const filePath = path.join(saveDir, 'original.zip')
+    const dto = beforeFinalize({
+      task: taskSnapshot({
+        id: taskId,
+        filePath,
+        saveDir,
+        type: 'http',
+        kind: 'direct',
+      }),
+      sourceUrl: 'https://example.com/original.zip',
+    })
+    dto.inputFilePath = `${filePath}.motrix`
+    await writeFile(dto.inputFilePath, 'downloaded bytes')
+
+    const result = await harness.orchestrator.runBeforeFinalize(dto, taskId)
+
+    expect(result.aborted).toBeFalsy()
+    if (result.aborted) throw new Error(result.reason)
+    expect(result.final.filePath).toBe(filePath)
+    expect(result.final.targetFilePath).toBe(filePath)
+    expect(result.finalFilePath).toBeUndefined()
+    expect(result.replacement).toBeUndefined()
+    expect(result.staged.allMetadataOps()).toEqual([])
+    expect(result.staged.hasPolicyChecks).toBe(false)
+    expect(await readFile(dto.inputFilePath, 'utf8')).toBe('downloaded bytes')
+    expect(
+      harness.stateStore.get('motrix.filename-template')?.lastError
+    ).toContain('Cannot find module')
+    await harness.host.deactivate('motrix.filename-template')
+    expect(harness.host.isQuiescent('motrix.filename-template')).toBe(true)
+  })
 
   it('filename-template applies an updated date template to a completed browser download', async () => {
     const config = { 'motrix.filename-template': { template: '{{title}}' } }

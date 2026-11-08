@@ -89,6 +89,81 @@ fn open_root_rejects_an_intermediate_symbolic_link() {
     let _ = std::fs::remove_dir_all(&base);
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn open_root_traverses_search_only_ancestors() {
+    use std::os::unix::fs::PermissionsExt;
+    use std::os::unix::process::CommandExt;
+
+    // Container builds often test as root, which bypasses DAC. Run this test
+    // in an unprivileged child so an O_RDONLY traversal cannot falsely pass.
+    if unsafe { libc::geteuid() } == 0 {
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .arg("--exact")
+            .arg("platform::unix::tests::open_root_traverses_search_only_ancestors")
+            .uid(65534)
+            .gid(65534)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(String::from_utf8_lossy(&output.stdout).contains("1 passed"));
+        return;
+    }
+
+    struct Fixture(std::path::PathBuf);
+    impl Drop for Fixture {
+        fn drop(&mut self) {
+            for relative in ["private", "private/inner", "private/inner/downloads"] {
+                let _ = std::fs::set_permissions(
+                    self.0.join(relative),
+                    std::fs::Permissions::from_mode(0o700),
+                );
+            }
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+    let base = std::env::temp_dir().join(format!("motrix-search-only-{}", std::process::id()));
+    std::fs::create_dir_all(base.join("private/inner/downloads")).unwrap();
+    let fixture = Fixture(base.canonicalize().unwrap());
+    let private = fixture.0.join("private");
+    let inner = private.join("inner");
+    let downloads = inner.join("downloads");
+    std::fs::write(downloads.join("pending"), b"complete payload").unwrap();
+    for parent in [&private, &inner] {
+        std::fs::set_permissions(parent, std::fs::Permissions::from_mode(0o111)).unwrap();
+        assert!(std::fs::read_dir(parent).is_err());
+    }
+    let root = open_root(downloads.to_str().unwrap()).unwrap();
+    let artifact = super::open_artifact_for_rename(&root, "pending").unwrap();
+    super::rename_opened_no_replace(&artifact, &root, "finished").unwrap();
+    super::sync_root(&root).unwrap();
+    assert_eq!(
+        std::fs::read(downloads.join("finished")).unwrap(),
+        b"complete payload"
+    );
+    assert!(!downloads.join("pending").exists());
+    for parent in [&private, &inner] {
+        assert_eq!(
+            std::fs::metadata(parent).unwrap().permissions().mode() & 0o777,
+            0o111
+        );
+    }
+    std::fs::set_permissions(&downloads, std::fs::Permissions::from_mode(0o111)).unwrap();
+    assert!(
+        matches!(open_root(downloads.to_str().unwrap()), Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied)
+    );
+    std::fs::set_permissions(&downloads, std::fs::Permissions::from_mode(0o700)).unwrap();
+    std::fs::set_permissions(&private, std::fs::Permissions::from_mode(0o000)).unwrap();
+    assert!(
+        matches!(open_root(downloads.to_str().unwrap()), Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied)
+    );
+}
+
 #[test]
 fn held_remove_rejects_a_replaced_name_and_preserves_the_replacement() {
     let base = std::env::temp_dir().join(format!(
@@ -435,5 +510,67 @@ fn competing_target_creation_never_overwrites_either_payload() {
             }
         });
     }
+    std::fs::remove_dir_all(base).unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn nas_removal_binds_the_selected_inode_without_hashing_large_payloads() {
+    use std::os::unix::fs::MetadataExt;
+    let base = std::env::temp_dir().join(format!("motrix-nas-remove-large-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
+    std::fs::create_dir_all(&base).unwrap();
+    let base = base.canonicalize().unwrap();
+    let file = std::fs::File::create(base.join("payload")).unwrap();
+    file.set_len(8 * 1024 * 1024 * 1024).unwrap();
+    let metadata = file.metadata().unwrap();
+    let identity = format!("{}:{}", metadata.dev(), metadata.ino());
+    let root = open_root(base.to_str().unwrap()).unwrap();
+    assert!(super::open_removal(&root, "payload", "0:0").is_err());
+    let artifact = super::open_removal(&root, "payload", &identity).unwrap();
+    assert!(artifact.opened_file_sha256.is_none());
+    assert!(super::copy_opened(&artifact, &root, "copy").is_err());
+    remove_opened(&artifact, ".removed", false).unwrap();
+    assert!(!base.join("payload").exists());
+    assert!(!base.join("copy").exists());
+    std::fs::remove_dir_all(base).unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn nas_removal_retains_tree_and_file_mutation_guards() {
+    use std::os::unix::fs::MetadataExt;
+    let base =
+        std::env::temp_dir().join(format!("motrix-nas-remove-change-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
+    std::fs::create_dir_all(base.join("tree/nested")).unwrap();
+    let base = base.canonicalize().unwrap();
+    std::fs::write(base.join("tree/nested/file"), b"original").unwrap();
+    let metadata = std::fs::metadata(base.join("tree")).unwrap();
+    let root = open_root(base.to_str().unwrap()).unwrap();
+    let tree = super::open_removal(
+        &root,
+        "tree",
+        &format!("{}:{}", metadata.dev(), metadata.ino()),
+    )
+    .unwrap();
+    assert!(super::copy_opened(&tree, &root, "copy").is_err());
+    std::fs::write(base.join("tree/nested/added"), b"added").unwrap();
+    assert!(remove_opened(&tree, ".removed-tree", false).is_err());
+    assert!(base.join(".removed-tree/nested/added").exists());
+    std::fs::write(base.join("file"), b"original").unwrap();
+    let metadata = std::fs::metadata(base.join("file")).unwrap();
+    let file = super::open_removal(
+        &root,
+        "file",
+        &format!("{}:{}", metadata.dev(), metadata.ino()),
+    )
+    .unwrap();
+    std::fs::write(base.join("file"), b"changed contents").unwrap();
+    assert!(remove_opened(&file, ".removed-file", false).is_err());
+    assert_eq!(
+        std::fs::read(base.join("file")).unwrap(),
+        b"changed contents"
+    );
     std::fs::remove_dir_all(base).unwrap();
 }

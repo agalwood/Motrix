@@ -1,45 +1,54 @@
 import { cn } from '@renderer/lib/utils'
-
-const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+import { getPathDisplayParts } from '@shared/lib/path-display'
 
 /** Keep both ends visible without reversing path text or measuring layout. */
 export function MiddleEllipsis({
   text,
   className,
+  maxChars = 64,
+  dir = 'ltr',
 }: {
   text: string
   className?: string
+  maxChars?: number
+  dir?: 'ltr' | 'rtl' | 'auto'
 }) {
-  const characters = Array.from(
-    segmenter.segment(text),
-    ({ segment }) => segment
-  )
-  const middle = Math.ceil(characters.length / 2)
+  const { start, ellipsis, end } = getPathDisplayParts(text, maxChars)
 
   return (
     <span
       data-slot="middle-ellipsis"
-      dir="ltr"
+      dir={dir}
       title={text}
+      onCopy={(event) => {
+        event.clipboardData.setData('text/plain', text)
+        event.preventDefault()
+      }}
       className={cn(
-        'inline-flex min-w-0 max-w-full align-bottom font-mono',
+        'inline-flex min-w-0 max-w-full select-text align-bottom font-mono',
         className
       )}
     >
       <span className="sr-only">{text}</span>
       <span
         aria-hidden="true"
-        className="min-w-0 shrink truncate whitespace-pre"
+        className={cn(
+          'min-w-0 shrink whitespace-pre',
+          ellipsis ? 'overflow-hidden' : 'truncate'
+        )}
       >
-        {characters.slice(0, middle).join('')}
+        {start}
       </span>
+      {ellipsis && (
+        <span aria-hidden="true" className="shrink-0">
+          {ellipsis}
+        </span>
+      )}
       <span
         aria-hidden="true"
         className="flex min-w-0 shrink justify-end overflow-hidden"
       >
-        <span className="shrink-0 whitespace-pre">
-          {characters.slice(middle).join('')}
-        </span>
+        <span className="shrink-0 whitespace-pre">{end}</span>
       </span>
     </span>
   )

@@ -24,12 +24,8 @@ export function isSafariExtensionOrigin(origin: string): boolean {
   )
 }
 
-/**
- * Compose the session/index key shared by the pairing store, the trusted
- * registry, and the live WebSocket session map. The wire shape is
- * `${browser}:${extensionId}`; keep every call site funneled through here so
- * the three subsystems can never drift apart.
- */
+/** Extension-wide trust/revocation key. Active connections use the full MBP1
+ * credential principal, including its installation ID, instead. */
 export function makeSessionKey(browser: Browser, extensionId: string): string {
   return `${browser}:${extensionId}`
 }
@@ -49,14 +45,7 @@ export type ClientIdentity =
     }
   | { readonly kind: 'cli'; readonly id: string }
 
-/**
- * Stable session/index key for a {@link ClientIdentity}. For the `extension`
- * kind this is byte-identical to {@link makeSessionKey}
- * (`${browser}:${extensionId}`), so the live session map, persisted pairing
- * keys, and task `sourceMeta.sessionKey` are all unchanged. The `cli` kind is
- * namespaced under a `cli:` prefix so it can never collide with an extension
- * key (`${browser}:${extensionId}`), even for an adversarial cli id.
- */
+/** Group identity key for extension trust/revocation and CLI authorization. */
 export function clientKey(identity: ClientIdentity): string {
   switch (identity.kind) {
     case 'extension':
@@ -71,6 +60,7 @@ export const BridgeCommands = {
   AddTrusted: 'bridge:addTrusted',
   RemoveTrusted: 'bridge:removeTrusted',
   ResolvePair: 'bridge:resolvePair',
+  ClaimExtensionPair: 'bridge:claimExtensionPair',
 } as const
 
 export const BridgeQueries = {
@@ -87,6 +77,7 @@ export const BridgeEvents = {
   PairRequested: 'bridge:pairRequested',
   Paired: 'bridge:paired',
   Revoked: 'bridge:revoked',
+  ExtensionSessionsChanged: 'bridge:extensionSessionsChanged',
   Error: 'bridge:error',
   /** A pending request reached a non-TTL terminal outcome. */
   PairRequestSettled: 'bridge:pairRequestSettled',
@@ -97,6 +88,13 @@ export const BridgeEvents = {
 export type BridgeCommand = (typeof BridgeCommands)[keyof typeof BridgeCommands]
 export type BridgeQuery = (typeof BridgeQueries)[keyof typeof BridgeQueries]
 export type BridgeEvent = (typeof BridgeEvents)[keyof typeof BridgeEvents]
+
+export interface ExtensionInstallationInfo {
+  /** Opaque non-secret installation key, stable across reconnects. */
+  id: string
+  pairedAt: number
+  connected: boolean
+}
 
 /**
  * Renderer-facing paired-client DTO (the token is never exposed). Discriminated
@@ -112,6 +110,8 @@ export type PairedClientInfo =
       name: string
       identityTrust: IdentityTriState
       status: 'ready' | 'cleanup-pending'
+      /** Optional for compatibility with older paired-list providers. */
+      installations?: ExtensionInstallationInfo[]
       pairedAt: number
       lastActiveAt: number | null
     }
@@ -185,17 +185,35 @@ export type IdentityTriState =
  * authorize it. There is no `decision` to make here any more: approval is
  * proven by typing the code, not by a click in this dialog.
  */
+export interface ExtensionPairRequestDetails {
+  pairingNonce: string
+  extensionId: string
+  browser: Browser
+  identity: IdentityTriState
+  verifiedOrigin?: string
+  originHost?: string
+  claimedExtensionId?: string
+  attestationClass?: IdentityTriState
+  publicAuthority?: string
+}
+
+export type ExtensionCodeRequest = ExtensionPairRequestDetails & {
+  kind: 'extension'
+  /** PAKE password: render verbatim, never log or persist. */
+  code: string
+}
+
+/** A NAS operator must deliberately claim this request before receiving a code.
+ * This variant is safe to publish to the shared administrator inbox. */
+export type ExtensionClaimRequest = ExtensionPairRequestDetails & {
+  kind: 'extension-claim'
+  createdAt: number
+  expiresAt: number
+}
+
 export type PairRequestPayload =
-  | {
-      kind: 'extension'
-      pairingNonce: string
-      extensionId: string
-      browser: Browser
-      identity: IdentityTriState
-      /** The §7.1 display form, grouped `XXXX-XXXX`. Render verbatim — never
-       *  reformat, and never log (§7.1/§11: it is the PAKE password). */
-      code: string
-    }
+  | ExtensionCodeRequest
+  | ExtensionClaimRequest
   | {
       kind: 'cli'
       requestId: string
@@ -244,23 +262,8 @@ export type PendingPairRequestInfo =
       createdAt: number
       expiresAt: number
     }
-  | {
-      kind: 'extension'
-      pairingNonce: string
-      extensionId: string
-      browser: Browser
-      identity: IdentityTriState
-      code: string
-      /** Server operator evidence. Optional because the Desktop shell does
-       * not have a public authority and keeps its existing prompt shape. */
-      verifiedOrigin?: string
-      originHost?: string
-      claimedExtensionId?: string
-      attestationClass?: IdentityTriState
-      publicAuthority?: string
-      createdAt: number
-      expiresAt: number
-    }
+  | (ExtensionCodeRequest & { createdAt: number; expiresAt: number })
+  | ExtensionClaimRequest
 
 /**
  * Stable identity for prompt isolation and lifecycle routing. Mirrors the two
@@ -277,7 +280,10 @@ export function pairRequestKey(
         'kind' | 'requestId'
       >
     | Pick<
-        Extract<PendingPairRequestInfo, { kind: 'extension' }>,
+        Extract<
+          PendingPairRequestInfo,
+          { kind: 'extension' | 'extension-claim' }
+        >,
         'kind' | 'pairingNonce' | 'extensionId' | 'browser'
       >
 ): string {

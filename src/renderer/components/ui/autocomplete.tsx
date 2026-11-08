@@ -9,6 +9,7 @@ import {
   InputGroupInput,
 } from '@renderer/components/ui/input-group'
 import { cn } from '@renderer/lib/utils'
+import { usePopupPositioning } from './popup-positioning'
 
 const Autocomplete = AutocompletePrimitive.Root
 
@@ -72,9 +73,11 @@ function AutocompleteContent({
     AutocompletePrimitive.Positioner.Props,
     'side' | 'align' | 'sideOffset' | 'alignOffset'
   >) {
+  const positioning = usePopupPositioning()
   return (
     <AutocompletePrimitive.Portal>
       <AutocompletePrimitive.Positioner
+        {...positioning}
         side={side}
         sideOffset={sideOffset}
         align={align}

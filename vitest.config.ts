@@ -5,6 +5,7 @@ import packageJson from './package.json' with { type: 'json' }
 export default defineConfig({
   define: {
     __MOTRIX_TARGET__: JSON.stringify('electron'),
+    __MOTRIX_FNOS__: JSON.stringify(true),
     __MOTRIX_PREVIEW_MAC_MENU__: JSON.stringify(false),
     __MOTRIX_APP_METADATA__: JSON.stringify({
       name: packageJson.productName,
@@ -14,12 +15,27 @@ export default defineConfig({
     }),
   },
   test: {
-    environment: 'jsdom',
+    environment: 'node',
     globals: true,
     setupFiles: [],
-    globalSetup: ['tests/setup/build-worker.ts'],
-    include: ['src/**/*.test.{ts,tsx}', 'tests/**/*.test.{ts,tsx}'],
     exclude: ['e2e/**', 'node_modules/**', 'dist/**', 'dist-test/**'],
+    projects: [
+      {
+        test: {
+          name: 'node',
+          globalSetup: ['tests/setup/build-worker.ts'],
+          include: ['src/**/*.test.{ts,tsx}', 'tests/**/*.test.{ts,tsx}'],
+          exclude: ['src/{renderer,preload}/**'],
+        },
+      },
+      {
+        test: {
+          name: 'browser',
+          environment: 'jsdom',
+          include: ['src/{renderer,preload}/**/*.test.{ts,tsx}'],
+        },
+      },
+    ],
   },
   resolve: {
     alias: {

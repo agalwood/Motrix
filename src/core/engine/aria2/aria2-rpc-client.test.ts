@@ -81,6 +81,40 @@ describe('Aria2RpcClient', () => {
     vi.restoreAllMocks()
   })
 
+  it('invalidates metadata after successful single and batch option edits, and on reconnect', async () => {
+    const changed = vi.fn()
+    const unsubscribe = client.onTaskMetadataChanged(changed)
+    fakeProtocol.nextResult = 'OK'
+    await client.changeOption('gid1', { 'select-file': '2' })
+    expect(changed).toHaveBeenLastCalledWith('gid1')
+    fakeProtocol.nextResult = ['OK']
+    await client.multicall([
+      { method: 'aria2.changeOption', params: ['gid2', { dir: '/new' }] },
+    ])
+    expect(changed).toHaveBeenLastCalledWith('gid2')
+    fakeProtocol.nextResult = [
+      { status: 'fulfilled', value: 'OK' },
+      { status: 'rejected', reason: new Error('denied') },
+    ]
+    await client.multicallSettled([
+      {
+        method: 'aria2.changeOption',
+        params: ['gid3', { 'select-file': '1' }],
+      },
+      {
+        method: 'aria2.changeOption',
+        params: ['gid4', { 'select-file': '1' }],
+      },
+    ])
+    expect(changed.mock.calls).toEqual([['gid1'], ['gid2'], ['gid3']])
+    await client.connect(6800)
+    expect(changed).toHaveBeenLastCalledWith(undefined)
+    unsubscribe()
+    changed.mockClear()
+    client.disconnect()
+    expect(changed).not.toHaveBeenCalled()
+  })
+
   it.each([true, false])(
     'reports the actual WebSocket connection state: %s',
     (connected) => {

@@ -6,9 +6,23 @@ import {
   TaskStatus,
   TransitionPhase,
 } from '@shared/types/task'
+import { makeRetainedHttpTask } from '@test-utils/direct-retry'
+import { makeLegacyHttpTask } from '@test-utils/legacy-http-activation'
 import { makeDownloadTask } from '@test-utils/task'
 import { describe, expect, it } from 'vitest'
 import { mergeEngineTask } from './merge-engine-task'
+
+it('keeps retained HTTP errors visible when the engine restores them paused', () => {
+  const task = makeRetainedHttpTask()
+  const engine = makeDownloadTask({
+    engineTaskId: task.engineTaskId,
+    status: TaskStatus.Paused,
+  })
+  expect(mergeEngineTask(task, engine)).toBe(task)
+  expect(
+    mergeEngineTask(task, { ...engine, status: TaskStatus.Downloading }).status
+  ).toBe(TaskStatus.Downloading)
+})
 
 const baseTask = (over: Partial<DownloadTask> = {}): DownloadTask =>
   makeDownloadTask({ id: 't1', engineTaskId: 'gid1', name: 'a', ...over })
@@ -35,6 +49,60 @@ function instance(status: TaskStatus, index = 0): TaskInstance {
 }
 
 describe('mergeEngineTask', () => {
+  it.each([TaskStatus.Downloading, TaskStatus.Seeding])(
+    'preserves private torrent metadata while polling %s metrics',
+    (status) => {
+      const existing = baseTask({
+        status,
+        bt: makeDefaultBtExtension({ isPrivate: true }),
+      })
+      const engine = baseTask({
+        status,
+        totalBytes: 100,
+        downloadedBytes: 50,
+        bt: makeDefaultBtExtension({ isPrivate: false, peers: 3 }),
+      })
+      const merged = mergeEngineTask(existing, engine)
+      expect(merged.bt).toMatchObject({ isPrivate: true, peers: 3 })
+      expect(merged.progress).toBe(0.5)
+      expect(existing.bt?.peers).toBe(0)
+    }
+  )
+
+  it('retains the original HTTP migration URI and status until completion is verified', () => {
+    const existing = makeLegacyHttpTask({ status: TaskStatus.Downloading })
+    const merged = mergeEngineTask(existing, {
+      ...existing,
+      status: TaskStatus.Completed,
+      downloadedBytes: existing.totalBytes,
+      uris: ['https://redirect.example.com/temporary-signed-url'],
+    })
+    expect(merged.uris).toEqual(existing.uris)
+    expect(merged.instances[0].uris).toEqual(existing.instances[0].uris)
+    expect(merged.status).toBe(TaskStatus.Downloading)
+    expect(merged.instances[0].status).toBe(TaskStatus.Downloading)
+    expect(merged.finishedAt).toBeNull()
+    expect(merged.downloadedBytes).toBe(existing.totalBytes)
+  })
+  it.each([TaskStatus.Completed, TaskStatus.Error])(
+    'preserves imported %s history against a late paused replay',
+    (status) => {
+      const primary = instance(status)
+      primary.payload = { legacyImport: { version: 99 } }
+      const existing = baseTask({
+        status,
+        progress: 1,
+        finishedAt: 100,
+        instances: [primary],
+      })
+      const late = baseTask({
+        status: TaskStatus.Paused,
+        progress: 0,
+        finishedAt: null,
+      })
+      expect(mergeEngineTask(existing, late)).toBe(existing)
+    }
+  )
   it.each([
     ['gid1', 25, 125],
     ['gid1', 30, 130],

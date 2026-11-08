@@ -6,6 +6,55 @@ import {
 } from './app-settings'
 
 describe('appSettingsSchema', () => {
+  it('leaves Dock progress off for existing or damaged profiles and rejects malformed changes', () => {
+    for (const showDownloadProgress of [undefined, null, 'true', 1]) {
+      expect(
+        appSettingsSchema.parse({ showDownloadProgress }).showDownloadProgress
+      ).toBe(false)
+    }
+    expect(
+      appSettingsSchema.parse({ showDownloadProgress: true })
+        .showDownloadProgress
+    ).toBe(true)
+    expect(
+      appSettingsInputSchema
+        .partial()
+        .safeParse({ showDownloadProgress: 'true' }).success
+    ).toBe(false)
+  })
+  it('defaults acceleration on for existing profiles and strictly validates changes', () => {
+    expect(DEFAULT_APP_SETTINGS.hardwareAcceleration).toBe(true)
+    expect(
+      appSettingsSchema.parse({ hardwareAcceleration: false })
+        .hardwareAcceleration
+    ).toBe(false)
+    expect(
+      appSettingsInputSchema
+        .partial()
+        .safeParse({ hardwareAcceleration: 'false' }).success
+    ).toBe(false)
+  })
+  it('recovers missing or damaged speed limit units without losing valid choices', () => {
+    expect(appSettingsSchema.parse({}).speedLimitUnits).toEqual({
+      baseUpload: 'kilo',
+      baseDownload: 'kilo',
+      altUpload: 'kilo',
+      altDownload: 'kilo',
+    })
+    expect(
+      appSettingsSchema.parse({
+        speedLimitUnits: { baseUpload: 'mega', baseDownload: 'GB' },
+      }).speedLimitUnits
+    ).toEqual({
+      baseUpload: 'mega',
+      baseDownload: 'kilo',
+      altUpload: 'kilo',
+      altDownload: 'kilo',
+    })
+    expect(
+      appSettingsSchema.parse({ speedLimitUnits: null }).speedLimitUnits
+    ).toEqual(DEFAULT_APP_SETTINGS.speedLimitUnits)
+  })
   it('preserves system and explicit language preferences on load and write', () => {
     for (const language of ['system', 'fr', 'en-US', 'zh-CN', 'zh-TW']) {
       expect(appSettingsSchema.parse({ language }).language).toBe(language)
@@ -17,7 +66,10 @@ describe('appSettingsSchema', () => {
       appSettingsInputSchema.partial().safeParse({ language: 'unknown' })
         .success
     ).toBe(false)
-    expect(DEFAULT_APP_SETTINGS.language).toBe('en-US')
+    expect(DEFAULT_APP_SETTINGS.language).toBe('system')
+    for (const language of [undefined, null, 'unknown']) {
+      expect(appSettingsSchema.parse({ language }).language).toBe('system')
+    }
   })
   it('preserves existing notification defaults, loads desktop choices, and rejects malformed writes', () => {
     const defaults = {

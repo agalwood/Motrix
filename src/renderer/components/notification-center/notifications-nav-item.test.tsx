@@ -172,17 +172,19 @@ describe('<NotificationsNavItem>', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
-  it('keeps the Web badge numeric even if desktop settings hide it', async () => {
+  it('applies the Web badge preference and refreshes it after settings change', async () => {
     Object.defineProperty(transport, 'platform', {
       value: 'web',
       configurable: true,
     })
-    mockInvoke(7, 'hidden')
+    mockInvoke(7, 'dot')
     renderNavItem()
-    expect(await screen.findByTestId('notification-badge')).toHaveTextContent(
-      '7'
-    )
-    expect(transport.invoke).not.toHaveBeenCalledWith(Queries.GetSettings)
+    await screen.findByTestId('notification-badge-dot')
+    expect(screen.queryByTestId('notification-badge')).not.toBeInTheDocument()
+    mockInvoke(7, 'hidden')
+    await act(() => refreshRendererSettings())
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Notifications' })).toBeVisible()
   })
 
   it('hides the badge when the unread count is zero', async () => {

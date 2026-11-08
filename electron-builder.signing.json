@@ -85,11 +85,12 @@
     }
   ],
   "mac": {
+    "icon": "signing-build-resources/Motrix.icon",
     "category": "public.app-category.utilities",
     "type": "distribution",
     "artifactName": "${productName}-${version}-${arch}.${ext}",
-    "bundleShortVersion": "2.0.0",
-    "bundleVersion": "2.0.1",
+    "bundleShortVersion": "2.3.0",
+    "bundleVersion": "2.3.0",
     "minimumSystemVersion": "13.0",
     "hardenedRuntime": true,
     "gatekeeperAssess": false,
@@ -105,6 +106,7 @@
       }
     ],
     "extendInfo": {
+      "NSAppleEventsUsageDescription": "Motrix requests permission to shut down your Mac when all downloads finish, only when you enable this action.",
       "NSLocalNetworkUsageDescription": "Motrix uses the local network for UPnP port mapping and discovering download peers."
     },
     "sign": "./scripts/sign-macos.mjs",
@@ -156,10 +158,7 @@
     ]
   },
   "win": {
-    "target": [
-      { "target": "nsis", "arch": ["x64"] },
-      { "target": "zip", "arch": ["x64"] }
-    ],
+    "target": ["nsis", "zip"],
     "extraResources": [
       { "from": "./extra/aria2.conf", "to": "./extra/aria2.conf" },
       { "from": "./dist/builtin-plugins", "to": "./builtin-plugins" },
@@ -180,6 +179,7 @@
     ]
   },
   "nsis": {
+    "buildUniversalInstaller": false,
     "include": "trusted/installer.nsh",
     "script": null,
     "customNsisBinary": null,
@@ -191,7 +191,7 @@
     "perMachine": false
   },
   "electronDist": "trusted/electron.zip",
-  "electronVersion": "44.5.0",
+  "electronVersion": "45.2.1",
   "npmRebuild": true,
   "beforeBuild": "./scripts/before-build-use-staged-dependencies.mjs",
   "detectUpdateChannel": true,

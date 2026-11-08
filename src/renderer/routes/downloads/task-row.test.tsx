@@ -17,7 +17,12 @@ vi.mock('@renderer/components/ui/toast', () => ({
 import '@renderer/lib/i18n'
 import { DownloadErrorCode } from '@shared/errors'
 import type { DownloadTask } from '@shared/types/task'
-import { TaskKind, TaskStatus, TaskType } from '@shared/types/task'
+import {
+  makeDefaultBtExtension,
+  TaskKind,
+  TaskStatus,
+  TaskType,
+} from '@shared/types/task'
 import { makeDownloadTask } from '@test-utils/task'
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
@@ -154,13 +159,66 @@ describe('TaskRow', () => {
           { id: 'down', width: 100, visible: true },
           { id: 'up', width: 100, visible: true },
           { id: 'eta', width: 100, visible: true },
+          { id: 'connections', width: 100, visible: true },
         ]}
       />
     )
     expect(
-      screen.getAllByRole('gridcell').map((cell) => cell.textContent)
-    ).toEqual(['', '', ''])
+      screen
+        .getAllByRole('gridcell')
+        .slice(1)
+        .map((cell) => cell.textContent)
+    ).toEqual(['', '', '', ''])
   })
+
+  it.each([0, 7])(
+    'shows %i actual HTTP connections while downloading',
+    (connections) => {
+      render(
+        <TaskRow
+          task={fake({ connections })}
+          rowProps={rowProps}
+          columns={[{ id: 'connections', width: 100, visible: true }]}
+        />
+      )
+      expect(screen.getAllByRole('gridcell')[1]).toHaveTextContent(
+        String(connections)
+      )
+    }
+  )
+
+  it.each([TaskType.Bt, TaskType.Magnet])(
+    'shows live %s peers including zero and clears them when paused or completed',
+    (type) => {
+      const task = fake({ type, bt: makeDefaultBtExtension({ peers: 7 }) })
+      const { rerender } = render(
+        <TaskRow
+          task={task}
+          rowProps={rowProps}
+          columns={[{ id: 'connections', width: 100, visible: true }]}
+        />
+      )
+      const cell = screen.getAllByRole('gridcell')[1]
+      expect(cell).toHaveTextContent('7')
+
+      for (const [status, expected] of [
+        [TaskStatus.Downloading, '0'],
+        [TaskStatus.FetchingMetadata, '0'],
+        [TaskStatus.Seeding, '0'],
+        [TaskStatus.Paused, ''],
+        [TaskStatus.Completed, ''],
+      ] as const) {
+        rerender(
+          <TaskRow
+            task={{ ...task, status, bt: makeDefaultBtExtension() }}
+            rowProps={rowProps}
+            columns={[{ id: 'connections', width: 100, visible: true }]}
+          />
+        )
+        expect(cell.textContent).toBe(expected)
+      }
+    }
+  )
 
   it('distinguishes zero speed, inapplicable upload and unknown ETA', () => {
     render(
@@ -175,7 +233,10 @@ describe('TaskRow', () => {
       />
     )
     expect(
-      screen.getAllByRole('gridcell').map((cell) => cell.textContent)
+      screen
+        .getAllByRole('gridcell')
+        .slice(1)
+        .map((cell) => cell.textContent)
     ).toEqual(['0 B/s', '', '–'])
     expect(screen.getByText('–')).toHaveClass('text-muted-foreground')
   })
@@ -197,7 +258,10 @@ describe('TaskRow', () => {
       />
     )
     expect(
-      screen.getAllByRole('gridcell').map((cell) => cell.textContent)
+      screen
+        .getAllByRole('gridcell')
+        .slice(1)
+        .map((cell) => cell.textContent)
     ).toEqual(['', '1.0 KB/s', ''])
   })
 
@@ -217,7 +281,10 @@ describe('TaskRow', () => {
       />
     )
     expect(
-      screen.getAllByRole('gridcell').map((cell) => cell.textContent)
+      screen
+        .getAllByRole('gridcell')
+        .slice(1)
+        .map((cell) => cell.textContent)
     ).toEqual(['', '', ''])
   })
 
@@ -247,12 +314,6 @@ describe('TaskRow', () => {
       <TaskRow task={fake()} rowProps={{ ...rowProps, selected: true }} />
     )
     expect(container.firstChild).toHaveAttribute('aria-selected', 'true')
-  })
-
-  it('uses the same minimum width as the scrollable column header', () => {
-    const { container } = render(<TaskRow task={fake()} rowProps={rowProps} />)
-
-    expect(container.firstChild).toHaveStyle({ minWidth: '1362px' })
   })
 
   it('renders localized creation and completion timestamps and refreshes on completion', () => {

@@ -246,7 +246,7 @@ describe('<DownloadsDialog>', () => {
     const concurrent = screen
       .getAllByDisplayValue('5')
       .find((el) => el.getAttribute('min') === '1') as HTMLInputElement
-    fireEvent.change(concurrent, { target: { value: '10' } })
+    fireEvent.change(concurrent, { target: { value: '200' } })
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /save/i }))
     expect(transport.invoke).toHaveBeenCalledWith(
@@ -254,7 +254,7 @@ describe('<DownloadsDialog>', () => {
       {
         expectedRevision: TEST_DOWNLOADS_REVISION,
         settings: {
-          engine: { maxConcurrentDownloads: 10 },
+          engine: { maxConcurrentDownloads: 200 },
         },
         directories: {
           addFavorites: [],
@@ -279,7 +279,7 @@ describe('<DownloadsDialog>', () => {
     ['min segment size', '1025', 'Enter a number from 1 to 1024.'],
     ['min segment size', '0.5', 'Enter a number from 1 to 1024.'],
     ['disk cache', '129', 'Enter a number from 0 to 128.'],
-    ['simultaneous downloads', '101', 'Enter a whole number from 1 to 100.'],
+    ['simultaneous downloads', '201', 'Enter a whole number from 1 to 200.'],
     ['connection timeout', '601', 'Enter a whole number from 1 to 600.'],
     ['maximum attempts', '-1', 'Enter a whole number from 0 to 100.'],
   ])(
@@ -328,7 +328,7 @@ describe('<DownloadsDialog>', () => {
     fireEvent.change(input, { target: { value: '1000' } })
     await user.click(screen.getByRole('button', { name: /save/i }))
     expect(
-      await screen.findByText('Enter a whole number from 1 to 100.')
+      await screen.findByText('Enter a whole number from 1 to 200.')
     ).toBeVisible()
 
     const row = input.closest('[data-slot="form-item"]') as HTMLElement
@@ -752,6 +752,89 @@ describe('<DownloadsDialog>', () => {
     )
   })
 
+  it('keeps each limit unit independent and saves no limit patch for unit-only edits', async () => {
+    render(
+      <DownloadsDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.downloads.title"
+        descKey="settings.cards.downloads.desc"
+      />
+    )
+    const user = userEvent.setup()
+    const units = screen.getAllByRole('combobox', { name: /^unit for/i })
+    await waitFor(() => expect(units[0]).toBeEnabled())
+    expect(units).toHaveLength(4)
+    await user.click(units[0])
+    await user.click(await screen.findByRole('option', { name: 'MB/s' }))
+    expect(units[0]).toHaveTextContent('MB/s')
+    for (const unit of units.slice(1)) expect(unit).toHaveTextContent('KB/s')
+    for (const unit of units.slice(1)) {
+      await user.click(unit)
+      await user.click(await screen.findByRole('option', { name: 'MB/s' }))
+    }
+    await user.click(screen.getByRole('button', { name: /save/i }))
+    expect(transport.invoke).toHaveBeenCalledWith(
+      Commands.SaveDownloadsSettings,
+      expect.objectContaining({
+        settings: {
+          app: {
+            speedLimitUnits: {
+              baseUpload: 'mega',
+              baseDownload: 'mega',
+              altUpload: 'mega',
+              altDownload: 'mega',
+            },
+          },
+        },
+      })
+    )
+  })
+
+  it.each(['decimal', 'binary'] as const)(
+    'saves fractional mega-unit input as exact bytes in the %s system',
+    async (system) => {
+      setByteUnitSystem(system)
+      const onClose = vi.fn()
+      render(
+        <DownloadsDialog
+          open
+          onClose={onClose}
+          labelKey="settings.cards.downloads.title"
+          descKey="settings.cards.downloads.desc"
+        />
+      )
+      const input = screen.getByLabelText(/download — standard limits/i)
+      await waitFor(() => expect(input).toBeEnabled())
+      const user = userEvent.setup()
+      await user.click(
+        screen.getByRole('combobox', {
+          name: 'Unit for Download (Standard limits)',
+        })
+      )
+      await user.click(
+        await screen.findByRole('option', {
+          name: system === 'binary' ? 'MiB/s' : 'MB/s',
+        })
+      )
+      expect(input).toHaveValue(null)
+      await user.type(input, '1.1')
+      await user.click(screen.getByRole('button', { name: /save/i }))
+      expect(transport.invoke).toHaveBeenCalledWith(
+        Commands.SaveDownloadsSettings,
+        expect.objectContaining({
+          settings: {
+            app: { speedLimitUnits: { baseDownload: 'mega' } },
+            speedLimit: {
+              base: { download: system === 'binary' ? 1_153_434 : 1_100_000 },
+            },
+          },
+        })
+      )
+      expect(onClose).toHaveBeenCalled()
+    }
+  )
+
   it.each(['decimal', 'binary'] as const)(
     'accepts fractional %s limits typed one character at a time',
     async (unitSystem) => {
@@ -834,7 +917,7 @@ describe('<DownloadsDialog>', () => {
 
     const standardGroup = setUnlimited.closest('[data-slot="button-group"]')
     expect(standardGroup).toContainElement(baseDown)
-    expect(standardGroup).toHaveClass('w-40')
+    expect(standardGroup).toHaveClass('w-42')
     expect(useStandard).toBeDefined()
 
     await user.click(setUnlimited)

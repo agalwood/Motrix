@@ -39,6 +39,9 @@ function createMockRpc(): Aria2RpcClient {
     getGlobalStat: vi.fn(),
     getGlobalOption: vi.fn(),
     getVersion: vi.fn(),
+    listMethods: vi.fn().mockResolvedValue([]),
+    getHttpRetryStatusV1: vi.fn(),
+    retryHttpDownloadV1: vi.fn(),
     onBtDownloadComplete: vi.fn(),
     onDownloadComplete: vi.fn(),
     onDownloadError: vi.fn(),
@@ -66,6 +69,142 @@ function featureReport(
 }
 
 // ─── Fixtures ───────────────────────────────────────────────
+
+describe('native HTTP continuation', () => {
+  const input = {
+    engineTaskId: '0123456789abcdef',
+    uri: 'https://example.com/file',
+    outputPath: '/downloads/file.motrix',
+  }
+  it('enables response identity capture only when the complete native contract is advertised', async () => {
+    const rpc = createMockRpc()
+    const adapter = new Aria2Adapter(rpc)
+    adapter.setFeatureReport(featureReport())
+    vi.mocked(rpc.listMethods).mockResolvedValue([
+      'aria2.getHttpRetryStatusV1',
+      'aria2.retryHttpDownloadV1',
+    ])
+    vi.mocked(rpc.addUriWithCookies).mockResolvedValue(input.engineTaskId)
+    await adapter.createDownload({
+      uris: [input.uri],
+      saveDir: '/downloads',
+      filename: 'file.motrix',
+      cookies: [],
+      retainRequestContext: true,
+    })
+    expect(rpc.addUriWithCookies).toHaveBeenCalledWith(
+      [input.uri],
+      [],
+      expect.objectContaining({ 'http-resume-context': 'true' })
+    )
+    vi.mocked(rpc.getHttpRetryStatusV1).mockResolvedValue({
+      available: 'true',
+      reason: 'ready',
+    })
+    vi.mocked(rpc.retryHttpDownloadV1).mockResolvedValue(input.engineTaskId)
+    expect(await adapter.canRetryDirectTask(input)).toBe(true)
+    await adapter.retryDirectTask(input)
+    expect(rpc.retryHttpDownloadV1).toHaveBeenCalledWith(
+      input.engineTaskId,
+      input.uri,
+      input.outputPath
+    )
+    expect(rpc.addUriWithCookies).toHaveBeenCalledTimes(1)
+    expect(rpc.removeDownloadResult).not.toHaveBeenCalled()
+  })
+  it('does not advertise native continuation on an older engine', async () => {
+    const rpc = createMockRpc()
+    const adapter = new Aria2Adapter(rpc)
+    adapter.setFeatureReport(featureReport())
+    expect(await adapter.canRetryDirectTask(input)).toBe(false)
+    await expect(adapter.retryDirectTask(input)).rejects.toMatchObject({
+      code: ErrorCode.EngineFeatureUnavailable,
+    })
+    expect(rpc.retryHttpDownloadV1).not.toHaveBeenCalled()
+  })
+
+  it('refreshes capability discovery at the production feature-report boundary', async () => {
+    const rpc = createMockRpc()
+    const adapter = new Aria2Adapter(rpc)
+    adapter.setFeatureReport(featureReport())
+    expect(await adapter.supportsDirectTaskRetry()).toBe(false)
+    vi.mocked(rpc.listMethods).mockResolvedValue([
+      'aria2.getHttpRetryStatusV1',
+      'aria2.retryHttpDownloadV1',
+    ])
+    adapter.setFeatureReport(featureReport())
+    expect(await adapter.supportsDirectTaskRetry()).toBe(true)
+    vi.mocked(rpc.listMethods).mockResolvedValue([])
+    adapter.setFeatureReport(featureReport())
+    await expect(
+      adapter.createDownload({
+        uris: [input.uri],
+        saveDir: '/downloads',
+        retainRequestContext: true,
+      })
+    ).rejects.toMatchObject({ code: ErrorCode.EngineFeatureUnavailable })
+    expect(rpc.addUri).not.toHaveBeenCalled()
+  })
+
+  it('does not publish a stale in-flight capability result after engine replacement', async () => {
+    const rpc = createMockRpc()
+    const adapter = new Aria2Adapter(rpc)
+    adapter.setFeatureReport(featureReport())
+    let finish!: (methods: string[]) => void
+    vi.mocked(rpc.listMethods).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        })
+    )
+    const pending = expect(adapter.supportsDirectTaskRetry()).rejects.toThrow(
+      'Engine changed'
+    )
+    adapter.setFeatureReport(featureReport())
+    expect(await adapter.supportsDirectTaskRetry()).toBe(false)
+    finish(['aria2.getHttpRetryStatusV1', 'aria2.retryHttpDownloadV1'])
+    await pending
+    expect(await adapter.supportsDirectTaskRetry()).toBe(false)
+    expect(rpc.listMethods).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('legacy HTTP activation capability', () => {
+  it('requires native redirect enforcement and rejects cumulative ambient headers', async () => {
+    const rpc = createMockRpc()
+    const adapter = new Aria2Adapter(rpc)
+    vi.mocked(rpc.getVersion).mockResolvedValue({
+      version: 'test',
+      enabledFeatures: ['SQLite3-Persistence', 'LegacyCheckpointImportV1'],
+    })
+    vi.mocked(rpc.getGlobalOption).mockResolvedValue({})
+    expect(await adapter.supportsLegacyHttpActivation()).toBe(false)
+    vi.mocked(rpc.getVersion).mockResolvedValue({
+      version: 'test',
+      enabledFeatures: [
+        'SQLite3-Persistence',
+        'LegacyCheckpointImportV1',
+        'HttpRedirectPolicyV1',
+      ],
+    })
+    expect(await adapter.supportsLegacyHttpActivation()).toBe(true)
+    vi.mocked(rpc.getGlobalOption).mockResolvedValue({
+      header: 'Authorization: ambient-secret',
+    })
+    expect(await adapter.supportsLegacyHttpActivation()).toBe(false)
+    await expect(
+      adapter.createDownload({
+        uris: ['https://example.test/file'],
+        saveDir: '/tmp',
+        legacyCheckpointActivation: {
+          token: 'legacy_http_token_1234',
+          targetPath: '/tmp/file',
+        },
+      })
+    ).rejects.toThrow('httpRequestUnsupported')
+    expect(rpc.addUri).not.toHaveBeenCalled()
+  })
+})
 
 const RAW_HTTP_ACTIVE: Aria2RawStatus = {
   gid: '2089b05ecca3d829',

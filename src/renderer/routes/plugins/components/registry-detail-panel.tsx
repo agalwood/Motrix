@@ -2,7 +2,7 @@ import {
   PANEL_TITLE_CLASS,
   PanelShell,
 } from '@renderer/components/desktop-kit/panel/panel-shell'
-import { ExternalLinkIcon, InstallIcon } from '@renderer/components/icons'
+import { ExternalLinkIcon } from '@renderer/components/icons'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
@@ -15,11 +15,10 @@ import {
 import { usePlatformServices } from '@renderer/platform/services'
 import { EXTERNAL_URLS } from '@shared/external-urls'
 import type { RegistryPluginDTO } from '@shared/schemas/registry'
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { registryListing } from '../lib/registry-text'
-import { PluginInstallDialog } from '../plugin-install-dialog'
 import { PluginAvatar } from './plugin-avatar'
+import { RegistryInstallAction } from './registry-install-action'
 
 interface Props {
   entry: RegistryPluginDTO
@@ -34,7 +33,6 @@ interface Props {
 export function RegistryDetailPanel({ entry }: Props) {
   const { t, i18n } = useTranslation()
   const services = usePlatformServices()
-  const [installOpen, setInstallOpen] = useState(false)
   const { name, description, features } = registryListing(
     entry.listing,
     i18n.language
@@ -68,7 +66,7 @@ export function RegistryDetailPanel({ entry }: Props) {
         <ScrollAreaViewport className="min-h-0 flex-1 overscroll-contain">
           <ScrollAreaContent style={{ minWidth: '100%' }}>
             <div className="mx-auto flex w-full flex-col gap-4 pb-6">
-              <Card className="flex flex-col gap-4 p-4">
+              <Card className="flex flex-col gap-4 p-4 shadow-none">
                 <div className="flex items-start gap-3">
                   <PluginAvatar
                     plugin={{ id: entry.id, name, icon: entry.icon }}
@@ -94,15 +92,11 @@ export function RegistryDetailPanel({ entry }: Props) {
                       })}
                     </Badge>
                   )}
-                  <Button
-                    size="sm"
+                  <RegistryInstallAction
+                    key={entry.id}
+                    pluginId={entry.id}
                     disabled={!entry.compatible}
-                    onClick={() => setInstallOpen(true)}
-                    data-testid="registry-install-btn"
-                  >
-                    <InstallIcon className="size-3.5" />
-                    {t('plugins.registry.install')}
-                  </Button>
+                  />
                   <Button
                     variant="outline"
                     size="sm"
@@ -116,10 +110,18 @@ export function RegistryDetailPanel({ entry }: Props) {
                     {t('plugins.registry.viewOnWebsite')}
                   </Button>
                 </div>
+                {!entry.compatible && entry.hostVersion && (
+                  <p role="status" className="text-sm text-muted-foreground">
+                    {t('plugins.install.hostIncompatible', {
+                      required: entry.engines.motrix,
+                      current: entry.hostVersion,
+                    })}
+                  </p>
+                )}
               </Card>
 
               {features.length > 0 && (
-                <Card className="flex flex-col gap-2 p-4">
+                <Card className="flex flex-col gap-2 p-4 shadow-none">
                   <h3 className="text-sm font-semibold tracking-tight">
                     {t('plugins.registry.featuresTitle')}
                   </h3>
@@ -132,7 +134,7 @@ export function RegistryDetailPanel({ entry }: Props) {
               )}
 
               {permissionChips.length > 0 && (
-                <Card className="flex flex-col gap-2 p-4">
+                <Card className="flex flex-col gap-2 p-4 shadow-none">
                   <h3 className="text-sm font-semibold tracking-tight">
                     {t('plugins.registry.permissionsTitle')}
                   </h3>
@@ -156,12 +158,6 @@ export function RegistryDetailPanel({ entry }: Props) {
         </ScrollAreaViewport>
         <ScrollBar />
       </ScrollArea>
-
-      <PluginInstallDialog
-        open={installOpen}
-        onOpenChange={setInstallOpen}
-        fixedSource={{ sourceType: 'registry', pluginId: entry.id }}
-      />
     </PanelShell>
   )
 }

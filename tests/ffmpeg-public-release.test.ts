@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import {
@@ -22,8 +22,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { runCommand } from '../src/main/cli/command-runner'
 import { verifyMacFfmpegTrust } from '../src/main/plugin/ffmpeg-macos-trust'
 import { makeElectronFfmpegProbe } from '../src/main/plugin/ffmpeg-probe-electron'
+import {
+  installServerFfmpeg,
+  probeServerFfmpeg,
+} from '../src/server/plugin/verified-ffmpeg-server'
 
-// macOS-only explicit opt-in: checks actual Apple trust for both Darwin archives.
+// Explicit opt-in: checks native Server installation; the desktop matrix also
+// checks actual Apple trust for both Darwin archives on macOS.
 // Uses only the latest public immutable GitHub Release, never CI artifacts.
 // Run: MOTRIX_FFMPEG_PUBLIC_RELEASE_TEST=1 pnpm exec vitest run tests/ffmpeg-public-release.test.ts
 const enabled = process.env.MOTRIX_FFMPEG_PUBLIC_RELEASE_TEST === '1'
@@ -99,6 +104,48 @@ async function checkedInstallation(
   }
   return { candidate, verified, directory }
 }
+
+describe.skipIf(
+  !enabled || !['darwin', 'linux', 'win32'].includes(process.platform)
+)('public FFmpeg server installation', () => {
+  it('installs on the server, detects the managed release, and rejects later tampering', async () => {
+    const userDataDir = await isolatedData()
+    const progress: FfmpegInstallStatus[] = []
+    const result = await installServerFfmpeg(userDataDir, (status) =>
+      progress.push(status)
+    )
+    expect(result.ok).toBe(true)
+    expect(
+      progress.some(
+        (status) => status.phase === 'downloading' && status.bytesReceived > 0
+      )
+    ).toBe(true)
+    expect(progress.at(-1)?.phase).toBe('installed')
+    const { directory, verified } = await checkedInstallation(
+      userDataDir,
+      process.platform as FfmpegPlatform,
+      process.arch as 'x64' | 'arm64'
+    )
+    const candidate = path.join(
+      userDataDir,
+      'binaries',
+      process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg'
+    )
+    await expect(
+      probeServerFfmpeg(userDataDir, candidate)
+    ).resolves.toMatchObject({
+      available: true,
+      binaryPath: path.join(directory, verified.target.binaryPath),
+    })
+    await writeFile(
+      path.join(directory, verified.target.ffprobePath),
+      'tampered'
+    )
+    await expect(
+      probeServerFfmpeg(userDataDir, candidate)
+    ).resolves.toMatchObject({ available: false, failureReason: 'untrusted' })
+  }, 600_000)
+})
 
 describe.skipIf(!enabled || process.platform !== 'darwin')(
   'public FFmpeg release download and installation',

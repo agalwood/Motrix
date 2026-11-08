@@ -3,10 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="color-scheme" content="light dark" />
+    <script>
+      const windowId = new URLSearchParams(location.search).get("w") ?? "main";
+      if (windowId === "main") {
+        document.documentElement.classList.add("window-main");
+      }
+    </script>
     <style id="motrix-theme-bootstrap">
       html,
       body {
-        background: #ffffff;
+        background: transparent;
         color: #18181b;
         color-scheme: light;
       }
@@ -14,9 +20,67 @@
       @media (prefers-color-scheme: dark) {
         html,
         body {
-          background: #09090b;
           color: #fafafa;
           color-scheme: dark;
+        }
+      }
+    </style>
+    <style>
+      #renderer-boot {
+        position: fixed;
+        inset: 0;
+        display: none;
+        place-content: center;
+        pointer-events: none;
+        background: rgb(255 255 255 / 50%);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        #renderer-boot {
+          background: rgb(9 9 11 / 50%);
+        }
+      }
+
+      .window-main #renderer-boot {
+        display: grid;
+      }
+
+      #renderer-boot-logo {
+        position: relative;
+        width: 62px;
+        height: 14px;
+        overflow: hidden;
+        background: currentColor;
+        opacity: 0.7;
+        mask: url("./mo-logo.svg") center / contain no-repeat;
+        -webkit-mask: url("./mo-logo.svg") center / contain no-repeat;
+      }
+
+      @media (prefers-reduced-motion: no-preference) {
+        #renderer-boot-logo {
+          background: color-mix(in srgb, currentColor 60%, transparent);
+        }
+
+        #renderer-boot-logo::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(
+            110deg,
+            transparent 20%,
+            rgb(255 255 255 / 80%) 50%,
+            transparent 80%
+          );
+          animation: renderer-boot-shimmer 1.25s linear infinite;
+        }
+      }
+
+      @keyframes renderer-boot-shimmer {
+        from {
+          transform: translateX(-100%);
+        }
+        to {
+          transform: translateX(100%);
         }
       }
     </style>
@@ -25,6 +89,9 @@
     <title>Motrix</title>
   </head>
   <body>
+    <div id="renderer-boot" role="progressbar" aria-label="Motrix">
+      <span id="renderer-boot-logo" aria-hidden="true"></span>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/renderer/index.tsx"></script>
   </body>

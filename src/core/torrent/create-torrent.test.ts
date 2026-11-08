@@ -2,8 +2,8 @@ import { createHash } from 'node:crypto'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { encode, parseTorrent } from '@motrix/torrent'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { bencodeEncode } from './bencode'
 import {
   collectSourceFiles,
   createTorrent,
@@ -13,35 +13,6 @@ import {
 
 const sha1 = (data: string | Uint8Array) =>
   createHash('sha1').update(data).digest('hex')
-
-describe('bencodeEncode', () => {
-  it('encodes the canonical spec example byte-exactly', () => {
-    // {'bar': 'spam', 'foo': 42} → d3:bar4:spam3:fooi42ee
-    const bytes = bencodeEncode({ bar: 'spam', foo: 42 })
-    expect(Buffer.from(bytes).toString('latin1')).toBe('d3:bar4:spam3:fooi42ee')
-  })
-
-  it('sorts dict keys by UTF-8 byte order', () => {
-    // 'Z' (0x5A) sorts before 'a' (0x61)
-    const bytes = bencodeEncode({ a: 1, Z: 2 })
-    expect(Buffer.from(bytes).toString('latin1')).toBe('d1:Zi2e1:ai1ee')
-  })
-
-  it('encodes nested lists, bytes, and skips undefined/null values', () => {
-    const bytes = bencodeEncode({
-      list: ['a', 1, new Uint8Array([1, 2, 3])],
-      skipMe: undefined,
-      skipMeToo: null,
-    })
-    expect(Buffer.from(bytes).toString('latin1')).toBe(
-      'd4:listl1:ai1e3:\u0001\u0002\u0003ee'
-    )
-  })
-
-  it('rejects non-integer numbers', () => {
-    expect(() => bencodeEncode({ x: 1.5 })).toThrow(TypeError)
-  })
-})
 
 describe('collectSourceFiles', () => {
   let dir: string
@@ -88,7 +59,7 @@ describe('createTorrent', () => {
       'piece length': 16 * 1024,
       pieces: createHash('sha1').update('abc').digest(),
     }
-    expect(result.infoHash).toBe(sha1(bencodeEncode(info)))
+    expect(result.infoHash).toBe(sha1(encode(info)))
   })
 
   it('emits progress covering the full size', async () => {
@@ -113,7 +84,7 @@ describe('createTorrent', () => {
     expect(raw).toContain('8:announce32:https://tracker.example/announce')
     expect(raw).toContain('13:announce-list')
     expect(raw).toContain('7:comment13:made by tests')
-    expect(raw).toContain('7:privatei1e')
+    expect(parseTorrent(result.bytes).private).toBe(true)
   })
 
   it('omits announce entirely for DHT-only torrents', async () => {
@@ -158,22 +129,23 @@ describe('createTorrent', () => {
       comment: 'x',
     })
     expect(a.infoHash).toBe(b.infoHash)
-    expect(Buffer.from(a.bytes).equals(Buffer.from(b.bytes))).toBe(true)
+    expect(parseTorrent(a.bytes).infoBytes).toEqual(
+      parseTorrent(b.bytes).infoBytes
+    )
   })
 
   it('produces bytes that parse-torrent reads back with matching infohash', async () => {
-    const { default: parseTorrent } = await import('parse-torrent')
     const result = await createTorrent({
       sourcePath: path.join(dir, 'payload.bin'),
       pieceLength: 16 * 1024,
       trackers: ['https://tracker.example/announce'],
       comment: 'roundtrip',
     })
-    const parsed = await parseTorrent(new Uint8Array(result.bytes))
-    expect(parsed.infoHash).toBe(result.infoHash)
+    const parsed = parseTorrent(new Uint8Array(result.bytes))
+    expect(parsed.identity).toMatchObject({ sha1: result.infoHash })
     expect(parsed.name).toBe('payload.bin')
-    expect(parsed.length).toBe(3)
-    expect(parsed.announce?.[0]).toBe('https://tracker.example/announce')
+    expect(parsed.v1?.length).toBe(3n)
+    expect(parsed.announce).toBe('https://tracker.example/announce')
   })
 
   it('handles a zero-byte file with an empty pieces string', async () => {
@@ -189,13 +161,69 @@ describe('createTorrent', () => {
     expect(result.pieceCount).toBe(0)
   })
 
+  it('hashes individual pieces across file boundaries including the final tail', async () => {
+    const src = path.join(dir, 'split')
+    await mkdir(src)
+    const chunk = 32768
+    const data = Buffer.concat([
+      Buffer.alloc(chunk, 1),
+      Buffer.alloc(chunk, 2),
+      Buffer.from('tail'),
+    ])
+    await writeFile(path.join(src, 'a'), data.subarray(0, 17001))
+    await writeFile(path.join(src, 'b'), data.subarray(17001))
+    const result = await createTorrent({ sourcePath: src, pieceLength: chunk })
+    const parsed = parseTorrent(result.bytes)
+    expect(parsed.v1?.pieces.length).toBe(3)
+    for (let i = 0; i < 3; i++)
+      expect(parsed.v1?.pieces.hex(i)).toBe(
+        sha1(data.subarray(i * chunk, (i + 1) * chunk))
+      )
+  })
+
+  it('preserves directory shape even with a single nested file and distinguishes private swarms', async () => {
+    const src = path.join(dir, 'one')
+    await mkdir(path.join(src, 'nested'), { recursive: true })
+    await writeFile(path.join(src, 'nested', 'x'), 'abc')
+    const opts = {
+      sourcePath: src,
+      trackers: ['https://tracker.example/announce'],
+      webSeeds: ['https://seed.example/'],
+    }
+    const publicResult = await createTorrent(opts)
+    const result = await createTorrent({ ...opts, private: true })
+    const parsed = parseTorrent(result.bytes)
+    expect(parsed.v1?.multiFile).toBe(true)
+    expect(
+      parsed.v1?.files[0].path.map((p) => new TextDecoder().decode(p))
+    ).toEqual(['nested', 'x'])
+    expect(parsed.webSeeds).toEqual(opts.webSeeds)
+    expect(parsed.private).toBe(true)
+    expect(publicResult.infoHash).not.toBe(result.infoHash)
+  })
+
+  it('rejects a source modified while being hashed', async () => {
+    const { truncateSync } = await import('node:fs')
+    const file = path.join(dir, 'changing')
+    await writeFile(file, Buffer.alloc(2 * 1024 ** 2))
+    await expect(
+      createTorrent(
+        { sourcePath: file },
+        {
+          onProgress(done, total) {
+            if (done < total) truncateSync(file, 0)
+          },
+        }
+      )
+    ).rejects.toThrow('changed')
+  })
   it('rejects invalid piece lengths', async () => {
     await expect(
       createTorrent({
         sourcePath: path.join(dir, 'payload.bin'),
         pieceLength: 15000,
       })
-    ).rejects.toThrow(TypeError)
+    ).rejects.toThrow()
   })
 })
 

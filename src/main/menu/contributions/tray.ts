@@ -4,6 +4,14 @@ import type { MenuRegistry } from '../menu-registry'
 
 export function contributeTrayMenu(menuReg: MenuRegistry): void {
   menuReg.appendItem({
+    id: MenuItemIds.TrayRecoverInterface,
+    type: 'normal',
+    menuId: MenuIds.Tray,
+    group: '2_window',
+    order: 40,
+    commandId: CommandIds.AppRecoverInterface,
+  })
+  menuReg.appendItem({
     id: MenuItemIds.TrayNew,
     type: 'normal',
     menuId: MenuIds.Tray,

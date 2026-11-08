@@ -7,6 +7,11 @@ import type { DownloadSubmitParams } from '@motrix/mdxp'
 import type { BrowserContext, Page } from '@playwright/test'
 import { chromium, expect, test } from '@playwright/test'
 import type { ServerBridgeRuntime } from '../../src/server/bridge/bootstrap'
+import {
+  BridgeCommands,
+  BridgeQueries,
+  type PairedClientInfo,
+} from '../../src/shared/protocol/bridge'
 import { getFreePort } from '../helpers/free-port'
 import {
   PUBLIC_HOST,
@@ -45,6 +50,19 @@ async function launchExtension(input: {
   const serviceWorker =
     context.serviceWorkers()[0] ??
     (await context.waitForEvent('serviceworker', { timeout: 15_000 }))
+  // macOS can keep chrome.i18n.getUILanguage() on the OS language even with
+  // --lang and Playwright's navigator locale override. Set this fresh test
+  // profile's supported application preference before opening extension UI.
+  await serviceWorker.evaluate(async () => {
+    const extensionGlobal = globalThis as typeof globalThis & {
+      chrome: {
+        storage: {
+          local: { set(values: Record<string, unknown>): Promise<void> }
+        }
+      }
+    }
+    await extensionGlobal.chrome.storage.local.set({ 'motrix.locale': 'en-US' })
+  })
   return {
     context,
     extensionId: new URL(serviceWorker.url()).hostname,
@@ -56,6 +74,7 @@ async function openIntegration(
   extensionId: string
 ): Promise<Page> {
   const page = await context.newPage()
+  page.setDefaultTimeout(15_000)
   await page.goto(`chrome-extension://${extensionId}/options.html`)
   await page.getByRole('tab', { name: 'Integration' }).click()
   await expect(
@@ -502,6 +521,161 @@ test('real Chromium: local profile keeps two remote Servers paired and policy-is
     if (closeProxyA !== null) await closeProxyA()
     if (runtimeB !== null) await runtimeB.shutdown()
     if (runtimeA !== null) await runtimeA.shutdown()
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('real Chromium: two profiles of the same extension stay connected across RPC, notifications, restart, and revoke', async () => {
+  const extensionBuild = process.env.MOTRIX_EXTENSION_BUILD
+  if (!extensionBuild || !existsSync(join(extensionBuild, 'manifest.json'))) {
+    throw new Error(
+      'MOTRIX_EXTENSION_BUILD must point to a built Chromium Extension directory'
+    )
+  }
+  const fixtureRoot = join(process.cwd(), 'src/server/bridge/__fixtures__')
+  const [cert, key] = await Promise.all([
+    readFile(join(fixtureRoot, 'motrix.test-cert.pem'), 'utf8'),
+    readFile(join(fixtureRoot, 'motrix.test-key.pem'), 'utf8'),
+  ])
+  const root = await mkdtemp(join(tmpdir(), 'motrix-multi-profile-e2e-'))
+  const [bridgePort, proxyPort] = await Promise.all([
+    getFreePort(),
+    getFreePort(),
+  ])
+  const contexts: BrowserContext[] = []
+  let runtime: ServerBridgeRuntime | null = null
+  let closeProxy: (() => Promise<void>) | null = null
+  try {
+    runtime = await startRuntime({
+      dataDir: join(root, 'server'),
+      bridgePort,
+      proxyPort,
+      submissions: [],
+    })
+    closeProxy = await startTlsProxy({
+      listenPort: proxyPort,
+      upstreamPort: bridgePort,
+      key,
+      cert,
+    })
+    const installations = async () => {
+      const paired = (await runtime!.bridgeQueryHandlers[
+        BridgeQueries.ListPaired
+      ]()) as PairedClientInfo[]
+      return paired.flatMap((client) =>
+        client.kind === 'extension' ? (client.installations ?? []) : []
+      )
+    }
+    const pages: Page[] = []
+    const ids: string[] = []
+    const installationIds: string[] = []
+    for (const profile of ['a', 'b']) {
+      const launch = await launchExtension({
+        extensionBuild,
+        profileDir: join(root, profile),
+        spkiPin: certificateSpkiPin(cert),
+      })
+      contexts.push(launch.context)
+      ids.push(launch.extensionId)
+      const page = await openIntegration(launch.context, launch.extensionId)
+      pages.push(page)
+      await addServerFromOptions(
+        page,
+        'Shared Motrix',
+        `wss://${PUBLIC_HOST}:${proxyPort}${ROUTE_PREFIX}`
+      )
+      await page.getByRole('button', { name: 'Use Shared Motrix' }).click()
+      await pairFromOptions(page, runtime)
+      const installation = (await installations()).find(
+        (item) => !installationIds.includes(item.id)
+      )
+      if (!installation) throw new Error('paired installation was not listed')
+      installationIds.push(installation.id)
+    }
+    expect(ids[0]).toBe(ids[1])
+    await expect
+      .poll(
+        async () =>
+          (await installations()).filter((item) => item.connected).length
+      )
+      .toBe(2)
+    const assertResponsive = async () => {
+      for (const page of pages) {
+        await expect(page.getByText('Connected', { exact: true })).toBeVisible()
+        const result = await page.evaluate(async () => {
+          const api = (
+            globalThis as unknown as {
+              chrome: {
+                runtime: { sendMessage(message: unknown): Promise<unknown> }
+              }
+            }
+          ).chrome
+          return api.runtime.sendMessage({ kind: 'bg.taskList', payload: {} })
+        })
+        expect(result).toEqual({ tasks: [], total: 0 })
+      }
+    }
+    await assertResponsive()
+    const notifyProgress = (index: number) => {
+      const session = runtime!.server.getSession(installationIds[index])
+      if (!session) throw new Error('installation session is unavailable')
+      session.conn.sendNotification('$/task/progress', {
+        taskId: `profile-task-${index}`,
+        bytesDone: 512,
+        bytesTotal: 1024,
+        speedBps: 256,
+        etaSec: 2,
+        phase: 'downloading',
+      })
+    }
+    notifyProgress(0)
+    await expect.poll(() => actionBadgeText(pages[0])).toBe('↓')
+    expect(await actionBadgeText(pages[1])).not.toBe('↓')
+    notifyProgress(1)
+    await expect.poll(() => actionBadgeText(pages[1])).toBe('↓')
+
+    // Reopening one profile reuses its credential without evicting its sibling.
+    await contexts[0].close()
+    await expect
+      .poll(
+        async () =>
+          (await installations()).filter((item) => item.connected).length
+      )
+      .toBe(1)
+    const back = await launchExtension({
+      extensionBuild,
+      profileDir: join(root, 'a'),
+      spkiPin: certificateSpkiPin(cert),
+    })
+    contexts[0] = back.context
+    pages[0] = await openIntegration(back.context, back.extensionId)
+    await expect(pages[0].getByText('Pairing ready')).toBeVisible()
+    await expect
+      .poll(
+        async () =>
+          (await installations()).filter((item) => item.connected).length
+      )
+      .toBe(2)
+    expect((await installations()).map((item) => item.id).sort()).toEqual(
+      [...installationIds].sort()
+    )
+    await assertResponsive()
+    notifyProgress(0)
+    await expect.poll(() => actionBadgeText(pages[0])).toBe('↓')
+
+    await runtime.bridgeCommandHandlers[BridgeCommands.RevokePair]({
+      identity: { kind: 'extension', browser: 'chromium', extensionId: ids[0] },
+    })
+    for (const page of pages) {
+      await page.reload()
+      await page.getByRole('tab', { name: 'Integration' }).click()
+      await expect(page.getByText('Not paired')).toBeVisible()
+    }
+    expect(await installations()).toHaveLength(0)
+  } finally {
+    await Promise.all(contexts.map((context) => context.close()))
+    if (closeProxy) await closeProxy()
+    if (runtime) await runtime.shutdown()
     await rm(root, { recursive: true, force: true })
   }
 })

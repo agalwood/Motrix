@@ -260,9 +260,9 @@ MOTRIX_PUBLIC_URL=http(s)://operator-host[:port][/base-path]
 MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP=false
 ```
 
-When enabled, both public URLs are required. The WebSocket URL accepts only WS
-or WSS. The operator URL accepts HTTPS by default. An HTTP operator URL is
-accepted only when `MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP=true` supplies a second,
+When enabled, the WebSocket public URL is required and accepts only WS or WSS.
+The operator URL is optional and is never inferred from the WebSocket address.
+If present, it accepts HTTPS by default. An HTTP operator URL is accepted only when `MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP=true` supplies a second,
 explicit opt-in; startup then warns that the operator token, pairing codes,
 session cookies, and administrator traffic lack TLS protection. This exception
 is for a trusted LAN only and is forbidden for Internet-facing or untrusted-LAN
@@ -303,11 +303,28 @@ public raw-route gate, raw MDXP is rejected, and CLI/operator bearers cannot
 enter either Extension route.
 
 The pairing code is released only through an authenticated operator snapshot or
-event channel. HTTP snapshot/mutation responses use `Cache-Control: no-store`;
+event channel. Web delivery additionally requires a valid configured HTTPS
+operator URL or explicit insecure-HTTP consent. Without either, operator
+snapshots exclude Extension requests and event sockets skip Extension
+`PairRequested` messages while retaining ordinary events and CLI requests.
+An authenticated operator Bearer request may read the snapshot over an observed
+loopback connection: its original headers MUST contain exactly one loopback Host
+with the actual listening port, and no Origin, Forwarded, or X-Forwarded-* header
+(even an empty one). Locality comes from the peer socket, never forwarded IPs.
+A privileged local proxy can emulate this connection; the operator token already
+grants machine-owner authority, so this is not physical isolation from an
+administrator who possesses that token. HTTP snapshot/mutation responses use `Cache-Control: no-store`;
 cookie-authenticated operator WebSockets require an Origin exactly matching the
 canonical `MOTRIX_PUBLIC_URL`, and mutation CSRF remains enforced. Codes do not
-enter URL, log, persistent browser storage, clipboard, CLI output, or
-notification text. The user reads the code and types it into the Extension.
+enter URL, log, persistent browser storage, clipboard, noninteractive CLI output,
+or notification text. `motrix-admin extension pair` may display one explicitly
+selected live code on an interactive terminal after authenticating over fixed
+loopback RPC. It MUST reject JSON and redirected streams, sanitize request
+metadata, revalidate the selected session and its original expiry, and clear the
+display on exit, cancellation, expiry, or failure. Reading never extends expiry;
+a disappeared request is not proof of successful pairing. A terminal viewer
+closing does not approve or deny the request. Terminal recording and privileged
+access remain within the administrator trust boundary. The user reads the code and types it into the Extension.
 Origin/CSRF, HttpOnly, SameSite, no-store, and login-rate controls remain active
 in explicitly authorized HTTP mode, but they do not provide confidentiality or
 prevent an on-path attacker from reading or altering operator traffic.
@@ -773,6 +790,14 @@ Atomicity rules:
 - Credential principal: `{browser, verifiedOrigin, clientInstallationId}`. A
   second browser profile is a **new principal** and pairs as a new
   credential; issuing or rotating one credential MUST NOT affect another.
+  Live connections MUST also be indexed by this full authenticated principal.
+  A reconnect replaces and closes only that installation's previous connection;
+  other installations remain usable. New task notification routing and
+  submission idempotency MUST retain the installation boundary. Legacy tasks
+  that only store `{browser, extensionId}` broadcast their notifications to all
+  authorized, ready installations of that extension; no credential or task
+  migration is required. Extension-wide revocation still applies to every
+  principal for the selected verified Origin.
 - Expired or revoked credentials always require a fresh code-entry pairing —
   never silent re-trust.
 
@@ -799,8 +824,10 @@ retry. Implementations MUST test worker death both before and after approval.
   the 40 bits big-endian into eight 5-bit groups; each group indexes the
   alphabet.
 - **Display**: uppercase, grouped `XXXX-XXXX`, shown **only** in the Motrix
-  approval dialog. The code is the PAKE password: it MUST never travel over
-  any network channel in any form, and MUST never be logged.
+  approval dialog, or the authenticated Server operator surfaces in §4.4
+  (including the explicitly selected interactive terminal view). The code is the
+  PAKE password: it MUST never travel on the Extension connection, and MUST never
+  be logged. Server operator delivery follows the separate §4.4 policy.
 - **Input normalization** (extension side, before local validation): strip
   ASCII hyphens and spaces; uppercase; map `O→0`, `I→1`, `L→1`; then require
   exactly 8 alphabet symbols. A string failing local validation MUST be
@@ -928,6 +955,70 @@ All further frames are AEAD-wrapped (§10). MDXP `motrix/initialize` remains
 the first application message, now inside the envelope.
 
 ---
+
+### 8.1 Safari installation continuity
+
+Safari changes its extension URL host on every browser launch. A transport
+Origin therefore cannot identify a long-lived Safari installation. Supporting
+servers advertise `X-Motrix-Safari-Continuity: 1` on `/discovery`, exposing that
+header to browser clients without changing the strict JSON discovery document.
+This is an unauthenticated compatibility hint, never authorization. Updated
+Safari clients require support for first pairing; Chromium and Firefox retain
+their existing wire behavior.
+
+A Safari installation generates and durably stores one random Ed25519 private
+key. The private key never leaves extension storage. A new `pairHello` includes
+`safariInstallationKey`, the canonical base64url 32-byte public key, allowed only
+for Safari. Append `enc("MBP1/safari-installation/v1") ‖ enc(safariInstallationKey)`
+to §6.4's `A_id` (the latter is the ASCII wire string). Successful code confirmation
+binds this public key to the credential principal. It proves installation
+continuity; it does not raise the `official` / `unverified` identity classification.
+
+A returning client adds this object to `reconnectResponse`:
+
+```json
+{ "safariResume": { "installationKey": "<public key>", "proof": "<signature>", "nmTicket": "<optional native ticket object>" } }
+```
+
+Let `RT0` be §8's transcript using the **live** transport Origin, `Kpub` the raw
+32-byte installation public key, and `D` the §6.4 digest of `nmTicket`, or empty
+bytes when absent:
+
+```
+RT = RT0 ‖ enc("MBP1/safari-resume/v1") ‖ enc(Kpub) ‖ enc(D)
+proof = Ed25519.Sign(Kpriv, enc("MBP1/safari-resume-proof/v1") ‖ S ‖ C ‖ RT)
+```
+
+Both reconnect MACs use this extended `RT`. Verify a canonical non-small-order,
+prime-subgroup public key and a strict RFC 8032 signature (`zip215: false`). A
+bound public key must match exactly; even a same-Origin connection must supply
+its proof once enrolled. Replacing the Origin, challenge, instance, credential,
+public key, or ticket invalidates authentication. Possession of `mutualKey` alone
+cannot enroll a replacement key from a new Origin.
+
+A legacy credential may enroll while its original Origin still matches. Across
+Origins, automatic enrollment additionally requires an `official` Safari
+credential and a fresh §9 ticket attesting `app.motrix.safari.extension`, bound
+to `Kpub`; the signature above proves possession. Expired, replayed, wrong-generation,
+wrong-caller, invalid or downgraded tickets cannot authorize migration. The native
+request preserves `allowLaunch: false`. A remote legacy credential whose Origin
+has already changed requires one explicit code pairing; the new credential then
+survives subsequent Safari restarts without native attestation.
+
+Enrollment is durable before `reconnectAccept`, with the credential, principal,
+key and authorization epoch rechecked inside the store transaction. Preserve the
+credential's original Origin as its routing and revocation identity; authenticate
+the current transport Origin separately. Session adoption rechecks the stored
+identity's admission/revocation gate. This preserves task routing, keeps browser
+profiles separate, and prevents revocation races from resurrecting authorization.
+
+Extension lookup uses backend authority plus Safari installation ID. Legacy
+origin-bound entries are read into that namespace without trusting the lookup as
+authentication. Only a verified server MAC permits activation, key enrollment and
+pruning of stale local rows. Other authorities and installations are untouched.
+Historical server approvals remain independently revocable; possession of one
+credential does not authorize deleting other server credentials by a claimed
+installation ID.
 
 ## 9. NM attestation ticket
 

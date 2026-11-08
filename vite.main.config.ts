@@ -1,6 +1,8 @@
 import { builtinModules, createRequire } from 'node:module'
 import path from 'node:path'
 import { defineConfig } from 'vite'
+import { desktopLocaleProjection } from './scripts/vite-desktop-locales'
+import { PRODUCTION_OUTPUT } from './scripts/vite-production-output'
 
 const require = createRequire(import.meta.url)
 const pkg = require('./package.json') as {
@@ -25,9 +27,7 @@ const nodeBuiltinSet = new Set(builtinModules)
 //      such a map and throws ERR_PACKAGE_PATH_NOT_EXPORTED *before*
 //      loading, so require(ESM) can't help — the failure is in
 //      resolution, not loading. Bundling resolves it at build time via
-//      the import condition. `bittorrent-peerid` and `parse-torrent`
-//      (both feross/webtorrent, `exports: { import: "./index.js" }`)
-//      are this case.
+//      the import condition. `bittorrent-peerid` uses this export shape.
 //   2. Its transitive deps get dropped from the asar by electron-builder
 //      26 + pnpm hoisted layout (the Go-based dep walker can't follow
 //      the tree without a `package-lock.json`). Bundling sidesteps the
@@ -35,7 +35,8 @@ const nodeBuiltinSet = new Set(builtinModules)
 //      build time. `pino` is the canonical example — its grandchildren
 //      (pino-std-serializers, safe-stable-stringify, thread-stream,
 //      etc.) get dropped from the asar otherwise.
-export const BUNDLED_PACKAGES = ['bittorrent-peerid', 'parse-torrent', 'pino']
+// Bundle the pure torrent metadata parser into the host output.
+export const BUNDLED_PACKAGES = ['bittorrent-peerid', '@motrix/torrent', 'pino']
 
 function matchesPackage(id: string, name: string): boolean {
   return id === name || id.startsWith(`${name}/`)
@@ -52,9 +53,17 @@ function isExternal(id: string): boolean {
 }
 
 export default defineConfig({
+  publicDir: false,
+  plugins: [
+    desktopLocaleProjection(
+      path.resolve(import.meta.dirname, 'src/shared/locales')
+    ),
+  ],
   build: {
     outDir: 'dist/main',
     emptyOutDir: true,
+    minify: 'oxc',
+    sourcemap: false,
     target: 'node20',
     lib: {
       entry: 'src/main/index.ts',
@@ -62,6 +71,7 @@ export default defineConfig({
       fileName: () => 'index.cjs',
     },
     rollupOptions: {
+      output: PRODUCTION_OUTPUT,
       external: isExternal,
     },
   },

@@ -5,6 +5,9 @@ import {
 
 // aria2 gained --bt-seed-unverified and --bt-save-metadata in 1.37.0.
 const BT_FEATURES_MIN_VERSION = '1.37.0'
+// The engine release workflow also builds explicitly labelled -dev candidates.
+const MOTRIX_VERSION =
+  /^(\d+\.\d+\.\d+)-motrix\.(\d+)(?:-dev(?:\.[a-z0-9-]+)*)?$/i
 
 /** Official aria2's per-task connection ceiling. */
 export const STANDARD_ARIA2_CONNECTION_LIMIT = 16
@@ -17,10 +20,7 @@ export const STANDARD_ARIA2_CONNECTION_LIMIT = 16
 export function isMotrixFork(
   report: Pick<EngineFeatureReport, 'version' | 'hasSqlitePersistence'>
 ): boolean {
-  return (
-    /^\d+\.\d+\.\d+-motrix\.\d+$/i.test(report.version) &&
-    report.hasSqlitePersistence
-  )
+  return MOTRIX_VERSION.test(report.version) && report.hasSqlitePersistence
 }
 
 /**
@@ -77,7 +77,7 @@ export function semverGte(a: string, b: string): boolean {
  * without it there is no durable row a not-found could be hiding.
  */
 export function hasDurableRemoveSemantics(version: string): boolean {
-  const match = /^(\d+\.\d+\.\d+)-motrix\.(\d+)$/.exec(version)
+  const match = MOTRIX_VERSION.exec(version)
   if (!match) return false
   const [, base, patch] = match
   if (!semverGte(base, '1.37.0')) return false

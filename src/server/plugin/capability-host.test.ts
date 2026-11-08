@@ -102,6 +102,8 @@ describe('createServerCapabilityHost', () => {
     })
 
     expect(host.http).toBeInstanceOf(HttpCapabilityHost)
+    expect(host.releaseLog).toBeTypeOf('function')
+    expect(host.closeLogs).toBeTypeOf('function')
   })
 
   it('notify.available is false (server runtime)', async () => {

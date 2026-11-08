@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import fixture from '@shared/schemas/registry.fixture.json'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { PluginNetworkError } from '../network/plugin-network-error'
 import {
   MAX_REGISTRY_BYTES,
   RegistryClient,
@@ -84,6 +85,54 @@ describe('RegistryClient', () => {
       ...options,
     })
   }
+
+  it('reports network failure without losing the last-good cache and clears status on recovery', async () => {
+    const failure = {
+      reason: 'timeout' as const,
+      route: 'proxy' as const,
+      targetHost: 'dl.motrix.app',
+      proxyEndpoint: '127.0.0.1:7897',
+    }
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockRejectedValueOnce(new PluginNetworkError(failure))
+      .mockResolvedValueOnce(new Response(JSON.stringify(fixture)))
+      .mockRejectedValueOnce(new PluginNetworkError(failure))
+      .mockResolvedValueOnce(new Response(null, { status: 304 }))
+    const client = makeClient(fetcher)
+    expect(await client.load()).toBeNull()
+    expect(client.status()).toEqual({
+      cached: false,
+      lastSuccessAt: null,
+      error: failure,
+    })
+    expect(await client.refresh()).not.toBeNull()
+    expect(client.status().error).toBeNull()
+    expect(await client.refresh()).not.toBeNull()
+    expect(client.status()).toMatchObject({ cached: true, error: failure })
+    await client.refresh()
+    expect(client.status().error).toBeNull()
+  })
+
+  it('annotates the media-merge beta requirement with the actual host version', async () => {
+    const body = structuredClone(fixture)
+    body.plugins[0].id = 'motrix.media-merge'
+    body.plugins[0].engines.motrix = '>=2.0.0-beta.48 <3.0.0'
+    const { impl } = makeFetch([{ status: 200, body }])
+    const client = makeClient(impl)
+    for (const [hostVersion, compatible] of [
+      ['2.0.0-beta.46', false],
+      ['2.0.0-beta.47', false],
+      ['2.0.0-beta.48', true],
+      ['2.0.0-beta.49', true],
+      ['2.0.0', true],
+      ['3.0.0', false],
+    ] as const) {
+      expect(await client.get('motrix.media-merge', hostVersion)).toMatchObject(
+        { hostVersion, compatible }
+      )
+    }
+  })
 
   it('rejects a legacy file envelope, fetches unconditionally, and overwrites in format 2', async () => {
     await writeFile(
@@ -366,17 +415,21 @@ describe('RegistryClient', () => {
       return new Promise<Response>(() => {})
     }) as unknown as typeof fetch
 
-    const pending = makeClient(impl, {
+    const client = makeClient(impl, {
       statImpl: async () => {
         throw new Error('no cache')
       },
-    }).load()
+    })
+    const pending = client.load()
     await vi.advanceTimersByTimeAsync(0)
     expect(impl).toHaveBeenCalledTimes(1)
     await vi.advanceTimersByTimeAsync(15_000)
 
     expect(await pending).toBeNull()
     expect(signal?.aborted).toBe(true)
+    expect(client.status().error?.reason).toBe('timeout')
+    // A consumer deadline must not misreport a proxied fetch as direct.
+    expect(client.status().error?.route).toBeUndefined()
   })
 
   it('cancels a late response from a fetch implementation that ignores abort', async () => {
@@ -428,5 +481,20 @@ describe('RegistryClient', () => {
       (await client.get('example.archive-unpacker', '2.2.0'))?.compatible
     ).toBe(true)
     expect(await client.get('example.unknown', '2.2.0')).toBeNull()
+  })
+
+  it('marks a beta-gated listing incompatible on an earlier beta and compatible on stable', async () => {
+    const catalog = structuredClone(fixture)
+    const entry = catalog.plugins.find(
+      (plugin) => plugin.id === 'example.minimal'
+    )!
+    entry.engines.motrix = '>=2.0.0-beta.45 <3.0.0'
+    const { impl } = makeFetch([{ status: 200, body: catalog }])
+    const client = makeClient(impl)
+    expect((await client.get(entry.id, '2.0.0-beta.44'))?.compatible).toBe(
+      false
+    )
+    expect((await client.get(entry.id, '2.0.0-beta.45'))?.compatible).toBe(true)
+    expect((await client.get(entry.id, '2.0.0'))?.compatible).toBe(true)
   })
 })

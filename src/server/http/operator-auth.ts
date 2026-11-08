@@ -1,5 +1,8 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
-import type { OperatorStatus } from '@shared/schemas/operator-auth'
+import type {
+  ClientPairingCapabilities,
+  OperatorStatus,
+} from '@shared/schemas/operator-auth'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 
 /**
@@ -25,6 +28,7 @@ const LOGIN_WINDOW_MS = 60_000
 const LOGIN_MAX = 20
 
 export interface OperatorAuthOptions {
+  clientPairing?: ClientPairingCapabilities
   /**
    * The operator (machine-owner) secret that authorizes the control plane.
    * Provisioned INDEPENDENTLY of the bridge (Spec 9 / F1) — it is NOT the agent
@@ -170,11 +174,15 @@ function isPublic(method: string, url: string): boolean {
   return false
 }
 
-interface SessionSocket {
+export interface SessionSocket {
   close(code: number, reason: string): void
+  send(data: string, callback: (error?: Error) => void): void
 }
 
 export interface OperatorSessionPolicy {
+  principal(
+    req: FastifyRequest
+  ): { id: string; eligible(): boolean } | undefined
   bindSocket(
     req: FastifyRequest,
     socket: SessionSocket
@@ -313,6 +321,9 @@ export function registerOperatorAuth(
       authed: mode !== null,
       mode: mode ?? 'unauthenticated',
       canLogout: mode === 'cookie',
+      ...(mode !== null && opts.clientPairing
+        ? { clientPairing: opts.clientPairing }
+        : {}),
       // Diagnostic only: this caller-supplied header never authorizes a request.
       ...(mode !== null && typeof browserOrigin === 'string'
         ? {
@@ -337,6 +348,20 @@ export function registerOperatorAuth(
   })
 
   return {
+    principal(req) {
+      const mode = authenticate(req)
+      if (mode === 'bearer')
+        return {
+          id: `bearer:${sha256(opts.operatorToken).toString('hex')}`,
+          eligible: () => true,
+        }
+      const id = parseCookies(req.headers.cookie)[COOKIE]
+      if (mode !== 'cookie' || !id) return undefined
+      return {
+        id: `session:${sha256(id).toString('hex')}`,
+        eligible: () => validSession(id, false),
+      }
+    },
     bindSocket(req, socket) {
       const mode = authenticate(req)
       const id =

@@ -1,9 +1,9 @@
 {
   "manifestVersion": 1,
   "id": "test.hook-sdk-2-0",
-  "name": "Hook SDK 2.0 compatibility fixture",
+  "name": "Legacy Hook runtime fixture",
   "version": "1.0.0",
-  "description": "Runtime guest fixture constrained to the published SDK 2.0 Hook surface",
+  "description": "Legacy Hook runtime fixture compiled against the current project SDK",
   "categories": ["integration"],
   "engines": { "motrix": ">=2.0.0" },
   "main": "dist/plugin.js",

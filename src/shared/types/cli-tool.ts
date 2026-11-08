@@ -27,6 +27,7 @@ export enum CliToolReason {
   NodeTooOld = 'node-too-old',
   ManagerMissing = 'manager-missing',
   Sandboxed = 'sandboxed',
+  Portable = 'portable',
   UnsupportedWeb = 'unsupported-web',
   Permission = 'permission',
   Network = 'network',

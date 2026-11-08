@@ -40,6 +40,7 @@ interface PluginSpec {
     argsSchema?: unknown
     resultSchema?: unknown
     public?: boolean
+    execution?: 'operation'
   }>
 }
 
@@ -51,6 +52,7 @@ function makeRegistry(plugins: PluginSpec[]): PluginRegistry {
         id: c.id,
         title: c.id,
         public: c.public ?? true,
+        execution: c.execution,
       })),
     }
     const manifest: PluginManifest = {
@@ -158,6 +160,7 @@ function buildHarness(opts: {
       argsSchema?: unknown
       resultSchema?: unknown
       public?: boolean
+      execution?: 'operation'
     }>
   >
 }): Harness {
@@ -234,6 +237,39 @@ describe('FullCrossPluginInvoker', () => {
 
   afterEach(async () => {
     await rm(tmp, { recursive: true, force: true })
+  })
+
+  it('rejects an operation command even with a forged public flag', async () => {
+    const commandId = 'community.text-tools.deduplicate'
+    const registry = makeRegistry([
+      { id: 'test.caller', invokesCommands: [commandId] },
+      {
+        id: 'community.text-tools',
+        publicCommands: [{ id: commandId, execution: 'operation' }],
+      },
+    ])
+    let invoked = false
+    const host = makeHost({
+      activate: async () => {
+        invoked = true
+      },
+      invokeCommand: async () => {
+        invoked = true
+      },
+    })
+    const h = buildHarness({ registry, host, auditFile })
+    await expect(
+      h.invoker.execute('test.caller', commandId, {
+        videoInput: '/video.mp4',
+        audioInput: '/audio.m4a',
+        output: '/existing.mp4',
+      })
+    ).rejects.toThrow('plugin.command.access_denied')
+    expect(invoked).toBe(false)
+    await h.audit.drain()
+    expect(await readAuditEntries(auditFile)).toEqual([
+      expect.objectContaining({ errorCode: 'plugin.command.access_denied' }),
+    ])
   })
 
   it('rejects an A -> B -> A call cycle before the second enqueue', async () => {

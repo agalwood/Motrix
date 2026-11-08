@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import {
+  Aria2ProcessInspector,
   parseLsofPid,
   parseNetstatPid,
   parseSsPid,
 } from './aria2-process-inspector'
 
 describe('Aria2ProcessInspector parsers', () => {
+  it('rejects unsafe PID input before platform inspection', async () => {
+    const inspector = new Aria2ProcessInspector('win32')
+    for (const pid of [0, -1, 1.5, Number.NaN, Number.MAX_SAFE_INTEGER + 1])
+      await expect(inspector.inspectPid(pid)).resolves.toBeNull()
+  })
   it('reads the first listener pid from lsof field output', () => {
     expect(parseLsofPid('p4201\np4201\n')).toBe(4201)
     expect(parseLsofPid('')).toBeNull()

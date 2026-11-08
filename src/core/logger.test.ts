@@ -38,7 +38,7 @@ describe('logger', () => {
 
     expect(mockInfo).toHaveBeenCalledWith(
       {
-        url: 'https://example.com/file',
+        url: 'https://example.com/file?token=[redacted]',
         headers: ['Authorization'],
         proxy: 'http://proxy.example:8080',
         connections: 16,
@@ -68,7 +68,7 @@ describe('logger', () => {
 
     expect(mockInfo).toHaveBeenCalledWith('request %j', {
       token: '[redacted]',
-      url: 'https://example.com/file',
+      url: 'https://example.com/file?signature=[redacted]',
       count: 1,
     })
   })
@@ -189,7 +189,7 @@ describe('logger', () => {
 
     expect(childFactory).toHaveBeenCalledWith(
       {
-        url: 'https://example.com/file',
+        url: 'https://example.com/file?token=[redacted]',
         authorization: '[redacted]',
       },
       undefined

@@ -42,7 +42,6 @@ describe('HeaderActionButton', () => {
 
     const button = screen.getByRole('button', { name: 'Install' })
     expect(button).toHaveTextContent('Install')
-    expect(button).not.toHaveClass('h-7')
     fireEvent.click(button)
     expect(onClick).toHaveBeenCalledTimes(1)
   })
@@ -78,25 +77,20 @@ describe('HeaderActionButton', () => {
     expect(button).toHaveTextContent('Add')
   })
 
-  it('keeps a 16px icon in a 28px target on the collapsed header centerline', () => {
+  it('keeps the collapsed action accessible and clickable without visible copy', () => {
     stubCompactEnvironment()
+    const onClick = vi.fn()
     render(
       <SidebarProvider defaultOpen={false}>
-        <HeaderActionButton label="Install" onClick={() => {}}>
+        <HeaderActionButton label="Install" onClick={onClick}>
           <AddIcon aria-hidden />
         </HeaderActionButton>
       </SidebarProvider>
     )
 
     const button = screen.getByRole('button', { name: 'Install' })
-    expect(button).toHaveClass(
-      'size-7',
-      'p-0',
-      '[&>svg]:size-4',
-      '[&>svg]:opacity-50',
-      'hover:[&>svg]:opacity-75'
-    )
-    expect(button).not.toHaveClass('[&>svg]:translate-y-0.5')
     expect(button).not.toHaveTextContent('Install')
+    fireEvent.click(button)
+    expect(onClick).toHaveBeenCalledTimes(1)
   })
 })

@@ -15,6 +15,7 @@ describe('proxySettingsSchema', () => {
       download: false,
       updateApp: false,
       updateTrackers: false,
+      plugins: false,
     })
   })
 
@@ -71,6 +72,21 @@ describe('proxySettingsSchema', () => {
     expect(parsed.bypass).toEqual([])
   })
 
+  it('preserves an explicitly disabled plugin scope during migration', () => {
+    expect(
+      proxySettingsSchema.parse({ scopes: { download: true, plugins: false } })
+        .scopes.plugins
+    ).toBe(false)
+  })
+
+  it('does not inherit other proxy scopes', () => {
+    expect(
+      proxySettingsSchema.parse({
+        scopes: { updateApp: true, updateTrackers: true },
+      }).scopes.plugins
+    ).toBe(false)
+  })
+
   it('parses partial scopes', () => {
     const r = proxySettingsSchema.parse({
       scopes: { download: true },
@@ -79,6 +95,7 @@ describe('proxySettingsSchema', () => {
       download: true,
       updateApp: false,
       updateTrackers: false,
+      plugins: true,
     })
   })
 })

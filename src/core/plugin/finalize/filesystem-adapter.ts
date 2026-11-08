@@ -43,6 +43,11 @@ export interface FinalizeFsCapabilities {
   heldRoots: boolean
   directorySync: boolean
   heldArtifacts: boolean
+  /** Held regular-file handles exclude writers, including writable mappings. */
+  heldFileWriteExclusion?: boolean
+  syncedRenameGuard?: boolean
+  reservedExfatRename?: boolean
+  tokenExfatReservation?: boolean
 }
 
 interface WireResponse {
@@ -64,6 +69,12 @@ interface WireResponse {
   held_roots?: boolean
   directory_sync?: boolean
   held_artifacts?: boolean
+  held_file_write_exclusion?: boolean
+  synced_rename_guard?: boolean
+  reserved_exfat_rename?: boolean
+  token_exfat_reservation?: boolean
+  volume_id?: string
+  platform_file_id?: string
 }
 
 interface PendingRequest {
@@ -77,6 +88,7 @@ export interface NativeFinalizeFilesystemAdapterOptions {
 }
 
 export interface FinalizeRootHandle {
+  readonly identity?: string
   readonly id: number
 }
 
@@ -84,8 +96,30 @@ export interface FinalizeArtifactHandle {
   readonly id: number
 }
 
+export interface FinalizeReservation {
+  handle: FinalizeArtifactHandle
+  platformFileId: string
+}
+
+export interface FinalizeReservationOwnership {
+  token: string
+  volumeId: string
+}
+
 export interface FinalizeFilesystemAdapter {
+  exfatVolumeIdentity?(root: FinalizeRootHandle): Promise<string | null>
   capabilities(): Promise<FinalizeFsCapabilities>
+  reserveExfatTarget?(
+    artifact: FinalizeArtifactHandle,
+    targetRoot: FinalizeRootHandle,
+    targetRelative: string,
+    expectedIdentity?: string,
+    ownership?: FinalizeReservationOwnership
+  ): Promise<FinalizeReservation>
+  renameOpenedReserved?(
+    artifact: FinalizeArtifactHandle,
+    reservation: FinalizeArtifactHandle
+  ): Promise<FinalizeRenameResult & { platformFileId: string }>
   /** Map a final-name candidate onto the shared cross-platform domain. */
   sanitizeName?(name: string): Promise<string>
   openRoot(
@@ -96,6 +130,15 @@ export interface FinalizeFilesystemAdapter {
     root: FinalizeRootHandle,
     relativePath: string,
     intent?: 'rename'
+  ): Promise<FinalizeArtifactHandle>
+  openRenameGuard?(
+    root: FinalizeRootHandle,
+    name: string
+  ): Promise<{ handle: FinalizeArtifactHandle; platformFileId: string } | null>
+  openRemoval?(
+    root: FinalizeRootHandle,
+    relativePath: string,
+    expectedIdentity: string
   ): Promise<FinalizeArtifactHandle>
   renameOpenedNoReplace(
     artifact: FinalizeArtifactHandle,
@@ -185,8 +228,12 @@ export class NativeFinalizeFilesystemAdapter
     )
   }
 
-  private heldHandle(id: number, generation: number): FinalizeRootHandle {
-    const handle = Object.freeze({ id })
+  private heldHandle(
+    id: number,
+    generation: number,
+    identity?: string
+  ): FinalizeRootHandle {
+    const handle = Object.freeze({ id, ...(identity ? { identity } : {}) })
     this.handleGenerations.set(handle, generation)
     return handle
   }
@@ -215,7 +262,163 @@ export class NativeFinalizeFilesystemAdapter
       heldRoots: response.held_roots === true,
       directorySync: response.directory_sync === true,
       heldArtifacts: response.held_artifacts === true,
+      heldFileWriteExclusion: response.held_file_write_exclusion === true,
+      syncedRenameGuard: response.synced_rename_guard === true,
+      reservedExfatRename: response.reserved_exfat_rename === true,
+      tokenExfatReservation: response.token_exfat_reservation === true,
     }
+  }
+
+  async createPrivateRoot(
+    parent: FinalizeRootHandle,
+    name: string
+  ): Promise<FinalizeRootHandle> {
+    const generation = this.generation
+    const result = await this.request({
+      op: 'create_private_root',
+      root: this.nativeId(parent),
+      name,
+    })
+    if (result.handle === undefined || !result.platform_file_id)
+      throw new Error('sidecar omitted private root identity')
+    return this.heldHandle(result.handle, generation, result.platform_file_id)
+  }
+
+  async removePrivateRoot(
+    parent: FinalizeRootHandle,
+    name: string,
+    root: FinalizeRootHandle
+  ): Promise<void> {
+    await this.request({
+      op: 'remove_private_root',
+      parent: this.nativeId(parent),
+      name,
+      root: this.nativeId(root),
+    })
+  }
+
+  async openSelectedFile(
+    root: FinalizeRootHandle,
+    relative: string
+  ): Promise<FinalizeArtifactHandle> {
+    const generation = this.generation
+    const result = await this.request({
+      op: 'open_selected_file',
+      root: this.nativeId(root),
+      relative,
+    })
+    if (result.handle === undefined)
+      throw new Error('sidecar omitted selected file handle')
+    return this.heldHandle(result.handle, generation)
+  }
+
+  async copySelectedFile(
+    file: FinalizeArtifactHandle,
+    target: FinalizeRootHandle,
+    relative: string
+  ): Promise<void> {
+    await this.request({
+      op: 'copy_selected_file',
+      artifact: this.nativeId(file),
+      target_root: this.nativeId(target),
+      target_relative: relative,
+    })
+  }
+
+  /** Dedicated operation sidecars can be killed without interrupting downloads. */
+  async abort(): Promise<void> {
+    this.disposed = true
+    const child = this.child
+    if (child.exitCode !== null || child.signalCode !== null) return
+    await new Promise<void>((resolve, reject) => {
+      const kill = setTimeout(() => child.kill('SIGKILL'), 5000)
+      const stuck = setTimeout(() => {
+        detach()
+        reject(new Error('operation filesystem process did not exit'))
+      }, 10000)
+      const detach = () => {
+        clearTimeout(kill)
+        clearTimeout(stuck)
+      }
+      child.once('close', () => {
+        detach()
+        resolve()
+      })
+      this.markDead(new Error('operation filesystem work cancelled'))
+      child.kill('SIGTERM')
+    })
+  }
+
+  async exfatVolumeIdentity(root: FinalizeRootHandle): Promise<string | null> {
+    const response = await this.request({
+      op: 'exfat_volume_identity',
+      root: this.nativeId(root),
+    })
+    if (response.volume_id === undefined) return null
+    if (!/^[a-f0-9]{32}$/.test(response.volume_id))
+      throw new Error('invalid volume identity')
+    return response.volume_id
+  }
+
+  async reserveExfatTarget(
+    artifact: FinalizeArtifactHandle,
+    targetRoot: FinalizeRootHandle,
+    targetRelative: string,
+    expectedIdentity?: string,
+    ownership?: FinalizeReservationOwnership
+  ): Promise<FinalizeReservation> {
+    const generation = this.generation
+    const response = await this.request({
+      op: 'reserve_exfat_target',
+      artifact: this.nativeId(artifact),
+      target_root: this.nativeId(targetRoot),
+      target_relative: targetRelative,
+      expected_identity: expectedIdentity,
+      token: ownership?.token,
+      volume_id: ownership?.volumeId,
+    })
+    if (response.handle === undefined || !response.platform_file_id)
+      throw new Error('sidecar omitted reservation identity')
+    return {
+      handle: this.heldHandle(response.handle, generation),
+      platformFileId: response.platform_file_id,
+    }
+  }
+
+  async renameOpenedReserved(
+    artifact: FinalizeArtifactHandle,
+    reservation: FinalizeArtifactHandle
+  ): Promise<FinalizeRenameResult & { platformFileId: string }> {
+    const response = await this.request({
+      op: 'rename_opened_reserved',
+      artifact: this.nativeId(artifact),
+      reservation: this.nativeId(reservation),
+    })
+    if (
+      !response.platform_file_id ||
+      response.directory_sync_mode !== 'directory_flushed'
+    )
+      throw new Error('sidecar omitted reserved publication result')
+    return {
+      platformFileId: response.platform_file_id,
+      directorySyncMode: response.directory_sync_mode,
+    }
+  }
+
+  async openRenameGuard(root: FinalizeRootHandle, name: string) {
+    const generation = this.generation
+    const result = await this.request({
+      op: 'open_rename_guard',
+      root: this.nativeId(root),
+      relative: name,
+    })
+    if (result.handle === undefined) return null
+    const handle = this.heldHandle(result.handle, generation)
+    if (!result.platform_file_id) {
+      await this.close(handle)
+      throw new Error('rename guard omitted its file ID')
+    }
+    return { handle, platformFileId: result.platform_file_id }
   }
 
   async openArtifact(
@@ -233,6 +436,23 @@ export class NativeFinalizeFilesystemAdapter
     if (response.handle === undefined) {
       throw new Error('sidecar omitted artifact handle')
     }
+    return this.heldHandle(response.handle, generation)
+  }
+
+  async openRemoval(
+    root: FinalizeRootHandle,
+    relativePath: string,
+    expectedIdentity: string
+  ): Promise<FinalizeArtifactHandle> {
+    const generation = this.generation
+    const response = await this.request({
+      op: 'open_removal',
+      root: this.nativeId(root),
+      relative: relativePath,
+      expected_identity: expectedIdentity,
+    })
+    if (response.handle === undefined)
+      throw new Error('sidecar omitted removal handle')
     return this.heldHandle(response.handle, generation)
   }
 
@@ -306,7 +526,8 @@ export class NativeFinalizeFilesystemAdapter
 
   async openRoot(
     rootPath: string,
-    expectedIdentity?: string
+    expectedIdentity?: string,
+    readOnly = false
   ): Promise<FinalizeRootHandle> {
     if (!path.isAbsolute(rootPath)) {
       throw new FinalizeFsError('invalid_path', 'root path must be absolute')
@@ -314,12 +535,17 @@ export class NativeFinalizeFilesystemAdapter
     const generation = this.generation
     const response = await this.request({
       op: 'open_root',
+      read_only: readOnly,
       path: normalizeSidecarRootPath(rootPath),
       expected_identity: expectedIdentity,
     })
     if (response.handle === undefined)
       throw new Error('sidecar omitted root handle')
-    return this.heldHandle(response.handle, generation)
+    return this.heldHandle(
+      response.handle,
+      generation,
+      response.platform_file_id
+    )
   }
 
   async renameNoReplace(
@@ -453,7 +679,9 @@ export class NativeFinalizeFilesystemAdapter
     const result = await response.catch((cause: unknown) => {
       if (
         body.op === 'rename_opened_no_replace' ||
-        body.op === 'rename_no_replace'
+        body.op === 'rename_no_replace' ||
+        body.op === 'rename_opened_reserved' ||
+        body.op === 'reserve_exfat_target'
       ) {
         const error = new FinalizeFsError(
           'io_error',

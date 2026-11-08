@@ -46,6 +46,21 @@ describe('AddTaskWindow', () => {
     vi.restoreAllMocks()
   })
 
+  it('cancels without requesting a hidden main window to be shown', async () => {
+    const user = userEvent.setup()
+    render(<AddTaskWindow />)
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.CloseCurrentWindow, {
+      showMain: 'if-visible',
+    })
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.CreateTask,
+      expect.anything()
+    )
+  })
+
   it('hosts and displays task creation errors in the standalone window', async () => {
     const user = userEvent.setup()
     const { baseElement } = render(<AddTaskWindow />)

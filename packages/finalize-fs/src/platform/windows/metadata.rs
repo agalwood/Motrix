@@ -11,10 +11,10 @@ use windows_sys::Win32::Foundation::{
     ERROR_FILE_NOT_FOUND, ERROR_NO_MORE_FILES, ERROR_PATH_NOT_FOUND,
 };
 use windows_sys::Win32::Storage::FileSystem::{
-    BY_HANDLE_FILE_INFORMATION, FILE_ATTRIBUTE_REPARSE_POINT, FILE_BASIC_INFO, FILE_FULL_DIR_INFO,
-    FILE_ID_INFO, FILE_STANDARD_INFO, FileBasicInfo, FileFullDirectoryInfo,
-    FileFullDirectoryRestartInfo, FileIdInfo, FileStandardInfo, GetFileInformationByHandle,
-    GetFileInformationByHandleEx,
+    BY_HANDLE_FILE_INFORMATION, FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_REPARSE_POINT,
+    FILE_BASIC_INFO, FILE_FULL_DIR_INFO, FILE_ID_INFO, FILE_STANDARD_INFO, FileBasicInfo,
+    FileFullDirectoryInfo, FileFullDirectoryRestartInfo, FileIdInfo, FileStandardInfo,
+    GetFileInformationByHandle, GetFileInformationByHandleEx,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -27,10 +27,16 @@ pub(super) enum FileIdentity {
 pub(super) struct FileStamp {
     volume: u64,
     file_id: FileIdentity,
-    size: i64,
+    pub(super) size: i64,
     last_write: i64,
     attributes: u32,
     pub(super) directory: bool,
+}
+
+impl FileStamp {
+    pub(super) fn same_file_and_size(&self, other: &Self) -> bool {
+        self.volume == other.volume && self.file_id == other.file_id && self.size == other.size
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -57,6 +63,48 @@ impl ArtifactSnapshot {
     }
 }
 
+/// Held traversal directories need type/reparse validation, not an artifact ID.
+/// In particular, FAT-family volume roots may report a zero legacy file index.
+pub(super) fn ensure_directory(handle: &OwnedHandle) -> io::Result<()> {
+    let basic: FILE_BASIC_INFO = query(handle, FileBasicInfo)?;
+    validate_directory_attributes(basic.FileAttributes)
+}
+
+fn validate_directory_attributes(attributes: u32) -> io::Result<()> {
+    if attributes & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "Windows reparse points are forbidden",
+        ));
+    }
+    if attributes & FILE_ATTRIBUTE_DIRECTORY == 0 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "Windows path component is not a directory",
+        ));
+    }
+    Ok(())
+}
+
+/// Identity equality is only a flush optimization, never a prerequisite to
+/// using an already-held directory. Missing IDs require flushing both parents.
+pub(super) fn same_parent_directory(left: &OwnedHandle, right: &OwnedHandle) -> io::Result<bool> {
+    let left = query_raw_identity_with(left, query::<FILE_ID_INFO>(left, FileIdInfo))?;
+    let right = query_raw_identity_with(right, query::<FILE_ID_INFO>(right, FileIdInfo))?;
+    Ok(same_known_identity(&left, &right))
+}
+
+fn same_known_identity(left: &(u64, FileIdentity), right: &(u64, FileIdentity)) -> bool {
+    !empty_identity(&left.1) && !empty_identity(&right.1) && left == right
+}
+
+fn empty_identity(id: &FileIdentity) -> bool {
+    match id {
+        FileIdentity::Extended(id) => *id == [0; 16],
+        FileIdentity::Legacy(id) => *id == 0,
+    }
+}
+
 pub(super) fn query_stamp(handle: &OwnedHandle) -> io::Result<FileStamp> {
     let basic: FILE_BASIC_INFO = query(handle, FileBasicInfo)?;
     let (volume, file_id) = query_identity(handle)?;
@@ -77,6 +125,21 @@ pub(super) fn query_stamp(handle: &OwnedHandle) -> io::Result<FileStamp> {
     })
 }
 
+pub(super) fn change_time(handle: &OwnedHandle) -> io::Result<i64> {
+    Ok(query::<FILE_BASIC_INFO>(handle, FileBasicInfo)?.ChangeTime)
+}
+
+/// The journal uses Node's decimal volume serial and 64-bit file index.
+pub(super) fn journal_file_id(handle: &OwnedHandle) -> io::Result<Option<String>> {
+    let mut info = BY_HANDLE_FILE_INFORMATION::default();
+    if unsafe { GetFileInformationByHandle(handle.as_raw_handle(), &mut info) } == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    let index = u64::from(info.nFileIndexHigh) << 32 | u64::from(info.nFileIndexLow);
+    Ok((info.dwVolumeSerialNumber != 0 && index != 0)
+        .then(|| format!("{}:{index}", info.dwVolumeSerialNumber)))
+}
+
 pub(super) fn query_identity(handle: &OwnedHandle) -> io::Result<(u64, FileIdentity)> {
     query_identity_with(handle, query::<FILE_ID_INFO>(handle, FileIdInfo))
 }
@@ -85,14 +148,31 @@ fn query_identity_with(
     handle: &OwnedHandle,
     extended: io::Result<FILE_ID_INFO>,
 ) -> io::Result<(u64, FileIdentity)> {
+    let identity = query_raw_identity_with(handle, extended)?;
+    require_artifact_identity(identity)
+}
+
+fn require_artifact_identity(identity: (u64, FileIdentity)) -> io::Result<(u64, FileIdentity)> {
+    if empty_identity(&identity.1) {
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            match identity.1 {
+                FileIdentity::Legacy(_) => "filesystem returned an empty legacy file identity",
+                FileIdentity::Extended(_) => "filesystem returned an empty file identity",
+            },
+        ));
+    }
+    Ok(identity)
+}
+
+fn query_raw_identity_with(
+    handle: &OwnedHandle,
+    extended: io::Result<FILE_ID_INFO>,
+) -> io::Result<(u64, FileIdentity)> {
     match extended {
-        Ok(id) if id.FileId.Identifier != [0; 16] => Ok((
+        Ok(id) => Ok((
             id.VolumeSerialNumber,
             FileIdentity::Extended(id.FileId.Identifier),
-        )),
-        Ok(_) => Err(io::Error::new(
-            io::ErrorKind::Unsupported,
-            "filesystem returned an empty file identity",
         )),
         Err(error) if unsupported_information(os_code(&error)) => {
             // SMB 2.x and older NAS implementations expose 64-bit file indices.
@@ -106,12 +186,6 @@ fn query_identity_with(
                 ));
             }
             let id = (u64::from(info.nFileIndexHigh) << 32) | u64::from(info.nFileIndexLow);
-            if id == 0 {
-                return Err(io::Error::new(
-                    io::ErrorKind::Unsupported,
-                    "filesystem returned an empty legacy file identity",
-                ));
-            }
             Ok((
                 u64::from(info.dwVolumeSerialNumber),
                 FileIdentity::Legacy(id),
@@ -343,6 +417,34 @@ fn query<T: Default>(handle: &OwnedHandle, class: i32) -> io::Result<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn traversal_accepts_directories_without_relaxing_artifact_identity() {
+        validate_directory_attributes(FILE_ATTRIBUTE_DIRECTORY).unwrap();
+        assert!(
+            validate_directory_attributes(FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)
+                .is_err()
+        );
+        assert!(validate_directory_attributes(0).is_err());
+        for id in [FileIdentity::Legacy(0), FileIdentity::Extended([0; 16])] {
+            assert!(require_artifact_identity((42, id.clone())).is_err());
+            assert!(!same_known_identity(&(42, id.clone()), &(42, id)));
+        }
+    }
+
+    #[test]
+    fn parent_deduplication_requires_matching_nonempty_ids_in_the_same_namespace() {
+        let known = (42, FileIdentity::Legacy(7));
+        assert!(same_known_identity(&known, &known));
+        for other in [
+            (42, FileIdentity::Legacy(0)),
+            (43, FileIdentity::Legacy(7)),
+            (42, FileIdentity::Legacy(8)),
+            (42, FileIdentity::Extended([7; 16])),
+        ] {
+            assert!(!same_known_identity(&known, &other));
+        }
+    }
 
     #[test]
     fn legacy_identity_fallback_is_stable_and_preserves_real_errors() {

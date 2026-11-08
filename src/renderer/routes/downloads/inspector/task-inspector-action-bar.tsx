@@ -4,6 +4,7 @@ import {
   OpenFileIcon,
   PauseIcon,
   RemoveIcon,
+  RestartIcon,
   ResumeIcon,
   RetryIcon,
   RevealFolderIcon,
@@ -14,9 +15,15 @@ import { MagnetFileSelectionButton } from '@renderer/components/task/magnet-file
 import { Button } from '@renderer/components/ui/button'
 import { toast } from '@renderer/components/ui/toast'
 import { useModifierKeys } from '@renderer/hooks/use-modifier-keys'
+import { openTaskFile } from '@renderer/lib/open-task-file'
 import { rtlMirror } from '@renderer/lib/task-status-ui'
 import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
+import {
+  hasHostFileActions,
+  hostOpenFileLabelKey,
+  hostRevealFolderLabelKey,
+} from '@renderer/platform/nas'
 import { Commands } from '@shared/protocol/commands'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
@@ -102,13 +109,7 @@ function OpenTaskFileButton({ task }: { task: DownloadTask }) {
     if (opening) return
     setOpening(true)
     try {
-      await transport.invoke(Commands.OpenTaskFile, { taskId: task.id })
-    } catch (error) {
-      toast.add({
-        title: t('panel.downloads.action.openFileFailed'),
-        description: error instanceof Error ? error.message : String(error),
-        type: 'error',
-      })
+      await openTaskFile(task.id, t)
     } finally {
       setOpening(false)
     }
@@ -121,7 +122,7 @@ function OpenTaskFileButton({ task }: { task: DownloadTask }) {
       onClick={() => void open()}
     >
       <OpenFileIcon />
-      {t('panel.downloads.action.openFile')}
+      {t(hostOpenFileLabelKey())}
     </Button>
   )
 }
@@ -143,7 +144,7 @@ function FinalizingActionBar({
         <PauseIcon />
         {t('panel.downloads.action.pause')}
       </Button>
-      {__MOTRIX_TARGET__ === 'electron' && canRevealTaskFolder(task) && (
+      {hasHostFileActions() && canRevealTaskFolder(task) && (
         <Button
           size="xs"
           variant="outline"
@@ -152,7 +153,7 @@ function FinalizingActionBar({
           }
         >
           <RevealFolderIcon />
-          {t('panel.downloads.action.openFolder')}
+          {t(hostRevealFolderLabelKey())}
         </Button>
       )}
       <CopyButton
@@ -260,6 +261,24 @@ export function TaskInspectorActionBar({
           onClick={(e) => void actions.onRetry({ alt: e.altKey })}
         />
       )}
+      {actions.redownloadCount > 0 && (
+        <CountedButton
+          label={t('panel.downloads.action.redownload')}
+          total={actions.total}
+          count={actions.redownloadCount}
+          tooltipSingle={
+            alt && actions.total === 1
+              ? t('panel.downloads.action.redownloadWithDialog')
+              : t('panel.downloads.action.redownload')
+          }
+          tooltipBatch={t('panel.downloads.action.redownloadTooltipBatch', {
+            n: actions.redownloadCount,
+            total: actions.total,
+          })}
+          icon={<RestartIcon />}
+          onClick={(e) => void actions.onRedownload({ alt: e.altKey })}
+        />
+      )}
       {actions.reseedCount > 0 && (
         <CountedButton
           label={t('panel.downloads.action.reseed')}
@@ -297,25 +316,23 @@ export function TaskInspectorActionBar({
         <MagnetFileSelectionButton task={single} />
       )}
 
-      {single &&
-        __MOTRIX_TARGET__ === 'electron' &&
-        canOpenTaskFile(single) && <OpenTaskFileButton task={single} />}
-      {single &&
-        __MOTRIX_TARGET__ === 'electron' &&
-        canRevealTaskFolder(single) && (
-          <Button
-            size="xs"
-            variant="outline"
-            onClick={() =>
-              transport.invoke(Commands.RevealInFolder, {
-                taskId: single.id,
-              })
-            }
-          >
-            <RevealFolderIcon />
-            {t('panel.downloads.action.openFolder')}
-          </Button>
-        )}
+      {single && hasHostFileActions() && canOpenTaskFile(single) && (
+        <OpenTaskFileButton task={single} />
+      )}
+      {single && hasHostFileActions() && canRevealTaskFolder(single) && (
+        <Button
+          size="xs"
+          variant="outline"
+          onClick={() =>
+            transport.invoke(Commands.RevealInFolder, {
+              taskId: single.id,
+            })
+          }
+        >
+          <RevealFolderIcon />
+          {t(hostRevealFolderLabelKey())}
+        </Button>
+      )}
       {single && (
         <CopyButton
           size="xs"

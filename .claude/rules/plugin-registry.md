@@ -34,8 +34,14 @@ fixture, and conformance corpus.
   entry. Its required, optional, and host permissions must each be a subset of
   the corresponding registry preview. Any mismatch aborts installation, and
   grants always derive from the parsed manifest.
-- Reserved publisher namespaces remain unavailable to community manifests.
-  Incompatible entries remain viewable but not installable.
+- Reserved publisher namespaces remain unavailable to unsigned community
+  manifests. Optional official packages may claim `motrix.*` only after the
+  exact archive passes the pinned Ed25519 signature check. They retain
+  community permission/consent policy and cannot use builtin-only hook roles.
+  Reverify retained archives at discovery and activation; read trusted
+  manifests and executable code from those bytes. Registry labels alone
+  never grant official identity. Incompatible entries remain viewable but
+  not installable.
 - `motrix://plugins/<id>` is navigation-only. It must not encode or trigger an
   install; every installation requires the in-app consent flow.
 

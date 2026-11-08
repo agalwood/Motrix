@@ -19,6 +19,7 @@ import {
 } from '@shared/schemas/task-tracker'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
+import { hasLegacyImport } from '@shared/types/task-actions'
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { TaskTrackerDialog } from './task-tracker-dialog'
@@ -59,11 +60,13 @@ export function TrackersTab({ task }: TrackersTabProps) {
   )
   const announceSet = useMemo(() => new Set(announceFlat), [announceFlat])
   const isPrivate = task.bt?.isPrivate === true
+  const isLegacy = hasLegacyImport(task)
   // Tasks that aria2 no longer holds (Completed-and-evicted, Error,
   // Removed) cannot accept SetTaskBtTracker / SyncTaskBtTracker —
   // aria2.changeOption raises "GID not found". Hide Edit/Sync and the
   // drift indicator entirely so we don't offer actions that 100% fail.
   const isEditable =
+    !isLegacy &&
     task.status !== TaskStatus.Completed &&
     task.status !== TaskStatus.Error &&
     task.status !== TaskStatus.Removed
@@ -82,10 +85,10 @@ export function TrackersTab({ task }: TrackersTabProps) {
       // While the announce baseline is loading or failed, an "effective
       // only" classification is unreliable — a private torrent's native
       // trackers must never be presented as removable extras.
-      out.push({ url, deletable: detailReady })
+      out.push({ url, deletable: detailReady && isEditable })
     }
     return out
-  }, [announceFlat, announceSet, effective, detailReady])
+  }, [announceFlat, announceSet, effective, detailReady, isEditable])
 
   const planRequest = JSON.stringify({
     taskId: task.id,
@@ -207,6 +210,7 @@ export function TrackersTab({ task }: TrackersTabProps) {
   )
 
   const startEdit = () => {
+    if (!isEditable) return
     setDraft(editableEffective.join('\n'))
     setMode('edit')
   }
@@ -219,6 +223,7 @@ export function TrackersTab({ task }: TrackersTabProps) {
     a.every((x) => b.includes(x))
 
   const save = async () => {
+    if (!isEditable) return
     const { valid, dropped } = parseTrackerInput(draft)
     if (dropped > 0) {
       toast.add({
@@ -258,7 +263,7 @@ export function TrackersTab({ task }: TrackersTabProps) {
   }
 
   const sync = async () => {
-    if (isPrivate) return // defensive — button is also disabled
+    if (!isEditable || isPrivate) return // defensive — button is also disabled
     const taskKey = taskKeyRef.current
     setIsSyncing(true)
     try {
@@ -285,7 +290,7 @@ export function TrackersTab({ task }: TrackersTabProps) {
   }
 
   const applyPlan = async () => {
-    if (!syncPlan || isSyncing) return
+    if (!isEditable || !syncPlan || isSyncing) return
     const taskKey = taskKeyRef.current
     setIsSyncing(true)
     try {
@@ -323,6 +328,7 @@ export function TrackersTab({ task }: TrackersTabProps) {
   }
 
   const handleDelete = async (url: string) => {
+    if (!isEditable) return
     const taskKey = taskKeyRef.current
     const next = effective.filter((u) => u !== url)
     try {
@@ -361,6 +367,11 @@ export function TrackersTab({ task }: TrackersTabProps) {
             {t('panel.downloads.inspector.trackers.privateBanner')}
           </span>
         </Alert>
+      )}
+      {isLegacy && (
+        <p className="shrink-0 text-xs text-muted-foreground">
+          {t('legacyImport.trackersReadOnly')}
+        </p>
       )}
 
       <div className="flex shrink-0 items-center justify-between gap-2 text-xs text-muted-foreground">

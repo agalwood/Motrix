@@ -34,8 +34,17 @@ const CredentialPrincipalSchema = z
     browser: BrowserSchema,
     verifiedOrigin: z.string().min(1).max(MAX_VERIFIED_ORIGIN_LENGTH),
     clientInstallationId: z.string().min(1).max(MAX_INSTALLATION_ID_LENGTH),
+    safariInstallationKey: z
+      .string()
+      .regex(/^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/)
+      .optional(),
   })
   .strict()
+  .refine(
+    (principal) =>
+      principal.safariInstallationKey === undefined ||
+      principal.browser === 'safari'
+  )
 
 /** Spec §6.7: a second browser profile is a new principal, so issuing or
  *  rotating one credential never affects another. */
@@ -105,6 +114,18 @@ const LegacyStoredCredentialSchema = StoredCredentialBaseSchema.omit({
 export type StoredCredential = z.infer<typeof StoredCredentialBaseSchema> & {
   authorizationEpoch?: string
 }
+
+/** Host-owned binding must be persisted before an offer can become observable.
+ * The callback runs under the credential queue and must not enqueue another
+ * mutation on this store. It receives no mutual key and cannot mutate the offered principal. */
+export interface ProvisionalCredentialBinding {
+  readonly credentialId: string
+  readonly authorizationEpoch: string
+  readonly reused: boolean
+}
+export type BeforeProvisionalOffer = (
+  credential: ProvisionalCredentialBinding
+) => Promise<void>
 
 const CredentialDocumentSchema = z
   .object({
@@ -330,7 +351,8 @@ export class Mbp1CredentialStore {
    */
   async offerProvisional(
     principal: CredentialPrincipal,
-    identity: IdentityTriState
+    identity: IdentityTriState,
+    beforeOffer?: BeforeProvisionalOffer
   ): Promise<{ credentialId: string; mutualKeyB64: string }> {
     return this.enqueue(async () => {
       const parsedPrincipal = parseCredentialPrincipal(principal)
@@ -348,6 +370,22 @@ export class Mbp1CredentialStore {
           !isExpiredAt(c, operationNow)
       )
       if (slot) {
+        if (
+          slot.principal.safariInstallationKey !==
+          parsedPrincipal.safariInstallationKey
+        )
+          throw new Error(CommittedExtensionCredentialError.InvalidInput)
+        if (beforeOffer) {
+          if (!slot.authorizationEpoch)
+            throw new Error(CommittedExtensionCredentialError.InvalidInput)
+          await beforeOffer(
+            Object.freeze({
+              credentialId: slot.credentialId,
+              authorizationEpoch: slot.authorizationEpoch,
+              reused: true,
+            })
+          )
+        }
         return {
           credentialId: slot.credentialId,
           mutualKeyB64: slot.mutualKeyB64,
@@ -376,11 +414,54 @@ export class Mbp1CredentialStore {
       // Replacing the slot (its occupant expired, or the committed credential
       // moved) drops the previous provisional instead of accumulating P₁…Pₙ.
       const next = [...retained, fresh]
+      if (beforeOffer) {
+        if (!fresh.authorizationEpoch)
+          throw new Error(CommittedExtensionCredentialError.InvalidInput)
+        await beforeOffer(
+          Object.freeze({
+            credentialId: fresh.credentialId,
+            authorizationEpoch: fresh.authorizationEpoch,
+            reused: false,
+          })
+        )
+      }
       await this.persist(next)
       return {
         credentialId: fresh.credentialId,
         mutualKeyB64: fresh.mutualKeyB64,
       }
+    })
+  }
+
+  /** Register continuity only after MAC, installation proof and migration policy pass.
+   * The exact credential and authorization epoch are compared again inside the queue.
+   * Its original principal remains the stable routing/revocation identity. */
+  async bindSafariInstallation(
+    expected: StoredCredential,
+    publicKey: string
+  ): Promise<void> {
+    await this.enqueue(async () => {
+      const current = this.credentials.find(
+        (c) => c.credentialId === expected.credentialId
+      )
+      if (
+        current?.principal.browser !== 'safari' ||
+        current.mutualKeyB64 !== expected.mutualKeyB64 ||
+        current.authorizationEpoch !== expected.authorizationEpoch ||
+        principalKey(current.principal) !== principalKey(expected.principal) ||
+        (current.principal.safariInstallationKey !== undefined &&
+          current.principal.safariInstallationKey !== publicKey) ||
+        isExpiredAt(current, this.readNow())
+      )
+        throw new Error('Safari continuity credential changed')
+      const principal = parseCredentialPrincipal({
+        ...current.principal,
+        safariInstallationKey: publicKey,
+      })
+      if (current.principal.safariInstallationKey === publicKey) return
+      await this.persist(
+        this.credentials.map((c) => (c === current ? { ...c, principal } : c))
+      )
     })
   }
 
@@ -390,9 +471,15 @@ export class Mbp1CredentialStore {
    * session this is a rotation, so it is the same single durable transaction
    * as {@link promoteOnReconnect}.
    */
-  async commitFromPair(credentialId: string): Promise<void> {
+  async commitFromPair(
+    credentialId: string,
+    beforeCommit?: () => Promise<void>
+  ): Promise<void> {
     assertCredentialId(credentialId)
-    return this.enqueue(() => this.promoteDurably(credentialId))
+    return this.enqueue(async () => {
+      if (beforeCommit) await beforeCommit()
+      await this.promoteDurably(credentialId)
+    })
   }
 
   /**
@@ -853,7 +940,7 @@ function freezeCredential(credential: StoredCredential): StoredCredential {
   })
 }
 
-function transportIdentityForPrincipal(principal: CredentialPrincipal): {
+export function transportIdentityForPrincipal(principal: CredentialPrincipal): {
   browser: Browser
   extensionId: string
 } | null {

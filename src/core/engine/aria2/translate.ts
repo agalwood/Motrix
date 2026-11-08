@@ -27,12 +27,12 @@ import type {
   Aria2RawFile,
   Aria2RawGlobalStat,
   Aria2RawPeer,
-  Aria2RawStatus,
+  Aria2TaskStatus,
 } from './types'
 
 // ─── Status Translation ───────────────────────────────────────
 
-export function translateStatus(raw: Aria2RawStatus): TaskStatus {
+export function translateStatus(raw: Aria2TaskStatus): TaskStatus {
   // BT seeding detection: active + seeder === 'true'
   if (raw.status === 'active' && raw.seeder === 'true' && raw.bittorrent) {
     return TaskStatus.Seeding
@@ -171,12 +171,16 @@ export function classifyTerminalError(
   }
 }
 
+function firstFile(raw: Aria2TaskStatus) {
+  return 'fileMetadata' in raw ? raw.fileMetadata.firstFile : raw.files?.[0]
+}
+
 // ─── Task Type Detection ──────────────────────────────────────
 
-export function detectTaskType(raw: Aria2RawStatus): TaskType {
+export function detectTaskType(raw: Aria2TaskStatus): TaskType {
   // Check first file's URI first — magnet links have bittorrent
   // metadata in aria2 but should be identified by their URI scheme
-  const firstUri = raw.files?.[0]?.uris?.[0]?.uri ?? ''
+  const firstUri = firstFile(raw)?.uris?.[0]?.uri ?? ''
   if (firstUri.startsWith('magnet:')) return TaskType.Magnet
   if (firstUri.startsWith('ftp://')) return TaskType.Ftp
 
@@ -210,21 +214,21 @@ export function computeEta(
 
 // ─── Name & URI Extraction ────────────────────────────────────
 
-export function extractName(raw: Aria2RawStatus): string {
+export function extractName(raw: Aria2TaskStatus): string {
   // BT downloads: use torrent name from metadata
   if (raw.bittorrent?.info?.name) {
     return raw.bittorrent.info.name
   }
 
   // File-based: use first file path's basename
-  const firstFile = raw.files?.[0]
-  if (firstFile?.path) {
-    const parts = firstFile.path.split('/')
-    return parts[parts.length - 1] || firstFile.path
+  const file = firstFile(raw)
+  if (file?.path) {
+    const parts = file.path.split('/')
+    return parts[parts.length - 1] || file.path
   }
 
   // Fallback: use first URI's filename
-  const firstUri = raw.files?.[0]?.uris?.[0]?.uri
+  const firstUri = firstFile(raw)?.uris?.[0]?.uri
   if (firstUri) {
     try {
       const url = new URL(firstUri)
@@ -238,7 +242,8 @@ export function extractName(raw: Aria2RawStatus): string {
   return raw.gid
 }
 
-export function extractUris(raw: Aria2RawStatus): string[] {
+export function extractUris(raw: Aria2TaskStatus): string[] {
+  if ('fileMetadata' in raw) return raw.fileMetadata.uris
   const seen = new Set<string>()
   const uris: string[] = []
   for (const file of raw.files ?? []) {
@@ -255,7 +260,7 @@ export function extractUris(raw: Aria2RawStatus): string[] {
 // ─── BT Extension ────────────────────────────────────────────
 
 export function translateBtExtension(
-  raw: Aria2RawStatus
+  raw: Aria2TaskStatus
 ): BtExtension | undefined {
   if (!raw.bittorrent) return undefined
 
@@ -264,12 +269,15 @@ export function translateBtExtension(
     seeds: Number(raw.numSeeders) || 0,
     ratio: shareRatio(Number(raw.uploadLength), Number(raw.totalLength)),
     trackers: (raw.bittorrent.announceList ?? []).flat(),
-    selectedFiles: (raw.files ?? [])
-      .filter((f) => f.selected === 'true')
-      // aria2 numbers files from 1; the engine-neutral domain uses 0-based
-      // indices (the same convention as TorrentFileInfo and selection
-      // commands). Keep that engine detail inside this adapter boundary.
-      .map((f) => Number(f.index) - 1),
+    selectedFiles:
+      'fileMetadata' in raw
+        ? raw.fileMetadata.selectedFiles
+        : (raw.files ?? [])
+            .filter((f) => f.selected === 'true')
+            // aria2 numbers files from 1; the engine-neutral domain uses 0-based
+            // indices (the same convention as TorrentFileInfo and selection
+            // commands). Keep that engine detail inside this adapter boundary.
+            .map((f) => Number(f.index) - 1),
     peersInSwarm: 0,
     seedsInSwarm: 0,
     announceList: raw.bittorrent.announceList ?? [],
@@ -295,7 +303,7 @@ export interface DerivedPaths {
   finalName: string
 }
 
-export function derivePathsFromRaw(raw: Aria2RawStatus): DerivedPaths {
+export function derivePathsFromRaw(raw: Aria2TaskStatus): DerivedPaths {
   const taskType = detectTaskType(raw)
   const isBt = taskType === TaskType.Bt || taskType === TaskType.Magnet
 
@@ -315,7 +323,7 @@ export function derivePathsFromRaw(raw: Aria2RawStatus): DerivedPaths {
   // HTTP/FTP: the first selected file's path is the canonical on-disk
   // location. Fallback to `raw.dir` + extracted name if files[] is
   // empty (e.g. pre-metadata state).
-  const filePath = raw.files?.[0]?.path
+  const filePath = firstFile(raw)?.path
   const diskPath =
     filePath && filePath.length > 0
       ? filePath
@@ -337,7 +345,7 @@ export function derivePathsFromRaw(raw: Aria2RawStatus): DerivedPaths {
 
 // ─── Full Task Translation ────────────────────────────────────
 
-export function translateRawToTask(raw: Aria2RawStatus): DownloadTask {
+export function translateRawToTask(raw: Aria2TaskStatus): DownloadTask {
   const now = Date.now()
   const status = translateStatus(raw)
   const derivedPaths = derivePathsFromRaw(raw)
@@ -420,7 +428,10 @@ export function translateRawToTask(raw: Aria2RawStatus): DownloadTask {
     // override the baseline if motrix.db has a saved value.
     uploadedBytes: Number(raw.uploadLength),
     uploadedBytesBaseline: 0,
-    fileCount: raw.files?.length ?? 0,
+    fileCount:
+      'fileMetadata' in raw
+        ? raw.fileMetadata.fileCount
+        : (raw.files?.length ?? 0),
 
     connections: Number(raw.connections),
     pieceLength: Number(raw.pieceLength) || 0,

@@ -1,6 +1,7 @@
 import { builtinModules, createRequire } from 'node:module'
 import path from 'node:path'
 import { defineConfig } from 'vite'
+import { PRODUCTION_OUTPUT } from './scripts/vite-production-output'
 
 const require = createRequire(import.meta.url)
 const pkg = require('./package.json') as {
@@ -20,13 +21,20 @@ function matchesPackage(id: string, name: string): boolean {
 function isExternal(id: string): boolean {
   if (id.startsWith('node:')) return true
   if (nodeBuiltinSet.has(id)) return true
+  // Bundle the pure metadata parser into each host target.
+  if (matchesPackage(id, '@motrix/torrent')) return false
   return productionDeps.some((name) => matchesPackage(id, name))
 }
 
 export default defineConfig({
+  publicDir: false,
+  // Published packages are externalized by SSR unless explicitly bundled.
+  ssr: { noExternal: ['@motrix/torrent'] },
   build: {
     outDir: 'dist/server',
     emptyOutDir: true,
+    minify: 'oxc',
+    sourcemap: false,
     target: 'node22',
     ssr: true,
     lib: {
@@ -39,6 +47,9 @@ export default defineConfig({
     rollupOptions: {
       external: isExternal,
       output: {
+        ...PRODUCTION_OUTPUT,
+        // Preserve the names used in diagnostics by the previously unminified host.
+        keepNames: true,
         entryFileNames: '[name].mjs',
         chunkFileNames: 'chunks/[name]-[hash].mjs',
       },

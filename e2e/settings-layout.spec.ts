@@ -1,10 +1,58 @@
+import path from 'node:path'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import type { AppSettings } from '@shared/types/settings'
 import { expect, test, waitForEngineReady } from './fixtures/electron-app'
+import {
+  setTaskInspectorContentSize,
+  updateTaskInspectorAppearance,
+} from './fixtures/task-inspector-activity'
+
+test('narrow settings keep readable cards and scroll within the panel', async ({
+  electronApp,
+  mainWindow: page,
+}) => {
+  await waitForEngineReady(page)
+  await page.evaluate(() => {
+    localStorage.setItem('sidebar_state', 'false')
+    location.hash = '/settings'
+  })
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await updateTaskInspectorAppearance(page, 'light', 'zh-CN')
+  await setTaskInspectorContentSize(electronApp, page, 176, 480)
+  const grid = page.locator('[data-slot="settings-grid"]')
+  const cards = grid.locator('[data-slot="settings-card"]')
+  await expect(cards).toHaveCount(8)
+  await expect
+    .poll(() =>
+      grid.evaluate((element) => {
+        const titles = [
+          ...element.querySelectorAll<HTMLElement>('.font-semibold'),
+        ]
+        return {
+          overflow: element.scrollWidth > element.clientWidth,
+          titlesFit: titles.every(
+            (title) =>
+              title.offsetHeight <=
+              Number.parseFloat(getComputedStyle(title).lineHeight)
+          ),
+          documentOverflow:
+            document.documentElement.scrollHeight > window.innerHeight,
+        }
+      })
+    )
+    .toEqual({ overflow: false, titlesFit: true, documentOverflow: false })
+  await cards.last().scrollIntoViewIfNeeded()
+  await expect(cards.last()).toBeInViewport()
+  await cards.last().click()
+  await expect(
+    page.getByRole('dialog', { name: '关于', exact: true })
+  ).toBeVisible()
+})
 
 test('moved settings preserve draft, cancel and save behavior in the desktop host', async ({
   mainWindow: page,
+  userDataDir,
 }, testInfo) => {
   await waitForEngineReady(page)
   const read = () =>
@@ -82,6 +130,14 @@ test('moved settings preserve draft, cancel and save behavior in the desktop hos
   expect((await read()).geoip.enabled).toBe(!before.geoip.enabled)
   expect((await read()).engine.magnetResolveTimeout).toBe(900)
   await open('Advanced')
+  const settingsFile = page.getByTitle(
+    path.join(userDataDir, 'settings.json'),
+    { exact: true }
+  )
+  await expect(settingsFile).toBeVisible()
+  await expect(settingsFile).toHaveAttribute('data-slot', 'middle-ellipsis')
+  await expect(page.getByRole('button', { name: 'Open folder' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Copy path' })).toHaveCount(0)
   const retention = page.getByRole('combobox', {
     name: 'Completed recovery records',
   })

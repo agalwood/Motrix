@@ -74,6 +74,8 @@ export interface TaskInstance {
 }
 
 export interface DownloadTask {
+  /** Transient storage work; never restored as an engine task after restart. */
+  storageOperation?: boolean
   id: string
   engineTaskId: string
   name: string
@@ -261,7 +263,7 @@ export interface BridgeSourceMeta {
   kind: 'direct' | 'hls' | 'dash' | 'mux' | 'magnet'
   extensionId: string
   browser: Browser
-  sessionKey: string // `${browser}:${extensionId}`
+  sessionKey: string // Authenticated installation routing key; older tasks use an extension-wide key.
   pageUrl: string
   pageTitle: string
   qualityLabel: string

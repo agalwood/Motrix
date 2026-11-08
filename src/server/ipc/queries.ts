@@ -4,6 +4,8 @@ import type { EngineAdapter } from '@core/engine/engine-adapter'
 import type { EngineSupervisor } from '@core/engine/engine-supervisor'
 import { createGetEngineTaskOptionsHandler } from '@core/engine/get-engine-task-options'
 import { getTuningRecommendation } from '@core/engine/get-tuning-recommendation'
+import { getFfmpegInstallStatus } from '@core/ffmpeg/verified-install'
+import { pathExists } from '@core/fs/path-exists'
 import type { GeoIPManager } from '@core/geoip/geo-ip-manager'
 import { createGetGeoIPStatusHandler } from '@core/geoip/get-geo-ip-status'
 import type { NotificationCenter } from '@core/notifications/notification-center'
@@ -31,6 +33,7 @@ import type {
   TaskSpeedHistoryStore,
   TransferStatsRuntime,
 } from '@core/stats'
+import { createGetTaskHttpRetryAvailabilityHandler } from '@core/task/direct-task-retry'
 import { createGetTaskFilesHandler } from '@core/task/get-task-files'
 import { createGetTaskPeersHandler } from '@core/task/get-task-peers'
 import { createGetTaskPiecesHandler } from '@core/task/get-task-pieces'
@@ -41,9 +44,10 @@ import type { TrackerManager } from '@core/tracker'
 import type { SupportedLocale } from '@shared/constants/locales'
 import type { QueryHandlerMap } from '@shared/protocol/handler-types'
 import { Queries } from '@shared/protocol/queries'
+import { checkTaskFileExistsPayloadSchema } from '@shared/schemas/check-task-file'
+import { PluginLogRequestSchema } from '@shared/schemas/plugin-logs'
 import { ListServerDirectoryLocationsRequestSchema } from '@shared/schemas/server-directory'
 import { taskTrackerRequestSchema } from '@shared/schemas/task-tracker'
-import type { AppUpdateState } from '@shared/types/app-update'
 import type { AppImageIntegrationView } from '@shared/types/appimage-integration'
 import {
   CliInstallCapability,
@@ -54,9 +58,12 @@ import {
 } from '@shared/types/cli-tool'
 import type { GetTransferStatsParams } from '@shared/types/stats'
 import type { GetTaskActivityParams } from '@shared/types/task-activity'
+import { z } from 'zod'
+import type { ServerUpdateService } from '../app-update-service'
 import type { ServerDownloadPathPolicy } from '../download-path-policy'
 import { makeServerFfmpegDetect } from '../plugin/ffmpeg-detect-server'
 import type { ServerDirectoryService } from '../server-directory-service'
+import { unsupportedLegacyImportQueries } from './legacy-import'
 
 const UNSUPPORTED_WEB_CLI_STATUS: CliToolStatus = {
   phase: CliToolPhase.ManualOnly,
@@ -102,6 +109,7 @@ const UNSUPPORTED_APPIMAGE_INTEGRATION: AppImageIntegrationView = {
 }
 
 export interface ServerQueryContext {
+  updateService: Pick<ServerUpdateService, 'getState'>
   getResolvedLanguage: () => SupportedLocale
   taskManager: TaskManager
   statsAggregator: StatsAggregator
@@ -131,7 +139,7 @@ export interface ServerQueryContext {
   downloadPathPolicy: ServerDownloadPathPolicy
   serverDirectoryService: Pick<
     ServerDirectoryService,
-    'list' | 'validate' | 'locations'
+    'list' | 'validate' | 'validateFile' | 'locations'
   >
   environment: NodeJS.ProcessEnv
 }
@@ -172,15 +180,11 @@ export function buildServerQueryHandlers(
   })
 
   return {
-    [Queries.GetFfmpegInstallStatus]: async () => ({
-      phase: 'idle',
-      bytesReceived: 0,
-      bytesTotal: 0,
-      percent: null,
-      releaseVersion: null,
-      directory: null,
-      error: 'unsupported',
-    }),
+    ...unsupportedLegacyImportQueries(),
+    [Queries.GetFfmpegInstallStatus]: async (payload: unknown) => {
+      z.undefined().parse(payload)
+      return getFfmpegInstallStatus(userDataDir)
+    },
     [Queries.ListServerDirectoryLocations]: async (request: unknown) => {
       if (
         !ListServerDirectoryLocationsRequestSchema.safeParse(request).success
@@ -194,6 +198,8 @@ export function buildServerQueryHandlers(
     },
     [Queries.ListServerDirectories]: async (request: unknown) =>
       ctx.serverDirectoryService.list(request),
+    [Queries.ValidateServerFile]: async (request: unknown) =>
+      ctx.serverDirectoryService.validateFile(request),
     [Queries.ValidateServerDirectory]: async (request: unknown) =>
       ctx.serverDirectoryService.validate(request),
     [Queries.GetDisclaimerState]: async () => ({
@@ -213,6 +219,8 @@ export function buildServerQueryHandlers(
     [Queries.GetTaskDetail]: async (taskId: string) =>
       taskManager.getById(taskId) ?? null,
 
+    [Queries.GetTaskHttpRetryAvailability]:
+      createGetTaskHttpRetryAvailabilityHandler(taskManager, engineAdapter),
     [Queries.GetTaskFiles]: createGetTaskFilesHandler({
       mediaMetaStore: ctx.mediaMetaStore,
       db: motrixDatabase,
@@ -271,6 +279,8 @@ export function buildServerQueryHandlers(
     [Queries.GetDirectoryPreferences]:
       createDirectoryPreferencesHandlers(settingsManager).get,
 
+    [Queries.GetPortableMode]: async () => ({ enabled: false }),
+
     [Queries.GetSettings]: async () => ({
       ...settingsManager.get(),
       resolvedLanguage: ctx.getResolvedLanguage(),
@@ -278,14 +288,18 @@ export function buildServerQueryHandlers(
     // A remote server cannot read the browser user's operating-system accent.
     [Queries.GetSystemAccentColor]: async () => null,
 
+    [Queries.GetSettingsFileLocation]: async () => ({
+      path: settingsManager.getFilePath(),
+    }),
+
     [Queries.GetGeoIPStatus]: createGetGeoIPStatusHandler({ geoipManager }),
 
     [Queries.GetSystemProxy]: async () => parseProxyEnvironment(environment),
 
-    [Queries.GetUpdateState]: async (): Promise<AppUpdateState> => ({
-      phase: 'unsupported',
-      currentVersion: hostVersion,
-    }),
+    [Queries.GetUpdateState]: async (payload: unknown) => {
+      z.undefined().parse(payload)
+      return ctx.updateService.getState()
+    },
 
     [Queries.GetAppImageIntegrationStatus]: async () =>
       UNSUPPORTED_APPIMAGE_INTEGRATION,
@@ -331,11 +345,14 @@ export function buildServerQueryHandlers(
     [Queries.GetTaskBtTracker]: async ({ engineGid }: { engineGid: string }) =>
       engineAdapter.getTaskBtTracker(engineGid),
 
-    [Queries.GetFfmpegDetection]: async () => detectFfmpeg(),
+    [Queries.GetFfmpegDetection]: async () =>
+      capabilityHost.ffmpeg.refreshDetection(detectFfmpeg),
 
     [Queries.ListPlugins]: async () => pluginRegistry.list(),
 
     // Parity with the Electron shell: remote-registry directory reads.
+    [Queries.GetRegistryStatus]: async () => registryClient.status(),
+
     [Queries.ListRegistryPlugins]: async () => registryClient.list(hostVersion),
 
     [Queries.GetRegistryPlugin]: async (id: string) =>
@@ -348,6 +365,11 @@ export function buildServerQueryHandlers(
       readCommandGraph(
         path.join(pluginsDir, '_audit', 'command-invokes.ndjson')
       ),
+
+    [Queries.GetPluginLogState]: async (payload: unknown) => {
+      const { pluginId } = PluginLogRequestSchema.parse(payload)
+      return capabilityHost.getLogState(pluginId)
+    },
 
     [Queries.GetPluginLogs]: async (params: {
       pluginId: string
@@ -389,6 +411,16 @@ export function buildServerQueryHandlers(
 
     [Queries.GetUnreadNotificationCount]: async () =>
       notificationCenter.unreadCount(),
+
+    [Queries.CheckTaskFileExists]: async (payload: unknown) => {
+      const { taskId } = checkTaskFileExistsPayloadSchema.parse(payload)
+      const task = taskManager.getById(taskId)
+      if (!task) return { exists: false }
+      const outputPath = task.finalPath || task.diskPath
+      if (!outputPath || typeof outputPath !== 'string')
+        return { exists: false }
+      return { exists: await pathExists(outputPath) }
+    },
 
     // NAT, tuning, and history queries are intentionally omitted in server
     // mode — those subsystems are Electron-only or not wired here yet.

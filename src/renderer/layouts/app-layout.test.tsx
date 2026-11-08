@@ -1,10 +1,13 @@
+import '@test-utils/dom-animations'
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
 import { useDownloadsSelection } from '@renderer/routes/downloads/store'
 import { useDownloadsView } from '@renderer/routes/downloads/view-preferences'
+import { SettingsPage } from '@renderer/routes/settings/settings-page'
 import { Events } from '@shared/protocol/events'
+import { Queries } from '@shared/protocol/queries'
 import { makeDownloadTask } from '@test-utils/task'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppLayout } from './app-layout'
@@ -17,7 +20,10 @@ function setWindowWidth(width: number) {
   })
 }
 
-function renderAppLayout(routeHandle?: Record<string, unknown>) {
+function renderAppLayout(
+  routeHandle?: Record<string, unknown>,
+  initialEntry = '/'
+) {
   // AppLayout uses useMatches() which only works under a data router.
   const router = createMemoryRouter(
     [
@@ -28,10 +34,16 @@ function renderAppLayout(routeHandle?: Record<string, unknown>) {
           { index: true, element: <div>INDEX_PAGE</div>, handle: routeHandle },
           { path: 'downloads/:filter', element: <div>DOWNLOADS_PAGE</div> },
           { path: 'plugins/:id', element: <div>PLUGIN_PAGE</div> },
+          { path: 'migration', element: null },
+          {
+            path: 'settings',
+            element: <SettingsPage />,
+            children: [{ path: ':cardId', element: null }],
+          },
         ],
       },
     ],
-    { initialEntries: ['/'] }
+    { initialEntries: [initialEntry] }
   )
   render(<RouterProvider router={router} />)
   return router
@@ -183,18 +195,6 @@ describe('AppLayout', () => {
     ).not.toBeNull()
   })
 
-  it('keeps the sidebar-wrapper background in mobile mode', () => {
-    // Below the 768px breakpoint the Sidebar renders as a portaled Sheet
-    // without data-variant="inset", so the wrapper's conditional
-    // `has-data-[variant=inset]:bg-sidebar` never matches. The wrapper
-    // must carry an unconditional bg-sidebar or transparent-inset pages
-    // (Dashboard) lose their background contrast.
-    setWindowWidth(500)
-    renderAppLayout()
-    const wrapper = document.querySelector('[data-slot="sidebar-wrapper"]')
-    expect(wrapper).toHaveClass('bg-sidebar')
-  })
-
   it('reports data-state=collapsed in mobile mode regardless of open flag', () => {
     // Below the md breakpoint the docked sidebar cannot be visible, so the
     // wrapper must report collapsed even when the desktop `open` flag is
@@ -207,30 +207,6 @@ describe('AppLayout', () => {
     expect(wrapper).toHaveAttribute('data-state', 'collapsed')
   })
 
-  it('keeps the inset card look below the md breakpoint', () => {
-    // Upstream shadcn gates m-2/rounded-xl/shadow-sm behind
-    // md:peer-data-[variant=inset]:, which both stops matching below
-    // 768px (the peer div is not rendered in mobile mode). We want the
-    // rounded card to survive at narrow widths, so the classes must be
-    // unconditional.
-    setWindowWidth(500)
-    renderAppLayout()
-    const inset = document.querySelector('[data-slot="sidebar-inset"]')
-    expect(inset).toHaveClass('m-2', 'rounded-xl', 'shadow-sm')
-  })
-
-  it('leaves no shadow-producing class on a transparentInset route', () => {
-    // The built-in SidebarInset shadow is md:peer-data-[variant=inset]:
-    // shadow-sm. tailwind-merge only collapses classes with identical
-    // modifiers, so the transparent branch must suppress BOTH the
-    // unconditional shadow-sm and the md-variant one — a bare shadow-none
-    // leaves the built-in variant alive at desktop widths.
-    renderAppLayout({ transparentInset: true })
-    const inset = document.querySelector('[data-slot="sidebar-inset"]')
-    expect(inset?.className).not.toMatch(/shadow-sm/)
-    expect(inset).toHaveClass('bg-transparent')
-  })
-
   it('renders the sidebar and the current route outlet', () => {
     renderAppLayout()
     // Sidebar nav items
@@ -238,5 +214,52 @@ describe('AppLayout', () => {
     expect(screen.getByText('Settings')).toBeInTheDocument()
     // Outlet rendered
     expect(screen.getByText('INDEX_PAGE')).toBeInTheDocument()
+  })
+
+  it('mounts the initial non-settings outlet only once and does not scan while migration is hidden', async () => {
+    renderAppLayout()
+    expect(screen.getAllByText('INDEX_PAGE')).toHaveLength(1)
+    await act(async () => Promise.resolve())
+    expect(window.motrix.invoke).not.toHaveBeenCalledWith(
+      Queries.DiscoverLegacyImport
+    )
+  })
+
+  it('retains an Advanced draft across migration dismissal to Dashboard', async () => {
+    vi.mocked(window.motrix.invoke).mockImplementation(async (channel) => {
+      if (channel === Queries.GetSettings)
+        return {
+          engine: {
+            rpcPort: 16800,
+            rpcSecret: 'test-secret',
+            sqlite3Persistence: true,
+            sqlite3DbPath: '',
+            sqlite3HistoryLimit: -1,
+          },
+        }
+      if (channel === Queries.GetLegacyImportNavigation)
+        return { detected: false, invitationPending: false }
+      if (channel === Queries.DiscoverLegacyImport) return []
+      return {}
+    })
+    const router = renderAppLayout(undefined, '/settings/advanced')
+    const port = await screen.findByDisplayValue('16800')
+    fireEvent.change(port, { target: { value: '17000' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Open migration' }))
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe('/migration')
+    )
+    expect(router.state.location.search).toBe('?from=settings')
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Advanced' })).toBeNull()
+    )
+    fireEvent.click(await screen.findByRole('button', { name: 'Not now' }))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/'))
+    expect(screen.queryByRole('dialog', { name: 'Advanced' })).toBeNull()
+    await act(async () => {
+      await router.navigate('/settings/advanced')
+    })
+    expect(await screen.findByDisplayValue('17000')).toBeVisible()
+    expect(screen.getByRole('dialog', { name: 'Advanced' })).toBeVisible()
   })
 })

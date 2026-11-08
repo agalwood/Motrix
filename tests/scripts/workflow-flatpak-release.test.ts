@@ -38,7 +38,8 @@ describe('Flatpak release gate', () => {
       inputs: {
         'release-version': {
           description: expect.any(String),
-          required: true,
+          required: false,
+          default: '',
           type: 'string',
         },
       },

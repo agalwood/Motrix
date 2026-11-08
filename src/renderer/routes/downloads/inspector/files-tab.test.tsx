@@ -237,7 +237,7 @@ describe('FilesTab', () => {
     )
 
     expect(screen.getByText('53%')).toBeInTheDocument()
-    expect(useTaskFiles).toHaveBeenCalledWith('t1', true)
+    expect(useTaskFiles).toHaveBeenCalledWith('t1', true, 'gid1')
   })
 
   it('shows every HTTP file as selected and read-only', () => {

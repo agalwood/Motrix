@@ -3,7 +3,7 @@ import { mkdtemp, readdir, readFile, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, isAbsolute, join, parse, resolve } from 'node:path'
 import type { Aria2RpcClient } from '@core/engine/aria2/aria2-rpc-client'
-import type { Aria2RawStatus } from '@core/engine/aria2/types'
+import type { Aria2TaskStatus } from '@core/engine/aria2/types'
 import type { EventBus } from '@core/events/event-bus'
 import { AsyncWorkTracker } from '@core/inspector-activity/async-work-tracker'
 import { newTaskId } from '@core/lib/ids'
@@ -81,6 +81,7 @@ const RETRY_METADATA_TIMEOUT_MULTIPLIER = 2
 export type CleanupResult = 'removed' | 'quarantined'
 
 export interface MagnetTrackerLifecycle {
+  canRestoreTask?: (task: TaskRow) => boolean
   /**
    * Coalesced / immediate TaskUpdated publication (TaskUpdatePublisher).
    * Metadata-lifecycle progress rides the trailing window; transitions that
@@ -105,6 +106,8 @@ export interface MagnetTrackerLifecycle {
   runExclusivePersistence?: <T>(operation: () => T | Promise<T>) => Promise<T>
   wallNow?: () => number
   monotonicNow?: () => number
+  /** Existing shell-owned directory for metadata work retained across restarts. */
+  metadataWorkDir?: string
   /** Trusted application-owned root for persisted `.torrent` metadata.
    * Failed-swap cleanup refuses torrent paths outside this directory. */
   torrentMetaDir?: string
@@ -236,6 +239,7 @@ export class MagnetTracker {
     if (this.stopped) return
     const all = this.db.getAllTasks()
     for (const pair of all) {
+      if (this.lifecycle.canRestoreTask?.(pair.task) === false) continue
       const metaInst = pair.instances.find(
         (i) => i.phase === TaskInstancePhase.MagnetMetadataResolution
       )
@@ -487,7 +491,12 @@ export class MagnetTracker {
       }
     }
 
-    const metadataDir = await mkdtemp(join(tmpdir(), 'motrix-magnet-metadata-'))
+    const metadataDir = await mkdtemp(
+      join(
+        this.lifecycle.metadataWorkDir ?? tmpdir(),
+        'motrix-magnet-metadata-'
+      )
+    )
     if (this.stopped) {
       await this.cleanupMetadataDir(metadataDir)
       return ''
@@ -774,7 +783,12 @@ export class MagnetTracker {
       }
     }
 
-    const metadataDir = await mkdtemp(join(tmpdir(), 'motrix-magnet-metadata-'))
+    const metadataDir = await mkdtemp(
+      join(
+        this.lifecycle.metadataWorkDir ?? tmpdir(),
+        'motrix-magnet-metadata-'
+      )
+    )
     let reservedGid: string
     try {
       reservedGid = this.reserveNewEngineGid()
@@ -928,7 +942,7 @@ export class MagnetTracker {
     }
   }
 
-  observe(raw: Aria2RawStatus): boolean {
+  observe(raw: Aria2TaskStatus): boolean {
     // Source of truth for "this gid is metadata-only, polling should
     // skip it" is the cache Map. Returning true here makes the
     // PollingScheduler's shouldSkipForPendingMagnetMetadata helper

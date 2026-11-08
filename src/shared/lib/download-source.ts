@@ -1,3 +1,4 @@
+import { parseMagnet } from '@motrix/torrent/magnet'
 import {
   type DownloadSourceAnalysis,
   MAX_DOWNLOAD_URL_BYTES,
@@ -5,7 +6,6 @@ import {
   type SourceProtocol,
   type SourceReason,
 } from '@shared/schemas/download-source'
-import { infoHashToMagnetUri } from '@shared/schemas/magnet-input'
 
 function failure(
   reason: SourceReason,
@@ -60,18 +60,12 @@ export function analyzeDownloadSource(
     )
   if (protocol === 'magnet') {
     if (!/^magnet:\?/i.test(raw)) return failure('invalidMagnet', 0, raw.length)
-    const topics = new URLSearchParams(
-      raw.slice(raw.indexOf('?') + 1).split('#')[0]
-    ).getAll('xt')
-    if (
-      !topics.some(
-        (topic) =>
-          /^urn:btih:/i.test(topic) &&
-          topic.slice(9) === topic.slice(9).trim() &&
-          infoHashToMagnetUri(topic.slice(9))
-      )
-    )
+    try {
+      if (parseMagnet(raw).identity.kind === 'v2')
+        return failure('invalidMagnet', 0, raw.length)
+    } catch {
       return failure('invalidMagnet', 0, raw.length)
+    }
     const uri = `magnet:${raw.slice(scheme[0].length)}`
     return {
       status: 'accepted',

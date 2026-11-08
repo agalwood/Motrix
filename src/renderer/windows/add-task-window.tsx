@@ -1,5 +1,5 @@
 import { AddTaskForm } from '@renderer/components/add-task/add-task-form'
-import { Toaster } from '@renderer/components/ui/toast'
+import { RendererToaster } from '@renderer/components/renderer-recovery-notice'
 import { useAdaptiveWindowHeight } from '@renderer/hooks/use-adaptive-window-height'
 import { electronServices } from '@renderer/platform/electron-services'
 import { PlatformServicesProvider } from '@renderer/platform/services'
@@ -52,11 +52,13 @@ export function AddTaskWindow() {
               navigateMainTo: `/downloads/all?task=${encodeURIComponent(taskId)}`,
             })
           }
-          onCancel={() => void electronServices.closeHost({ showMain: true })}
+          onCancel={() =>
+            void electronServices.closeHost({ showMain: 'if-visible' })
+          }
           subscribeEvents
         />
       </PlatformServicesProvider>
-      <Toaster />
+      <RendererToaster />
     </div>
   )
 }

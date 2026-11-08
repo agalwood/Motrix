@@ -19,8 +19,8 @@ const REPOSITORY_ROOT = path.resolve(
   '..'
 )
 const SCHEMA_VERSION = 2
-const ELECTRON_BUILDER_VERSION = '26.15.7'
-const ELECTRON_VERSION = '44.5.0'
+const ELECTRON_BUILDER_VERSION = '26.18.1'
+const ELECTRON_VERSION = '45.2.1'
 const PLATFORMS = new Set(['darwin', 'win32'])
 const ARCHES = new Set(['arm64', 'x64'])
 
@@ -34,6 +34,12 @@ export const SIGNING_ARCHIVE_LIMITS = Object.freeze({
 })
 
 const TRUSTED_INPUT_SHA256 = Object.freeze({
+  'signing-build-resources/Motrix.icon/icon.json':
+    'd50dd058b74140104544837c4da56e501f6a4c3b948cd99e4f33f8d9ca95e095',
+  'signing-build-resources/Motrix.icon/Assets/Glass-WhiteRim-1024.png':
+    '7607c10d1b5e2182bba242093bd5e38778b52a0940d801970bd9b96ddb18305e',
+  'signing-build-resources/Motrix.icon/Assets/MO-solid-1024.png':
+    '5ce1623839f29dac26c6b35e1aab727ba3bf29e2fa268869ed7b320b6b42fcfb',
   'signing-build-resources/app.motrix.safari.bootstrap.plist':
     '27ad50100646b2696fd7a0cab8d5ce1f391730069350f6e3d76ace376e0ef696',
   'signing-build-resources/entitlements.safari.plist':
@@ -41,21 +47,21 @@ const TRUSTED_INPUT_SHA256 = Object.freeze({
   'scripts/sign-macos.mjs':
     '98bda5c77dce2a3e5d9c9a2f8211f4d5594d060bf9d2839326db50dc41f8c58b',
   'electron-builder.signing.json':
-    'd2905182ec98ea058e1384c024359e299f6077b195693dd528f2e6b72e742a19',
+    'ee628df18b1699397d4b157117364f9f68675593f2e171841ed9fb5129642642',
   'signing-build-resources/256x256.png':
-    '044d3b64a14aa512ca41469372d1ad630557daaeb2cb4e709d34f2d3c57d4c3b',
+    'dcc14074b89edd296147ccd427e204e592c873cb2710eef539fabf2184ad0031',
   'signing-build-resources/background.tiff':
     'f15290fe1a059a6b262466445fd24a63eabf0e2a4f734f9812dfe8ac0b9609c1',
   'signing-build-resources/entitlements.mac.plist':
     '7520c54bdda9880a65e607a1539269ec69d60d97e54da36879d6ea089fb219dd',
   'signing-build-resources/icon.icns':
-    'f9ff86f32c2110b21d71a49a346f4186c4ef2cf1aed3884eca9704cb77fb4ed7',
+    '5d12f60c65a21eb6195272f372d4b01959c06ec47569d386c11e8edf151a5545',
   'signing-build-resources/icon.ico':
-    'a71d20d0ca732e27b445e3f09a0cd22cb356620929416e790d005dfff9c4e5a7',
+    '1e046608b5510e8c8f4f9168a29dd6a4ec36630639ab92eeee7a145c9dbe0f83',
   'signing-build-resources/installerHeader.bmp':
-    '1fec8201191e832831f93c5dbaca1a1941b17c72d29ede4ddbba0a721b58d3a5',
+    '9f03d5ceb770c60b7734f5653c3d06fec97d1fce4ea5a29f0910008c965566a1',
   'signing-build-resources/installerSidebar.bmp':
-    '510391ad03a2df0a83d2daaeacfc4d2a25b85166f701843d44d85b221df14ec0',
+    '464685dbb9c5bf1e6f83773028ca11c56d1a5d9b7038acf29f2ffc0c6d07c8d0',
   'signing-build-resources/torrent.icns':
     '1c8e042a7d4391fa241b4411badbe4a7393a8ad8429679838bf43b25ab29425f',
   'signing-build-resources/torrent.ico':
@@ -63,13 +69,13 @@ const TRUSTED_INPUT_SHA256 = Object.freeze({
   'signing-policy/installer.nsh':
     '33874b474fb9ee173950babee212a9bb0efe4bb0c8ddee451593531129dee27a',
   'signing-tool/package.json':
-    'b8ddd0e1bb90198d99628eb8b5b8c3c2b8cbda4a3aee48f118a36244467fac51',
+    'dd3d363d1c432c23ddfd03559745538576a59459e8505c2c519505d383cf0bbb',
   'signing-tool/package-lock.json':
-    '8fa0825cd7a7605cab5cfc4d77357b3f29452b12abe64e51851796d04406b1e6',
+    '8e5282911c43c6edac449fea2e3d22f6e7663131bcbaf24568a328d33596ea09',
   'scripts/electron-package-size-budgets.json':
-    '331910aee89b894acb3587387763f05f0a9179290a88cf6ad7ced1d9560bb9c7',
+    'c9a7b04ab93071809f9dca3d5ece6a2e7daa8fd211c34a1c9087eadef9f5fc89',
   'scripts/electron-package-utils.mjs':
-    '9d408f9edc91182be5d5aed39f2c5a5d20f5523e08d9c08e630c23c66302daa8',
+    '8834f6e22db4212655368a31815c7f86ac16c3065aacabb99e83878b9df43831',
   'scripts/before-build-use-staged-dependencies.mjs':
     'acbd47ea1ac9397990ec0d605cb1f5e627c3db265bd1e3a6588a7c65635af315',
   'scripts/native-binary-target.mjs':
@@ -107,6 +113,7 @@ const SOURCE_MAPPINGS = [
   ],
   ['build/icon.icns', 'signing-build-resources/icon.icns'],
   ['build/icon.ico', 'signing-build-resources/icon.ico'],
+  ['build/Motrix.icon', 'signing-build-resources/Motrix.icon'],
   ...Object.entries(OPTIONAL_NSIS_ARTWORK).map(([destination, source]) => [
     source,
     destination,
@@ -239,6 +246,7 @@ function isAllowedSigningDirectory(relativePath) {
   ]
   const flatRoots = [
     'signing-build-resources',
+    'signing-build-resources/Motrix.icon/Assets',
     'signing-policy',
     'signing-tool',
     'scripts',
@@ -267,6 +275,9 @@ function isAllowedSigningBuildResource(relativePath) {
     'signing-build-resources/app.motrix.safari.bootstrap.plist',
     'signing-build-resources/icon.icns',
     'signing-build-resources/icon.ico',
+    'signing-build-resources/Motrix.icon/icon.json',
+    'signing-build-resources/Motrix.icon/Assets/Glass-WhiteRim-1024.png',
+    'signing-build-resources/Motrix.icon/Assets/MO-solid-1024.png',
     'signing-build-resources/torrent.icns',
     'signing-build-resources/torrent.ico',
   ]).has(relativePath)
@@ -312,9 +323,6 @@ function parseOptions(argv) {
   if (!options.directory) throw new Error('--directory is required')
   if (options.mode === 'create' && !options.archive) {
     throw new Error('--archive is required in create mode')
-  }
-  if (options.platform === 'win32' && options.arch !== 'x64') {
-    throw new Error('Windows signing input only supports x64')
   }
   return options
 }

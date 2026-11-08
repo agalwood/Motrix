@@ -1,6 +1,7 @@
 import type { PluginListDTO } from '@shared/types/plugin'
 import type { GrantsMap } from '@shared/types/plugin-install'
 import type { TFunction } from 'i18next'
+import { pluginErrorTitleKey } from './plugin-error'
 
 export type { GrantState, GrantsMap } from '@shared/types/plugin-install'
 
@@ -101,6 +102,14 @@ const PERMISSION_AUDIENCE: Record<
     tone: 'off',
     toneLabelKey: 'plugins.permission.accessTone.offByDefault',
   },
+  'files.selected.read': {
+    tone: 'review',
+    toneLabelKey: 'plugins.permission.accessTone.required',
+  },
+  'files.selected.write': {
+    tone: 'review',
+    toneLabelKey: 'plugins.permission.accessTone.required',
+  },
   'fs.task.read': {
     tone: 'optional',
     toneLabelKey: 'plugins.permission.accessTone.required',
@@ -110,6 +119,10 @@ const PERMISSION_AUDIENCE: Record<
     toneLabelKey: 'plugins.permission.accessTone.required',
   },
   'fs.storage': {
+    tone: 'optional',
+    toneLabelKey: 'plugins.permission.accessTone.required',
+  },
+  metadata: {
     tone: 'optional',
     toneLabelKey: 'plugins.permission.accessTone.required',
   },
@@ -269,12 +282,36 @@ export function computePluginAudience(
   grants: GrantsMap | undefined,
   hasSettingsSchema: boolean = false
 ): Audience {
+  if (plugin.security) {
+    const titleKey =
+      plugin.security.reason === 'pending' ||
+      plugin.security.reason === 'unavailable'
+        ? 'plugins.status.disabled'
+        : 'plugins.security.blocked'
+    return {
+      tone: 'review',
+      toneLabel: t(titleKey),
+      plain: t(`plugins.security.${plugin.security.reason}`),
+      heroHeadline: t(titleKey),
+      primaryAction: {
+        kind: 'open',
+        label: t('plugins.card.primaryAction.open'),
+      },
+    }
+  }
   const errored = plugin.errorCount > 0
   const tone = deriveTone(plugin, hostPermissions, grants)
   return {
     tone,
     toneLabel: t(`plugins.tone.${tone}`),
-    plain: t(plainKeyFor(tone, errored)),
+    plain: t(
+      tone === 'review' &&
+        errored &&
+        pluginErrorTitleKey(plugin.lastError) !==
+          'plugins.detail.attentionTitle'
+        ? pluginErrorTitleKey(plugin.lastError)
+        : plainKeyFor(tone, errored)
+    ),
     heroHeadline: t(heroFor(tone, errored)),
     primaryAction: primaryFor(tone, errored, hasSettingsSchema, t),
   }

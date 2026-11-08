@@ -10,9 +10,13 @@ export interface WindowMaximizedChangedPayload {
 }
 
 export const Events = {
+  RendererIntent: 'event:rendererIntent',
+  RendererHealthProbe: 'event:rendererHealthProbe',
+  LegacyImportNavigationChanged: 'event:legacyImportNavigationChanged',
   CompletionShutdownChanged: 'event:completionShutdownChanged',
   TaskUpdated: 'event:taskUpdated',
   TaskFilesUpdated: 'event:taskFilesUpdated',
+  BtStorageProgress: 'event:btStorageProgress',
   TaskActivityUpdated: 'event:taskActivityUpdated',
   TaskInspectorActivityUpdated: 'event:taskInspectorActivityUpdated',
   StatsUpdated: 'event:statsUpdated',
@@ -22,6 +26,7 @@ export const Events = {
   PluginError: 'event:pluginError',
   PluginTimeout: 'event:pluginTimeout',
   PluginStatusChanged: 'event:pluginStatusChanged',
+  PluginSecurityChanged: 'event:pluginSecurityChanged',
   PluginInstalled: 'event:pluginInstalled',
   PluginUninstalled: 'event:pluginUninstalled',
   PluginInstallConsentRequested: 'event:pluginInstallConsentRequested',
@@ -120,8 +125,7 @@ export const Events = {
   // Payload: EngineCompatibilityWarningPayload. Internal shell signal; the
   // resulting durable NotificationAdded event is what reaches renderers.
   EngineCompatibilityWarning: 'event:engineCompatibilityWarning',
-  // Payload: CreateTorrentProgressPayload (schemas/create-torrent.ts).
-  // Throttled piece-hashing progress for the create-torrent dialog.
+  // A 0..1 fraction delivered only to the creator window that owns the operation.
   CreateTorrentProgress: 'event:createTorrentProgress',
   RendererTaskMenuRequested: 'event:rendererTaskMenuRequested',
   ApplicationMenuChanged: 'event:applicationMenuChanged',

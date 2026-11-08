@@ -3,8 +3,10 @@ import { Events } from '@shared/protocol/events'
 import type { GlobalStats } from '@shared/types/stats'
 import type { EventBus } from '../../events/event-bus'
 import type { Aria2RpcClient } from './aria2-rpc-client'
+import { TaskFileMetadata } from './task-file-metadata'
+import { TASK_STATUS_FIELDS } from './task-status-fields'
 import { translateGlobalStat } from './translate'
-import type { Aria2RawStatus } from './types'
+import type { Aria2RawStatus, Aria2TaskStatus } from './types'
 
 const log = getLogger('polling-scheduler')
 
@@ -33,18 +35,32 @@ export class PollingScheduler {
   private pendingPoll = false
   private inFlightPoll: Promise<void> | null = null
   private drainPromise: Promise<void> | null = null
+  private metadata: TaskFileMetadata
+  private unsubscribeMetadata: (() => void) | null = null
+  private epoch = 0
 
   constructor(
     private rpc: Aria2RpcClient,
     private eventBus: EventBus,
     private onStats: (stats: GlobalStats) => void,
     private onTasksUpdate: (
-      tasks: Aria2RawStatus[],
+      tasks: Aria2TaskStatus[],
       source: PollingTaskUpdateSource
     ) => void | Promise<void>
-  ) {}
+  ) {
+    this.metadata = new TaskFileMetadata(rpc)
+  }
 
   start(): void {
+    this.epoch += 1
+    this.unsubscribeMetadata?.()
+    this.metadata.invalidate()
+    this.unsubscribeMetadata = this.rpc.onTaskMetadataChanged((gid) => {
+      this.metadata.invalidate(gid)
+      if (gid === undefined) this.epoch += 1
+      if (gid !== undefined) this.requestPoll()
+    })
+    this.drainPromise = null
     this.mode = 'idle'
     this.stopped = false
     // Fire an immediate first poll, then chain
@@ -58,8 +74,12 @@ export class PollingScheduler {
   stopAndDrain(): Promise<void> {
     if (this.drainPromise) return this.drainPromise
     this.stopped = true
+    this.epoch += 1
     this.pendingPoll = false
     this.clearTimer()
+    this.unsubscribeMetadata?.()
+    this.unsubscribeMetadata = null
+    this.metadata.invalidate()
     const inFlight = this.inFlightPoll
     this.drainPromise = inFlight
       ? inFlight.then(
@@ -104,10 +124,13 @@ export class PollingScheduler {
   }
 
   private async syncNotifiedTask(gid: string): Promise<void> {
+    const epoch = this.epoch
     try {
-      const task = await this.rpc.tellStatus(gid)
-      if (this.stopped) return
-      await this.onTasksUpdate([task], 'notification')
+      const raw = await this.rpc.tellStatus(gid, TASK_STATUS_FIELDS)
+      if (this.stopped || epoch !== this.epoch) return
+      const task = await this.metadata.hydrate(raw)
+      if (this.stopped || epoch !== this.epoch) return
+      if (task) await this.onTasksUpdate([task], 'notification')
     } catch (err) {
       log.debug({ err, gid }, 'notification task sync failed')
     }
@@ -200,12 +223,13 @@ export class PollingScheduler {
   // aria2.onDownloadStart, leaving freshly added tasks stuck at the
   // renderer's initial Queued placeholder until polling reconciles.
   private async pollOnce(): Promise<void> {
+    const epoch = this.epoch
     const results = await this.rpc.multicall([
       { method: 'aria2.getGlobalStat', params: [] },
-      { method: 'aria2.tellActive', params: [] },
-      { method: 'aria2.tellWaiting', params: [0, 1000] },
+      { method: 'aria2.tellActive', params: [TASK_STATUS_FIELDS] },
+      { method: 'aria2.tellWaiting', params: [0, 1000, TASK_STATUS_FIELDS] },
     ])
-    if (this.stopped) return
+    if (this.stopped || epoch !== this.epoch) return
 
     const rawStats = results[0] as import('./types').Aria2RawGlobalStat
     const rawActive = results[1] as Aria2RawStatus[]
@@ -221,9 +245,19 @@ export class PollingScheduler {
     }
 
     this.onStats(translateGlobalStat(rawStats))
-    await this.onTasksUpdate(
-      [...rawActive, ...rawWaiting],
-      'authoritative-poll'
-    )
+    const statuses = [...rawActive, ...rawWaiting]
+    this.metadata.retain(new Set(statuses.map((task) => task.gid)))
+    // Bound metadata fan-out during restore; ordinary list polls do no file IO.
+    const tasks: Aria2TaskStatus[] = []
+    for (let offset = 0; offset < statuses.length; offset += 4) {
+      const batch = await Promise.all(
+        statuses
+          .slice(offset, offset + 4)
+          .map((raw) => this.metadata.hydrate(raw))
+      )
+      if (this.stopped || epoch !== this.epoch) return
+      for (const task of batch) if (task) tasks.push(task)
+    }
+    await this.onTasksUpdate(tasks, 'authoritative-poll')
   }
 }

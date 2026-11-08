@@ -7,11 +7,12 @@ export type Classification = 'registration-only' | 'effectful'
 
 const REGISTRATION_ONLY: Record<string, ReadonlyArray<string>> = {
   hooks: ['beforeCreate', 'beforeFinalize', 'afterComplete', 'onError'],
-  commands: ['register'],
+  commands: ['register', 'registerOperation'],
   lifecycle: ['onActivate', 'onDeactivate'],
 }
 
 const EFFECTFUL: Record<string, ReadonlyArray<string>> = {
+  operation: ['progress', 'probe', 'mergeStreams', 'readText', 'writeText'],
   http: ['request', 'get', 'post'],
   'fs.task': ['stat', 'exists', 'openReader', 'computeHash', 'rename'],
   'fs.storage': [

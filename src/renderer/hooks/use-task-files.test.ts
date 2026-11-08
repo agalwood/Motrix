@@ -21,6 +21,7 @@ const transportMock = vi.hoisted(() => ({
   off: vi.fn((channel: string, cb: Listener) => {
     listeners.get(channel)?.delete(cb)
   }),
+  onConnectionChange: vi.fn(),
   platform: 'darwin' as const,
 }))
 
@@ -33,6 +34,7 @@ beforeEach(() => {
   transportMock.invoke.mockReset()
   transportMock.on.mockClear()
   transportMock.off.mockClear()
+  transportMock.onConnectionChange.mockReset()
   transportMock.invoke.mockResolvedValue([
     { index: 0, path: 'a', size: 1, completedBytes: 0, selected: true },
   ])
@@ -40,9 +42,148 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.clearAllMocks()
+  vi.useRealTimers()
+  vi.restoreAllMocks()
 })
 
 describe('useTaskFiles', () => {
+  it('does not fetch for a disabled panel', async () => {
+    const { result } = renderHook(() => useTaskFiles(null, true))
+    await act(async () => {})
+    expect(result.current.loading).toBe(false)
+    expect(transportMock.invoke).not.toHaveBeenCalled()
+  })
+
+  it('coalesces invalidations during a slow request and rejects its stale data', async () => {
+    let resolveOld!: (value: unknown) => void
+    transportMock.invoke.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveOld = resolve
+        })
+    )
+    const { result } = renderHook(() => useTaskFiles('t1', true))
+    act(() => {
+      for (let index = 0; index < 10; index++)
+        listeners.get(Events.TaskFilesUpdated)?.forEach((cb) => {
+          cb({ taskId: 't1' })
+        })
+    })
+    expect(transportMock.invoke).toHaveBeenCalledTimes(1)
+    await act(async () => {
+      resolveOld([
+        {
+          index: 9,
+          path: 'stale',
+          size: 1,
+          completedBytes: 0,
+          selected: false,
+        },
+      ])
+    })
+    await waitFor(() => expect(result.current.files[0]?.path).toBe('a'))
+    expect(transportMock.invoke).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not overlap slow progress reads or apply responses after unmount', async () => {
+    vi.useFakeTimers()
+    let resolve!: (value: unknown) => void
+    transportMock.invoke.mockImplementationOnce(
+      () =>
+        new Promise((done) => {
+          resolve = done
+        })
+    )
+    const { unmount } = renderHook(() => useTaskFiles('t1', true))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000)
+    })
+    expect(transportMock.invoke).toHaveBeenCalledTimes(1)
+    unmount()
+    await act(async () => {
+      resolve([])
+      await vi.advanceTimersByTimeAsync(10_000)
+    })
+    expect(transportMock.invoke).toHaveBeenCalledTimes(1)
+  })
+
+  it('discards responses from a previous engine instance of the same task', async () => {
+    let resolveOld!: (value: unknown) => void
+    transportMock.invoke.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveOld = resolve
+        })
+    )
+    const { result, rerender } = renderHook(
+      ({ gid }) => useTaskFiles('t1', true, gid),
+      { initialProps: { gid: 'old' } }
+    )
+    rerender({ gid: 'new' })
+    await waitFor(() => expect(result.current.files[0]?.path).toBe('a'))
+    await act(async () => {
+      resolveOld([{ index: 9, path: 'stale' }])
+    })
+    expect(result.current.files[0]?.path).toBe('a')
+  })
+
+  it('suspends when the document is hidden and immediately refreshes when visible', async () => {
+    vi.useFakeTimers()
+    const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(false)
+    renderHook(() => useTaskFiles('t1', true))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    hidden.mockReturnValue(true)
+    act(() => document.dispatchEvent(new Event('visibilitychange')))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000)
+    })
+    expect(transportMock.invoke).toHaveBeenCalledTimes(1)
+    hidden.mockReturnValue(false)
+    act(() => document.dispatchEvent(new Event('visibilitychange')))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(transportMock.invoke).toHaveBeenCalledTimes(2)
+  })
+
+  it('refreshes paused tasks after reconnect and retains references for unchanged files', async () => {
+    const detach = vi.fn()
+    transportMock.onConnectionChange.mockReturnValue(detach)
+    const { result, unmount } = renderHook(() => useTaskFiles('t1'))
+    await waitFor(() => expect(result.current.files).toHaveLength(1))
+    const previous = result.current.files
+    transportMock.invoke.mockResolvedValue(
+      previous.map((file) => ({ ...file }))
+    )
+    await act(async () => {
+      transportMock.onConnectionChange.mock.calls[0][0]({ state: 'connected' })
+    })
+    expect(transportMock.invoke).toHaveBeenCalledTimes(2)
+    expect(result.current.files).toBe(previous)
+    unmount()
+    expect(detach).toHaveBeenCalledOnce()
+  })
+
+  it('retains last-known files across failures and retries on the next tick', async () => {
+    vi.useFakeTimers()
+    const { result } = renderHook(() => useTaskFiles('t1', true))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    const previous = result.current.files
+    transportMock.invoke.mockRejectedValueOnce(new Error('offline'))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000)
+    })
+    expect(result.current.files).toBe(previous)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000)
+    })
+    expect(transportMock.invoke).toHaveBeenCalledTimes(3)
+  })
+
   it('fetches files on mount', async () => {
     const { result } = renderHook(() => useTaskFiles('t1'))
     await waitFor(() => expect(result.current.files).toHaveLength(1))
@@ -78,21 +219,20 @@ describe('useTaskFiles', () => {
     expect(transportMock.invoke).toHaveBeenCalledTimes(1)
   })
 
-  it('refetches live files when the matching task updates', async () => {
+  it('refreshes on its own cadence without subscribing to list updates', async () => {
+    vi.useFakeTimers()
     renderHook(() => useTaskFiles('t1', true))
-    await waitFor(() => expect(transportMock.invoke).toHaveBeenCalledTimes(1))
-    expect(transportMock.on).toHaveBeenCalledWith(
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(transportMock.on).not.toHaveBeenCalledWith(
       Events.TaskUpdated,
       expect.any(Function)
     )
-
-    act(() => {
-      listeners.get(Events.TaskUpdated)?.forEach((cb) => {
-        cb([{ id: 't1' }])
-      })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000)
     })
-
-    await waitFor(() => expect(transportMock.invoke).toHaveBeenCalledTimes(2))
+    expect(transportMock.invoke).toHaveBeenCalledTimes(2)
   })
 
   it('does not subscribe to task updates when live refresh is disabled', async () => {
@@ -113,9 +253,6 @@ describe('useTaskFiles', () => {
       Events.TaskFilesUpdated,
       expect.any(Function)
     )
-    expect(transportMock.off).toHaveBeenCalledWith(
-      Events.TaskUpdated,
-      expect.any(Function)
-    )
+    expect(listeners.get(Events.TaskFilesUpdated)?.size).toBe(0)
   })
 })

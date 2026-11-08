@@ -6,10 +6,12 @@ import {
   TaskType,
   TransitionPhase,
 } from '@shared/types/task'
+import { hasLegacyImport } from '@shared/types/task-actions'
 
 /** Final-path RPC downloads need no rename, but still need durable retirement. */
 export function isDirectFinalOutput(task: DownloadTask): boolean {
   return (
+    !hasLegacyImport(task) &&
     task.kind === TaskKind.Direct &&
     (task.type === TaskType.Http || task.type === TaskType.Ftp) &&
     task.diskPath.length > 0 &&

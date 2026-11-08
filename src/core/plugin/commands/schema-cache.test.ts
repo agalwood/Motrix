@@ -65,12 +65,12 @@ describe('SchemaCache', () => {
     }
   })
 
-  it('validateResult returns silently when no validator is installed', () => {
+  it('validateResult fails closed when no validator is installed', () => {
     const cache = new SchemaCache()
     // No installCommandSchemas call at all.
     expect(() =>
       cache.validateResult('alice.demo', 'greet', { anything: true })
-    ).not.toThrow()
+    ).toThrow('plugin.command.schema_missing')
   })
 
   it('validateResult throws result_invalid on shape mismatch', () => {

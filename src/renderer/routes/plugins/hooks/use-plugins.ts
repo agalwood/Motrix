@@ -58,7 +58,6 @@ export function usePlugins(): PluginListDTO[] {
       }
       inFlight = runRefresh(refreshGeneration)
     }
-    refresh()
 
     const onStatus = (...args: unknown[]) => {
       const p = args[0] as StatusChangedPayload
@@ -84,16 +83,23 @@ export function usePlugins(): PluginListDTO[] {
     transport.on(Events.PluginStatusChanged, onStatus)
     transport.on(Events.PluginInstalled, onLifecycle)
     transport.on(Events.PluginUninstalled, onLifecycle)
+    transport.on(Events.PluginSecurityChanged, onLifecycle)
     transport.on(Events.LocaleChanged, onLocale)
     transport.on(Events.PluginGrantsChanged, onGrants)
+    const stopConnection = transport.onConnectionChange?.((connection) => {
+      if (connection.state === 'connected') refresh()
+    })
+    refresh()
 
     return () => {
       cancelled = true
+      stopConnection?.()
       refreshGeneration += 1
       refreshQueued = false
       transport.off(Events.PluginStatusChanged, onStatus)
       transport.off(Events.PluginInstalled, onLifecycle)
       transport.off(Events.PluginUninstalled, onLifecycle)
+      transport.off(Events.PluginSecurityChanged, onLifecycle)
       transport.off(Events.LocaleChanged, onLocale)
       transport.off(Events.PluginGrantsChanged, onGrants)
     }

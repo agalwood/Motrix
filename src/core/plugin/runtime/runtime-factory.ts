@@ -24,6 +24,7 @@ import type { SessionManager } from '@core/session/session-manager'
 import type { DownloadTask } from '@shared/types/task'
 import type { TaskOccurrence } from '@shared/types/task-occurrence'
 import type Database from 'better-sqlite3'
+import { OperationService } from '../operations/operation-service'
 import {
   PluginHookRuntime,
   type PluginTerminalPersistenceInput,
@@ -50,6 +51,11 @@ export interface PluginRuntimeFactoryOptions {
     occurrence: TaskOccurrence,
     input: PluginTerminalPersistenceInput
   ): Promise<void>
+  getTask?(id: string): DownloadTask | undefined
+  authorizeOperationPath?(
+    candidate: string,
+    mode: 'input' | 'output'
+  ): Promise<void>
   pluginsDir: string
   auditLogPath: string
   finalizeSidecarPath: string
@@ -61,6 +67,7 @@ export interface PluginRuntimeFactoryOptions {
 }
 
 export interface PluginRuntimeAssembly {
+  operations: OperationService
   auditLog: HookAuditLog
   orchestrator: HookOrchestrator
   hooks: PluginHookRuntime
@@ -68,7 +75,8 @@ export interface PluginRuntimeAssembly {
   finalizeFilesystem: NativeFinalizeFilesystemAdapter
   persistTaskWithPluginMetadata(
     task: DownloadTask,
-    operations: readonly StagedMetadataOp[]
+    operations: readonly StagedMetadataOp[],
+    beforeCommit?: () => void
   ): Promise<void>
 }
 
@@ -98,6 +106,7 @@ export async function createPluginRuntime(
     },
   })
   const orchestrator = new HookOrchestrator({
+    createLog: (pluginId) => options.capabilityHost.createLog(pluginId),
     host: options.host,
     activationDispatcher: options.activation,
     breaker,
@@ -170,13 +179,29 @@ export async function createPluginRuntime(
   options.session.bindTerminalOccurrencePersistence((task, occurrence) =>
     hooks.persistTerminal(task, occurrence)
   )
+  const operations = new OperationService({
+    registry: options.registry,
+    host: options.host,
+    capabilities: options.capabilityHost,
+    binary: options.finalizeSidecarPath,
+    storage: path.join(path.dirname(options.auditLogPath), 'operations'),
+    getTask: options.getTask ?? (() => undefined),
+    authorizePath: options.authorizeOperationPath,
+  })
+  await operations.initialize()
+  options.host.bindOperationsShutdown(() => operations.shutdown())
   return {
+    operations,
     auditLog,
     orchestrator,
     hooks,
     finalize,
     finalizeFilesystem,
-    persistTaskWithPluginMetadata: (task, operations) =>
-      options.session.persistTaskWithPluginMetadata(task, operations),
+    persistTaskWithPluginMetadata: (task, operations, beforeCommit) =>
+      options.session.persistTaskWithPluginMetadata(
+        task,
+        operations,
+        beforeCommit
+      ),
   }
 }

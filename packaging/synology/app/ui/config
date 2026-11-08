@@ -1,0 +1,8 @@
+{
+  ".url": {
+    "com.motrix.app": {
+      "type": "url", "title": "Motrix", "desc": "Motrix",
+      "icon": "images/icon_256.png", "url": "/motrix/", "allUsers": false
+    }
+  }
+}

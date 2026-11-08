@@ -18,13 +18,13 @@ export const FLATPAK_BUILDER_TOOLS_COMMIT =
 // tag resolves to is pinned by hand (and cross-checked against the manifest).
 export const ARIA2_SOURCE = Object.freeze({
   url: 'https://github.com/motrixapp/aria2.git',
-  // v1.37.0-motrix.16 — current Motrix aria2 fork release
-  commit: 'e093973f113f0a880f9757a2ad0258cb2356295e',
+  // v1.37.0-motrix.23 — current Motrix aria2 fork release
+  commit: '7d318fcff6d2f00feddbe6ce81b0c89c808dfc15',
 })
 
 const PNPM_SOURCE = Object.freeze({
-  url: 'https://registry.npmjs.org/pnpm/-/pnpm-12.8.1.tgz',
-  sha256: '90762b8105e833164186b011efe5cde13841693ac8eaf784d2974a6e1c01fba3',
+  url: 'https://registry.npmjs.org/pnpm/-/pnpm-12.16.1.tgz',
+  sha256: 'ca362a16f2e1c3cfa81d406f3242446179a0e4aea457ba3e9e6c39e6476aba65',
 })
 
 const RUST_SOURCES = Object.freeze({
@@ -38,7 +38,7 @@ const RUST_SOURCES = Object.freeze({
   }),
 })
 
-const FLATPAK_BUILDER_ACTION_COMMIT = '401fe28a8384095fc1531b9d320b292f0ee45adb'
+const FLATPAK_BUILDER_ACTION_COMMIT = '79327416609af08178ad73b352877e51450790b3'
 const FLATPAK_BUILDER_IMAGE =
   'ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-25.08@sha256:e3d9fbd75c7e5ce6241fb9114f59dce2156315f5977b594ea75fc97c3d364dfa'
 const FLATPAK_BROKER_COMMAND = 'motrix-native-host-broker'
@@ -282,7 +282,7 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
       'pnpm_root=/run/build/motrix/flatpak-node/pnpm-cli/lib/node_modules/pnpm'
     ) &&
       motrixCommands.includes('node "$pnpm_root/install.js"') &&
-      motrixCommands.includes('test "$(pnpm --version)" = \'12.8.1\'') &&
+      motrixCommands.includes('test "$(pnpm --version)" = \'12.16.1\'') &&
       motrixBuildOptions.includes(
         '/run/build/motrix/flatpak-node/pnpm-cli/bin'
       ),
@@ -442,7 +442,7 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
     'generated pnpm store must use v11'
   )
   for (const arch of ['x64', 'arm64']) {
-    const filename = `@pnpm__exe.linux-${arch}-12.8.1.tgz`
+    const filename = `@pnpm__exe.linux-${arch}-12.16.1.tgz`
     const source = generatedSources.find(
       (candidate) => candidate?.['dest-filename'] === filename
     )

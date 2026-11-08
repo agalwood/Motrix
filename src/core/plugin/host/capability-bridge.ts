@@ -1,3 +1,4 @@
+import type { OperationExecution } from '../operations/operation-files'
 // src/core/plugin/host/capability-bridge.ts
 // dispatch table for all Phase 1A capabilities; per-plugin scoping closures;
 // ffmpeg op handle map; hook ctx slot for Plan C.
@@ -313,6 +314,7 @@ const ffmpegMergeStreamsSchema = z.object({
   videoInput: z.string(),
   audioInput: z.string(),
   output: z.string(),
+  expectedDurationMs: z.number().nonnegative().optional(),
   timeoutMs: z.number().optional(),
 })
 
@@ -369,6 +371,7 @@ export class CapabilityBridge {
   private readonly worker: Worker
   private readonly log: ReturnType<CapabilityHost['createLog']>
   private disposed = false
+  private forceDisposing = false
 
   // Per-plugin lazy instances (constructed once on first use).
   private pluginHttpHost: HttpCapabilityHost | null = null
@@ -401,6 +404,7 @@ export class CapabilityBridge {
 
   // ffmpeg running op registry
   private readonly ffmpegOps = new Map<string, FfmpegOpEntry>()
+  private operation?: { context: OperationExecution; invocationId: number }
   private readonly httpCalls = new Map<number, HttpCallEntry>()
   private inFlightCapabilityCalls = 0
 
@@ -473,6 +477,12 @@ export class CapabilityBridge {
       pluginId: this.opts.pluginId,
       manifest: this.opts.manifest,
       bundleSource: prepareBundle(this.opts.bundleSource),
+      ffmpeg: {
+        available:
+          this.permitted('ffmpeg') &&
+          (this.opts.capabilityHost.ffmpeg?.available ?? false),
+        version: this.opts.capabilityHost.ffmpeg?.version,
+      },
       app: this.opts.capabilityHost.appSnapshot(),
       i18n: this.opts.capabilityHost.i18nSnapshot(this.opts.pluginId),
       limits: { heapMB: this.opts.heapMB, stackKB: 256 },
@@ -481,6 +491,7 @@ export class CapabilityBridge {
   }
 
   private async onMessage(msg: WorkerToHost): Promise<void> {
+    if (this.disposed) return
     if (msg.type === 'ready') {
       this.events.onReady?.()
       return
@@ -669,6 +680,15 @@ export class CapabilityBridge {
       return
     }
 
+    if (this.operation && msg.capability === 'commands') {
+      this.sendError(
+        msg,
+        'plugin.command.access_denied',
+        'Nested commands are unavailable during an operation'
+      )
+      return
+    }
+
     // Spec §I30 — runtime permission gate. Rejects capability calls whose
     // permission isn't in `effectivePermissions`. Auto-injected capabilities
     // (log/app/i18n/crypto/lifecycle/commands/config/ctx) bypass.
@@ -702,6 +722,39 @@ export class CapabilityBridge {
     try {
       let result: unknown
       switch (msg.capability) {
+        case 'operation': {
+          const operation = this.operation
+          const scope = commandScopeFromMessage(msg)
+          if (
+            !operation ||
+            scope?.commandInvocationId !== operation.invocationId
+          )
+            throw new PluginCodedError(
+              'plugin.command.access_denied',
+              'Operation context is unavailable'
+            )
+          const permissions =
+            this.currentEffectivePermissions ??
+            this.opts.effectivePermissions ??
+            new Set(this.opts.manifest.permissions)
+          const required =
+            msg.method === 'probe'
+              ? ['ffmpeg', 'files.selected.read']
+              : msg.method === 'mergeStreams'
+                ? ['ffmpeg', 'files.selected.read', 'files.selected.write']
+                : msg.method === 'readText'
+                  ? ['files.selected.read']
+                  : msg.method === 'writeText'
+                    ? ['files.selected.write']
+                    : []
+          if (required.some((permission) => !permissions.has(permission)))
+            throw new PluginCodedError(
+              'plugin.capability.unavailable',
+              'Operation permission is unavailable'
+            )
+          result = await operation.context.dispatch(msg.method, msg.args)
+          break
+        }
         case 'log':
           result = await this.dispatchLog(msg)
           break
@@ -1302,6 +1355,8 @@ export class CapabilityBridge {
   private registerFfmpegHandle(
     handle: FfmpegOpHandle<{ outputPath: string }>
   ): string {
+    // The command may fail before guest code awaits the operation result.
+    void handle.result.catch(() => undefined)
     const opId = handle.id
     const entry: FfmpegOpEntry = {
       handle,
@@ -1383,6 +1438,14 @@ export class CapabilityBridge {
   }
 
   private async dispatchFfmpeg(msg: BridgeCallMessage): Promise<unknown> {
+    if (
+      this.opts.manifest.contributes.operations &&
+      this.currentPhase === 'idle'
+    )
+      throw new PluginCodedError(
+        'plugin.command.access_denied',
+        'Selected-file access requires an operation context'
+      )
     const ffmpeg = this.opts.capabilityHost.ffmpeg
 
     // ── op lifecycle methods ───────────────────────────────────────────────
@@ -1451,6 +1514,7 @@ export class CapabilityBridge {
       const [opts] = msg.args
       const parsed = ffmpegProbeSchema.parse(opts)
       // probe returns a Promise<MediaInfo> directly, not an op handle.
+
       return ffmpeg.probe(parsed)
     }
 
@@ -1484,6 +1548,7 @@ export class CapabilityBridge {
     if (msg.method === 'mergeStreams') {
       const [opts] = msg.args
       const parsed = ffmpegMergeStreamsSchema.parse(opts)
+
       parsed.output = await this.gateFfmpegOutput(parsed.output)
       const handle = ffmpeg.mergeStreams(parsed)
       const opId = this.registerFfmpegHandle(handle)
@@ -1779,6 +1844,41 @@ export class CapabilityBridge {
     )
   }
 
+  async callOperation(
+    commandId: string,
+    args: unknown,
+    context: OperationExecution
+  ): Promise<unknown> {
+    context.signal.throwIfAborted()
+    if (this.operation) throw new Error('Operation already running')
+    const invocationId = this.nextCommandCallId
+    this.operation = { context, invocationId }
+    const abort = () => {
+      context.seal()
+      this.worker.postMessage({
+        type: 'event',
+        event: 'operationAbort',
+        jobId: context.jobId,
+      } satisfies HostToWorker)
+      const pending = this.pendingCommandCalls.get(invocationId)
+      this.pendingCommandCalls.delete(invocationId)
+      pending?.reject(new Error('pluginOperations.cancelled'))
+    }
+    context.signal.addEventListener('abort', abort, { once: true })
+    try {
+      const result = await this.callPlugin(commandId, args, 60 * 60_000)
+      await context.drain()
+      context.signal.throwIfAborted()
+      return result
+    } catch (error) {
+      context.seal()
+      throw error
+    } finally {
+      context.signal.removeEventListener('abort', abort)
+      this.operation = undefined
+    }
+  }
+
   /**
    * Invoke a registered command inside the plugin VM and await its result.
    * The command must have been registered during activation via commands.register().
@@ -1794,6 +1894,19 @@ export class CapabilityBridge {
     timeoutMs = 10_000,
     callChain?: PluginCallChain
   ): Promise<unknown> {
+    if (
+      this.opts.manifest.contributes.commands?.some(
+        (command) =>
+          command.id === commandId && command.execution === 'operation'
+      ) &&
+      this.operation?.invocationId !== this.nextCommandCallId
+    )
+      return Promise.reject(
+        new PluginCodedError(
+          'plugin.command.access_denied',
+          'Operation requires host authorization'
+        )
+      )
     const id = this.nextCommandCallId++
     const laneCallChain = callChain ?? currentPluginCallChain()
     const commandScope: CommandInvocationScopeV1 = {
@@ -1838,6 +1951,9 @@ export class CapabilityBridge {
         commandId,
         args,
         commandScope,
+        ...(this.operation?.invocationId === id
+          ? { operation: { jobId: this.operation.context.jobId } }
+          : {}),
       }
       this.worker.postMessage(msg)
     })
@@ -2050,8 +2166,12 @@ export class CapabilityBridge {
     for (const [opId] of matches) this.ffmpegOps.delete(opId)
   }
 
-  async dispose(): Promise<void> {
-    if (this.disposed) return
+  async dispose(force = false): Promise<void> {
+    if (force) this.forceDisposing = true
+    if (this.disposed) {
+      if (force) await this.worker.terminate()
+      return
+    }
     this.disposed = true
     this.failPendingHook('plugin.runtime.bridge_disposed', 'bridge disposed')
     const httpCalls = this.abortHttpCalls(() => true)
@@ -2060,8 +2180,11 @@ export class CapabilityBridge {
       entry.handle.abort()
     }
     this.ffmpegOps.clear()
-    await Promise.allSettled(httpCalls.map((entry) => entry.settled))
-    this.worker.postMessage({ type: 'event', event: 'shutdown' })
+    if (!force) {
+      await Promise.allSettled(httpCalls.map((entry) => entry.settled))
+      if (!this.forceDisposing)
+        this.worker.postMessage({ type: 'event', event: 'shutdown' })
+    }
     await this.worker.terminate()
   }
 

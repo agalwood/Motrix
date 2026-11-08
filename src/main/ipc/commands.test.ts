@@ -1,14 +1,26 @@
-import { access, mkdir, mkdtemp, realpath, rm, symlink } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import {
+  access,
+  mkdir,
+  mkdtemp,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { NOOP_TASK_ACTIVITY_RECORDER } from '@core/activity'
 import { Aria2Adapter } from '@core/engine/aria2/aria2-adapter'
 import { EventBus } from '@core/events/event-bus'
+import { PluginEngineVersionTooOld } from '@core/plugin/manifest/errors'
+import { PluginNetworkError } from '@core/plugin/network/plugin-network-error'
 import { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
 import { SettingsManager } from '@core/settings/settings-manager'
 import { ErrorCode } from '@shared/errors'
 import { EXTERNAL_URLS } from '@shared/external-urls'
 import { Commands } from '@shared/protocol/commands'
+import { parseProtocolEnvelope } from '@shared/protocol/errors'
 import { Events } from '@shared/protocol/events'
 import type { AppImageIntegrationView } from '@shared/types/appimage-integration'
 import { CliPackageManager } from '@shared/types/cli-tool'
@@ -18,12 +30,14 @@ import {
   TaskType,
   TransitionPhase,
 } from '@shared/types/task'
+import { storageTorrent } from '@test-utils/bt-storage'
 import { makeMediaMetaStoreStub } from '@test-utils/media-meta-store'
 import { makeDownloadTask } from '@test-utils/task'
 import { directTaskUpdatePublication } from '@test-utils/task-update'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createAppUpdateService } from '../core/app-update-service'
 import { MainProcessWorkCoordinator } from '../main-process-work-coordinator'
+import { setPortableProfile } from '../platform/portable-profile'
 import { WINDOWS_DEFAULT_APPS_SETTINGS_URL } from '../platform/windows-default-apps'
 import type { CommandContext } from './commands'
 import { buildCommandHandlers, registerCommandHandlers } from './commands'
@@ -72,7 +86,10 @@ const fromWebContentsMock = vi.fn()
 const ipcHandleMock = vi.fn()
 const ipcRemoveHandlerMock = vi.fn()
 const openExternalMock = vi.fn()
+const openPathMock = vi.fn()
+const showItemInFolderMock = vi.fn()
 const showOpenDialogMock = vi.fn()
+const showSaveDialogMock = vi.fn()
 vi.mock('electron', () => ({
   BrowserWindow: {
     fromWebContents: (...args: unknown[]) => fromWebContentsMock(...args),
@@ -83,11 +100,13 @@ vi.mock('electron', () => ({
   },
   dialog: {
     showMessageBox: vi.fn(),
+    showSaveDialog: (...args: unknown[]) => showSaveDialogMock(...args),
     showOpenDialog: (...args: unknown[]) => showOpenDialogMock(...args),
   },
   shell: {
     openExternal: (...args: unknown[]) => openExternalMock(...args),
-    showItemInFolder: vi.fn(),
+    openPath: (...args: unknown[]) => openPathMock(...args),
+    showItemInFolder: (...args: unknown[]) => showItemInFolderMock(...args),
   },
 }))
 
@@ -252,6 +271,7 @@ function fakeCtx() {
       saveTaskWithInstances: vi.fn(),
     },
     pluginHost: {
+      enable: vi.fn().mockResolvedValue(undefined),
       allActive: vi.fn(() => []),
       deactivate: vi.fn().mockResolvedValue(undefined),
       isQuiescent: vi.fn(() => true),
@@ -298,6 +318,138 @@ function fakeCtx() {
 }
 
 describe('buildCommandHandlers', () => {
+  it.each([
+    '/custom profile/settings.json',
+    'C:\\Users\\Example\\配置\\settings.json',
+    '\\\\server\\share\\profile\\settings.json',
+  ])(
+    'reveals the full active settings file %s and rejects caller paths',
+    async (filePath) => {
+      const ctx = fakeCtx()
+      const handler = buildCommandHandlers({
+        ...ctx,
+        settingsManager: {
+          ...ctx.settingsManager,
+          getFilePath: () => filePath,
+        },
+      } as unknown as CommandContext)[Commands.OpenSettingsDirectory]!
+      openPathMock.mockReset().mockResolvedValue('')
+      showItemInFolderMock.mockReset()
+      await expect(handler({ path: '/unrelated' })).rejects.toThrow()
+      expect(openPathMock).not.toHaveBeenCalled()
+      expect(showItemInFolderMock).not.toHaveBeenCalled()
+      await expect(handler()).resolves.toBe(true)
+      expect(showItemInFolderMock).toHaveBeenCalledExactlyOnceWith(filePath)
+      expect(openPathMock).not.toHaveBeenCalled()
+      showItemInFolderMock.mockImplementationOnce(() => {
+        throw new Error('Shell unavailable')
+      })
+      await expect(handler()).rejects.toThrow('Shell unavailable')
+    }
+  )
+
+  it('downloads registry packages through the injected plugin transport and serializes failures', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'plugin-network-command-'))
+    try {
+      const bytes = new Uint8Array([1, 2, 3])
+      const fetcher = vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(new Response(bytes))
+      const entry = {
+        id: 'acme.plugin',
+        version: '1.0.0',
+        compatible: true,
+        engines: { motrix: '^2.0.0' },
+        permissions: [],
+        optionalPermissions: [],
+        hostPermissions: [],
+        package: {
+          url: 'https://github.com/acme/plugin/package.moext',
+          size: 3,
+          sha256: createHash('sha256').update(bytes).digest('hex'),
+        },
+      }
+      const ctx = {
+        ...fakeCtx(),
+        userDataDir: dir,
+        pluginFetch: fetcher,
+        registryClient: { get: vi.fn().mockResolvedValue(entry) },
+      }
+      ctx.pluginInstaller.stage.mockResolvedValue({
+        committed: true,
+        pluginId: 'acme.plugin',
+      })
+      const handler = buildCommandHandlers(ctx as unknown as CommandContext)[
+        Commands.InstallPlugin
+      ]
+      await handler?.({ sourceType: 'registry', pluginId: 'acme.plugin' })
+      expect(fetcher).toHaveBeenCalledOnce()
+      expect(String(fetcher.mock.calls[0]?.[0])).toBe(entry.package.url)
+      expect(ctx.pluginInstaller.stage).toHaveBeenCalledOnce()
+      const failure = {
+        reason: 'proxyAuth' as const,
+        route: 'proxy' as const,
+        proxyEndpoint: '127.0.0.1:7897',
+        targetHost: 'github.com',
+      }
+      fetcher.mockRejectedValueOnce(new PluginNetworkError(failure))
+      await expect(
+        handler?.({ sourceType: 'registry', pluginId: 'acme.plugin' })
+      ).resolves.toEqual({ networkError: failure })
+      expect(ctx.pluginInstaller.stage).toHaveBeenCalledOnce()
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('returns the exact media-merge version requirement before downloading or requesting consent', async () => {
+    const ctx = {
+      ...fakeCtx(),
+      hostVersion: '2.0.0-beta.46',
+      registryClient: {
+        get: vi.fn().mockResolvedValue({
+          compatible: false,
+          engines: { motrix: '>=2.0.0-beta.47 <3.0.0' },
+        }),
+      },
+    }
+    const handlers = buildCommandHandlers(ctx as unknown as CommandContext)
+    await expect(
+      handlers[Commands.InstallPlugin]?.({
+        sourceType: 'registry',
+        pluginId: 'motrix.media-merge',
+      })
+    ).resolves.toEqual({
+      incompatible: {
+        required: '>=2.0.0-beta.47 <3.0.0',
+        hostVersion: '2.0.0-beta.46',
+      },
+    })
+    expect(ctx.pluginInstaller.stage).not.toHaveBeenCalled()
+    expect(ctx.eventBus.emit).not.toHaveBeenCalled()
+  })
+
+  it('preserves version details for a local package without requesting consent', async () => {
+    const ctx = fakeCtx()
+    ctx.pluginInstaller.stage.mockRejectedValueOnce(
+      new PluginEngineVersionTooOld('>=2.0.0-beta.47 <3.0.0', '2.0.0-beta.46')
+    )
+    const handlers = buildCommandHandlers(ctx as unknown as CommandContext)
+    await expect(
+      handlers[Commands.InstallPlugin]?.({
+        sourceType: 'local',
+        absPath: '/tmp/fixture.moext',
+        fileHash: 'a'.repeat(64),
+      })
+    ).resolves.toEqual({
+      incompatible: {
+        required: '>=2.0.0-beta.47 <3.0.0',
+        hostVersion: '2.0.0-beta.46',
+      },
+    })
+    expect(ctx.eventBus.emit).not.toHaveBeenCalled()
+  })
+
   it('installs FFmpeg only from the fixed service with no renderer-supplied URLs or keys', async () => {
     const ctx = fakeCtx()
     const handlers = buildCommandHandlers(ctx as unknown as CommandContext)
@@ -371,14 +523,6 @@ describe('buildCommandHandlers', () => {
       'test.plugin',
       ctx.pluginHost
     )
-  })
-
-  it('returns a map keyed by Commands channels', () => {
-    // @ts-expect-error — fake ctx is partial; handler map keys are what we care about
-    const handlers = buildCommandHandlers(fakeCtx())
-    expect(handlers[Commands.ParseTorrent]).toBeInstanceOf(Function)
-    expect(handlers[Commands.AddTorrentTask]).toBeInstanceOf(Function)
-    expect(handlers[Commands.AddMagnetTask]).toBeInstanceOf(Function)
   })
 
   it('routes RetryTasks for unresolved magnet metadata to MagnetTracker', async () => {
@@ -723,6 +867,39 @@ describe('buildCommandHandlers', () => {
     expect(closeAndRecycle).toHaveBeenCalledWith('add-task')
   })
 
+  it.each(['visible', 'hidden', 'released'] as const)(
+    'CloseCurrentWindow preserves a %s main window on cancel',
+    async (state) => {
+      const ctx = fakeCtx()
+      const main =
+        state === 'released'
+          ? null
+          : { isVisible: vi.fn(() => state === 'visible') }
+      ctx.windowManager = {
+        ...ctx.windowManager,
+        getWindowIdBySender: vi.fn(() => 'add-task'),
+        get: vi.fn(() => main),
+        closeAndRecycle: vi.fn(),
+        show: vi.fn(),
+      } as any
+      // @ts-expect-error partial ctx
+      const handlers = buildCommandHandlers(ctx)
+
+      await handlers[Commands.CloseCurrentWindow]?.({} as never, {
+        showMain: 'if-visible',
+      })
+
+      expect(ctx.windowManager.closeAndRecycle).toHaveBeenCalledWith('add-task')
+      expect(ctx.protocolManager.resetDialogState).toHaveBeenCalled()
+      if (state === 'visible') {
+        expect(ctx.windowManager.show).toHaveBeenCalledWith('main')
+      } else {
+        expect(ctx.windowManager.show).not.toHaveBeenCalled()
+      }
+      expect(ctx.eventBus.emit).not.toHaveBeenCalled()
+    }
+  )
+
   it('CloseCurrentWindow emits NavigateTo when navigateMainTo is set', async () => {
     const ctx = fakeCtx()
     const getWindowIdBySender = vi.fn(() => 'add-task')
@@ -771,22 +948,21 @@ describe('buildCommandHandlers', () => {
     expect(ctx.eventBus.emit).not.toHaveBeenCalled()
   })
 
-  it('ShowAddTaskWindow opens the add-task window', async () => {
+  it('ShowAddTaskWindow delivers its default mode through the readiness coordinator', async () => {
     const ctx = fakeCtx()
-    const send = vi.fn()
-    ;(ctx.windowManager as any).open = vi.fn(() => ({
-      isDestroyed: vi.fn(() => false),
-      webContents: {
-        isLoading: vi.fn(() => false),
-        once: vi.fn(),
-        send,
-      },
-    }))
+    const deliver = vi.fn().mockReturnValue(true)
+    Object.assign(ctx, { rendererRecovery: { intents: { deliver } } })
     // @ts-expect-error partial ctx
     const handlers = buildCommandHandlers(ctx)
     const result = await handlers[Commands.ShowAddTaskWindow]?.()
     expect(ctx.windowManager.open).toHaveBeenCalledWith('add-task')
-    expect(send).toHaveBeenCalledWith(Events.SetAddTaskMode, { mode: 'links' })
+    expect(deliver).toHaveBeenCalledWith(
+      'add-task',
+      Events.SetAddTaskMode,
+      undefined,
+      expect.any(Function)
+    )
+    expect(deliver.mock.calls[0][3]()).toEqual({ mode: 'links' })
     expect(result).toEqual({ ok: true })
   })
 
@@ -981,7 +1157,13 @@ describe('buildCommandHandlers', () => {
       }
       ctx.protocolManager.downloadAllTorrents.mockResolvedValueOnce([
         {
-          payload: { name: 'first.torrent', dataBase64: 'Zmlyc3Q=' },
+          payload: {
+            name: 'first.torrent',
+            dataBase64: storageTorrent([
+              { name: 'skip.bin', data: 'a' },
+              { name: 'keep.bin', data: 'b' },
+            ]).toString('base64'),
+          },
           meta: {
             name: 'first.bin',
             files: [
@@ -991,7 +1173,13 @@ describe('buildCommandHandlers', () => {
           },
         },
         {
-          payload: { name: 'second.torrent', dataBase64: 'c2Vjb25k' },
+          payload: {
+            name: 'second.torrent',
+            dataBase64: storageTorrent([
+              { name: 'one.bin', data: 'c' },
+              { name: 'two.bin', data: 'd' },
+            ]).toString('base64'),
+          },
           meta: {
             name: 'second.bin',
             files: [
@@ -1020,7 +1208,10 @@ describe('buildCommandHandlers', () => {
       })
       expect(ctx.rpcClient.addTorrent).toHaveBeenNthCalledWith(
         1,
-        'Zmlyc3Q=',
+        storageTorrent([
+          { name: 'skip.bin', data: 'a' },
+          { name: 'keep.bin', data: 'b' },
+        ]).toString('base64'),
         [],
         expect.objectContaining({
           'select-file': '2',
@@ -1031,7 +1222,10 @@ describe('buildCommandHandlers', () => {
       )
       expect(ctx.rpcClient.addTorrent).toHaveBeenNthCalledWith(
         2,
-        'c2Vjb25k',
+        storageTorrent([
+          { name: 'one.bin', data: 'c' },
+          { name: 'two.bin', data: 'd' },
+        ]).toString('base64'),
         [],
         expect.objectContaining({
           'select-file': '1,2',
@@ -1070,6 +1264,51 @@ describe('buildCommandHandlers', () => {
       })
     ).rejects.toThrow('non-main window')
     expect(ctx.contextStore.merge).not.toHaveBeenCalled()
+  })
+
+  it('uses parented native file dialogs and validates generic picker options', async () => {
+    showOpenDialogMock.mockReset()
+    showSaveDialogMock.mockReset()
+    const sender = {} as never
+    const parent = { isDestroyed: () => false }
+    fromWebContentsMock.mockReturnValue(parent)
+    showOpenDialogMock.mockResolvedValueOnce({
+      canceled: false,
+      filePaths: ['/media/video.mp4'],
+    })
+    showSaveDialogMock
+      .mockResolvedValueOnce({ canceled: false, filePath: '/media/merged.mkv' })
+      .mockResolvedValueOnce({ canceled: true })
+    // @ts-expect-error partial ctx
+    const handlers = buildCommandHandlers(fakeCtx())
+    await expect(
+      handlers[Commands.PickFile]?.(sender, { kind: 'open' })
+    ).resolves.toBe('/media/video.mp4')
+    expect(showOpenDialogMock).toHaveBeenCalledWith(
+      parent,
+      expect.objectContaining({ properties: ['openFile'] })
+    )
+    await expect(
+      handlers[Commands.PickFile]?.(sender, {
+        kind: 'save',
+        extensions: ['mp4', 'mkv'],
+      })
+    ).resolves.toBe('/media/merged.mkv')
+    expect(showSaveDialogMock).toHaveBeenCalledWith(
+      parent,
+      expect.objectContaining({
+        filters: [{ name: expect.any(String), extensions: ['mp4', 'mkv'] }],
+      })
+    )
+    await expect(
+      handlers[Commands.PickFile]?.(sender, { kind: 'save' })
+    ).resolves.toBeNull()
+    await expect(
+      handlers[Commands.PickFile]?.(sender, {
+        kind: 'open',
+        extensions: ['../invalid'],
+      })
+    ).rejects.toThrow()
   })
 
   it('returns a picked save directory and handles cancellation', async () => {
@@ -1190,29 +1429,15 @@ describe('buildCommandHandlers', () => {
     }
   })
 
-  it('forwards add-task prefill only after the window finishes loading', async () => {
-    let didFinishLoad: (() => void) | undefined
-    const send = vi.fn()
+  it('retains add-task prefill for the mounted hydration consumer', async () => {
     const ctx = fakeCtx()
-    ctx.windowManager.open.mockReturnValue({
-      isDestroyed: vi.fn(() => false),
-      webContents: {
-        isLoading: vi.fn(() => true),
-        once: vi.fn((_event: string, handler: () => void) => {
-          didFinishLoad = handler
-        }),
-        send,
-      },
-    })
+    const deliver = vi.fn().mockReturnValue(true)
+    Object.assign(ctx, { rendererRecovery: { intents: { deliver } } })
     // @ts-expect-error partial ctx
     const handlers = buildCommandHandlers(ctx)
     const prefill = { url: 'https://example.com/file.zip' }
-
     await handlers[Commands.ShowAddTaskWindow]?.({ prefill })
-
-    expect(send).not.toHaveBeenCalled()
-    didFinishLoad?.()
-    expect(send).toHaveBeenCalledWith(Events.SetAddTaskMode, prefill)
+    expect(deliver.mock.calls[0][3]()).toEqual(prefill)
   })
 
   it.each([
@@ -1315,6 +1540,61 @@ describe('buildCommandHandlers', () => {
     )
     expect(ipcRemoveHandlerMock).toHaveBeenCalledWith(Commands.RestartEngine)
   })
+
+  it.each(['opened', 'missing-app', 'missing-file'])(
+    'preserves the Open file outcome across IPC: %s',
+    async (outcome) => {
+      ipcHandleMock.mockReset()
+      openPathMock
+        .mockReset()
+        .mockResolvedValue(
+          outcome === 'missing-app' ? 'No application available' : ''
+        )
+      const directory = await mkdtemp(path.join(tmpdir(), 'motrix-open-file-'))
+      const file = path.join(directory, 'completed.txt')
+      const ctx = fakeCtx()
+      const task = makeDownloadTask({
+        id: 'open-file',
+        status: TaskStatus.Completed,
+        fileCount: 1,
+        diskPath: file,
+        finalPath: file,
+      })
+      const dispose = registerCommandHandlers({
+        ...ctx,
+        taskManager: { ...ctx.taskManager, getById: vi.fn(() => task) },
+      } as unknown as CommandContext)
+      try {
+        if (outcome !== 'missing-file') await writeFile(file, 'completed')
+        const registration = ipcHandleMock.mock.calls.find(
+          ([channel]) => channel === Commands.OpenTaskFile
+        )
+        expect(registration).toBeDefined()
+        const result = await registration?.[1]({}, { taskId: task.id })
+        // The wire must preserve the classification without an Error instance.
+        const wire = JSON.parse(JSON.stringify(result))
+        if (outcome === 'opened') {
+          expect(parseProtocolEnvelope(wire)).toBeNull()
+        } else {
+          expect(() => parseProtocolEnvelope(wire)).toThrow(
+            expect.objectContaining({
+              name: 'TransportError',
+              code:
+                outcome === 'missing-app'
+                  ? ErrorCode.TaskOpenAppFailed
+                  : ErrorCode.TaskOpenFailed,
+            })
+          )
+        }
+        expect(openPathMock).toHaveBeenCalledTimes(
+          outcome === 'missing-file' ? 0 : 1
+        )
+      } finally {
+        dispose()
+        await rm(directory, { recursive: true, force: true })
+      }
+    }
+  )
 
   it('keeps an accepted command inside the shutdown drain', async () => {
     ipcHandleMock.mockReset()
@@ -1706,7 +1986,12 @@ describe('Commands.UpdateSettings', () => {
     user: '',
     password: '',
     bypass: [],
-    scopes: { download: false, updateApp: false, updateTrackers: false },
+    scopes: {
+      download: false,
+      updateApp: false,
+      updateTrackers: false,
+      plugins: false,
+    },
   }
   const PROXY_ON = { ...PROXY_OFF, enabled: true, host: 'p.example', port: 80 }
 
@@ -1961,11 +2246,21 @@ describe('Commands.UpdateSettings', () => {
     const policy = new AppliedDownloadProxyPolicy({ noProxy: '' })
     const proxyA = {
       ...PROXY_ON,
-      scopes: { download: true, updateApp: false, updateTrackers: false },
+      scopes: {
+        download: true,
+        updateApp: false,
+        updateTrackers: false,
+        plugins: false,
+      },
     }
     const proxyB = {
       ...proxyA,
-      scopes: { download: true, updateApp: true, updateTrackers: false },
+      scopes: {
+        download: true,
+        updateApp: true,
+        updateTrackers: false,
+        plugins: false,
+      },
     }
     const before = makeSettingsLike(PROXY_OFF)
     const afterA = makeSettingsLike(proxyA)
@@ -2024,7 +2319,12 @@ describe('Commands.UpdateSettings', () => {
     const policy = new AppliedDownloadProxyPolicy({ noProxy: '' })
     const proxy = {
       ...PROXY_ON,
-      scopes: { download: true, updateApp: false, updateTrackers: false },
+      scopes: {
+        download: true,
+        updateApp: false,
+        updateTrackers: false,
+        plugins: false,
+      },
     }
     const before = makeSettingsLike(PROXY_OFF, {
       app: { browserBridgeEnabled: false },
@@ -2600,12 +2900,19 @@ describe('plugin enable/disable commands', () => {
       ...fakeCtx(),
       pluginStateStore: {
         setEnabled,
-        get: vi.fn().mockReturnValue(undefined),
+        get: vi.fn(() => ({
+          status: 'inactive',
+          enabled: Boolean(setEnabled.mock.calls.at(-1)?.[1]),
+        })),
       },
       pluginRegistry: {
         refreshState,
       },
       pluginHost: {
+        enable: vi.fn(async (id: string) => {
+          setEnabled(id, true)
+          refreshState(id)
+        }),
         deactivate: vi.fn().mockResolvedValue(undefined),
         disable: vi.fn(async (id: string) => {
           setEnabled(id, false)
@@ -2620,6 +2927,24 @@ describe('plugin enable/disable commands', () => {
       },
     }
   }
+
+  it('keeps a plugin disabled when a runtime dependency is missing', async () => {
+    const ctx = makePluginLifecycleCtx()
+    ctx.pluginHost.enable.mockRejectedValueOnce(
+      new Error('plugin.runtime.ffmpegUnavailable')
+    )
+    const handlers = buildCommandHandlers(ctx as unknown as CommandContext)
+    await expect(
+      handlers[Commands.EnablePlugin]?.('test-plugin')
+    ).rejects.toThrow('plugin.runtime.ffmpegUnavailable')
+    expect(ctx.pluginStateStore.setEnabled).not.toHaveBeenCalled()
+    expect(ctx.eventBus.emit).not.toHaveBeenCalled()
+    await handlers[Commands.EnablePlugin]?.('test-plugin')
+    expect(ctx.pluginStateStore.setEnabled).toHaveBeenCalledWith(
+      'test-plugin',
+      true
+    )
+  })
 
   it('emits contribution index changes when enabling a plugin', async () => {
     const ctx = makePluginLifecycleCtx()
@@ -2875,5 +3200,85 @@ describe('host-owned task directory history', () => {
       })
     )
     finish({ ok: true, value: { favorites: [], recent: [] } })
+  })
+})
+
+describe('plugin diagnostic mode command', () => {
+  it.each([true, false])(
+    'returns authoritative state after setting verbose=%s',
+    async (verbose) => {
+      const state = { verbose, expiresAt: verbose ? 3_610_000 : null }
+      const setLogVerbose = vi.fn()
+      const getLogState = vi.fn(() => state)
+      const handlers = buildCommandHandlers({
+        ...fakeCtx(),
+        capabilityHost: { setLogVerbose, getLogState },
+      } as unknown as CommandContext)
+      await expect(
+        handlers[Commands.SetPluginLogVerbose]?.({
+          pluginId: 'alice.demo',
+          verbose,
+        })
+      ).resolves.toEqual(state)
+      expect(setLogVerbose).toHaveBeenCalledWith('alice.demo', verbose)
+      expect(getLogState).toHaveBeenCalledWith('alice.demo')
+      setLogVerbose.mockClear()
+      for (const payload of [
+        null,
+        {},
+        { pluginId: 'alice.demo', verbose: 'true' },
+      ]) {
+        await expect(
+          handlers[Commands.SetPluginLogVerbose]?.(payload)
+        ).rejects.toThrow()
+      }
+      expect(setLogVerbose).not.toHaveBeenCalled()
+    }
+  )
+})
+
+it('rejects system association commands from a portable profile', async () => {
+  setPortableProfile({
+    root: 'E:\\Motrix',
+    dataDir: '',
+    userDataDir: '',
+    tempDir: '',
+    workDir: '',
+    downloadsDir: '',
+  })
+  try {
+    const handlers = buildCommandHandlers(
+      fakeCtx() as unknown as CommandContext
+    )
+    await expect(
+      handlers[Commands.RequestDefaultTorrentHandler]?.()
+    ).rejects.toMatchObject({ code: ErrorCode.SettingsInvalid })
+  } finally {
+    setPortableProfile(null)
+  }
+})
+
+describe('BT storage command contract', () => {
+  it('validates destination requests before invoking storage', async () => {
+    const handlers = buildCommandHandlers(
+      fakeCtx() as unknown as CommandContext
+    )
+    await expect(
+      handlers[Commands.ChangeBtStorage]?.({ taskId: 'bt', mode: 'move' })
+    ).rejects.toThrow()
+  })
+  it('reports unavailable storage and accepts a harmless cancellation', async () => {
+    const handlers = buildCommandHandlers(
+      fakeCtx() as unknown as CommandContext
+    )
+    expect(
+      await handlers[Commands.ChangeBtStorage]?.({
+        taskId: 'bt',
+        mode: 'recheck',
+      })
+    ).toEqual({ error: 'unavailable' })
+    expect(await handlers[Commands.CancelBtStorage]?.('bt')).toEqual({
+      ok: true,
+    })
   })
 })

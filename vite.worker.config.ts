@@ -1,6 +1,7 @@
 import { builtinModules, createRequire } from 'node:module'
 import path from 'node:path'
 import { defineConfig } from 'vite'
+import { PRODUCTION_OUTPUT } from './scripts/vite-production-output'
 
 const require = createRequire(import.meta.url)
 const pkg = require('./package.json') as {
@@ -22,13 +23,18 @@ function isExternal(id: string): boolean {
   if (id === 'electron') return true
   if (id.startsWith('node:')) return true
   if (nodeBuiltinSet.has(id)) return true
+  // Bundle the pure metadata parser into each host target.
+  if (matchesPackage(id, '@motrix/torrent')) return false
   return productionDeps.some((name) => matchesPackage(id, name))
 }
 
 export default defineConfig({
+  publicDir: false,
   build: {
     outDir: 'dist/core/plugin/host',
     emptyOutDir: true,
+    minify: 'oxc',
+    sourcemap: false,
     target: 'node20',
     lib: {
       entry: 'src/core/plugin/host/quick-js-worker.ts',
@@ -36,6 +42,7 @@ export default defineConfig({
       fileName: () => 'quick-js-worker.cjs',
     },
     rollupOptions: {
+      output: PRODUCTION_OUTPUT,
       external: isExternal,
     },
   },

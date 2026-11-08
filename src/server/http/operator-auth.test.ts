@@ -4,6 +4,7 @@ import { BridgeCommands, BridgeQueries } from '@shared/protocol/bridge'
 import { Commands } from '@shared/protocol/commands'
 import type { FastifyInstance } from 'fastify'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { parseRemoteExtensionConfig } from '../bridge/remote-extension-config'
 import { createApp } from './app'
 
 const TOKEN = 'machine-owner-token-xyz'
@@ -247,6 +248,11 @@ describe('device-code approval is gated by the operator (the Codex bypass)', () 
       expiresAt: 2,
     }
     const app = await createApp({
+      remoteExtensionConfig: parseRemoteExtensionConfig({
+        MOTRIX_REMOTE_EXTENSION_ENABLED: 'true',
+        MOTRIX_REMOTE_EXTENSION_PUBLIC_URL: 'wss://motrix.example',
+        MOTRIX_PUBLIC_URL: 'https://motrix.example',
+      }),
       commandHandlers: {},
       queryHandlers: {},
       bridgeQueryHandlers: {

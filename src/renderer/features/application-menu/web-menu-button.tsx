@@ -1,3 +1,5 @@
+import { torrentFileErrorKey } from '@shared/lib/engine-torrent'
+import { isNasAuthMode } from '@shared/schemas/operator-auth'
 import './application-menu.css'
 import { useAddTaskDialogStore } from '@renderer/components/add-task-dialog/use-add-task-dialog-store'
 import { ArrowLeftIcon, ChevronRightIcon } from '@renderer/components/icons'
@@ -78,6 +80,9 @@ export function WebMenuButton() {
   const [confirmation, setConfirmation] =
     useState<MenuConfirmationRequest | null>(null)
   const canLogout = useOperatorSession((s) => s.status?.canLogout === true)
+  const username = useOperatorSession((s) =>
+    isNasAuthMode(s.status?.mode) ? s.status?.username : undefined
+  )
   const content = useRef<HTMLDivElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
   const input = useRef<HTMLInputElement>(null)
@@ -380,6 +385,11 @@ export function WebMenuButton() {
             </>
           ) : (
             <>
+              {username && (
+                <div className="px-2 py-1 text-xs text-muted-foreground">
+                  {username}
+                </div>
+              )}
               {renderItems('app')}
               <DropdownMenuSeparator />
               {submenu('task')}
@@ -421,8 +431,11 @@ export function WebMenuButton() {
               if (picker.current !== request) return
               try {
                 parsed.push(await readTorrentFile(file))
-              } catch {
-                toast.add({ title: t('task.add.parseFailed'), type: 'error' })
+              } catch (error) {
+                toast.add({
+                  title: t(torrentFileErrorKey(error)),
+                  type: 'error',
+                })
               }
             }
             if (picker.current !== request) return

@@ -71,6 +71,13 @@ export function usePolledQuery<T>(
 
   const latest = useRef({ params, cache, equals, initial })
   latest.current = { params, cache, equals, initial }
+  const [visible, setVisible] = useState(() => !document.hidden)
+
+  useEffect(() => {
+    const update = () => setVisible(!document.hidden)
+    document.addEventListener('visibilitychange', update)
+    return () => document.removeEventListener('visibilitychange', update)
+  }, [])
 
   const [value, setValue] = useState<T | null>(() => {
     if (id !== null && cache) {
@@ -94,38 +101,53 @@ export function usePolledQuery<T>(
     if (initialCache) {
       setValue(initialCache.get(activeId) ?? initialValue ?? null)
     }
+    if (!visible) return
     let cancelled = false
+    let inFlight = false
+    let reloadPending = false
+    let generation = 0
     const load = async () => {
+      if (cancelled || inFlight) return
       const {
         params: nextParams,
         cache: nextCache,
         equals: nextEquals,
       } = latest.current
       if (nextParams === null) return
+      inFlight = true
+      const requestGeneration = generation
       try {
         const data = (await transport.invoke(channel, nextParams)) as T
-        nextCache?.set(activeId, data)
-        if (!cancelled) {
+        if (!cancelled && requestGeneration === generation) {
+          nextCache?.set(activeId, data)
           setValue((prev) =>
             prev !== null && nextEquals?.(prev, data) ? prev : data
           )
         }
       } catch {
         /* retry next tick */
+      } finally {
+        inFlight = false
+        if (reloadPending && !cancelled) {
+          reloadPending = false
+          void load()
+        }
       }
     }
-    load()
-    if (!enabled) {
-      return () => {
-        cancelled = true
-      }
-    }
-    const timer = setInterval(load, intervalMs)
+    const detach = transport.onConnectionChange?.((event) => {
+      if (event.state !== 'connected') return
+      generation += 1
+      if (inFlight) reloadPending = true
+      else void load()
+    })
+    void load()
+    const timer = enabled ? setInterval(load, intervalMs) : undefined
     return () => {
       cancelled = true
       clearInterval(timer)
+      detach?.()
     }
-  }, [channel, id, intervalMs, enabled])
+  }, [channel, id, intervalMs, enabled, visible])
 
   return value
 }

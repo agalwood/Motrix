@@ -40,7 +40,7 @@ const baseConsent: ConsentPayload = {
 }
 
 describe('InlineConsentPanel', () => {
-  it('renders plugin identity card and the install warning', () => {
+  it('shows the unverified source warning', () => {
     render(
       <InlineConsentPanel
         consent={baseConsent}
@@ -48,9 +48,25 @@ describe('InlineConsentPanel', () => {
         onGrantsChange={() => {}}
       />
     )
-    expect(screen.getByText('Video Helper')).toBeInTheDocument()
-    expect(screen.getByText(/Reads supported video sites/)).toBeInTheDocument()
-    expect(screen.getByText(/Before installing/)).toBeInTheDocument()
+    expect(screen.getByText(/This plugin is not verified/)).toBeInTheDocument()
+  })
+
+  it('shows verified official identity without skipping permission review', () => {
+    render(
+      <InlineConsentPanel
+        consent={{
+          ...baseConsent,
+          trustSurface: { ...baseConsent.trustSurface, notVerified: false },
+        }}
+        grants={{}}
+        onGrantsChange={() => {}}
+      />
+    )
+    expect(
+      screen.getByText('Official Motrix signature verified')
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/This plugin is not verified/)).toBeNull()
+    expect(screen.getByText('Send notifications')).toBeInTheDocument()
   })
 
   it('renders one PermissionRow per permission (required + optional)', () => {

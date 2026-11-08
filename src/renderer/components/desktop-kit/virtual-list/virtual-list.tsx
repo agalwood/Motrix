@@ -155,7 +155,7 @@ function VirtualListInner<T>(
             {content}
           </ScrollAreaContent>
         </ScrollAreaViewport>
-        <ScrollBar />
+        <ScrollBar style={{ top: headerHeight }} />
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
     )

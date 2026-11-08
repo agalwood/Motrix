@@ -412,6 +412,39 @@ To reject a request instead:
 docker compose exec server motrix-admin pairing deny ABCD-EFGH
 ```
 
+Browser Extensions use a separate code-entry handshake. To pair using only the
+container terminal, enable the remote Extension listener and configure its exact
+WS/WSS address; `MOTRIX_PUBLIC_URL` is optional:
+
+```bash
+export MOTRIX_REMOTE_EXTENSION_ENABLED=true
+export MOTRIX_REMOTE_EXTENSION_PUBLIC_URL='ws://nas.example.lan:16801'
+```
+
+Recreate the container with the updated environment, start pairing in the
+Extension, then run:
+
+```bash
+docker compose exec server motrix-admin extension pair
+```
+
+Select the request you initiated and type its displayed code into the Extension.
+The command requires an interactive terminal for input, output and errors; do not
+use `-T`, pipes, redirection or `--json`. Codes are never printed in service logs
+or the ordinary `pairing pending` list. The original 120-second deadline is not
+extended. Closing the terminal view does not approve or deny the request; if a
+request disappears, check the Extension for its outcome. Terminal recording can
+capture the code, so use a trusted administrator session.
+
+Without a configured HTTPS operator URL or explicit
+`MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP=true`, the Web UI receives no Extension
+pairing codes; use the interactive command. To show codes in the Web UI, configure
+HTTPS or explicitly authorize trusted-LAN HTTP. When the public Web URL is
+omitted, existing same-origin Web checks use the request Host and protocol.
+The Web and Extension addresses may use different hosts and ports; if a Web URL
+is configured, access the Web UI at that URL for its event connection.
+
+
 Start pairing on the client first, then enter the code shown by that client.
 The command intentionally has no approve-latest, approve-all, remote endpoint,
 or token argument. Web approval remains available and is the normal path; this
@@ -623,11 +656,33 @@ Operator-managed options are:
 - `MOTRIX_SECRETS_SEED`: optional 64-hex secret from an orchestrator secret
   store. Otherwise `/data/secrets.lockbox` is generated and persisted.
 
-The official image does not include FFmpeg. A plugin that requires it needs a
-derived image with Alpine's `ffmpeg` package and
-`MOTRIX_FFMPEG_PATH=/usr/bin/ffmpeg`.
+The official image does not include FFmpeg. Browser Extension HLS/DASH downloads,
+separate audio/video merging, and plugins that require FFmpeg need an executable
+inside the container. In **Settings → Integration → Media Tools**, click
+**Download FFmpeg**, then **Download and verify**. The Server downloads the
+official Motrix build for its own OS and architecture, verifies its signature
+and checksums, and installs it under `/data/binaries/ffmpeg-verified`. Progress
+and errors appear in the Web UI; the installed files persist with the `/data`
+volume. Installation requires write access to that directory and outbound
+HTTPS access to GitHub releases. Failed verification leaves the previous
+verified installation intact.
+
+Alternatively, use a derived image with Alpine's `ffmpeg`
+package and `MOTRIX_FFMPEG_PATH=/usr/bin/ffmpeg`. A compatible executable in
+`/data/binaries/ffmpeg` or a custom path configured in the Web UI also works.
+Confirm detection in **Settings → Integration → Media Tools**, then click
+**Rescan** in the Extension. The Server refreshes its media capabilities without
+requiring a restart; installing FFmpeg only on the browser's computer does not
+make it available inside the container.
 
 ## Upgrade, rollback, backup, and restore
+
+**Settings → About** can check for new Server versions using the same stable
+and beta release feeds as the desktop app. The selected channel and automatic
+startup checks are saved in settings. Checks compare against the running
+Server version and never offer a downgrade. When a newer version is available,
+open its release notes and update the deployment manually. The Server does not
+download installers, replace application files, or restart to install an update.
 
 Before an upgrade, record the current image digest and back up `/data`. Stop the
 service for a filesystem-level backup so SQLite and the aria2 session are
@@ -747,7 +802,7 @@ uses this ownership record and the already-bound Web listener as one proof.
 | `MOTRIX_BIND_IP` | Compose: `0.0.0.0` | Backward-compatible shared host-publish fallback |
 | `MOTRIX_MDXP_HOST` | runtime: `127.0.0.1`; Compose: `0.0.0.0` | MDXP listener inside the container, not the host publish address |
 | `MOTRIX_MDXP_PORT` | `16801` | MDXP listen port; `0` disables a stable published port |
-| `MOTRIX_PUBLIC_URL` | unset | Explicit externally reachable Web approval URL, not the MDXP URL; never defaults to localhost |
+| `MOTRIX_PUBLIC_URL` | unset | Optional externally reachable Web approval URL, not the MDXP URL; omitted Extension pairing uses the local terminal unless operator HTTP is explicitly allowed |
 | `MOTRIX_REMOTE_EXTENSION_ENABLED` | `false` | Opt in to the four remote browser-Extension MBP1 routes |
 | `MOTRIX_REMOTE_EXTENSION_PUBLIC_URL` | unset | Exact WS/WSS Server address entered in Motrix Extension |
 | `MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP` | `false` | Explicitly accept exposed operator credentials and traffic on a trusted-LAN HTTP deployment; never use on an untrusted network |

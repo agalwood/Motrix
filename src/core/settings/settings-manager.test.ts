@@ -1,3 +1,4 @@
+import { constants } from 'node:fs'
 import { resolveByteUnitSystem } from '@shared/schemas/byte-unit-system'
 import type { AppSettings, DashboardTileLayout } from '@shared/types/settings'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -13,23 +14,31 @@ import {
   dashboardLayoutSettingsSchema,
 } from './validators'
 
-const { mockReadFile, mockWriteFile, mockMkdir, mockWriteFileAtomic } =
-  vi.hoisted(() => ({
-    mockReadFile: vi.fn(),
-    mockWriteFile: vi.fn(),
-    mockMkdir: vi.fn(),
-    mockWriteFileAtomic: vi.fn(),
-  }))
+const {
+  mockReadFile,
+  mockWriteFile,
+  mockMkdir,
+  mockWriteFileAtomic,
+  mockCopyFile,
+} = vi.hoisted(() => ({
+  mockReadFile: vi.fn(),
+  mockWriteFile: vi.fn(),
+  mockMkdir: vi.fn(),
+  mockWriteFileAtomic: vi.fn(),
+  mockCopyFile: vi.fn(),
+}))
 
 vi.mock('node:fs/promises', () => ({
   default: {
     readFile: mockReadFile,
     writeFile: mockWriteFile,
     mkdir: mockMkdir,
+    copyFile: mockCopyFile,
   },
   readFile: mockReadFile,
   writeFile: mockWriteFile,
   mkdir: mockMkdir,
+  copyFile: mockCopyFile,
 }))
 
 // Atomic save lives in write-file-atomic now. Existing tests assert
@@ -64,7 +73,88 @@ describe('SettingsManager', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockCopyFile.mockReset().mockResolvedValue(undefined)
     manager = new SettingsManager(TEST_PATH, { onChange })
+  })
+
+  it('preserves manual window limits and compact bounds through unrelated saves and reloads', async () => {
+    mockReadFile.mockResolvedValue(
+      JSON.stringify({
+        version: CURRENT_SETTINGS_VERSION,
+        app: { mainWindowMinWidth: 0, mainWindowMinHeight: 100 },
+        windowState: { main: { x: 10, y: 20, width: 180, height: 120 } },
+      })
+    )
+    await manager.load()
+    await manager.update({ app: { theme: 'dark' } })
+    const saved = mockWriteFileAtomic.mock.lastCall![1]
+    mockReadFile.mockResolvedValue(saved)
+    const reloaded = new SettingsManager(TEST_PATH)
+    await reloaded.load()
+    expect(reloaded.get()).toMatchObject({
+      app: { mainWindowMinWidth: 0, mainWindowMinHeight: 100, theme: 'dark' },
+      windowState: { main: { width: 180, height: 120 } },
+    })
+  })
+
+  it('keeps Dock progress opt-in and persists changes without requiring a restart', async () => {
+    expect(manager.getApp().showDownloadProgress).toBe(false)
+    for (const showDownloadProgress of [true, false]) {
+      expect(
+        await manager.update({ app: { showDownloadProgress } })
+      ).toMatchObject({
+        saved: true,
+        requiresRestart: false,
+        requiresAppRestart: false,
+      })
+      expect(onChange).toHaveBeenLastCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          app: expect.objectContaining({ showDownloadProgress }),
+        })
+      )
+      mockReadFile.mockResolvedValue(mockWriteFileAtomic.mock.lastCall![1])
+      const restored = new SettingsManager(TEST_PATH)
+      await restored.load()
+      expect(restored.getApp().showDownloadProgress).toBe(showDownloadProgress)
+    }
+  })
+
+  it('reports an app restart only when window limits change', async () => {
+    const app = { mainWindowMinWidth: 320, mainWindowMinHeight: 0 }
+    expect(await manager.update({ app })).toMatchObject({
+      requiresAppRestart: true,
+      changedAppRestartKeys: ['mainWindowMinWidth', 'mainWindowMinHeight'],
+    })
+    expect(await manager.update({ app })).toMatchObject({
+      requiresAppRestart: false,
+      changedAppRestartKeys: [],
+    })
+  })
+
+  it('persists acceleration changes and requests a full app restart only for a changed value', async () => {
+    expect(
+      await manager.update({ app: { hardwareAcceleration: false } })
+    ).toMatchObject({
+      requiresAppRestart: true,
+      changedAppRestartKeys: ['hardwareAcceleration'],
+      requiresRestart: false,
+    })
+    const saved = mockWriteFileAtomic.mock.lastCall![1]
+    mockReadFile.mockResolvedValue(saved)
+    const reloaded = new SettingsManager(TEST_PATH)
+    await reloaded.load()
+    expect(reloaded.getApp().hardwareAcceleration).toBe(false)
+    expect(
+      await reloaded.update({ app: { hardwareAcceleration: false } })
+    ).toMatchObject({
+      requiresAppRestart: false,
+    })
+    expect(
+      await reloaded.update({ app: { hardwareAcceleration: true } })
+    ).toMatchObject({
+      requiresAppRestart: true,
+    })
   })
 
   describe('directory preferences', () => {
@@ -413,7 +503,9 @@ describe('SettingsManager', () => {
         manager = new SettingsManager(TEST_PATH, {
           defaultByteUnitSystem: unitSystem,
         })
-        mockedFs.readFile.mockRejectedValue(new Error('ENOENT'))
+        mockedFs.readFile.mockRejectedValue(
+          Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+        )
         mockedFs.writeFile.mockResolvedValue(undefined)
         await manager.load()
         expect(manager.get().speedLimit).toMatchObject({
@@ -518,6 +610,10 @@ describe('SettingsManager', () => {
         defaultSaveDir: expect.stringMatching(/Downloads$/),
       })
       expect(settings.app.defaultSaveDir).not.toBe('')
+      expect(settings.app.language).toBe('system')
+      expect(
+        JSON.parse(mockedFs.writeFile.mock.calls.at(-1)![1]).app.language
+      ).toBe('system')
       expect(settings.app.liquidGlassEffect).toBe(false)
       expect(settings.onboarding).toEqual(DEFAULT_ONBOARDING_STATE)
       expect(settings.dashboard).toEqual(DEFAULT_DASHBOARD_LAYOUT)
@@ -529,6 +625,28 @@ describe('SettingsManager', () => {
         )
       )
     })
+
+    it.each(['system', 'en-US', 'zh-CN', 'fr'] as const)(
+      'preserves saved %s language through unrelated changes and reloads',
+      async (language) => {
+        mockedFs.readFile.mockResolvedValue(
+          JSON.stringify({
+            version: CURRENT_SETTINGS_VERSION,
+            app: { language },
+          })
+        )
+        mockedFs.writeFile.mockResolvedValue(undefined)
+        await manager.load()
+        expect(manager.getApp().language).toBe(language)
+
+        await manager.update({ app: { theme: 'dark' } })
+        const saved = mockedFs.writeFile.mock.calls.at(-1)![1] as string
+        mockedFs.readFile.mockResolvedValue(saved)
+        const reloaded = new SettingsManager(TEST_PATH)
+        await reloaded.load()
+        expect(reloaded.getApp()).toMatchObject({ language, theme: 'dark' })
+      }
+    )
 
     it('uses an injected Liquid Glass default when the file does not exist', async () => {
       manager = new SettingsManager(TEST_PATH, {
@@ -768,12 +886,55 @@ describe('SettingsManager', () => {
       expect(manager.getEngine().magnetResolveTimeout).toBe(900)
     })
 
-    it('falls back to defaults on corrupted JSON', async () => {
+    it.each(['EACCES', 'EIO', 'EISDIR'])(
+      'preserves the file and surfaces read failure %s without recovery writes',
+      async (code) => {
+        const error = Object.assign(new Error(code), { code })
+        mockReadFile.mockRejectedValue(error)
+        await expect(manager.load()).rejects.toBe(error)
+        expect(mockCopyFile).not.toHaveBeenCalled()
+        expect(mockWriteFileAtomic).not.toHaveBeenCalled()
+      }
+    )
+
+    it.each(['EACCES', 'ENOSPC', 'EEXIST'])(
+      'does not replace a damaged file if its backup fails with %s',
+      async (code) => {
+        mockReadFile.mockResolvedValue('{broken')
+        const error = Object.assign(new Error(code), { code })
+        mockCopyFile.mockRejectedValueOnce(error)
+        await expect(manager.load()).rejects.toBe(error)
+        expect(mockWriteFileAtomic).not.toHaveBeenCalled()
+      }
+    )
+
+    it('keeps the backup when writing the recovered defaults fails', async () => {
+      mockReadFile.mockResolvedValue('{broken')
+      const error = Object.assign(new Error('ENOSPC'), { code: 'ENOSPC' })
+      mockWriteFileAtomic.mockRejectedValueOnce(error)
+      await expect(manager.load()).rejects.toBe(error)
+      expect(mockCopyFile).toHaveBeenCalledOnce()
+      expect(mockWriteFileAtomic).toHaveBeenCalledOnce()
+      expect(mockCopyFile.mock.invocationCallOrder[0]).toBeLessThan(
+        mockWriteFileAtomic.mock.invocationCallOrder[0]!
+      )
+    })
+
+    it('backs up corrupted JSON before replacing it with defaults', async () => {
       mockedFs.readFile.mockResolvedValue('not valid json {{{')
       mockedFs.mkdir.mockResolvedValue(undefined)
       mockedFs.writeFile.mockResolvedValue(undefined)
 
       await manager.load()
+
+      expect(mockCopyFile).toHaveBeenCalledWith(
+        TEST_PATH,
+        expect.stringMatching(/test-settings\.json\.corrupt-.+\.bak$/),
+        constants.COPYFILE_EXCL
+      )
+      expect(mockCopyFile.mock.invocationCallOrder[0]).toBeLessThan(
+        mockWriteFileAtomic.mock.invocationCallOrder[0]!
+      )
 
       const settings = manager.get()
       expect(settings.version).toBe(CURRENT_SETTINGS_VERSION)
@@ -1051,7 +1212,7 @@ describe('SettingsManager', () => {
 
       await firstWriteStarted.promise
       expect(mockedFs.writeFile).toHaveBeenCalledOnce()
-      expect(manager.getApp().language).toBe('en-US')
+      expect(manager.getApp().language).toBe(DEFAULT_APP_SETTINGS.language)
       expect(manager.getApp().theme).toBe(DEFAULT_APP_SETTINGS.theme)
       expect(onChange).not.toHaveBeenCalled()
 
@@ -1088,7 +1249,7 @@ describe('SettingsManager', () => {
           updated.app.language,
         ])
       ).toEqual([
-        ['en-US', 'zh-CN'],
+        [DEFAULT_APP_SETTINGS.language, 'zh-CN'],
         ['zh-CN', 'en-US'],
       ])
     })
@@ -1100,7 +1261,7 @@ describe('SettingsManager', () => {
         manager.update({ app: { language: 'zh-CN', theme: 'dark' } })
       ).rejects.toThrow('disk full')
 
-      expect(manager.getApp().language).toBe('en-US')
+      expect(manager.getApp().language).toBe(DEFAULT_APP_SETTINGS.language)
       expect(manager.getApp().theme).toBe(DEFAULT_APP_SETTINGS.theme)
       expect(onChange).not.toHaveBeenCalled()
 

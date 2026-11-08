@@ -35,14 +35,14 @@ describe('redactLogFields', () => {
         method: 'createDownload',
         params: {
           gid: '0123456789abcdef',
-          uris: ['https://example.com/file.zip'],
+          uris: ['https://example.com/file.zip?token=[redacted]'],
           saveDir: '/Users/alice/Downloads',
           filename: 'file.zip.motrix',
           connections: 16,
           headers: ['Authorization', 'Cookie'],
           proxy: 'http://proxy.example:8080',
           extraEngineOptions: {
-            referer: 'https://origin.example/watch',
+            referer: 'https://origin.example/watch?token=[redacted]',
             'load-cookies': '[redacted-path]',
             'select-file': '1,3',
             'unknown-option': '[redacted]',
@@ -74,7 +74,7 @@ describe('redactLogFields', () => {
         { profile: 'application' }
       )
       expect(out.rewrittenUris).toEqual([
-        'https://cdn.example/file',
+        'https://cdn.example/file?signature=[redacted]',
         'magnet:<redacted>',
       ])
     })
@@ -512,11 +512,13 @@ describe('redactLogFields', () => {
     const redactPlugin = (fields: Record<string, unknown>, verbose = false) =>
       redactLogFields(fields, { profile: 'plugin', verbose })
 
-    it('strips query strings and fragments from URLs', () => {
+    it('masks credential query values and strips fragments', () => {
       const out = redactPlugin({
         url: 'https://api.example.com/v1/data?token=abc123&user=42#frag',
       })
-      expect(out.url).toBe('https://api.example.com/v1/data')
+      expect(out.url).toBe(
+        'https://api.example.com/v1/data?token=[redacted]&user=42'
+      )
     })
 
     it('preserves URL origin and pathname without query data', () => {
@@ -534,7 +536,7 @@ describe('redactLogFields', () => {
         request: { url: 'https://api.example.com/?secret=xyz' },
       })
       expect((out.request as { url: string }).url).toBe(
-        'https://api.example.com/'
+        'https://api.example.com/?secret=[redacted]'
       )
     })
 
@@ -623,5 +625,60 @@ describe('redactLogFields', () => {
       expect(JSON.stringify(out)).toContain('raw-secret')
       expect(JSON.stringify(out)).not.toContain('serializer-secret')
     })
+  })
+})
+
+describe('URL query diagnostics', () => {
+  it('preserves ordinary parameters, duplicate keys, empty values and exact encoding', () => {
+    const url =
+      'https://drive.usercontent.google.com/download?id=a%2fb+X&export=download&confirm=t&item=1&item=2&empty=&flag&&token=secret%26value&x=%252F'
+    const fields = { url, rewrittenUris: [url], params: { uris: [url] } }
+    const original = structuredClone(fields)
+    const expected = url.replace('token=secret%26value', 'token=[redacted]')
+    expect(redactLogFields(fields, { profile: 'application' })).toEqual({
+      url: expected,
+      rewrittenUris: [expected],
+      params: { uris: [expected] },
+    })
+    expect(fields).toEqual(original)
+  })
+
+  it.each([
+    'token',
+    'access_token',
+    'ToKeN',
+    '%74oken',
+    'api-key',
+    'sig',
+    'signature',
+    'X-Amz-Signature',
+    'X-Amz-Credential',
+    'X-Amz-Security-Token',
+    'X-Goog-Signature',
+    'X-Goog-Credential',
+    '%invalid',
+  ])('masks credential parameter %s independently of host', (key) => {
+    const url = `https://anything.example/file?id=42&${key}=private&${key}=second&export=download`
+    const out = redactLogFields({ url }, { profile: 'application' })
+    expect(out.url).toBe(
+      `https://anything.example/file?id=42&${key}=[redacted]&${key}=[redacted]&export=download`
+    )
+    expect(redactLogFields(out, { profile: 'application' })).toEqual(out)
+  })
+
+  it('also sanitizes URL credentials embedded in text and errors', () => {
+    const out = redactLogFields(
+      {
+        detail:
+          'GET https://user:pass@example.com/a?id=1&token=secret#fragment',
+        err: new Error('GET https://example.com/a?id=1&sig=secret'),
+      },
+      { profile: 'application' }
+    )
+    expect(out.detail).toBe('GET https://example.com/a?id=1&token=[redacted]')
+    expect((out.err as Error).message).toBe(
+      'GET https://example.com/a?id=1&sig=[redacted]'
+    )
+    expect((out.err as Error).stack).not.toContain('sig=secret')
   })
 })

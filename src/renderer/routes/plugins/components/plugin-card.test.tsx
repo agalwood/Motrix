@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import '@renderer/lib/i18n'
@@ -8,11 +8,16 @@ import type { PluginListDTO } from '@shared/types/plugin'
 import { usePluginsStore } from '../store'
 import { PluginCard } from './plugin-card'
 
-const { mockInvoke } = vi.hoisted(() => ({
+const { mockInvoke, openExternal } = vi.hoisted(() => ({
+  openExternal: vi.fn(),
   mockInvoke: vi.fn().mockResolvedValue(undefined),
 }))
 vi.mock('@renderer/lib/transport', () => ({
   transport: { invoke: mockInvoke, on: vi.fn(), off: vi.fn() },
+}))
+
+vi.mock('@renderer/platform/services', () => ({
+  usePlatformServices: () => ({ openExternal }),
 }))
 
 function makePlugin(overrides: Partial<PluginListDTO> = {}): PluginListDTO {
@@ -98,6 +103,39 @@ describe('PluginCard', () => {
     ).toBeInTheDocument()
   })
 
+  it('shows the security reason and blocks the enable switch without offering Turn on', () => {
+    renderCard(
+      makePlugin({
+        enabled: false,
+        security: {
+          blocked: true,
+          reason: 'malware',
+          advisoryIds: ['MTX-TEST-1'],
+          fixedVersion: '1.2.0',
+          url: 'https://motrix.app/security/MTX-TEST-1',
+        },
+      })
+    )
+    expect(screen.getByRole('switch')).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'false')
+    expect(
+      screen.queryByRole('button', { name: 'Turn on' })
+    ).not.toBeInTheDocument()
+    expect(screen.getByText('MTX-TEST-1')).toBeInTheDocument()
+    expect(
+      screen.getByText('A fix is available in version 1.2.0.')
+    ).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('switch'))
+    expect(mockInvoke).not.toHaveBeenCalled()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'View security advisory' })
+    )
+    expect(openExternal).toHaveBeenCalledWith(
+      'https://motrix.app/security/MTX-TEST-1'
+    )
+    expect(screen.queryByTestId('detail-route')).not.toBeInTheDocument()
+  })
+
   it('safe tone: shows Looks safe badge', () => {
     renderCard(makePlugin())
     expect(screen.getByText('Looks safe')).toBeInTheDocument()
@@ -154,19 +192,30 @@ describe('PluginCard', () => {
     )
   })
 
-  it('applies the disabled state locally after a successful Switch command', async () => {
+  it('does not overwrite a newer enabled event when a disable response arrives late', async () => {
     const plugin = makePlugin()
     usePluginsStore.getState().setList([plugin])
-    renderCard(plugin)
-
-    fireEvent.click(screen.getByRole('switch'))
-
-    await waitFor(() =>
-      expect(usePluginsStore.getState().list[0]).toMatchObject({
-        enabled: false,
-        status: 'disabled',
+    let finish!: () => void
+    mockInvoke.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        finish = resolve
       })
     )
+    renderCard(plugin)
+    fireEvent.click(screen.getByRole('switch'))
+    // Another window enabled the plugin after this window requested disable.
+    act(() =>
+      usePluginsStore
+        .getState()
+        .applyStatus(plugin.id, 'active', undefined, true)
+    )
+    await act(async () => {
+      finish()
+    })
+    expect(usePluginsStore.getState().list[0]).toMatchObject({
+      enabled: true,
+      status: 'active',
+    })
   })
 
   it('does not nest the Switch inside the card navigation target', () => {

@@ -1,16 +1,24 @@
 import path from 'node:path'
+import type { EngineAdapter } from '@core/engine/engine-adapter'
+import {
+  getLegacyHttpBindingInput,
+  hasLegacyImport,
+  isInactiveLegacyTask,
+} from '@core/legacy-import/legacy-task-policy'
 import { newEngineTaskId } from '@core/lib/ids'
+import { FinalizeSourceVerificationError } from '@core/plugin/finalize/finalize-recovery-errors'
 import type { HookAuditLog } from '@core/plugin/hooks/audit-log'
 import type { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
 import type { StagedMetadataOp } from '@core/plugin/hooks/staged-effects'
 import { AppError, DownloadErrorCode, ErrorCode } from '@shared/errors'
 import { Events } from '@shared/protocol/events'
+import { legacyBtActivationSchema } from '@shared/schemas/legacy-bt-activation'
 import type {
   BeforeFinalizeContextDTO,
   PluginHookTask,
 } from '@shared/types/plugin-hooks'
 import type { DownloadTask, TaskFile } from '@shared/types/task'
-import { TaskStatus, TransitionPhase } from '@shared/types/task'
+import { TaskStatus, TaskType, TransitionPhase } from '@shared/types/task'
 import { isTorrentLike } from '@shared/types/task-actions'
 import {
   TaskActivityAccuracy,
@@ -55,6 +63,12 @@ import {
 const finalizationsInFlight = new Set<string>()
 
 export interface FinalizeTaskDeps {
+  authorizeDirectoryForTask?: (task: DownloadTask) => Promise<void>
+  removeTaskOutput?: (task: DownloadTask, file: string) => Promise<void>
+  recordInPlaceOutput?: (
+    task: DownloadTask,
+    metadata: Uint8Array
+  ) => Promise<void>
   taskManager: {
     getById(id: string): DownloadTask | undefined
     getAll(): DownloadTask[]
@@ -94,6 +108,8 @@ export interface FinalizeTaskDeps {
   publishTaskUpdate: () => void
   publishTaskUpdateNow: () => void
   adapter: {
+    verifyLegacyBtBinding?: EngineAdapter['verifyLegacyBtBinding']
+    verifyLegacyHttpBinding?: EngineAdapter['verifyLegacyHttpBinding']
     removeDownloadResult(engineTaskId: string): Promise<void>
     forceRemoveTask(engineTaskId: string): Promise<void>
     getUploadLength(engineTaskId: string): Promise<number>
@@ -156,6 +172,7 @@ export interface FinalizeTaskDeps {
    * that never publish an unsafe name can omit it.
    */
   finalNamePicker?: Pick<FinalNamePicker, 'pick'>
+  recoverySha256?: string
   commitFinalizedArtifact?: (
     input: FinalizeArtifactCommitRequest
   ) => Promise<void>
@@ -166,9 +183,11 @@ export interface FinalizeArtifactCommitRequest {
   occurrence: TaskOccurrence | null
   sourcePath: string
   targetPath: string
+  recoverySha256?: string
   replacement?: { pluginId: string; stagedPath: string }
   metadataOps: readonly StagedMetadataOp[]
   contributors: readonly string[]
+  beforeCommit?: () => void
   fileRebase?: { sourceRoot: string; targetRoot: string }
 }
 
@@ -189,6 +208,69 @@ async function finalizeTaskSerialized(
   const publishedTask = getTaskOrWarn(deps, taskId, 'finalizeTask')
   if (!publishedTask) return
   const task = structuredClone(publishedTask)
+  await deps.authorizeDirectoryForTask?.(task)
+  if (hasLegacyImport(task)) {
+    if (isInactiveLegacyTask(task)) return
+    // An authorized in-place task never renames, deletes unselected files, or
+    // creates a seeding replacement. Keep its original GID and provenance.
+    const live = await deps.adapter.getTaskStatus(task.engineTaskId)
+    if (
+      !live ||
+      live.status !== TaskStatus.Completed ||
+      live.engineTaskId !== task.engineTaskId ||
+      live.infoHash !== task.infoHash ||
+      live.totalBytes <= 0 ||
+      live.downloadedBytes < live.totalBytes
+    )
+      return
+    if (task.type === TaskType.Http) {
+      const binding = getLegacyHttpBindingInput(task)
+      if (
+        !binding ||
+        live.totalBytes !== binding.expected.totalBytes ||
+        live.downloadedBytes !== binding.expected.totalBytes ||
+        !(await deps.adapter.verifyLegacyHttpBinding?.(binding))
+      )
+        return
+    } else {
+      const intent = legacyBtActivationSchema.safeParse(
+        task.instances[0]?.payload.legacyBtActivation
+      )
+      if (
+        !intent.success ||
+        task.engineTaskId !== intent.data.engineTaskId ||
+        task.finalPath !== intent.data.targetPath ||
+        !(await deps.adapter.verifyLegacyBtBinding?.({
+          engineTaskId: intent.data.engineTaskId,
+          saveDir: intent.data.saveDir,
+          infoHash: intent.data.expected.infoHash ?? '',
+          files: intent.data.files,
+          selectedFiles: intent.data.selectedFiles,
+          trackers: intent.data.trackers,
+          isPrivate: intent.data.isPrivate,
+        }))
+      )
+        return
+    }
+    const previous = task.status
+    Object.assign(task, applyTerminalTransition(task, TaskStatus.Completed))
+    task.downloadedBytes = live.downloadedBytes
+    task.totalBytes = live.totalBytes
+    task.progress = 1
+    task.downloadSpeed = 0
+    task.uploadSpeed = 0
+    task.etaSeconds = 0
+    task.connections = 0
+    for (const instance of task.instances) {
+      instance.status = TaskStatus.Completed
+      instance.totalBytes = live.totalBytes
+      instance.downloadedBytes = live.downloadedBytes
+      instance.progress = 100
+    }
+    await persistTaskTransition(task, previous, deps)
+    deps.publishTaskUpdateNow()
+    return
+  }
 
   const alreadyOutputReady =
     getBtDirectStorageLayout(task)?.finalized !== false &&
@@ -301,7 +383,7 @@ async function finalizeHttp(
   // `Size 0 / 0%`. Pull once here so syncCompletionMetrics has real
   // numbers to seal. Best-effort: any failure (race with another retire,
   // RPC error) is logged and we fall through with whatever we already had.
-  await refreshTaskBytesBeforeFinalize(task, deps)
+  await refreshHttpMetadataBeforeFinalize(task, deps)
 
   // removeDownloadResult before rename so aria2 releases the file
   // handle — on Windows an open handle causes a sharing violation.
@@ -322,7 +404,10 @@ async function finalizeHttp(
       const errorMessage = `Failed to commit finalized file: ${cause}`
       await failFinalize(task, deps, {
         errorMessage,
-        errorDetailKey: 'task.error.detail.renameFileFailed',
+        errorDetailKey:
+          e instanceof FinalizeSourceVerificationError
+            ? 'task.error.detail.sourceHash'
+            : 'task.error.detail.renameFileFailed',
         errorDetailParams: { cause },
         hookCode: 'TASK_FINALIZE_RENAME_FAILED',
       })
@@ -331,6 +416,7 @@ async function finalizeHttp(
   }
 
   try {
+    finalizeOutcome.beforeCommit?.()
     await deps.fs.renameAtomic(renameSource, desiredFinalPath)
   } catch (e) {
     const cause = (e as Error).message
@@ -414,9 +500,11 @@ async function commitHttpArtifactDurably(
     occurrence,
     sourcePath: renameSource,
     targetPath: desiredFinalPath,
+    ...(deps.recoverySha256 ? { recoverySha256: deps.recoverySha256 } : {}),
     replacement: finalizeOutcome.replacement,
     metadataOps: finalizeOutcome.metadataOps,
     contributors: finalizeOutcome.contributors,
+    beforeCommit: finalizeOutcome.beforeCommit,
     fileRebase: {
       sourceRoot: renameSource,
       targetRoot: desiredFinalPath,
@@ -482,10 +570,13 @@ function syncCompletionMetrics(task: DownloadTask): void {
  * swallowed: the caller's existing task state remains the source of
  * truth and syncCompletionMetrics will still do what it can.
  */
-async function refreshTaskBytesBeforeFinalize(
+async function refreshHttpMetadataBeforeFinalize(
   task: DownloadTask,
   deps: FinalizeTaskDeps
 ): Promise<void> {
+  // HTTP/FTP finalization publishes one file even when the metadata poll was
+  // missed. Preserve that cardinality before committing the rename journal.
+  if (task.fileCount === 0) task.fileCount = 1
   try {
     const refreshed = await deps.adapter.getTaskStatus(task.engineTaskId)
     if (!refreshed) return
@@ -633,6 +724,7 @@ async function finalizeBt(
         replacement: finalizeOutcome.replacement,
         metadataOps: finalizeOutcome.metadataOps,
         contributors: finalizeOutcome.contributors,
+        beforeCommit: finalizeOutcome.beforeCommit,
         fileRebase: {
           sourceRoot: renameSource,
           targetRoot: publishedFinalPath,
@@ -654,6 +746,7 @@ async function finalizeBt(
     }
   } else {
     try {
+      finalizeOutcome.beforeCommit?.()
       await deps.fs.renameAtomic(renameSource, publishedFinalPath)
     } catch (e) {
       const cause = (e as Error).message
@@ -691,7 +784,9 @@ async function finalizeBt(
     !isSameOrDescendant(publishedFinalPath, storageLayout.workspacePath)
   ) {
     try {
-      await deps.fs.removePathRecursive(storageLayout.workspacePath)
+      if (deps.removeTaskOutput)
+        await deps.removeTaskOutput(task, storageLayout.workspacePath)
+      else await deps.fs.removePathRecursive(storageLayout.workspacePath)
     } catch (err) {
       deps.log.warn(
         { err, taskId: task.id, workspacePath: storageLayout.workspacePath },
@@ -1004,6 +1099,11 @@ async function finalizeBtInPlace(
       false
     )
   }
+  if (deps.recordInPlaceOutput && task.torrentMetaPath)
+    await deps.recordInPlaceOutput(
+      task,
+      await deps.torrentMetaStore.read(task.torrentMetaPath)
+    )
   const unselected = live ? await snapshotUnselectedRelPaths(task, deps) : []
   await cleanupUnselectedAfterRename(task, unselected, deps)
   const completedAt = Date.now()
@@ -1043,11 +1143,14 @@ async function finalizeBtInPlace(
       targetPath: task.finalPath,
       metadataOps: outcome.metadataOps,
       contributors: outcome.contributors,
+      beforeCommit: outcome.beforeCommit,
     })
     deps.taskManager.set(task.id, structuredClone(task))
     await recordTaskTransition(task, previousStatus, deps, completedAt)
     if (occurrence) await deps.occurrenceDispatcher?.dispatch(occurrence)
   } else {
+    // A policy check alone needs no file mutation lease. The commit still
+    // revalidates it while the unchanged engine identity continues seeding.
     outcome.commit(() => {})
     await persistTaskTransition(task, previousStatus, deps, completedAt)
   }
@@ -1258,7 +1361,8 @@ async function cleanupUnselectedAfterRename(
     if (rel === '' || rel === '.') continue
     const target = path.join(task.finalPath, rel)
     try {
-      await deps.fs.removePathRecursive(target)
+      if (deps.removeTaskOutput) await deps.removeTaskOutput(task, target)
+      else await deps.fs.removePathRecursive(target)
       removed += 1
     } catch (err) {
       deps.log.warn(
@@ -1288,6 +1392,7 @@ interface BeforeFinalizeOutcomeCommit {
   replacement?: { pluginId: string; stagedPath: string }
   metadataOps: readonly StagedMetadataOp[]
   contributors: readonly string[]
+  beforeCommit?: () => void
   /**
    * Runs the staged metadata commit (if a db handle is wired) wrapping the
    * supplied sync callback inside the same SQLite transaction. When no db
@@ -1349,10 +1454,15 @@ async function runBeforeFinalize(
   })
   const db = deps.db
   const staged = result.staged
+  const beforeCommit = staged.hasPolicyChecks
+    ? staged.assertPolicyCurrent.bind(staged)
+    : undefined
+  beforeCommit?.()
   return {
     aborted: false,
     finalFilePath: result.finalFilePath,
     replacement: result.replacement,
+    beforeCommit,
     metadataOps:
       typeof result.staged.allMetadataOps === 'function'
         ? result.staged.allMetadataOps()
@@ -1368,6 +1478,7 @@ async function runBeforeFinalize(
       ]),
     ].sort(),
     commit: (cb: () => void) => {
+      beforeCommit?.()
       if (db) {
         staged.commitMetadata(db, task.id, cb)
       } else {

@@ -79,6 +79,83 @@ function visibleNames() {
 }
 
 describe('TaskListPanel', () => {
+  it('toggles individual checkboxes without modifiers or opening the inspector', async () => {
+    const user = userEvent.setup()
+    const { selection } = renderTasks([
+      makeDownloadTask({ id: 'a', name: 'Alpha.bin' }),
+      makeDownloadTask({ id: 'b', name: 'Beta.bin' }),
+      makeDownloadTask({ id: 'c', name: 'Gamma.bin' }),
+    ])
+    const alpha = screen.getByRole('checkbox', { name: 'Alpha.bin' })
+    const gamma = screen.getByRole('checkbox', { name: 'Gamma.bin' })
+    await user.click(alpha)
+    await user.click(gamma)
+    expect(selection.getState().committedSelectedIds).toEqual(
+      new Set(['a', 'c'])
+    )
+    expect(alpha).toBeChecked()
+    expect(gamma).toBeChecked()
+    expect(
+      screen.getByRole('checkbox', { name: 'Select All Tasks' })
+    ).toBePartiallyChecked()
+    await user.click(alpha)
+    expect(selection.getState().committedSelectedIds).toEqual(new Set(['c']))
+    await user.dblClick(alpha)
+    expect(selection.getState().committedSelectedIds).toEqual(new Set(['c']))
+    expect(useDownloadsView.getState().inspectorVisible).toBe(false)
+  })
+
+  it('toggles a focused checkbox with Space without running row keyboard selection', async () => {
+    const user = userEvent.setup()
+    const { selection } = renderTasks([
+      makeDownloadTask({ id: 'a', name: 'Alpha.bin' }),
+      makeDownloadTask({ id: 'b', name: 'Beta.bin' }),
+    ])
+    await user.click(screen.getByRole('row', { name: 'Alpha.bin' }))
+    const beta = screen.getByRole('checkbox', { name: 'Beta.bin' })
+    act(() => beta.focus())
+    await user.keyboard(' ')
+    expect(beta).toHaveFocus()
+    expect(selection.getState().committedSelectedIds).toEqual(
+      new Set(['a', 'b'])
+    )
+    await user.keyboard(' ')
+    expect(selection.getState().committedSelectedIds).toEqual(new Set(['a']))
+  })
+
+  it('selects all from a mixed header and follows the current filtered task list', async () => {
+    const user = userEvent.setup()
+    const tasks = ['Alpha', 'Beta', 'Gamma'].map((name) =>
+      makeDownloadTask({ id: name, name })
+    )
+    const { selection, updateTasks } = renderTasks(tasks)
+    const all = screen.getByRole('checkbox', { name: 'Select All Tasks' })
+    expect(all).not.toBeChecked()
+    await user.click(screen.getByRole('checkbox', { name: 'Alpha' }))
+    expect(all).toBePartiallyChecked()
+    await user.click(all)
+    expect(all).toBeChecked()
+    expect(selection.getState().committedSelectedIds.size).toBe(3)
+    await user.click(all)
+    expect(selection.getState().committedSelectedIds.size).toBe(0)
+
+    updateTasks(tasks.slice(1))
+    await user.click(all)
+    expect(selection.getState().committedSelectedIds).toEqual(
+      new Set(['Beta', 'Gamma'])
+    )
+    updateTasks(tasks)
+    expect(all).toBePartiallyChecked()
+    expect(screen.getByRole('checkbox', { name: 'Alpha' })).not.toBeChecked()
+    await user.click(all)
+    expect(selection.getState().committedSelectedIds.size).toBe(3)
+    expect(screen.getByRole('grid')).toHaveAttribute('aria-colcount', '11')
+    expect(all.closest('[role="columnheader"]')).toHaveAttribute(
+      'aria-colindex',
+      '1'
+    )
+  })
+
   it('clears pointer selection with Escape without revealing keyboard focus', async () => {
     const user = userEvent.setup()
     const { selection } = renderTasks([
@@ -265,27 +342,36 @@ describe('TaskListPanel', () => {
       'false'
     )
   })
-  it('freezes row targets through a pointer gesture while refreshing task data', async () => {
-    const a = makeDownloadTask({ id: 'a', name: 'A.bin', sizeWhenDone: 20 })
-    const b = makeDownloadTask({ id: 'b', name: 'B.bin', sizeWhenDone: 10 })
-    useDownloadsSort.setState({ sort: { column: 'size', direction: 'desc' } })
-    const view = renderTasks([a, b])
-    const row = screen.getByRole('row', { name: 'A.bin' })
-    fireEvent(row, new MouseEvent('pointerdown', { bubbles: true, button: 0 }))
-    view.updateTasks([
-      { ...a, sizeWhenDone: 5 },
-      { ...b, sizeWhenDone: 30 },
-    ])
-    expect(visibleNames()).toEqual(['A.bin', 'B.bin'])
-    fireEvent.click(row)
-    expect([...view.selection.getState().committedSelectedIds]).toEqual(['a'])
-    fireEvent(window, new MouseEvent('pointerup', { bubbles: true, button: 0 }))
-    await waitFor(() => expect(visibleNames()).toEqual(['B.bin', 'A.bin']))
-    expect(screen.getByRole('row', { name: 'A.bin' })).toHaveAttribute(
-      'aria-selected',
-      'true'
-    )
-  })
+  it.each(['row', 'checkbox'] as const)(
+    'freezes %s targets through a pointer gesture while refreshing task data',
+    async (role) => {
+      const a = makeDownloadTask({ id: 'a', name: 'A.bin', sizeWhenDone: 20 })
+      const b = makeDownloadTask({ id: 'b', name: 'B.bin', sizeWhenDone: 10 })
+      useDownloadsSort.setState({ sort: { column: 'size', direction: 'desc' } })
+      const view = renderTasks([a, b])
+      const row = screen.getByRole(role, { name: 'A.bin' })
+      fireEvent(
+        row,
+        new MouseEvent('pointerdown', { bubbles: true, button: 0 })
+      )
+      view.updateTasks([
+        { ...a, sizeWhenDone: 5 },
+        { ...b, sizeWhenDone: 30 },
+      ])
+      expect(visibleNames()).toEqual(['A.bin', 'B.bin'])
+      fireEvent.click(row)
+      expect([...view.selection.getState().committedSelectedIds]).toEqual(['a'])
+      fireEvent(
+        window,
+        new MouseEvent('pointerup', { bubbles: true, button: 0 })
+      )
+      await waitFor(() => expect(visibleNames()).toEqual(['B.bin', 'A.bin']))
+      expect(screen.getByRole('row', { name: 'A.bin' })).toHaveAttribute(
+        'aria-selected',
+        'true'
+      )
+    }
+  )
 
   it('renders EmptyTasks when filtered task list is empty', () => {
     const selection = createSelectionStore<DownloadTask>((t) => t.id)

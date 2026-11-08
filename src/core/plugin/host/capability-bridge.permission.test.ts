@@ -62,6 +62,7 @@ function nullCapabilityHost(): CapabilityHost {
     clearLog: noop,
     setLogVerbose: noop,
     isLogVerbose: () => false,
+    getLogState: () => ({ verbose: false, expiresAt: null }),
     subscribeLog: () => () => {},
     appSnapshot: () => ({
       version: '2.0.0',

@@ -65,6 +65,33 @@ describe('isMotrixFork', () => {
 })
 
 describe('hasDurableRemoveSemantics', () => {
+  it.each(['1.37.0-motrix.16-dev', '1.37.0-motrix.16-dev.legacy-import'])(
+    'recognizes explicitly labelled development builds: %s',
+    (version) => {
+      expect(
+        isMotrixFork(buildFeatureReport(version, ['SQLite3-Persistence']))
+      ).toBe(true)
+      expect(isMotrixFork(buildFeatureReport(version, []))).toBe(false)
+      expect(hasDurableRemoveSemantics(version)).toBe(true)
+    }
+  )
+
+  it('keeps capability and removal thresholds for development builds', () => {
+    expect(hasDurableRemoveSemantics('1.37.0-motrix.2-dev')).toBe(false)
+    expect(hasDurableRemoveSemantics('1.36.0-motrix.16-dev')).toBe(false)
+    for (const version of [
+      '1.37.0-dev',
+      '1.37.0-motrix.16-unknown',
+      '1.37.0-motrix.16-dev.',
+      '1.37.0-motrix.16-dev/other',
+    ]) {
+      expect(
+        isMotrixFork(buildFeatureReport(version, ['SQLite3-Persistence']))
+      ).toBe(false)
+      expect(hasDurableRemoveSemantics(version)).toBe(false)
+    }
+  })
+
   it('trusts motrix fork 1.37.0-motrix.3 and later', () => {
     expect(hasDurableRemoveSemantics('1.37.0-motrix.3')).toBe(true)
     expect(hasDurableRemoveSemantics('1.37.0-motrix.4')).toBe(true)

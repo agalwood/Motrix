@@ -3,11 +3,17 @@ import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
 import { TooltipProvider } from '@renderer/components/ui/tooltip'
 import {
+  operationSessionKey,
+  useOperationSessions,
+} from '@renderer/features/plugin-operations/operation-store'
+import {
   type PlatformServices,
   PlatformServicesProvider,
 } from '@renderer/platform/services'
 import { Commands } from '@shared/protocol/commands'
+import type { OperationDescriptor } from '@shared/schemas/plugin-operations'
 import type { PluginListDTO } from '@shared/types/plugin'
+import { textOperationManifest } from '@test-utils/plugin-operation-fixture'
 import { render, screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router'
@@ -158,7 +164,10 @@ describe('PluginDetailPage', () => {
   beforeEach(() => {
     mockApplyStatus.mockClear()
     mockClearUpdate.mockClear()
-    mockInvoke.mockClear()
+    mockInvoke.mockReset().mockResolvedValue(undefined)
+    mockDetail.manifest.contributes = {}
+    mockDetail.manifest.permissions = ['storage']
+    useOperationSessions.setState({ sessions: {} })
     mockSetRegistry.mockClear()
     mockSetUpdates.mockClear()
     toastAddMock.mockClear()
@@ -183,6 +192,88 @@ describe('PluginDetailPage', () => {
     expect(screen.queryByRole('button', { name: /Advanced/ })).toBeNull()
   })
 
+  function enableOperations() {
+    const manifest = textOperationManifest('test.demo')
+    mockDetail.manifest.permissions = [...manifest.permissions]
+    mockDetail.manifest.contributes = manifest.contributes
+    const descriptor = {
+      pluginId: 'test.demo',
+      pluginName: 'Demo',
+      pluginVersion: '1.0.0',
+      descriptorRevision: 'a'.repeat(64),
+      definition: manifest.contributes.operations?.items[0],
+      argsSchema: manifest.contributes.commands?.[0].argsSchema,
+      resultSchema: manifest.contributes.commands?.[0].resultSchema,
+    } as OperationDescriptor
+    mockInvoke.mockImplementation(async (command: string) =>
+      command === Commands.GetPluginOperations
+        ? { descriptors: [descriptor], jobs: [] }
+        : undefined
+    )
+    return descriptor
+  }
+  it.each(['electron', 'web'] as const)(
+    'retains a declarative operation draft across tabs on %s',
+    async (kind) => {
+      const descriptor = enableOperations()
+      const request = {
+        pluginId: 'test.demo',
+        operationId: 'test.demo.deduplicate',
+      }
+      useOperationSessions.getState().save(operationSessionKey(request), {
+        draft: {
+          id: '00000000-0000-4000-8000-000000000001',
+          descriptor,
+          args: { ignoreCase: false },
+          files: {},
+          expiresAt: Date.now() + 60_000,
+        },
+        values: { ignoreCase: true },
+      })
+      const user = userEvent.setup()
+      renderAt('/plugins/test.demo', kind)
+      expect(screen.getByRole('tab', { name: 'Operations' })).toHaveAttribute(
+        'aria-selected',
+        'true'
+      )
+      expect(
+        await screen.findByRole('switch', { name: 'Ignore case' })
+      ).toBeChecked()
+      await user.click(screen.getByRole('tab', { name: 'Overview' }))
+      await user.click(screen.getByRole('tab', { name: 'Operations' }))
+      expect(screen.getByRole('switch', { name: 'Ignore case' })).toBeChecked()
+    }
+  )
+
+  it('honors an explicit Overview link for an operation plugin', () => {
+    enableOperations()
+    renderAt('/plugins/test.demo?tab=overview')
+    expect(screen.getByRole('tab', { name: 'Overview' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    )
+  })
+
+  it('keeps the operation visible but unavailable for a disabled plugin', async () => {
+    enableOperations()
+    mockStore.list[0].enabled = false
+    renderAt('/plugins/test.demo')
+    await screen.findByText('Enable this plugin to use its operations.')
+  })
+
+  it('does not offer an operations tab for unsupported or private commands', () => {
+    mockDetail.manifest.permissions = ['ffmpeg']
+    mockDetail.manifest.contributes = {
+      commands: [{ id: 'test.demo.mergeStreams', public: false }],
+    }
+    renderAt('/plugins/test.demo?tab=operations')
+    expect(screen.queryByRole('tab', { name: 'Operations' })).toBeNull()
+    expect(screen.getByRole('tab', { name: 'Overview' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    )
+  })
+
   it('Logs icon button switches to Logs content', async () => {
     const user = userEvent.setup()
     renderAt('/plugins/test.demo')
@@ -191,13 +282,15 @@ describe('PluginDetailPage', () => {
     expect(
       screen.getByRole('combobox', { name: 'Log level' })
     ).toBeInTheDocument()
-    expect(screen.getByText('Live output')).toBeInTheDocument()
+    expect(screen.getByText('Logs')).toBeInTheDocument()
     expect(screen.getByText('0 entries')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Copy' })).toBeDisabled()
+    expect(
+      screen.getByRole('button', { name: 'Copy redacted logs' })
+    ).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Clear' })).toBeDisabled()
   })
 
-  it('Switch toggles plugin enabled state through command and local store', async () => {
+  it('Switch sends its command without overwriting host status events', async () => {
     const user = userEvent.setup()
     renderAt('/plugins/test.demo')
 
@@ -207,12 +300,7 @@ describe('PluginDetailPage', () => {
       'command:disablePlugin',
       'test.demo'
     )
-    expect(mockApplyStatus).toHaveBeenCalledWith(
-      'test.demo',
-      'disabled',
-      undefined,
-      false
-    )
+    expect(mockApplyStatus).not.toHaveBeenCalled()
   })
 
   it('renders Uninstall icon button beside Logs', () => {
@@ -326,7 +414,12 @@ describe('PluginDetailPage', () => {
     renderAt('/plugins/test.demo')
     await user.click(screen.getByTestId('plugin-update-btn'))
 
-    expect(await screen.findByText('Add plugin')).toBeInTheDocument()
+    await waitFor(() =>
+      expect(mockInvoke).toHaveBeenCalledWith(Commands.InstallPlugin, {
+        sourceType: 'registry',
+        pluginId: 'test.demo',
+      })
+    )
     expect(screen.queryByText('Update builtin plugin')).toBeNull()
   })
 

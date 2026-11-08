@@ -1,10 +1,16 @@
 import path from 'node:path'
+import {
+  getLegacyHttpBindingInput,
+  hasLegacyImport,
+} from '@core/legacy-import/legacy-task-policy'
 import { AppError, ErrorCode } from '@shared/errors'
 import { Events } from '@shared/protocol/events'
+import { legacyBtActivationSchema } from '@shared/schemas/legacy-bt-activation'
 import {
   type DownloadTask,
   TaskInstancePhase,
   TaskStatus,
+  TaskType,
 } from '@shared/types/task'
 import { isStoppedTaskStatus } from '@shared/types/task-actions'
 import type {
@@ -38,6 +44,7 @@ export interface RemoveTaskDeps extends TaskActionDeps {
   runTaskMutation: NonNullable<TaskActionDeps['runTaskMutation']>
   taskPersistence: Pick<SessionManager, 'runExclusivePersistence'>
   fileCleanupService: FileCleanupService
+  fileCleanupForTask?: (task: DownloadTask) => FileCleanupService
   torrentMetaStore: TorrentMetaStore
   mediaMetaStore?: Pick<MediaMetaStore, 'remove'>
   // Structural slice of MotrixDatabase. Removal needs `deleteTask` for
@@ -104,6 +111,11 @@ async function removeTaskUnderMutation(
       'Cannot remove task while it is being finalized'
     )
   }
+  if (options.deleteWithFiles) {
+    await deps.authorizeTaskRemoval?.(task)
+    if (deps.fileCleanupForTask)
+      deps = { ...deps, fileCleanupService: deps.fileCleanupForTask(task) }
+  }
 
   // Both removal paths delete the durable parent row under one
   // exclusive-persistence window, with the Inspector Activity deletion
@@ -117,6 +129,76 @@ async function removeTaskUnderMutation(
         publish()
       }
     })
+
+  // Imported paths belong to v1; every removal request is metadata-only.
+  if (hasLegacyImport(task)) {
+    const pair = deps.db.getTask(taskId)
+    const candidate = (
+      task.type === TaskType.Http
+        ? task.instances[0]?.payload.legacyHttpActivation
+        : task.instances[0]?.payload.legacyBtActivation
+    ) as { engineTaskId?: unknown } | undefined
+    // Even an uncertain paused add belongs to this migration. Confirm its absence
+    // before deleting the sole durable owner; original payloads are never cleanup targets.
+    const gid =
+      typeof candidate?.engineTaskId === 'string' &&
+      /^[a-f0-9]{16}$/.test(candidate.engineTaskId)
+        ? candidate.engineTaskId
+        : task.engineTaskId
+    if (gid) {
+      const engine = await deps.adapter.getTaskStatus(gid)
+      if (engine) {
+        const verifyBinding = async (): Promise<boolean> => {
+          if (!pair) return false
+          if (task.type === TaskType.Http) {
+            const input = getLegacyHttpBindingInput(task)
+            return Boolean(
+              input && (await deps.adapter.verifyLegacyHttpBinding?.(input))
+            )
+          }
+          const intent = legacyBtActivationSchema.safeParse(candidate)
+          return Boolean(
+            intent.success &&
+              (await deps.adapter.verifyLegacyBtBinding?.({
+                engineTaskId: intent.data.engineTaskId,
+                saveDir: intent.data.saveDir,
+                infoHash: intent.data.expected.infoHash ?? '',
+                files: intent.data.files,
+                selectedFiles: intent.data.selectedFiles,
+                trackers: intent.data.trackers,
+                isPrivate: intent.data.isPrivate,
+              }))
+          )
+        }
+        if (!(await verifyBinding()))
+          throw new AppError(
+            ErrorCode.InvalidSelection,
+            'legacyImport.errors.activationUncertain'
+          )
+        if (!isStoppedTaskStatus(engine.status)) {
+          try {
+            await deps.adapter.forceRemoveTask(gid)
+          } catch (error) {
+            // Verification can finish between tellStatus and forceRemove. A
+            // stopped row is purged directly; a live/unknown owner is retained.
+            const stopped = await deps.adapter.getTaskStatus(gid)
+            if (
+              stopped &&
+              (!isStoppedTaskStatus(stopped.status) || !(await verifyBinding()))
+            )
+              throw error
+          }
+        }
+        await deps.adapter.removeDownloadResult(gid)
+      }
+    }
+    await deleteParentBarrier(() => {
+      deps.db.deleteTask(taskId)
+      deps.taskManager.remove(taskId)
+    })
+    deps.publishTaskUpdate()
+    return
+  }
 
   // Plan B Task 4: magnet metadata pending removal — delegate cleanup
   // to MagnetTracker which knows about the metadata temp dir and the

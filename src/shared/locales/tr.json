@@ -4,10 +4,12 @@
     "help": "Bu sunucu operatör belirteci gerektirir. Sunucu makinesinde MOTRIX_OPERATOR_TOKEN değişkenini ayarlayın veya <dataDir>/operator-token dosyasındaki belirteci okuyup aşağıya yapıştırın.",
     "placeholder": "Operatör belirteci",
     "error": "Operatör belirteci geçersiz. Sunucu makinesindeki MOTRIX_OPERATOR_TOKEN değişkenini veya <dataDir>/operator-token dosyasını kontrol edip tekrar deneyin.",
-    "submit": "Kilidi aç"
+    "submit": "Kilidi aç",
+    "nasSessionExpired": "NAS yönetici oturumu doğrulanamadı. Motrix’i NAS masaüstünden açın.",
+    "openDsm": "Open DSM to sign in"
   },
   "operatorAdmin": {
-    "help": "Kullanım:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\nKomut yalnızca çalışan Motrix sunucusuyla, kapsayıcının geri döngü bağlantısı üzerinden iletişim kurar.",
+    "help": "Kullanım:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nKomut yalnızca çalışan Motrix sunucusuyla, kapsayıcının geri döngü bağlantısı üzerinden iletişim kurar.",
     "errorPrefix": "motrix-admin: {{message}}",
     "usageHint": "Kullanım bilgisi için `motrix-admin --help` komutunu çalıştırın.",
     "pending": {
@@ -55,6 +57,20 @@
         "loopback": "Çalışan Motrix sunucusuna kapsayıcının geri döngü bağlantısından ulaşılamıyor.",
         "approvalNotReady": "Çalışan Motrix sunucusunda eşleştirme onayı henüz hazır değil."
       }
+    },
+    "extension": {
+      "heading": "Pending browser Extension pairing requests",
+      "identityNotice": "Verify that you initiated this request. Origin and claimed identity alone do not prove who is connecting. Terminal recording can capture the pairing code.",
+      "row": "{{index}}. {{browser}} [{{identity}}] Origin: {{origin}}; claimed ID: {{claimedId}}; Server: {{authority}}; {{seconds}} s remaining",
+      "select": "Enter the number of one request (Ctrl+C to exit): ",
+      "code": "Pairing code: {{code}}",
+      "instructions": "Type this code into the browser Extension. It expires at the original deadline. Ctrl+C closes this view without approving or denying the request.",
+      "none": "No pending Extension pairing requests. Start pairing in the Extension, then run this command again. If requests remain absent, check the remote Extension configuration.",
+      "ended": "The selected pairing request has ended. Check the Extension for its outcome.",
+      "ttyRequired": "Extension pairing requires interactive input, output and error terminals. Piping, redirection and JSON output are not supported.",
+      "cancelled": "Pairing code view closed. No approval or denial was sent.",
+      "invalidSelection": "Select exactly one listed request by its number.",
+      "unavailable": "The selected request expired, ended or changed. Start a new pairing attempt in the Extension."
     }
   },
   "common": {
@@ -317,7 +333,7 @@
         "loading": "Etkinlik yükleniyor",
         "unavailable": "Etkinlik kullanılamıyor",
         "retry": "Yeniden dene",
-        "stale": "Etkinlik güncel olmayabilir",
+        "refreshFailed": "Yenileme başarısız",
         "coverageDegraded": "{{time}} itibarıyla etkinlik eksik olabilir",
         "rangeSummary": "{{start}} ile {{end}} arasında {{weeks}} haftalık indirme etkinliği",
         "completedIntensity": "Renk yoğunluğu tamamlanan indirmeleri gösterir",
@@ -591,7 +607,7 @@
         "down": "İndirme hızı",
         "up": "Gönderme hızı",
         "eta": "Kalan süre",
-        "connections": "Eşler",
+        "connections": "Bağlantılar",
         "status": "Durum",
         "createdAt": "Oluşturulma tarihi",
         "finishedAt": "Tamamlanma tarihi"
@@ -637,6 +653,7 @@
         }
       },
       "stats": {
+        "title": "Aktarım durumu",
         "downSpeed": "İndirme hızı",
         "upSpeed": "Gönderme hızı",
         "engineOk": "Motor hazır",
@@ -688,18 +705,17 @@
         },
         "activity": {
           "transferTitle": {
-            "session": "Oturum aktarımı",
+            "session": "Son aktarım",
             "lifetime": "Tüm zamanlardaki aktarım"
           },
           "download": "İndirme",
           "upload": "Gönderme",
           "loading": "Etkinlik yükleniyor…",
           "collecting": "Aktarım verileri toplanıyor…",
-          "noSessionHistory": "Bu uygulama oturumunda aktarım kaydedilmedi.",
+          "noSessionHistory": "Yakın zamanda kaydedilmiş aktarım yok.",
           "lifetimeEmpty": "Tüm zamanların geçmişi henüz kullanılamıyor.",
           "noTraffic": "Şu anda ağ trafiği yok.",
           "unavailable": "Tüm zamanların etkinliği kullanılamıyor.",
-          "coverageGap": "İzleme kesintiye uğradı.",
           "retry": "Yeniden dene",
           "notAvailable": "Kullanılamıyor",
           "stale": {
@@ -708,7 +724,7 @@
           },
           "range": {
             "label": "Aktarım zaman aralığı",
-            "session": "Oturum (60 sn)",
+            "session": "Son 60 sn",
             "lifetime": "Tüm zamanlar",
             "latest": "Son 60 saniye",
             "adaptive_one": "Uyarlanabilir çözünürlük · {{count}} örnek",
@@ -766,7 +782,18 @@
             "activeSeconds_other": "{{count}} saniye",
             "sampleCount_one": "{{count}} örnek",
             "sampleCount_other": "{{count}} örnek",
-            "noDataQualityIssues": "İzleme uyarısı yok."
+            "noDataQualityIssues": "İzleme uyarısı yok.",
+            "noSamples": "Örnek yok",
+            "overview": "Geçmişe genel bakış",
+            "rangeStart": "Aralık başlangıcı",
+            "rangeEnd": "Aralık sonu",
+            "earlier": "Daha eski geçmiş",
+            "later": "Daha yeni geçmiş",
+            "zoomIn": "Yakınlaştır",
+            "zoomOut": "Uzaklaştır",
+            "showAll": "Tümünü göster",
+            "following": "En son veriler izleniyor",
+            "followLatest": "En son verilere dön"
           }
         },
         "pieces": {
@@ -902,12 +929,28 @@
         "removeMixedTitle": "{{count}} görev listeden kaldırılsın mı?",
         "openFile": "Dosyayı aç",
         "openFileFailed": "Dosya açılamadı",
+        "openFileAppFailed": "Sistem bu dosyayı açamadı. Varsayılan uygulamanın hâlâ yüklü olduğunu kontrol edin veya başka bir uygulama seçmek için klasörü açın.",
+        "openFileFailedHint": "Dosyanın hâlâ var olduğunu ve onu açma izninizin bulunduğunu kontrol edin.",
         "chooseFiles": "Dosyaları seç…",
         "queueOrder": "İndirme sırası",
         "moveQueueTop": "Başa Taşı",
         "moveQueueBottom": "Sona Taşı",
         "copyError": "Hata bilgilerini kopyala",
-        "errorReport": "{{name}}\nGörev kimliği: {{id}}\n{{details}}"
+        "errorReport": "{{name}}\nGörev kimliği: {{id}}\n{{details}}",
+        "redownload": "Re-download",
+        "redownloadWithDialog": "Re-download with options... (Alt+Click)",
+        "redownloadTooltipBatch": "Re-download {{n}} of {{total}} selected",
+        "redownloadOverwriteTitle": "File Already Exists",
+        "redownloadOverwriteDescription": "“{{name}}” already exists in the download directory. Re-downloading will overwrite or rename it. Do you want to continue?",
+        "redownloadCredentialsExpired": "Original request options have expired. Please review and submit.",
+        "redownloadStarted": "Re-download started",
+        "retryDialogTitle": "İndirmeyi yeniden dene",
+        "retryDialogDescription": "Yeni bir indirme başlatmak için {{name}} isteğinin parametrelerini düzenleyin. Başarısız görev ve kısmi dosyası korunacaktır.",
+        "retryDialogProgress": "{{total}} indirmeden {{current}}. indirme",
+        "downloadToDevice": "Download to this device",
+        "revealInFileStation": "Show in File Station",
+        "nasFileUnavailable": "File access could not be authorized. Check the account and folder permissions.",
+        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again."
       },
       "titleCount": "{{shown}} gösteriliyor · toplam {{total}}",
       "type": {
@@ -987,6 +1030,11 @@
   },
   "task": {
     "add": {
+      "extraHeaders": "Ek üstbilgiler",
+      "headerName": "Üstbilgi adı",
+      "headerValue": "Üstbilgi değeri",
+      "addHeader": "Üstbilgi ekle",
+      "removeHeader": "Üstbilgiyi kaldır",
       "title": "Yeni Görev",
       "links": "Bağlantılar",
       "torrent": "Torrent",
@@ -998,6 +1046,7 @@
       "createFailedByPlugin": "Görev oluşturulamadı: “{{pluginId}}” eklentisi işlemi durdurdu ({{detail}}). Ayarlar → Eklentiler bölümünden bu eklentiyi devre dışı bırakıp tekrar deneyin.",
       "createFailedPathTooLong": "Görev oluşturulamadı: hedef yol {{length}} karakter uzunluğunda ve Windows’un {{limit}} karakter sınırını aşıyor. Daha kısa bir kayıt klasörü yolu veya dosya adı seçin.",
       "parseFailed": "Torrent dosyası ayrıştırılamadı.",
+      "unsupportedTorrent": "Bu torrent, mevcut indirme motorunun desteklemediği özellikler kullanıyor.",
       "urlsCount_one": "{{count}} URL",
       "urlsCount_other": "{{count}} URL",
       "urlsWithInvalid": "{{valid}} geçerli, {{invalid}} geçersiz",
@@ -1080,6 +1129,7 @@
         "doc": "Belge"
       },
       "errors": {
+        "headerNameRequired": "Bir üstbilgi adı girin veya bu üstbilgiyi kaldırın.",
         "urlsRequired": "En az bir URL gerekli",
         "saveDirRequired": "Kayıt klasörü gerekli",
         "noFilesSelected": "En az bir dosya seçin",
@@ -1090,7 +1140,8 @@
         "failed": "{{name}} otomatik olarak başlatılamadı. Dosyaları seçip tekrar denemek için görev ayrıntılarını açın."
       },
       "undoCorrection": "URL düzeltmesini geri al",
-      "submissionUnconfirmed": "Sonuç doğrulanmadı. Yeniden denediğinizde, başka bir görev oluşturulmadan önce ilk isteğin sonucu kontrol edilir."
+      "submissionUnconfirmed": "Sonuç doğrulanmadı. Yeniden denediğinizde, başka bir görev oluşturulmadan önce ilk isteğin sonucu kontrol edilir.",
+      "selectNasTorrent": "Choose a torrent from the NAS"
     },
     "detail": {
       "peers": "Eş: {{count}}",
@@ -1134,7 +1185,8 @@
         "resumeSourceChanged": "İndirme başladıktan sonra uzak dosya değiştiği için kısmen indirilen dosya korundu.",
         "resumeRangeUnsupported": "Sunucu, kalan dosya aralığından güvenle devam etmeyi desteklemediği için kısmen indirilen dosya korundu.",
         "resumeValidationFailed": "Motrix uzak dosyanın değişmediğini doğrulayamadığı için kısmen indirilen dosya korundu.",
-        "mediaInterrupted": "Uygulama yeniden başlatıldığı için bu medya indirmesi kesintiye uğradı ve sürdürülemiyor. Tekrar denemek için yeniden ekleyin."
+        "mediaInterrupted": "Uygulama yeniden başlatıldığı için bu medya indirmesi kesintiye uğradı ve sürdürülemiyor. Tekrar denemek için yeniden ekleyin.",
+        "portableExternalPath": "This task uses a location outside the portable folder. The application moved or the original directory is unavailable. Check the download location before retrying."
       }
     },
     "error": {
@@ -1143,6 +1195,7 @@
         "recoveryFailed": "İndirme kurtarılamadı: {{cause}}",
         "recoveryOutputConflict": "Hem geçici hem de son dosya mevcut; elle incelenmeleri için ikisi de korundu",
         "filesMissing": "Uygulama yeniden başlatıldıktan sonra dosyalar bulunamadı",
+        "sourceHash": "Yayıncının SHA-256 değeri",
         "renameFileFailed": "Dosya yeniden adlandırılamadı: {{cause}}",
         "renameDirFailed": "Klasör yeniden adlandırılamadı: {{cause}}",
         "pluginChainAborted": "Eklenti zinciri durduruldu: {{cause}}",
@@ -1176,6 +1229,36 @@
         "checksumMismatch": "İndirilen dosya bozulmuş olabilir; doğrulamak için yeniden indirin",
         "tooManyRedirects": "Kaynak bağlantı bozuk olabilir; başka bir bağlantı deneyin",
         "btMetadataFailed": "Magnet bağlantısını kontrol edin veya daha fazla izleyici ekleyip tekrar deneyin"
+      }
+    },
+    "storage": {
+      "move": "Move files…",
+      "locate": "Find existing files…",
+      "recheck": "Check files…",
+      "moveDescription": "Choose a new folder for your downloaded files. Seeding pauses while they move.",
+      "locateDescription": "Choose where your downloaded files are now. Motrix will check them so you can continue seeding.",
+      "recheckDescription": "Check that your downloaded files are complete. This will not change the files or download them again.",
+      "directory": "Folder",
+      "name": "File or folder name",
+      "resume": "Continue seeding after checking",
+      "checking": "Checking files…",
+      "moving": "Moving files…",
+      "resuming": "Starting seeding…",
+      "verifiedPercent": "Verified: {{percent}}%",
+      "checkFailed": "Check failed",
+      "verified": "Your files are ready to seed.",
+      "resumed": "Seeding has resumed.",
+      "incomplete": "Some files are missing or incomplete. Check that you selected the right folder and try again.",
+      "resumeFailed": "The new location is saved. Select Re-seed to try sharing the files again.",
+      "useExisting": "Check and use these files",
+      "errors": {
+        "unavailable": "This task cannot be moved or checked yet.",
+        "busy": "Another file operation is still running. Please wait for it to finish.",
+        "destination": "Choose a different folder or file name. The location may already contain these files or be inside the current folder.",
+        "conflict": "Another download is using these files. Open that task to change their location.",
+        "engine": "Motrix could not stop this task. Please try again.",
+        "failed": "Motrix could not access or move the files. Check the folder, available space, and permission to use it.",
+        "cancelled": "Check cancelled."
       }
     }
   },
@@ -1214,6 +1297,10 @@
       "integration": {
         "title": "Entegrasyon",
         "desc": "Tarayıcı uzantıları, CLI, sistem entegrasyonları"
+      },
+      "nas": {
+        "title": "Synology NAS",
+        "desc": "Download folders and client connections"
       }
     },
     "general": {
@@ -1269,6 +1356,12 @@
       "language": "Dil",
       "traySpeedometer": "Menü çubuğunda hızı göster",
       "traySpeedometerDesc": "Uygulama simgesinin yanında indirme ve gönderme hızlarını görün.",
+      "dockAndMenuBar": "Dock ve menü çubuğu",
+      "taskbar": "Görev çubuğu",
+      "taskbarProgress": "Görev çubuğunda indirme ilerlemesini göster",
+      "taskbarProgressDesc": "Etkin indirmelerin toplam ilerlemesini ana pencerenin görev çubuğu düğmesinde gösterir.",
+      "dockProgress": "Dock’ta indirme ilerlemesini göster",
+      "dockProgressDesc": "Etkin indirmelerin toplam ilerlemesini Dock simgesinde gösterir.",
       "trayIconColor": "Sistem tepsisi simgesinin rengi",
       "trayIconColorDesc": "Sistem panelinizde belirgin görünen bir renk seçin.",
       "trayIconColorAuto": "Uygulama temasını kullan",
@@ -1276,6 +1369,10 @@
       "trayIconColorDark": "Koyu simge (açık panel)",
       "reduceMotion": "Hareketi azalt",
       "reduceMotionDesc": "Uygulama genelinde daha az animasyon kullanın.",
+      "hardwareAcceleration": "Donanım hızlandırma",
+      "hardwareAccelerationDesc": "Daha akıcı görüntü için ekran kartını kullanır. Pencere titriyorsa veya Motrix çöküyorsa kapatın. Değişiklikler Motrix yeniden başlatılınca uygulanır.",
+      "hardwareAccelerationRecoveryTitle": "Donanım hızlandırma kapatıldı",
+      "hardwareAccelerationRecoveryBody": "Tekrarlanan görüntü çökmeleri nedeniyle Motrix donanım hızlandırmayı kapattı. Ayarlar → Görünüm bölümünden yeniden açıp Motrix’i yeniden başlatabilirsiniz.",
       "liquidGlassEffect": "Liquid Glass",
       "liquidGlassEffectDesc": "İndirme araç çubuğuna yarı saydam cam efekti uygulayın.",
       "liquidGlassEffectMacDesc": "macOS 26 ve üzeri sürümlerde pencereye de uygulanır. Bu ayar değiştiğinde pencere yeniden açılır.",
@@ -1338,7 +1435,15 @@
         "historyCountHint": "Daha eski kurtarma kayıtları kaldırılır.",
         "historyCountPositive": "0’dan büyük bir sayı girin."
       },
-      "description": "RPC, ilerleme ve kurtarma"
+      "description": "RPC, ilerleme ve kurtarma",
+      "configFile": {
+        "title": "Yapılandırma dosyası",
+        "serverTitle": "Sunucu yapılandırma dosyası",
+        "openDirectory": "Klasörü aç",
+        "copyPath": "Yolu kopyala",
+        "copied": "Kopyalandı",
+        "actionFailed": "İşlem tamamlanamadı. Tekrar deneyin."
+      }
     },
     "about": {
       "appIconAlt": "Motrix uygulama simgesi",
@@ -1386,7 +1491,12 @@
         "channelStable": "Kararlı",
         "channelBeta": "Beta",
         "channelBetaWarning": "Beta daha az kararlı olabilir. Yeni kararlı sürümleri de alırsınız. Kararlı kanala dönmek, sürümü düşürmeden beta güncellemelerini durdurur.",
-        "channelSaveError": "Güncelleme kanalı kaydedilemedi. Tekrar deneyin."
+        "channelSaveError": "Güncelleme kanalı kaydedilemedi. Tekrar deneyin.",
+        "installing": "Yükleniyor…",
+        "installingDescription": "Güncelleme hazırlanıyor. Hazır olduğunda Motrix yeniden başlatılacak.",
+        "manualDownload": "Elle indir",
+        "manualInstall": "Yeni sürümü indirin, Motrix’i kapatın ve yüklü uygulamayı değiştirin.",
+        "manualCrossVolume": "Diskler arasında otomatik yükleme şu anda kullanılamıyor. Yeni sürümü indirin ve Motrix’i elle değiştirin."
       },
       "details": {
         "author": "Yazar",
@@ -1586,8 +1696,9 @@
         "turtle_off": "Standart",
         "turtle_on": "Düşük hız",
         "turtle_auto": "Otomatik",
+        "unitFor": "{{field}} birimi",
         "baseSection": "Standart sınırlar",
-        "baseSectionDesc": "Günlük indirmelerde kullanılır ve her modda geçerlidir.",
+        "baseSectionDesc": "Standart modda ve hiçbir düşük hız kuralı etkin değilken kullanılır.",
         "baseDownload": "İndirme",
         "baseDownloadDesc": "Günlük kullanım için en yüksek indirme hızı.",
         "baseUpload": "Gönderme",
@@ -1597,7 +1708,7 @@
         "standardLimit": "Standart sınırı kullan",
         "useStandardLimit": "Standart sınırı kullan",
         "altSection": "Düşük hız sınırları",
-        "altSectionDesc": "Düşük hız modunda veya zamanlanmış kurallarla kullanılır. Bu sınırlar standart sınırları yalnızca düşürebilir.",
+        "altSectionDesc": "Düşük hız modunda veya otomatik bir kural bu profili seçtiğinde kullanılır.",
         "altDownload": "İndirme",
         "altDownloadDesc": "Düşük hız modu etkinken en yüksek indirme hızı.",
         "altUpload": "Gönderme",
@@ -1668,7 +1779,7 @@
           "adaptiveRulePending": "bağlantı bant genişliği girildikten sonra diğer uygulamalar için %{{reserved}} bant genişliği ayırır",
           "ruleSeparator": " ve ",
           "autoRules": "Motrix {{rules}}.",
-          "lowerWins": "Etkin sınırların en düşüğü uygulanır."
+          "profileSelection": "Seçilen modun sınırları uygulanır. Boş bırakılan düşük hız sınırları standart değerleri kullanır; otomatik mod ek bir uyarlanabilir sınır uygulayabilir."
         },
         "bandwidthUsed": "Motrix en fazla %{{motrix}} kullanabilir.",
         "bandwidthPending": "Bu sınırı uygulamak için her iki bağlantı hızını da girin."
@@ -1706,7 +1817,7 @@
         "hidePassword": "Parolayı gizle",
         "bypass": "Doğrudan bağlanılacak adresler",
         "bypassDesc": "Her satıra bir alan adı, IP veya CIDR girin. Yalnızca alt alan adlarını eşleştirmek için . ile başlayın. Dosya indirmeleri * joker karakterini desteklemez.",
-        "bypassScopeNote": "Yalnızca dosya indirmeleri ve uygulama güncellemeleri",
+        "bypassScopeNote": "Yalnızca indirmeler, eklentiler ve uygulama güncellemeleri",
         "scopes": "Vekil sunucunun kullanılacağı işlemler",
         "scopesDesc": "Vekil sunucudan geçecek trafik türlerini seçin.",
         "scopeDownload": "Dosya indirmeleri",
@@ -1722,7 +1833,9 @@
         "scopeHint": "BT eşleri, DHT ve UDP izleyicileri doğrudan bağlanır.",
         "scopeNone": "Hiçbiri seçilmedi",
         "scopeChoose": "Seç…",
-        "scopeSeparator": ", "
+        "scopeSeparator": ", ",
+        "scopePlugins": "Eklenti kurulumu ve güncellemeleri",
+        "scopePluginsDesc": "Eklenti kataloğu, paketleri, güncellemeleri ve güvenlik ilkesi istekleri için proxy kullanın."
       },
       "nat": {
         "title": "Bağlantı noktası eşlemesi (NAT)",
@@ -1773,6 +1886,12 @@
       "hideSecret": "Gizli bilgiyi gizle"
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "system": {
         "title": "Varsayılan uygulama",
         "protocolMagnet": "Magnet bağlantılarını Motrix ile aç",
@@ -1830,8 +1949,14 @@
           "store": "Yükle",
           "development": "Geliştirme"
         },
+        "pendingTitle": "Browser pairing requests",
+        "pendingEmpty": "Start pairing in your extension.",
         "pairedTitle": "Bağlı uzantılar",
         "pairedEmpty": "Henüz bağlı uzantı yok.",
+        "profile": "Tarayıcı profili {{number}}",
+        "connected": "Bağlı",
+        "disconnected": "Bağlı değil",
+        "revokeAll": "Tüm bağlantıları kes",
         "lastActive": "Son etkinlik",
         "revoke": "Bağlantıyı kes",
         "disconnecting": "Bağlantı kesiliyor…",
@@ -1857,7 +1982,10 @@
             "attested": "Doğrulanmış uzantı",
             "unverified": "Doğrulanmamış uzantı"
           },
-          "identityUnverifiedWarning": "Bu uzantının kimliği doğrulanamadı. Yalnızca uzantıya güveniyorsanız devam edin."
+          "identityUnverifiedWarning": "Bu uzantının kimliği doğrulanamadı. Yalnızca uzantıya güveniyorsanız devam edin.",
+          "claim": "Geçerli hesapla eşleştir",
+          "claimDesc": "Uzantı bu hesabın izinlerini kullanacak. Ardından eşleştirmeyi tamamlamak için kodu uzantıya girin.",
+          "account": "Geçerli hesap: {{name}}"
         },
         "pairUnavailable": "Bu eşleştirme isteği artık beklemede değil. Tarayıcı uzantısından eşleştirmeyi yeniden deneyin.",
         "trustedExtensions": "Güvenilen uzantılar",
@@ -2037,7 +2165,8 @@
           "missing": "Bulunamadı",
           "untrusted": "macOS tarafından engellendi",
           "unconfigured": "Ayarlanmadı",
-          "version_mismatch": "Desteklenmiyor"
+          "version_mismatch": "Desteklenmiyor",
+          "verificationUnavailable": "Doğrulama kullanılamıyor"
         },
         "stagingMB": "Geçici dosya sınırı (MB)",
         "stagingMBDesc": "Eklenti ve görev başına ara dosyalar için ayrılan alan.",
@@ -2140,6 +2269,46 @@
       "originMismatchBody": "Gerçek zamanlı güncellemeler kullanılamıyor. Yapılandırılmış sunucu adresini kullanın veya yöneticiden adresi düzeltmesini isteyin.",
       "disconnectedTitle": "Gerçek zamanlı güncelleme bağlantısı kesildi.",
       "disconnectedBody": "Bazı bilgiler gecikebilir. Sorun sürerse sunucu bağlantısını ve vekil sunucu yapılandırmasını kontrol edin."
+    },
+    "portable": {
+      "title": "Portable mode",
+      "startupError": "Motrix could not open its portable data directory. Check that the data folder beside Motrix.exe is writable and that no external profile override is set. Motrix has not switched to the system profile.",
+      "integrationUnavailable": "Portable mode keeps system settings unchanged. Startup registration, file associations, and system tool installation are unavailable.",
+      "browserDescription": "The local bridge remains available while Motrix is running. Portable mode does not register a browser launcher or change existing browser integration.",
+      "updateDescription": "Download the Windows ZIP, exit Motrix, and move the entire data folder to the new version. Portable mode never runs the installer.",
+      "recoveryError": "Portable data could not be recovered safely. Keep the data folder and check the logs and directory permissions before retrying. Motrix has stopped without using the system profile.",
+      "enginePathDescription": "Portable mode manages engine state inside the data folder for the current application location."
+    },
+    "nas": {
+      "description": "Shared by all DSM administrators. Restart Motrix in Package Center to apply changes.",
+      "account": "Current DSM account: {{username}}",
+      "restartRequired": "Settings saved. Restart Motrix in Package Center to apply them.",
+      "storageUnavailable": "Download folders unavailable",
+      "storageRecoveryHint": "Downloads are paused. Restore the original folders or authorize a different path, then restart Motrix in Package Center.",
+      "roots": "Authorized download folders",
+      "rootsHint": "One existing folder per line. Both your account and the system user motrix need read/write access. Removing the default makes the first folder the new default.",
+      "extensionEnabled": "Enable browser extension connections",
+      "extensionHint": "Use a DSM certificate hostname that resolves to the NAS LAN address.",
+      "webAddress": "Motrix Web address",
+      "webAddressHint": "Use the address you normally open, including /motrix/. You can fill it from this browser.",
+      "useCurrentAddress": "Use this DSM address",
+      "extensionAddress": "Extension connection address",
+      "allowHttp": "Allow pairing codes over HTTP",
+      "allowHttpHint": "Enable only on a trusted network. HTTPS does not require this option.",
+      "clientPort": "Direct client port",
+      "clientPortHint": "Direct clients use this port (1024–65535). DSM HTTPS addresses use the DSM port.",
+      "activeConnections": "Current connection addresses",
+      "cliAddress": "CLI endpoint",
+      "sessionHint": "Clients use their paired DSM account’s current permissions. After DSM logout, session expiration or a package restart, reopen Motrix with that account; pairing again is not required.",
+      "copy": "Copy address",
+      "openSettings": "Configure NAS connections",
+      "errors": {
+        "invalid": "Check the folder paths, port and connection addresses. HTTP code delivery requires explicit permission.",
+        "folderUnavailable": "Check that each folder is on a mounted volume and writable by the internal system user motrix.",
+        "permissionDenied": "The account or folder cannot be authorized. Check DSM shared-folder permissions for your account and the internal system user motrix.",
+        "unavailable": "Package settings are unavailable. Try again after the service has recovered.",
+        "conflict": "The saved configuration changed. Reload before editing again; your unsaved changes will be replaced."
+      }
     }
   },
   "errors": {
@@ -2323,6 +2492,8 @@
       "local": "Yerel dosya",
       "local.pick": "Bir .moext dosyası seçin",
       "lead": "Eklenti adresi yapıştırın, bir .moext dosyası seçin veya giriş alanına bir dosya bırakın.",
+      "reviewLead": "Yüklemeden önce eklentinin izinlerini inceleyin.",
+      "preparing": "Hazırlanıyor…",
       "placeholder": "GitHub adresi veya URL yapıştırın ya da yerel bir .moext dosyası seçin",
       "detected": {
         "auto": "Otomatik",
@@ -2341,7 +2512,15 @@
       "localPrepareFailed": "Bu eklenti dosyası hazırlanamadı: {{detail}}",
       "dropHint": "Bu eklentiyi kontrol etmek için buraya bir .moext dosyası bırakın",
       "dragDisabledHint": "Bu ortamda sürükleyip bırakma desteklenmiyor. GitHub adresi veya URL kullanın.",
-      "warning": "Yüklemeden önce: yalnızca yazara güveniyorsanız ve eklentinin yukarıda belirtilen erişimleri kullanmasını bekliyorsanız devam edin."
+      "warning": "Yüklemeden önce: yalnızca yazara güveniyorsanız ve eklentinin yukarıda belirtilen erişimleri kullanmasını bekliyorsanız devam edin.",
+      "officialVerified": "Resmî Motrix imzası doğrulandı",
+      "officialSignatureInvalid": "Eklentinin resmî imzası doğrulanamadı. Eklenti mağazasını yenilemeyi deneyin.",
+      "officialBuiltinOnly": "Bu sürüm yerleşik eklenti yetkileri gerektirir. İsteğe bağlı kurulumu destekleyen daha yeni bir sürüm yükleyin.",
+      "builtinAlreadyInstalled": "Bu eklenti zaten yerleşiktir. Güncelleme işlevini kullanın.",
+      "hostIncompatible": "Bu eklenti Motrix {{required}} gerektirir; mevcut sürüm: {{current}}. Motrix uygulamasını yükseltin veya uyumlu bir sürüme geçip yeniden deneyin.",
+      "installed": "Yüklendi",
+      "optionalHint": "Varsayılan olarak kapalı; gerektiğinde açın",
+      "optionalLater": "Kurulumdan sonra isteğe bağlı izinleri eklenti ayarlarından değiştirebilirsiniz."
     },
     "consent": {
       "installTitle": "{{name}} {{version}} yüklensin mi?",
@@ -2409,12 +2588,16 @@
       "accessHosts_other": "{{count}} web sitesini okuyabilir",
       "accessBroad": "Herhangi bir web sitesini okuyabilir",
       "attentionTitle": "Bu eklenti bir sorun bildirdi",
+      "runtimeStartFailed": "Eklenti çalışma ortamı başlatılamadı",
+      "runtimeFailed": "Eklenti çalışma ortamı beklenmedik şekilde durdu",
       "attentionGeneric": "Ayrıntılar için günlüklere bakın.",
       "viewIssue": "Sorunu görüntüle",
       "removeTitle": "Eklentiyi kaldır",
       "removeDesc": "Bu eklentiyi kaldırmak, Motrix’te saklanan verilerini de siler.",
       "uninstallConfirmTitle": "{{name}} kaldırılsın mı?",
-      "uninstallConfirmDesc": "Eklenti ve kaydedilmiş ayarları Motrix’ten kaldırılacak."
+      "uninstallConfirmDesc": "Eklenti ve kaydedilmiş ayarları Motrix’ten kaldırılacak.",
+      "operations": "Operations",
+      "operationsFailed": "The operation panel could not load. Try again."
     },
     "permissions": {
       "empty": "Bu eklenti herhangi bir izin istemiyor.",
@@ -2434,8 +2617,9 @@
         "error": "Hata",
         "fatal": "Kritik"
       },
-      "copy": "Kopyala",
+      "copy": "Hassas verileri gizlenmiş günlükleri kopyala",
       "clear": "Temizle",
+      "clearFailed": "Günlükler temizlenemedi. Tekrar deneyin.",
       "output": "Canlı çıktı",
       "entryCount_one": "{{count}} kayıt",
       "entryCount_other": "{{count}} kayıt",
@@ -2632,7 +2816,8 @@
       },
       "ffmpeg": {
         "strong": "FFmpeg kullanma",
-        "plain": "Ses veya video işler."
+        "plain": "Ses veya video işler.",
+        "requirement": "Processes audio or video. First, <settings>install or select FFmpeg in Settings</settings>."
       },
       "notify": {
         "strong": "Bildirim gönderme",
@@ -2684,7 +2869,43 @@
         "allowed": "İzin verildi",
         "noAccess": "Kapalı",
         "grant": "İzin ver"
+      },
+      "metadata": {
+        "strong": "Görev meta verilerini okuma ve yazma",
+        "plain": "Bu eklentinin indirme görevleri için ürettiği bilgileri kaydeder."
+      },
+      "files.selected.read": {
+        "strong": "Read files selected for this operation",
+        "plain": "Each operation needs your input selection. Other files are not authorized."
+      },
+      "files.selected.write": {
+        "strong": "Save a new file for this operation",
+        "plain": "Save at the location you confirm without replacing existing files."
       }
+    },
+    "security": {
+      "blocked": "Güvenlik nedeniyle engellendi",
+      "pending": "Bu eklentiyi etkinleştirmeden önce internete bağlanıp güncellemeleri denetleyin.",
+      "unavailable": "Güvenlik ilkesi doğrulanamadı. Yeniden denemek için güncellemeleri denetleyin.",
+      "malware": "Bu eklenti kötü amaçlı olarak tanımlandı.",
+      "vulnerability": "Bu eklenti sürümünde bir güvenlik açığı var.",
+      "compromised": "Bu eklentinin dağıtım kanalı ele geçirildi.",
+      "fixedVersion": "Düzeltme {{version}} sürümünde mevcut.",
+      "details": "Güvenlik duyurusunu görüntüle"
+    },
+    "network": {
+      "timeout": "Bağlantı zaman aşımına uğradı",
+      "dns": "DNS çözümlemesi başarısız",
+      "proxyAuth": "Proxy kimlik doğrulaması başarısız",
+      "proxyConnect": "Proxy sunucusuna bağlanılamadı",
+      "certificate": "Sertifika veya TLS hatası",
+      "http": "HTTP {{status}}",
+      "cancelled": "İstek iptal edildi",
+      "network": "Ağ isteği başarısız",
+      "cached": "Yenileme başarısız; önbellekteki eklentiler gösteriliyor",
+      "unavailable": "Eklenti kataloğu yüklenemedi",
+      "direct": "{{host}} doğrudan bağlantısı başarısız: {{reason}}",
+      "viaProxy": "{{proxy}} proxy sunucusu üzerinden {{host}} bağlantısı başarısız: {{reason}}"
     }
   },
   "plugin": {
@@ -2697,9 +2918,13 @@
         "title": "FFmpeg gereksinimi",
         "notInstalled": "Bu sistemde FFmpeg yüklü değil.",
         "versionMismatch": "FFmpeg {{version}} yüklü.",
-        "requiredByPlugin": "Bu eklenti ffmpeg gerektirir. Yükleyip tekrar deneyin.",
+        "requiredByPlugin": "Eklentiyi şimdi yükleyebilirsiniz. Etkinleştirmeden veya çalıştırmadan önce uyumlu bir FFmpeg sürümü yapılandırın.",
         "optionalDegraded": "ffmpeg yüklenene kadar bu eklentinin medya özellikleri kullanılamayacak."
       }
+    },
+    "runtime": {
+      "ffmpegUnavailable": "FFmpeg kullanılamıyor. Configure FFmpeg in Settings → Integration → Media Tools.",
+      "ffmpegIncompatible": "FFmpeg sürümü bu eklentinin gereksinimlerini karşılamıyor. Configure FFmpeg in Settings → Integration → Media Tools."
     }
   },
   "bridge": {
@@ -2847,7 +3072,9 @@
       "invalidName": "Geçerli bir klasör adı girin.",
       "tooLarge": "Bu yol veya klasör adı çok uzun.",
       "unavailable": "Sunucu bu isteği tamamlayamadı. Tekrar deneyin.",
-      "creationOutcomeUnknown": "Klasörün oluşturulduğu doğrulanamadı. Burada başka bir klasör oluşturmadan önce kontrol etmek için yenileyin."
+      "creationOutcomeUnknown": "Klasörün oluşturulduğu doğrulanamadı. Burada başka bir klasör oluşturmadan önce kontrol etmek için yenileyin.",
+      "notFile": "Select a readable regular file.",
+      "unsupportedFileType": "This file extension is not supported."
     },
     "places": {
       "common": "Sık kullanılan konumlar",
@@ -2859,6 +3086,33 @@
       "downloads": "İndirilenler",
       "root": "Dosya sistemi",
       "loadFailed": "Bazı klasör konumları yüklenemedi."
+    },
+    "openFileTitle": "Select a file",
+    "saveFileTitle": "Save a file",
+    "fileDescription": "Browse files on the Motrix server.",
+    "selectFile": "Select file",
+    "saveFile": "Use this filename",
+    "files": "Files and folders",
+    "fileName": "File name",
+    "emptyFiles": "This folder is empty.",
+    "fileErrors": {
+      "invalidPath": "Enter a valid absolute path.",
+      "outsideRoots": "This path is outside the allowed locations.",
+      "notFound": "This path no longer exists.",
+      "permissionDenied": "You do not have permission to use this path.",
+      "invalidName": "Enter a valid file name.",
+      "tooLarge": "This path or file name is too long."
+    },
+    "selectedFilePath": "Selected file",
+    "file": {
+      "chooseOnServer": "Choose a file on the server using this picker.",
+      "singleFile": "Choose one file at a time.",
+      "wrongType": "Choose a file with one of these extensions: {{extensions}}.",
+      "pathUnavailable": "This file’s location is unavailable. Click to choose it instead.",
+      "choose": "Choose a file",
+      "dropHint": "Drop a file here or click to choose",
+      "browseHint": "Click to browse files",
+      "change": "Click to replace"
     }
   },
   "directoryPreferences": {
@@ -2927,12 +3181,345 @@
     "stoppedSplit": "Durdurulan görevler Tamamlanan ve Hatalar altında gruplanır. Tüm indirmeler açıldı.",
     "invalidStatus": "Geçersiz indirme kategorisi. Tüm indirmeler açıldı."
   },
+  "mediaMerge": {
+    "title": "Merge audio and video",
+    "description": "Combine two files without re-encoding. Original files are kept. Audio-only and video-only inputs are detected automatically.",
+    "videoInput": "Video file",
+    "audioInput": "Audio file",
+    "output": "Output file",
+    "provider": "Plugin",
+    "browse": "Browse…",
+    "browseField": "Browse {{field}}",
+    "required": "Choose a file or enter its full path.",
+    "outputHint": "Use a new .mp4 or .mkv filename. Existing files are never overwritten. If the codecs cannot be copied to MP4, try MKV.",
+    "noPlugin": "Install and enable a media merge plugin. FFmpeg must be configured in Settings > Integration > Media Tools.",
+    "serverPaths": "Select files on the Motrix server. Files on this computer are not uploaded.",
+    "start": "Merge",
+    "running": "Merging…",
+    "cancelling": "Cancelling…",
+    "completed": "Merged successfully",
+    "cancelled": "Merge cancelled",
+    "failed": "Merge failed",
+    "invalidSelection": "Select two completed, single-file downloads.",
+    "jobMissing": "This merge is no longer available.",
+    "busy": "Another merge is already running.",
+    "pluginUnavailable": "The media merge plugin is unavailable.",
+    "absolutePaths": "Enter full, absolute file paths.",
+    "invalidFiles": "Choose two non-empty media files.",
+    "sameInput": "Choose two different input files.",
+    "outputFormat": "Use an .mp4 or .mkv output filename.",
+    "outputExists": "The output already exists. Choose a new filename.",
+    "invalidOutput": "The plugin did not produce a valid output file.",
+    "again": "Merge another file",
+    "pluginDisabled": "Enable this plugin to merge files.",
+    "choose": {
+      "videoInput": "Choose video",
+      "audioInput": "Choose audio",
+      "output": "Choose a save location"
+    },
+    "hint": {
+      "videoInput": "The picture for your merged file",
+      "audioInput": "The sound for your merged file",
+      "output": "Save as MP4 or MKV"
+    },
+    "preserveOriginals": "Original files are kept",
+    "format": "Output format"
+  },
+  "legacyImport": {
+    "navigation": "Migration",
+    "title": "Migration",
+    "pausedDescription": "Choose which Motrix v1 downloads to import. They won’t start automatically.",
+    "settingsTitle": "Migration",
+    "settingsDescription": "Import your downloads from Motrix v1.",
+    "settingsAction": "Open migration",
+    "pickSource": "Choose the Motrix v1 data folder",
+    "source": "From",
+    "changeSource": "Change folder…",
+    "noSource": "Choose the folder containing your Motrix v1 data",
+    "discovery": "Downloads found: {{count}}",
+    "preserveFiles": "Downloaded files stay in their original location.",
+    "chooseTasks": "Choose downloads",
+    "skip": "Not now",
+    "skippedHint": "Daha sonra {{settings}} → {{advanced}} bölümünden taşıma yapabilirsiniz.",
+    "back": "Back",
+    "loading": "Looking for your old downloads…",
+    "empty": "There are no tasks to migrate from this folder.",
+    "continueBefore": "Before continuing:",
+    "capabilityLimit": "This task needs to be downloaded again. Choose a new folder to keep the original files.",
+    "running": "Motrix v1 may still be running. Quit it, then check again.",
+    "recheck": "Check again",
+    "search": "Search downloads",
+    "selectAll": "Select all",
+    "skipped": "Skipped: {{count}}",
+    "backupNote": "Your task list is backed up before import. Downloaded files stay in place.",
+    "backingUp": "Backing up your task list…",
+    "committing": "Adding your downloads…",
+    "progress": "Migration progress",
+    "processed": "{{done}} / {{total}} processed",
+    "stop": "Stop migration",
+    "stopTitle": "Stop migration?",
+    "stopDescription": "Downloads already imported will be kept. You can import the rest later.",
+    "resultTitle": "Migration complete",
+    "importedCount": "Imported {{count}}",
+    "resultDescription": "Your imported tasks are now in Downloads.",
+    "details": "View details",
+    "exportReport": "Save report…",
+    "retry": "Migrate remaining",
+    "viewTasks": "View downloads",
+    "freshDownload": "Download again…",
+    "freshDescription": "Choose where to save the new download. Motrix will create a separate folder and open the download form for you to confirm. It will start from the beginning and leave your old files untouched.",
+    "freshDestination": "Choose where to save the new download",
+    "chooseDestination": "Choose another location…",
+    "requestSettingsHelp": "Eski çerez dosyaları için gerekli Cookie üstbilgisini girin. HTTP kullanıcı adları ve parolaları için eşdeğer bir Authorization üstbilgisi girin. Proxy kimlik bilgilerini proxy URL’sine girin.",
+    "unsupportedOptions": "Desteklenmeyen seçenekler: {{options}}",
+    "ignoredOptions": "Desteklenmeyen seçenekler atlandı: {{options}}",
+    "currentProxyDescription": "Taşınan indirmeler Motrix’in geçerli indirme proxy ayarlarını kullanır. Eski proxy ayarları korunmaz.",
+    "requestOptions": "Kaydedilmiş istek ayarları: {{options}}",
+    "requestSettingsDescription": "Eski istek ayarları kopyalanmadı. Yeni bir klasöre indirmeden önce Gelişmiş bölümünde yeniden girin.",
+    "reconfigureDownload": "Yeniden yapılandır ve indir…",
+    "reasons": {
+      "fresh-download-required": "Needs a new download",
+      "verification-required": "Existing files need checking",
+      "metadata-required": "Original torrent file needed",
+      "selection-required": "Choose which files to download",
+      "request-settings-required": "Devam etmeden önce kaydedilmiş istek ayarları kontrol edilecek",
+      "mirrors-unsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "unsupported-options": "Desteklenmeyen indirme seçenekleri",
+      "invalid-record": "Couldn’t read this task",
+      "unsafe-path": "File location needs checking",
+      "already-imported": "Already imported",
+      "deleted-import": "Previously removed",
+      "path-conflict": "Another task uses this location",
+      "changed-source": "Old task data has changed",
+      "not-selected": "Not selected",
+      "stopped": "Not imported before stopping",
+      "commit-failed": "Import failed. You can try again."
+    },
+    "errors": {
+      "pageUnavailable": "Migration couldn’t open. Restart Motrix and try again. Downloads already imported are kept.",
+      "failed": "The operation couldn’t be completed. Please try again.",
+      "consentRequired": "Accept the agreement before opening migration.",
+      "invalidSource": "No Motrix v1 data was found here. Choose its original data folder.",
+      "unsafeSource": "This data folder can’t be read safely. Choose the original Motrix v1 folder.",
+      "unsafeBackup": "A safe backup couldn’t be created, so importing has stopped.",
+      "tooLarge": "This task list is too large to import.",
+      "tooManySources": "Too many folders have been opened. Restart Motrix and try again.",
+      "sourceNotAuthorized": "Select the old data folder using the folder picker.",
+      "expiredPreview": "This task list needs refreshing. Check again before importing.",
+      "changedSource": "The old task data has changed. Check again before importing.",
+      "running": "Motrix v1 may still be running. Quit it, then check again.",
+      "invalidSelection": "The selected tasks have changed. Check the list again.",
+      "pathConflict": "Another task uses this file location. Check the list again.",
+      "busy": "An import is already running. Wait for it to finish.",
+      "unknownRun": "The import result is unavailable.",
+      "unknownTask": "This imported task is no longer available.",
+      "rescanRequired": "Choose the data folder again to import the remaining tasks.",
+      "metadataRequired": "Choose this task’s original torrent file first.",
+      "unsafePath": "Choose a folder you can access.",
+      "mirrorsUnsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "stopping": "Motrix is closing. Reopen it to continue importing.",
+      "desktopOnly": "Open migration in the Motrix desktop app.",
+      "metadataMismatch": "This torrent does not match the old task. Choose its original torrent file.",
+      "checkpointUnavailable": "This version can’t resume the old files. You can download again in a new folder.",
+      "activationSourceMissing": "Some original task information is missing. Download again in a new folder.",
+      "selectionRequired": "The previous file selection is unavailable. Choose the files again in a new download.",
+      "originalDirectoryRequired": "Choose the original folder shown here. Files moved to another location can’t be resumed.",
+      "payloadMissing": "Some original files are missing, including files previously left unselected. All are needed to resume this task. Download again in a new folder.",
+      "payloadUnsafe": "The original files can’t be updated safely because of file links or permissions. Keep them and download again in a new folder.",
+      "controlRequired": "The saved download progress is missing. Download again in a new folder.",
+      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder.",
+      "httpContentChanged": "İndirilen veriler sunucu içeriğinden farklı.",
+      "httpRangeUnsupported": "Sunucu gerekli bayt aralıklarını desteklemiyor.",
+      "httpValidatorRequired": "Sunucu güvenilir bir kaynak sürümü tanımlayıcısı sağlamıyor.",
+      "httpVerificationFailed": "İndirilen veriler doğrulanamadı.",
+      "httpRequestUnsupported": "Motor veya istek ayarları güvenli devamı desteklemiyor.",
+      "httpVerificationCancelled": "Doğrulama iptal edildi.",
+      "httpRedirectUnsupported": "Yönlendirilen bağlantılara özgün konumda güvenle devam edilemez."
+    },
+    "resultIncompleteTitle": "Migration is incomplete",
+    "resultStoppedTitle": "Migration stopped",
+    "activationRequired": "İndirmeyi doğrulayıp devam ettirmek için görev ayrıntılarını açın.",
+    "chooseTorrent": "Choose torrent…",
+    "torrentFile": "Torrent file",
+    "verifyAndContinue": "Doğrula ve devam et",
+    "verifyDescription": "Motrix will verify the original files, then continue with your previous file selection. While downloading, it may upload data and write shared pieces to unselected files. It won’t seed automatically when finished.",
+    "authorizeOriginalDirectory": "Choose the original download folder",
+    "verifyReady": "Verify your existing files to continue this download, or start again in a new folder.",
+    "trackersReadOnly": "This download keeps its original trackers. They can’t be changed here.",
+    "page": {
+      "stepsLabel": "Migration steps",
+      "steps": {
+        "select": "Choose downloads",
+        "import": "Import",
+        "result": "Review"
+      },
+      "foundSummary": "Download types",
+      "selectionSummary": "Selected",
+      "resultSummary": "Migration summary",
+      "countUnit": "total",
+      "notImported": "Not imported",
+      "skippedSummary": "Skipped",
+      "types": {
+        "http": "Direct links",
+        "bt": "Torrents",
+        "magnet": "Magnet links",
+        "unknown": "Other tasks"
+      },
+      "pathUnavailable": "Download location unavailable",
+      "filesStayTitle": "Your files stay where they are",
+      "filesStayDescription": "Migration won’t move or delete downloaded files.",
+      "nextTitle": "Only your downloads",
+      "nextDescription": "Your app settings stay the same.",
+      "footerNote": "Imported tasks will stay paused.",
+      "discoveryDescription": "Choose what to add to your download list. Some tasks need a new download or a check of the existing files.",
+      "previousVersion": "Motrix v1",
+      "currentVersion": "Motrix",
+      "introduction": "Choose the downloads you’d like to add to Motrix.",
+      "selectionTitle": "Choose what to migrate",
+      "searchEmpty": "No matching downloads.",
+      "resultEmptyTitle": "No new downloads",
+      "resultEmptyDescription": "Open the details to see why each task was skipped.",
+      "resultIncompleteDescription": "Downloads already imported are kept. Review the details and try importing the rest again.",
+      "resultStoppedDescription": "Downloads already imported are kept. You can import the rest when you’re ready.",
+      "outcomes": {
+        "imported": "Imported",
+        "skipped": "Skipped",
+        "failed": "Failed",
+        "unprocessed": "Not imported"
+      },
+      "sourceDescription": "From {{name}}",
+      "assistantTitle": "Migration Assistant",
+      "backToSource": "Back to source",
+      "continue": "Continue",
+      "revealSource": "Show in folder",
+      "welcomeTitle": "Migrate your downloads",
+      "sourceFeedback": {
+        "retry": "Try again",
+        "unreadableTitle": "Unable to read downloads from this location",
+        "chooseFolder": "Choose the data folder used by the previous version of Motrix.",
+        "readTitle": "Unable to read downloads",
+        "readDescription": "Check that this location is accessible, then try again.",
+        "pickTitle": "Unable to use the selected folder",
+        "pickDescription": "Try choosing the folder again. Your previous selection is still available.",
+        "revealTitle": "Unable to show this folder",
+        "revealDescription": "Check that this location is accessible, then try again.",
+        "discoverTitle": "Unable to look for previous downloads",
+        "discoverDescription": "Try again, or choose the previous Motrix data folder yourself.",
+        "reading": "Reading downloads…"
+      },
+      "sourceTitle": "Where would you like to migrate from?",
+      "sourceIntroduction": "Import your download tasks from the previous version of Motrix. You can choose what to migrate next. Your downloaded files will stay where they are.",
+      "sourceKind": "Downloads from the previous version",
+      "sourceHelp": "Choose the data folder used by Motrix v1. Your downloaded files stay where they are.",
+      "noSourceDescription": "No downloads from the previous version of Motrix were found. Choose another location to look for them.",
+      "progressTitle": "Migrating your downloads",
+      "progressDescription": "Your task list is being backed up and added to Motrix.",
+      "selectGroup": "Select {{name}}",
+      "phases": {
+        "discovery": "Choose source",
+        "selection": "Choose content",
+        "progress": "Migration",
+        "result": "Result"
+      },
+      "groups": {
+        "http": "Direct links",
+        "bt": "Torrent downloads",
+        "magnet": "Magnet links",
+        "unknown": "Other downloads"
+      },
+      "groupDescriptions": {
+        "http": "A new download is needed",
+        "bt": "Existing files will be checked before continuing",
+        "magnet": "The original torrent file is needed",
+        "unknown": "Review the task details"
+      },
+      "groupCount_one": "{{count}} task",
+      "selectedNote_one": "Selected {{count}} task. After migration, tasks will stay paused and downloaded files will remain in place.",
+      "groupCount_other": "{{count}} tasks",
+      "selectedNote_other": "Selected {{count}} tasks. After migration, tasks will stay paused and downloaded files will remain in place.",
+      "run": {
+        "backup": "Back up task list",
+        "backupActive": "Saving a copy of your previous task list…",
+        "backupDone": "Backup saved",
+        "add": "Add downloads",
+        "waiting": "Waiting for the backup",
+        "completeDescription": "Your tasks are now in Downloads, paused until you’re ready to continue.",
+        "partialDescription": "Imported tasks are paused. You can retry the remaining tasks or view your downloads.",
+        "stoppedEmptyDescription": "No tasks were added. You can try again when you’re ready.",
+        "failedEmptyDescription": "No tasks were added. Review the details, then try again.",
+        "imported": "Imported",
+        "remaining": "Remaining"
+      }
+    },
+    "importSelected": "Migrate",
+    "httpResumeDescription": "Motrix indirilen tüm aralıkları sunucuyla karşılaştırıp özgün klasörde devam eder. Doğrulama bu aralıkları yeniden aktarır; kayıtlı istek ayarları bellekte kalır.",
+    "httpVerifying": "Hazırlanıyor veya doğrulanıyor…",
+    "httpOriginalFilesKept": "Mevcut dosyalarınız korundu."
+  },
+  "rendererRecovery": {
+    "title": "Arayüzün kurtarılması gerekiyor",
+    "description": "İndirmeler arka planda devam eder. Kaydedilmemiş form değişiklikleri kaybolabilir.",
+    "recovering": "Arayüz kurtarılıyor…",
+    "recover": "Arayüzü kurtar",
+    "diagnostics": "Tanılama günlüklerini aç",
+    "downloads": "İndirmeleri aç",
+    "failed": "Kurtarma kullanılamıyor. Uygulama menüsünden tekrar deneyin.",
+    "restored": "Arayüz geri yüklendi",
+    "wait": "Beklemeye devam et",
+    "routeTitle": "Bu sayfa görüntülenemedi",
+    "submissionNotice": "Önceki gönderim tamamlanmış olabilir. Aynı görevi yeniden oluşturmadan önce indirmeleri kontrol edin."
+  },
+  "pluginOperations": {
+    "requiredField": "Zorunlu alan",
+    "run": "Run operation",
+    "runAgain": "Run again",
+    "background": "Operations continue when this panel is closed.",
+    "loading": "Loading operation…",
+    "unauthorized": "This session is no longer authorized. Sign in again.",
+    "disabled": "Enable this plugin to use its operations.",
+    "blocked": "This plugin is blocked or its permissions are changing.",
+    "unsupported": "This host does not support the operation requirements.",
+    "ffmpeg": "Configure FFmpeg in Settings → Integration → Media Tools.",
+    "busy": "Another operation is using these resources. Try again after it finishes.",
+    "unavailable": "This operation is unavailable.",
+    "draftExpired": "This selection expired. Reopen the operation and select the files again.",
+    "resourceLimit": "The operation exceeds the host resource limit or available disk space.",
+    "invalidSelection": "Select completed tasks with one local file each.",
+    "invalidFile": "Choose a regular, non-empty local file.",
+    "fileType": "The selected file type does not match this field.",
+    "outputExists": "The output already exists. Choose a different name.",
+    "fileChanged": "A selected file or directory changed. Select it again.",
+    "invalidGrant": "Select the files again before starting.",
+    "sameInput": "Choose two different input files.",
+    "invalidOutput": "The plugin did not produce a valid output.",
+    "invalidRequest": "Check the operation parameters and try again.",
+    "invalidValue": "Enter a valid value.",
+    "descriptorChanged": "The plugin changed. Reopen the operation.",
+    "jobMissing": "This operation is no longer available in this session.",
+    "cancelled": "The operation was cancelled.",
+    "failed": "The operation failed. See the plugin log for details.",
+    "interrupted": "The host stopped before this operation finished. It was not restarted.",
+    "publicationUncertain": "The host could not confirm output publication. Check the destination before trying again.",
+    "cleanupWarning": "Temporary files remain for safe recovery. The host did not delete uncertain files.",
+    "status": {
+      "accepted": "Queued",
+      "preparing": "Preparing files",
+      "running": "Running",
+      "validating": "Validating result",
+      "committing": "Saving output",
+      "cleaning": "Cleaning up",
+      "cancelling": "Cancelling",
+      "succeeded": "Completed",
+      "cancelled": "Cancelled",
+      "failed": "Failed",
+      "interrupted": "Interrupted"
+    },
+    "confirmFileTitle": "Authorize file access",
+    "confirmFile": "Allow this operation to read the following file?"
+  },
   "createTorrent": {
     "title": "Torrent oluştur",
-    "description": "Yerel bir dosya veya klasörden .torrent dosyası üret; paylaşın ve seed edin.",
     "source": "Kaynak",
-    "sourcePlaceholder": "Bir dosya veya klasör seçin…",
-    "browse": "Gözat…",
     "trackers": "İzleyiciler",
     "trackersPlaceholder": "Her satıra bir announce URL’si",
     "webSeeds": "Web tohumları",
@@ -2945,15 +3532,17 @@
     "hashing": "Hash hesaplanıyor…",
     "resultName": "Ad",
     "resultSize": "Boyut",
-    "files": "dosya",
-    "pieces": "parça",
     "resultInfoHash": "Info hash",
     "saveFile": ".torrent kaydet",
     "create": "Oluştur",
     "savedToast": "Torrent {{path}} konumuna kaydedildi",
     "createFailed": "Torrent oluşturulamadı",
     "saveFailed": "Torrent dosyası kaydedilemedi",
-    "invalidTracker": "Bir veya daha fazla izleyici URL’si geçersiz görünüyor",
-    "openFromAddTask": "Yerel dosya veya klasörden torrent oluştur…"
+    "seedAfter": "Kaydettikten sonra paylaşmaya başla",
+    "seedFailed": "Torrent kaydedildi ancak paylaşım başlatılamadı.",
+    "seedSubmitted": "Paylaşım görevi gönderildi.",
+    "invalidOptions": "Her liste en fazla {{limit}} geçerli URL içerebilir. Özel torrentler izleyici gerektirir.",
+    "sourcePlaceholder": "Bir dosya veya klasör seçin…",
+    "menuLabel": "Torrent dosyası oluştur…"
   }
 }

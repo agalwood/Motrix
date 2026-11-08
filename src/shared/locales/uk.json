@@ -84,7 +84,9 @@
       "outsideRoots": "Ця тека поза дозволеними розташуваннями.",
       "permissionDenied": "У вас немає дозволу на використання цієї теки.",
       "tooLarge": "Шлях до теки або її назва перевищує допустиму довжину.",
-      "unavailable": "Серверу не вдалося виконати запит. Спробуйте ще раз."
+      "unavailable": "Серверу не вдалося виконати запит. Спробуйте ще раз.",
+      "notFile": "Select a readable regular file.",
+      "unsupportedFileType": "This file extension is not supported."
     },
     "fallback": "Запитана тека недоступна. Показано {{path}}.",
     "folderName": "Назва теки",
@@ -123,7 +125,34 @@
     "title": "Виберіть теку на сервері",
     "unknownOutcome": "Не вдалося підтвердити створення. Оновіть список перед створенням тут іншої теки.",
     "up": "На рівень вище",
-    "viewOptions": "Параметри вигляду"
+    "viewOptions": "Параметри вигляду",
+    "openFileTitle": "Select a file",
+    "saveFileTitle": "Save a file",
+    "fileDescription": "Browse files on the Motrix server.",
+    "selectFile": "Select file",
+    "saveFile": "Use this filename",
+    "files": "Files and folders",
+    "fileName": "File name",
+    "emptyFiles": "This folder is empty.",
+    "fileErrors": {
+      "invalidPath": "Enter a valid absolute path.",
+      "outsideRoots": "This path is outside the allowed locations.",
+      "notFound": "This path no longer exists.",
+      "permissionDenied": "You do not have permission to use this path.",
+      "invalidName": "Enter a valid file name.",
+      "tooLarge": "This path or file name is too long."
+    },
+    "selectedFilePath": "Selected file",
+    "file": {
+      "chooseOnServer": "Choose a file on the server using this picker.",
+      "singleFile": "Choose one file at a time.",
+      "wrongType": "Choose a file with one of these extensions: {{extensions}}.",
+      "pathUnavailable": "This file’s location is unavailable. Click to choose it instead.",
+      "choose": "Choose a file",
+      "dropHint": "Drop a file here or click to choose",
+      "browseHint": "Click to browse files",
+      "change": "Click to replace"
+    }
   },
   "directoryPreferences": {
     "addFavorite": "Додати улюблену теку",
@@ -346,20 +375,36 @@
         "unknownOption": "Невідомий параметр командного рядка."
       }
     },
-    "help": "Використання:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\nКоманда звертається лише до запущеного сервера Motrix через петльовий інтерфейс контейнера.",
+    "help": "Використання:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nКоманда звертається лише до запущеного сервера Motrix через петльовий інтерфейс контейнера.",
     "pending": {
       "none": "Немає запитів на сполучення, що очікують рішення.",
       "row": "{{userCode}}  {{clientName}}  {{clientVersion}}  спливає через {{ttl}}",
       "ttl": "{{minutes}} хв {{seconds}} с"
     },
-    "usageHint": "Виконайте `motrix-admin --help`, щоб переглянути довідку."
+    "usageHint": "Виконайте `motrix-admin --help`, щоб переглянути довідку.",
+    "extension": {
+      "heading": "Pending browser Extension pairing requests",
+      "identityNotice": "Verify that you initiated this request. Origin and claimed identity alone do not prove who is connecting. Terminal recording can capture the pairing code.",
+      "row": "{{index}}. {{browser}} [{{identity}}] Origin: {{origin}}; claimed ID: {{claimedId}}; Server: {{authority}}; {{seconds}} s remaining",
+      "select": "Enter the number of one request (Ctrl+C to exit): ",
+      "code": "Pairing code: {{code}}",
+      "instructions": "Type this code into the browser Extension. It expires at the original deadline. Ctrl+C closes this view without approving or denying the request.",
+      "none": "No pending Extension pairing requests. Start pairing in the Extension, then run this command again. If requests remain absent, check the remote Extension configuration.",
+      "ended": "The selected pairing request has ended. Check the Extension for its outcome.",
+      "ttyRequired": "Extension pairing requires interactive input, output and error terminals. Piping, redirection and JSON output are not supported.",
+      "cancelled": "Pairing code view closed. No approval or denial was sent.",
+      "invalidSelection": "Select exactly one listed request by its number.",
+      "unavailable": "The selected request expired, ended or changed. Start a new pairing attempt in the Extension."
+    }
   },
   "operatorUnlock": {
     "error": "Некоректний токен оператора. Перевірте MOTRIX_OPERATOR_TOKEN або <dataDir>/operator-token на хості та спробуйте ще раз.",
     "help": "Цей сервер потребує токена оператора. На хості задайте MOTRIX_OPERATOR_TOKEN або прочитайте токен із <dataDir>/operator-token і вставте його нижче.",
     "placeholder": "Токен оператора",
     "submit": "Розблокувати",
-    "title": "Розблокувати Motrix"
+    "title": "Розблокувати Motrix",
+    "nasSessionExpired": "Не вдалося перевірити сеанс адміністратора NAS. Відкрийте Motrix із робочого столу NAS.",
+    "openDsm": "Open DSM to sign in"
   },
   "panel": {
     "completed": {
@@ -389,7 +434,7 @@
         "more": "Більше",
         "rangeSummary": "Активність завантажень за період із {{start}} до {{end}}; тижнів: {{weeks}}",
         "retry": "Спробувати ще раз",
-        "stale": "Дані активності можуть бути застарілими",
+        "refreshFailed": "Не вдалося оновити",
         "title": "Активність",
         "tooltip": {
           "completed": "Завершено: {{count}}",
@@ -824,6 +869,8 @@
         "moveQueueUp": "Перемістити вище в черзі",
         "openFile": "Відкрити файл",
         "openFileFailed": "Не вдалося відкрити файл",
+        "openFileAppFailed": "Системі не вдалося відкрити цей файл. Перевірте, чи досі встановлено типову програму, або відкрийте теку, щоб вибрати іншу програму.",
+        "openFileFailedHint": "Перевірте, чи файл досі існує і чи маєте ви дозвіл на його відкриття.",
         "openFolder": "Відкрити теку",
         "pause": "Призупинити",
         "pauseTooltipBatch": "Призупинити {{n}} з {{total}} вибраних",
@@ -856,10 +903,24 @@
         "selectFilesFailed": "Не вдалося відкрити вибір файлів.",
         "singleTaskFailed": "{{name}}: {{reason}}",
         "stopSeeding": "Зупинити роздавання",
-        "stopSeedingTooltipBatch": "Зупинити роздавання для {{n}} з {{total}} вибраних"
+        "stopSeedingTooltipBatch": "Зупинити роздавання для {{n}} з {{total}} вибраних",
+        "redownload": "Re-download",
+        "redownloadWithDialog": "Re-download with options... (Alt+Click)",
+        "redownloadTooltipBatch": "Re-download {{n}} of {{total}} selected",
+        "redownloadOverwriteTitle": "File Already Exists",
+        "redownloadOverwriteDescription": "“{{name}}” already exists in the download directory. Re-downloading will overwrite or rename it. Do you want to continue?",
+        "redownloadCredentialsExpired": "Original request options have expired. Please review and submit.",
+        "redownloadStarted": "Re-download started",
+        "retryDialogTitle": "Повторити завантаження",
+        "retryDialogDescription": "Змініть параметри запиту для {{name}}, щоб почати нове завантаження. Невдале завдання та його частковий файл буде збережено.",
+        "retryDialogProgress": "Завантаження {{current}} з {{total}}",
+        "downloadToDevice": "Download to this device",
+        "revealInFileStation": "Show in File Station",
+        "nasFileUnavailable": "File access could not be authorized. Check the account and folder permissions.",
+        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again."
       },
       "column": {
-        "connections": "Піри",
+        "connections": "З’єднання",
         "createdAt": "Дата створення",
         "down": "Швидкість завантаження",
         "eta": "Залишилося",
@@ -914,14 +975,24 @@
             "sampleCount_few": "{{count}} вимірювання",
             "sampleCount_many": "{{count}} вимірювань",
             "sampleCount_one": "{{count}} вимірювання",
-            "sampleCount_other": "{{count}} вимірювання"
+            "sampleCount_other": "{{count}} вимірювання",
+            "noSamples": "Немає вимірювань",
+            "overview": "Огляд історії",
+            "rangeStart": "Початок діапазону",
+            "rangeEnd": "Кінець діапазону",
+            "earlier": "Раніша історія",
+            "later": "Пізніша історія",
+            "zoomIn": "Збільшити",
+            "zoomOut": "Зменшити",
+            "showAll": "Показати все",
+            "following": "Відстеження нових даних",
+            "followLatest": "До останніх даних"
           },
           "collecting": "Збирання даних про передавання…",
-          "coverageGap": "Відстеження переривалося.",
           "download": "Завантаження",
           "lifetimeEmpty": "Історія за весь час ще недоступна.",
           "loading": "Завантаження даних активності…",
-          "noSessionHistory": "У цьому сеансі програми передавання не зафіксовано.",
+          "noSessionHistory": "Нещодавні передачі не записані.",
           "noTraffic": "Зараз немає мережевого трафіку.",
           "notAvailable": "Недоступно",
           "range": {
@@ -932,7 +1003,7 @@
             "label": "Період передавання даних",
             "latest": "Останні 60 секунд",
             "lifetime": "За весь час",
-            "session": "Сеанс (60 с)"
+            "session": "Останні 60 с"
           },
           "retry": "Спробувати ще раз",
           "stale": {
@@ -991,7 +1062,7 @@
           },
           "transferTitle": {
             "lifetime": "Передавання за весь час",
-            "session": "Передавання за сеанс"
+            "session": "Нещодавня передача"
           },
           "unavailable": "Дані активності за весь час недоступні.",
           "upload": "Вивантаження"
@@ -1165,6 +1236,7 @@
         "banner": "Список завдань може бути застарілим — повторне підключення…"
       },
       "stats": {
+        "title": "Стан передавання",
         "downSpeed": "Швидкість завантаження",
         "engineOffline": "Рушій не в мережі",
         "engineOk": "Рушій готовий",
@@ -1261,10 +1333,14 @@
       "ffmpeg": {
         "notInstalled": "FFmpeg не встановлено в цій системі.",
         "optionalDegraded": "Медіафункції цього плагіна будуть недоступні, доки не буде встановлено ffmpeg.",
-        "requiredByPlugin": "Для цього плагіна потрібен ffmpeg. Встановіть його й спробуйте ще раз.",
+        "requiredByPlugin": "Плагін можна встановити зараз. Перед увімкненням або запуском налаштуйте сумісну версію FFmpeg.",
         "title": "Вимоги до FFmpeg",
         "versionMismatch": "Встановлено FFmpeg {{version}}."
       }
+    },
+    "runtime": {
+      "ffmpegUnavailable": "FFmpeg недоступний. Configure FFmpeg in Settings → Integration → Media Tools.",
+      "ffmpegIncompatible": "Версія FFmpeg не відповідає вимогам цього плагіна. Configure FFmpeg in Settings → Integration → Media Tools."
     }
   },
   "plugins": {
@@ -1332,6 +1408,8 @@
       "advanced": "Додатково",
       "attentionGeneric": "Подробиці дивіться в журналах.",
       "attentionTitle": "Цей плагін повідомив про проблему",
+      "runtimeStartFailed": "Не вдалося запустити середовище виконання плагіна",
+      "runtimeFailed": "Середовище виконання плагіна несподівано зупинилося",
       "author": "Автор",
       "back": "Усі плагіни",
       "disabled": "Вимкнено",
@@ -1364,7 +1442,9 @@
       "uninstallConfirm": "Видалити цей плагін? Його дані буде видалено.",
       "uninstallConfirmDesc": "Плагін і його збережені налаштування буде видалено з Motrix.",
       "uninstallConfirmTitle": "Видалити {{name}}?",
-      "viewIssue": "Переглянути проблему"
+      "viewIssue": "Переглянути проблему",
+      "operations": "Operations",
+      "operationsFailed": "The operation panel could not load. Try again."
     },
     "diagnostics": {
       "callGraph": {
@@ -1517,6 +1597,8 @@
       "github.spec": "Репозиторій GitHub (owner/repo[@tag])",
       "install": "Встановити плагін",
       "lead": "Вставте адресу плагіна, виберіть файл .moext або перетягніть файл у поле введення.",
+      "reviewLead": "Перевірте дозволи плагіна перед встановленням.",
+      "preparing": "Підготовка…",
       "local": "Локальний файл",
       "local.pick": "Вибрати файл .moext",
       "localPrepareFailed": "Не вдалося підготувати файл плагіна: {{detail}}",
@@ -1526,12 +1608,21 @@
       "title": "Додати плагін",
       "url": "URL",
       "url.spec": "URL-адреса пакунка (.moext)",
-      "warning": "Перед встановленням: продовжуйте, лише якщо довіряєте автору й очікуєте, що плагін використовуватиме вказаний вище доступ."
+      "warning": "Перед встановленням: продовжуйте, лише якщо довіряєте автору й очікуєте, що плагін використовуватиме вказаний вище доступ.",
+      "officialVerified": "Офіційний підпис Motrix перевірено",
+      "officialSignatureInvalid": "Не вдалося перевірити офіційний підпис плагіна. Оновіть каталог.",
+      "officialBuiltinOnly": "Ця версія потребує прав вбудованого плагіна. Установіть новішу версію з підтримкою необов’язкового встановлення.",
+      "builtinAlreadyInstalled": "Цей плагін уже вбудований. Скористайтеся його функцією оновлення.",
+      "hostIncompatible": "Цей плагін потребує Motrix {{required}}; поточна версія: {{current}}. Оновіть Motrix або перейдіть на сумісну версію та повторіть спробу.",
+      "installed": "Встановлено",
+      "optionalHint": "Типово вимкнено; увімкніть за потреби",
+      "optionalLater": "Після встановлення додаткові дозволи можна змінити в налаштуваннях плагіна."
     },
     "lead": "Додавайте невеликі можливості до Motrix. Залишайте довірені плагіни, решту вимикайте.",
     "logs": {
       "clear": "Очистити",
-      "copy": "Копіювати",
+      "clearFailed": "Не вдалося очистити журнали. Спробуйте ще раз.",
+      "copy": "Копіювати журнали з прихованими даними",
       "empty": "У журналі ще немає записів",
       "emptyFiltered": "Немає записів цього рівня.",
       "emptyHint": "Нова активність плагіна з'являтиметься тут автоматично.",
@@ -1564,7 +1655,8 @@
       },
       "ffmpeg": {
         "plain": "Обробляє аудіо або відео.",
-        "strong": "Використовувати FFmpeg"
+        "strong": "Використовувати FFmpeg",
+        "requirement": "Processes audio or video. First, <settings>install or select FFmpeg in Settings</settings>."
       },
       "fs": {
         "storage": {
@@ -1616,6 +1708,18 @@
       },
       "unknown": {
         "plain": "Невідомий дозвіл."
+      },
+      "metadata": {
+        "strong": "Читання й запис метаданих завдань",
+        "plain": "Зберігає відомості, створені цим плагіном для завдань завантаження."
+      },
+      "files.selected.read": {
+        "strong": "Read files selected for this operation",
+        "plain": "Each operation needs your input selection. Other files are not authorized."
+      },
+      "files.selected.write": {
+        "strong": "Save a new file for this operation",
+        "plain": "Save at the location you confirm without replacing existing files."
       }
     },
     "permissions": {
@@ -1661,6 +1765,30 @@
       "optional": "Необов'язковий доступ",
       "review": "Потребує перевірки",
       "safe": "Виглядає безпечним"
+    },
+    "security": {
+      "blocked": "Заблоковано з міркувань безпеки",
+      "pending": "Підключіться до інтернету та перевірте оновлення перед увімкненням плагіна.",
+      "unavailable": "Не вдалося перевірити політику безпеки. Повторіть перевірку оновлень.",
+      "malware": "Цей плагін визнано шкідливим.",
+      "vulnerability": "Ця версія плагіна містить вразливість безпеки.",
+      "compromised": "Канал розповсюдження цього плагіна було скомпрометовано.",
+      "fixedVersion": "Виправлення доступне у версії {{version}}.",
+      "details": "Переглянути повідомлення про безпеку"
+    },
+    "network": {
+      "timeout": "Час очікування з’єднання минув",
+      "dns": "Помилка DNS",
+      "proxyAuth": "Помилка автентифікації проксі",
+      "proxyConnect": "Не вдалося підключитися до проксі",
+      "certificate": "Помилка сертифіката або TLS",
+      "http": "HTTP {{status}}",
+      "cancelled": "Запит скасовано",
+      "network": "Помилка мережевого запиту",
+      "cached": "Оновлення не вдалося; показано плагіни з кешу",
+      "unavailable": "Не вдалося завантажити каталог плагінів",
+      "direct": "Помилка прямого підключення до {{host}}: {{reason}}",
+      "viaProxy": "Помилка підключення до {{host}} через проксі {{proxy}}: {{reason}}"
     }
   },
   "quit": {
@@ -1738,7 +1866,12 @@
         "managedDescription": "Ця пакетна версія для Windows оновлюється через початкове джерело встановлення. Оновлення всередині застосунку недоступні.",
         "unsupportedTitle": "Автоматичні оновлення недоступні",
         "upToDate": "Версія {{version}} — найновіший доступний випуск.",
-        "upToDateTitle": "Встановлено найновішу версію Motrix"
+        "upToDateTitle": "Встановлено найновішу версію Motrix",
+        "installing": "Встановлення…",
+        "installingDescription": "Підготовка оновлення. Motrix перезапуститься, коли воно буде готове.",
+        "manualDownload": "Завантажити вручну",
+        "manualInstall": "Завантажте нову версію, закрийте Motrix і замініть встановлений застосунок.",
+        "manualCrossVolume": "Автоматичне встановлення між дисками наразі недоступне. Завантажте нову версію та замініть Motrix вручну."
       },
       "version": "Версія {{version}}",
       "webVersionNote": "Цю вебверсію оновлює адміністратор розгортання."
@@ -1767,6 +1900,14 @@
         "secret": "Секрет RPC",
         "secretDesc": "Потрібен для RPC-з'єднань.",
         "title": "RPC"
+      },
+      "configFile": {
+        "title": "Файл налаштувань",
+        "serverTitle": "Файл налаштувань сервера",
+        "openDirectory": "Відкрити теку",
+        "copyPath": "Копіювати шлях",
+        "copied": "Скопійовано",
+        "actionFailed": "Не вдалося виконати дію. Спробуйте ще раз."
       }
     },
     "appearance": {
@@ -1787,6 +1928,10 @@
       "menuBar": "Смуга меню",
       "reduceMotion": "Зменшити рух",
       "reduceMotionDesc": "Використовувати менше анімацій у застосунку.",
+      "hardwareAcceleration": "Апаратне прискорення",
+      "hardwareAccelerationDesc": "Використовує відеокарту для плавнішого відображення. Вимкніть, якщо вікно мерехтить або Motrix аварійно закривається. Зміни діють після перезапуску Motrix.",
+      "hardwareAccelerationRecoveryTitle": "Апаратне прискорення вимкнено",
+      "hardwareAccelerationRecoveryBody": "Motrix вимкнув апаратне прискорення після повторних збоїв відображення. Його можна знову ввімкнути в розділі Налаштування → Вигляд, а потім перезапустити Motrix.",
       "runMode": "Показувати застосунок у",
       "runModeHideTray": "Лише Dock",
       "runModeLaunch": "Під час відкриття Motrix",
@@ -1820,6 +1965,12 @@
       "trayIconColorDesc": "Виберіть колір, який добре видно на системній панелі.",
       "trayIconColorLight": "Світлий значок (темна панель)",
       "traySpeedometer": "Показувати швидкість у смузі меню",
+      "dockAndMenuBar": "Dock і смуга меню",
+      "taskbar": "Панель завдань",
+      "taskbarProgress": "Показувати поступ завантажень на панелі завдань",
+      "taskbarProgressDesc": "Показувати загальний поступ активних завантажень на кнопці головного вікна на панелі завдань.",
+      "dockProgress": "Показувати поступ завантажень у Dock",
+      "dockProgressDesc": "Показувати загальний поступ активних завантажень на іконці в Dock.",
       "traySpeedometerDesc": "Швидкість завантаження й вивантаження поруч зі значком застосунку."
     },
     "bittorrent": {
@@ -1934,6 +2085,10 @@
       "network": {
         "desc": "Проксі, DNS і NAT/UPnP",
         "title": "Мережа"
+      },
+      "nas": {
+        "title": "Synology NAS",
+        "desc": "Download folders and client connections"
       }
     },
     "common": {
@@ -2055,7 +2210,7 @@
         "altDownload": "Завантаження",
         "altDownloadDesc": "Максимальна швидкість завантаження в режимі низької швидкості.",
         "altSection": "Обмеження низької швидкості",
-        "altSectionDesc": "Використовуються в режимі низької швидкості або за розкладом. Можуть лише знижувати стандартні обмеження.",
+        "altSectionDesc": "Використовуються в режимі низької швидкості або коли автоматичне правило вибирає цей профіль.",
         "altUpload": "Вивантаження",
         "altUploadDesc": "Максимальна швидкість вивантаження в режимі низької швидкості.",
         "autoAdaptive": "Залишати пропускну здатність для інших програм",
@@ -2066,8 +2221,9 @@
         "bandwidthUsed": "Motrix може використовувати до {{motrix}}%.",
         "baseDownload": "Завантаження",
         "baseDownloadDesc": "Максимальна швидкість повсякденного завантаження.",
+        "unitFor": "Одиниця для {{field}}",
         "baseSection": "Стандартні обмеження",
-        "baseSectionDesc": "Використовуються для повсякденних завантажень і діють у всіх режимах.",
+        "baseSectionDesc": "Використовуються у стандартному режимі й коли немає активного правила низької швидкості.",
         "baseUpload": "Вивантаження",
         "baseUploadDesc": "Максимальна швидкість повсякденного вивантаження.",
         "effect": {
@@ -2075,7 +2231,7 @@
           "adaptiveRulePending": "резервуватиме {{reserved}}% пропускної здатності для інших програм після введення пропускної здатності з'єднання",
           "autoRules": "Motrix {{rules}}.",
           "lowSpeed": "Зараз діють обмеження низької швидкості: завантаження {{download}}, вивантаження {{upload}}.",
-          "lowerWins": "Діє найнижче з активних обмежень.",
+          "profileSelection": "Діють обмеження вибраного режиму. Порожні поля низької швидкості використовують стандартні значення; автоматичний режим може додати адаптивне обмеження.",
           "nextDay": " наступного дня",
           "noAutoRules": "Автоматичні правила вимкнено. Зараз цей режим працює як стандартний.",
           "ruleSeparator": " і ",
@@ -2204,6 +2360,12 @@
       "warnBeforeQuitDesc": "Запитувати перед виходом, якщо завантаження ще тривають."
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "appimage": {
         "desc": "Зареєструйте цей AppImage Motrix у стільничному середовищі, щоб браузери й magnet-посилання могли передавати йому завантаження.",
         "enable": "Увімкнути інтеграцію зі стільницею",
@@ -2288,10 +2450,19 @@
           "identityUnverifiedWarning": "Не вдалося перевірити ідентичність цього розширення. Продовжуйте, лише якщо довіряєте йому.",
           "pairCode": "Код сполучення",
           "pairCodeHint": "Введіть цей код у розширенні",
-          "title": "Розширення {{browser}} хоче підключитися до Motrix"
+          "title": "Розширення {{browser}} хоче підключитися до Motrix",
+          "claim": "Сполучити з поточним обліковим записом",
+          "claimDesc": "Розширення використовуватиме права цього облікового запису. Далі введіть код у розширенні, щоб завершити сполучення.",
+          "account": "Поточний обліковий запис: {{name}}"
         },
         "pairUnavailable": "Цей запит на сполучення вже не очікує відповіді — повторіть сполучення з розширення браузера.",
         "pairedEmpty": "Ще немає підключених розширень.",
+        "profile": "Профіль браузера {{number}}",
+        "connected": "Підключено",
+        "disconnected": "Не підключено",
+        "revokeAll": "Від’єднати всі",
+        "pendingTitle": "Browser pairing requests",
+        "pendingEmpty": "Start pairing in your extension.",
         "pairedTitle": "Підключені розширення",
         "pairingStateDegraded": {
           "description": "Motrix не вдалося безпечно оновити записи про сполучені розширення. Поточні сеанси розширень закрито, а новий доступ заблоковано до завершення цього запуску. Перезапустіть Motrix, щоб повторити відновлення; не покладайтеся на список нижче, доки це повідомлення не зникне.",
@@ -2480,7 +2651,8 @@
           "missing": "Не знайдено",
           "unconfigured": "Не задано",
           "untrusted": "Заблоковано macOS",
-          "version_mismatch": "Не підтримується"
+          "version_mismatch": "Не підтримується",
+          "verificationUnavailable": "Перевірка недоступна"
         },
         "title": "Медіаінструменти",
         "validation": {
@@ -2565,7 +2737,7 @@
         "bypass": "Підключатися напряму до",
         "bypassDesc": "Один домен, IP-адреса або CIDR на рядок. Почніть із крапки, щоб охопити лише піддомени. Завантаження файлів не підтримує шаблон *.",
         "bypassPlaceholder": "localhost\n127.0.0.1\n.local",
-        "bypassScopeNote": "Лише завантаження файлів і оновлення програми",
+        "bypassScopeNote": "Лише завантаження, плагіни й оновлення застосунку",
         "enable": "Увімкнути проксі",
         "enableDesc": "Використовувати проксі для вибраних нижче з'єднань.",
         "hidePassword": "Приховати пароль",
@@ -2592,7 +2764,9 @@
         "server": "Сервер",
         "showPassword": "Показати пароль",
         "title": "Проксі",
-        "user": "Ім'я користувача"
+        "user": "Ім'я користувача",
+        "scopePlugins": "Встановлення й оновлення плагінів",
+        "scopePluginsDesc": "Використовувати проксі для каталогу, пакетів, оновлень і політик безпеки плагінів."
       },
       "reachability": {
         "addEndpoint": "Додати службу перевірки",
@@ -2637,10 +2811,55 @@
       "textLength": "Використайте не більше {{max}} символів.",
       "time": "Використайте 24-годинний формат часу, наприклад 23:00.",
       "wholeBytes": "Використайте менше десяткових знаків."
+    },
+    "portable": {
+      "title": "Portable mode",
+      "startupError": "Motrix could not open its portable data directory. Check that the data folder beside Motrix.exe is writable and that no external profile override is set. Motrix has not switched to the system profile.",
+      "integrationUnavailable": "Portable mode keeps system settings unchanged. Startup registration, file associations, and system tool installation are unavailable.",
+      "browserDescription": "The local bridge remains available while Motrix is running. Portable mode does not register a browser launcher or change existing browser integration.",
+      "updateDescription": "Download the Windows ZIP, exit Motrix, and move the entire data folder to the new version. Portable mode never runs the installer.",
+      "recoveryError": "Portable data could not be recovered safely. Keep the data folder and check the logs and directory permissions before retrying. Motrix has stopped without using the system profile.",
+      "enginePathDescription": "Portable mode manages engine state inside the data folder for the current application location."
+    },
+    "nas": {
+      "description": "Shared by all DSM administrators. Restart Motrix in Package Center to apply changes.",
+      "account": "Current DSM account: {{username}}",
+      "restartRequired": "Settings saved. Restart Motrix in Package Center to apply them.",
+      "storageUnavailable": "Download folders unavailable",
+      "storageRecoveryHint": "Downloads are paused. Restore the original folders or authorize a different path, then restart Motrix in Package Center.",
+      "roots": "Authorized download folders",
+      "rootsHint": "One existing folder per line. Both your account and the system user motrix need read/write access. Removing the default makes the first folder the new default.",
+      "extensionEnabled": "Enable browser extension connections",
+      "extensionHint": "Use a DSM certificate hostname that resolves to the NAS LAN address.",
+      "webAddress": "Motrix Web address",
+      "webAddressHint": "Use the address you normally open, including /motrix/. You can fill it from this browser.",
+      "useCurrentAddress": "Use this DSM address",
+      "extensionAddress": "Extension connection address",
+      "allowHttp": "Allow pairing codes over HTTP",
+      "allowHttpHint": "Enable only on a trusted network. HTTPS does not require this option.",
+      "clientPort": "Direct client port",
+      "clientPortHint": "Direct clients use this port (1024–65535). DSM HTTPS addresses use the DSM port.",
+      "activeConnections": "Current connection addresses",
+      "cliAddress": "CLI endpoint",
+      "sessionHint": "Clients use their paired DSM account’s current permissions. After DSM logout, session expiration or a package restart, reopen Motrix with that account; pairing again is not required.",
+      "copy": "Copy address",
+      "openSettings": "Configure NAS connections",
+      "errors": {
+        "invalid": "Check the folder paths, port and connection addresses. HTTP code delivery requires explicit permission.",
+        "folderUnavailable": "Check that each folder is on a mounted volume and writable by the internal system user motrix.",
+        "permissionDenied": "The account or folder cannot be authorized. Check DSM shared-folder permissions for your account and the internal system user motrix.",
+        "unavailable": "Package settings are unavailable. Try again after the service has recovered.",
+        "conflict": "The saved configuration changed. Reload before editing again; your unsaved changes will be replaced."
+      }
     }
   },
   "task": {
     "add": {
+      "extraHeaders": "Додаткові заголовки",
+      "headerName": "Назва заголовка",
+      "headerValue": "Значення заголовка",
+      "addHeader": "Додати заголовок",
+      "removeHeader": "Видалити заголовок",
       "adding": "Додавання…",
       "advanced": "Додатково",
       "allProxy": "Проксі",
@@ -2671,6 +2890,7 @@
         "title": "Цей торрент уже існує"
       },
       "errors": {
+        "headerNameRequired": "Введіть назву заголовка або видаліть цей заголовок.",
         "missingSource": "Потрібен торрент-файл або magnet-посилання",
         "noFilesSelected": "Виберіть принаймні один файл",
         "saveDirRequired": "Потрібно вказати теку збереження",
@@ -2692,6 +2912,7 @@
       "invalidUrlCount": "Некоректні: {{count}}",
       "links": "Посилання",
       "parseFailed": "Не вдалося обробити торрент-файл.",
+      "unsupportedTorrent": "Цей торент використовує функції, які поточний рушій завантаження не підтримує.",
       "pickPathCustom": "Власний шлях",
       "pickPathTitle": "Виберіть теку збереження",
       "queueAdvanceFailed": "Не вдалося відкрити наступний торрент.",
@@ -2746,7 +2967,8 @@
       "urlsLabel": "URL",
       "urlsWithInvalid": "Коректні: {{valid}}, некоректні: {{invalid}}",
       "userAgent": "User-Agent",
-      "validUrlCount": "Коректні: {{count}}"
+      "validUrlCount": "Коректні: {{count}}",
+      "selectNasTorrent": "Choose a torrent from the NAS"
     },
     "detail": {
       "peers": "Піри: {{count}}",
@@ -2763,6 +2985,7 @@
         "recoveryFailed": "Не вдалося відновити завантаження: {{cause}}",
         "recoveryOutputConflict": "Існують і тимчасовий, і кінцевий файли; обидва збережено для ручної перевірки",
         "renameDirFailed": "Не вдалося перейменувати теку: {{cause}}",
+        "sourceHash": "SHA-256 від видавця",
         "renameFileFailed": "Не вдалося перейменувати файл: {{cause}}"
       },
       "hint": {
@@ -2807,7 +3030,8 @@
         "resumeRangeUnsupported": "Частково завантажений файл збережено, оскільки сервер не підтримує безпечне продовження за діапазоном байтів.",
         "resumeSourceChanged": "Частково завантажений файл збережено, оскільки віддалений файл змінився від початку завантаження.",
         "resumeValidationFailed": "Частково завантажений файл збережено, оскільки Motrix не вдалося перевірити, що віддалений файл не змінився.",
-        "torrentMetaMissing": "Не вдалося відновити це завдання BitTorrent: файл метаданих .torrent відсутній. Приберіть завдання й додайте його знову."
+        "torrentMetaMissing": "Не вдалося відновити це завдання BitTorrent: файл метаданих .torrent відсутній. Приберіть завдання й додайте його знову.",
+        "portableExternalPath": "This task uses a location outside the portable folder. The application moved or the original directory is unavailable. Check the download location before retrying."
       },
       "toast": "Відновлено перерваних завдань: {{count}}. Натисніть, щоб переглянути."
     },
@@ -2835,6 +3059,36 @@
       "image": "Зображення",
       "selectAll": "Вибрати все",
       "video": "Відео"
+    },
+    "storage": {
+      "move": "Move files…",
+      "locate": "Find existing files…",
+      "recheck": "Check files…",
+      "moveDescription": "Choose a new folder for your downloaded files. Seeding pauses while they move.",
+      "locateDescription": "Choose where your downloaded files are now. Motrix will check them so you can continue seeding.",
+      "recheckDescription": "Check that your downloaded files are complete. This will not change the files or download them again.",
+      "directory": "Folder",
+      "name": "File or folder name",
+      "resume": "Continue seeding after checking",
+      "checking": "Checking files…",
+      "moving": "Moving files…",
+      "resuming": "Starting seeding…",
+      "verifiedPercent": "Verified: {{percent}}%",
+      "checkFailed": "Check failed",
+      "verified": "Your files are ready to seed.",
+      "resumed": "Seeding has resumed.",
+      "incomplete": "Some files are missing or incomplete. Check that you selected the right folder and try again.",
+      "resumeFailed": "The new location is saved. Select Re-seed to try sharing the files again.",
+      "useExisting": "Check and use these files",
+      "errors": {
+        "unavailable": "This task cannot be moved or checked yet.",
+        "busy": "Another file operation is still running. Please wait for it to finish.",
+        "destination": "Choose a different folder or file name. The location may already contain these files or be inside the current folder.",
+        "conflict": "Another download is using these files. Open that task to change their location.",
+        "engine": "Motrix could not stop this task. Please try again.",
+        "failed": "Motrix could not access or move the files. Check the folder, available space, and permission to use it.",
+        "cancelled": "Check cancelled."
+      }
     }
   },
   "trackers": {
@@ -2971,12 +3225,349 @@
     "stoppedSplit": "Зупинені завдання розділено на завершені та помилки. Відкрито всі завантаження.",
     "invalidStatus": "Недійсна категорія. Відкрито всі завантаження."
   },
+  "mediaMerge": {
+    "title": "Merge audio and video",
+    "description": "Combine two files without re-encoding. Original files are kept. Audio-only and video-only inputs are detected automatically.",
+    "videoInput": "Video file",
+    "audioInput": "Audio file",
+    "output": "Output file",
+    "provider": "Plugin",
+    "browse": "Browse…",
+    "browseField": "Browse {{field}}",
+    "required": "Choose a file or enter its full path.",
+    "outputHint": "Use a new .mp4 or .mkv filename. Existing files are never overwritten. If the codecs cannot be copied to MP4, try MKV.",
+    "noPlugin": "Install and enable a media merge plugin. FFmpeg must be configured in Settings > Integration > Media Tools.",
+    "serverPaths": "Select files on the Motrix server. Files on this computer are not uploaded.",
+    "start": "Merge",
+    "running": "Merging…",
+    "cancelling": "Cancelling…",
+    "completed": "Merged successfully",
+    "cancelled": "Merge cancelled",
+    "failed": "Merge failed",
+    "invalidSelection": "Select two completed, single-file downloads.",
+    "jobMissing": "This merge is no longer available.",
+    "busy": "Another merge is already running.",
+    "pluginUnavailable": "The media merge plugin is unavailable.",
+    "absolutePaths": "Enter full, absolute file paths.",
+    "invalidFiles": "Choose two non-empty media files.",
+    "sameInput": "Choose two different input files.",
+    "outputFormat": "Use an .mp4 or .mkv output filename.",
+    "outputExists": "The output already exists. Choose a new filename.",
+    "invalidOutput": "The plugin did not produce a valid output file.",
+    "again": "Merge another file",
+    "pluginDisabled": "Enable this plugin to merge files.",
+    "choose": {
+      "videoInput": "Choose video",
+      "audioInput": "Choose audio",
+      "output": "Choose a save location"
+    },
+    "hint": {
+      "videoInput": "The picture for your merged file",
+      "audioInput": "The sound for your merged file",
+      "output": "Save as MP4 or MKV"
+    },
+    "preserveOriginals": "Original files are kept",
+    "format": "Output format"
+  },
+  "legacyImport": {
+    "navigation": "Migration",
+    "title": "Migration",
+    "pausedDescription": "Choose which Motrix v1 downloads to import. They won’t start automatically.",
+    "settingsTitle": "Migration",
+    "settingsDescription": "Import your downloads from Motrix v1.",
+    "settingsAction": "Open migration",
+    "pickSource": "Choose the Motrix v1 data folder",
+    "source": "From",
+    "changeSource": "Change folder…",
+    "noSource": "Choose the folder containing your Motrix v1 data",
+    "discovery": "Downloads found: {{count}}",
+    "preserveFiles": "Downloaded files stay in their original location.",
+    "chooseTasks": "Choose downloads",
+    "skip": "Not now",
+    "skippedHint": "Ви можете виконати перенесення пізніше в розділі {{settings}} → {{advanced}}.",
+    "back": "Back",
+    "loading": "Looking for your old downloads…",
+    "empty": "There are no tasks to migrate from this folder.",
+    "continueBefore": "Before continuing:",
+    "capabilityLimit": "This task needs to be downloaded again. Choose a new folder to keep the original files.",
+    "running": "Motrix v1 may still be running. Quit it, then check again.",
+    "recheck": "Check again",
+    "search": "Search downloads",
+    "selectAll": "Select all",
+    "skipped": "Skipped: {{count}}",
+    "backupNote": "Your task list is backed up before import. Downloaded files stay in place.",
+    "backingUp": "Backing up your task list…",
+    "committing": "Adding your downloads…",
+    "progress": "Migration progress",
+    "processed": "{{done}} / {{total}} processed",
+    "stop": "Stop migration",
+    "stopTitle": "Stop migration?",
+    "stopDescription": "Downloads already imported will be kept. You can import the rest later.",
+    "resultTitle": "Migration complete",
+    "importedCount": "Imported {{count}}",
+    "resultDescription": "Your imported tasks are now in Downloads.",
+    "details": "View details",
+    "exportReport": "Save report…",
+    "retry": "Migrate remaining",
+    "viewTasks": "View downloads",
+    "freshDownload": "Download again…",
+    "freshDescription": "Choose where to save the new download. Motrix will create a separate folder and open the download form for you to confirm. It will start from the beginning and leave your old files untouched.",
+    "freshDestination": "Choose where to save the new download",
+    "chooseDestination": "Choose another location…",
+    "requestSettingsHelp": "Для попередніх файлів cookie введіть потрібний заголовок Cookie. Для імен користувачів і паролів HTTP введіть відповідний заголовок Authorization. Вкажіть облікові дані проксі в його URL.",
+    "unsupportedOptions": "Непідтримувані параметри: {{options}}",
+    "ignoredOptions": "Непідтримувані параметри пропущено: {{options}}",
+    "currentProxyDescription": "Перенесені завантаження використовують поточні налаштування проксі завантажень Motrix. Старі налаштування не зберігаються.",
+    "requestOptions": "Збережені налаштування запиту: {{options}}",
+    "requestSettingsDescription": "Старі налаштування запиту не скопійовано. Введіть їх знову в розширених налаштуваннях перед завантаженням у нову теку.",
+    "reconfigureDownload": "Налаштувати знову та завантажити…",
+    "reasons": {
+      "fresh-download-required": "Needs a new download",
+      "verification-required": "Existing files need checking",
+      "metadata-required": "Original torrent file needed",
+      "selection-required": "Choose which files to download",
+      "request-settings-required": "Збережені налаштування запиту буде перевірено перед відновленням",
+      "mirrors-unsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "unsupported-options": "Непідтримувані параметри завантаження",
+      "invalid-record": "Couldn’t read this task",
+      "unsafe-path": "File location needs checking",
+      "already-imported": "Already imported",
+      "deleted-import": "Previously removed",
+      "path-conflict": "Another task uses this location",
+      "changed-source": "Old task data has changed",
+      "not-selected": "Not selected",
+      "stopped": "Not imported before stopping",
+      "commit-failed": "Import failed. You can try again."
+    },
+    "errors": {
+      "pageUnavailable": "Migration couldn’t open. Restart Motrix and try again. Downloads already imported are kept.",
+      "failed": "The operation couldn’t be completed. Please try again.",
+      "consentRequired": "Accept the agreement before opening migration.",
+      "invalidSource": "No Motrix v1 data was found here. Choose its original data folder.",
+      "unsafeSource": "This data folder can’t be read safely. Choose the original Motrix v1 folder.",
+      "unsafeBackup": "A safe backup couldn’t be created, so importing has stopped.",
+      "tooLarge": "This task list is too large to import.",
+      "tooManySources": "Too many folders have been opened. Restart Motrix and try again.",
+      "sourceNotAuthorized": "Select the old data folder using the folder picker.",
+      "expiredPreview": "This task list needs refreshing. Check again before importing.",
+      "changedSource": "The old task data has changed. Check again before importing.",
+      "running": "Motrix v1 may still be running. Quit it, then check again.",
+      "invalidSelection": "The selected tasks have changed. Check the list again.",
+      "pathConflict": "Another task uses this file location. Check the list again.",
+      "busy": "An import is already running. Wait for it to finish.",
+      "unknownRun": "The import result is unavailable.",
+      "unknownTask": "This imported task is no longer available.",
+      "rescanRequired": "Choose the data folder again to import the remaining tasks.",
+      "metadataRequired": "Choose this task’s original torrent file first.",
+      "unsafePath": "Choose a folder you can access.",
+      "mirrorsUnsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "stopping": "Motrix is closing. Reopen it to continue importing.",
+      "desktopOnly": "Open migration in the Motrix desktop app.",
+      "metadataMismatch": "This torrent does not match the old task. Choose its original torrent file.",
+      "checkpointUnavailable": "This version can’t resume the old files. You can download again in a new folder.",
+      "activationSourceMissing": "Some original task information is missing. Download again in a new folder.",
+      "selectionRequired": "The previous file selection is unavailable. Choose the files again in a new download.",
+      "originalDirectoryRequired": "Choose the original folder shown here. Files moved to another location can’t be resumed.",
+      "payloadMissing": "Some original files are missing, including files previously left unselected. All are needed to resume this task. Download again in a new folder.",
+      "payloadUnsafe": "The original files can’t be updated safely because of file links or permissions. Keep them and download again in a new folder.",
+      "controlRequired": "The saved download progress is missing. Download again in a new folder.",
+      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder.",
+      "httpContentChanged": "Завантажені дані відрізняються від вмісту сервера.",
+      "httpRangeUnsupported": "Сервер не підтримує потрібні діапазони байтів.",
+      "httpValidatorRequired": "Сервер не надає надійний ідентифікатор версії ресурсу.",
+      "httpVerificationFailed": "Не вдалося перевірити завантажені дані.",
+      "httpRequestUnsupported": "Рушій або налаштування запиту не підтримують безпечне відновлення.",
+      "httpVerificationCancelled": "Перевірку скасовано.",
+      "httpRedirectUnsupported": "Посилання з перенаправленням не можна безпечно відновити у вихідному місці."
+    },
+    "resultIncompleteTitle": "Migration is incomplete",
+    "resultStoppedTitle": "Migration stopped",
+    "activationRequired": "Відкрийте подробиці завдання, щоб перевірити й відновити завантаження.",
+    "chooseTorrent": "Choose torrent…",
+    "torrentFile": "Torrent file",
+    "verifyAndContinue": "Перевірити й продовжити",
+    "verifyDescription": "Motrix will verify the original files, then continue with your previous file selection. While downloading, it may upload data and write shared pieces to unselected files. It won’t seed automatically when finished.",
+    "authorizeOriginalDirectory": "Choose the original download folder",
+    "verifyReady": "Verify your existing files to continue this download, or start again in a new folder.",
+    "trackersReadOnly": "This download keeps its original trackers. They can’t be changed here.",
+    "page": {
+      "stepsLabel": "Migration steps",
+      "steps": {
+        "select": "Choose downloads",
+        "import": "Import",
+        "result": "Review"
+      },
+      "foundSummary": "Download types",
+      "selectionSummary": "Selected",
+      "resultSummary": "Migration summary",
+      "countUnit": "total",
+      "notImported": "Not imported",
+      "skippedSummary": "Skipped",
+      "types": {
+        "http": "Direct links",
+        "bt": "Torrents",
+        "magnet": "Magnet links",
+        "unknown": "Other tasks"
+      },
+      "pathUnavailable": "Download location unavailable",
+      "filesStayTitle": "Your files stay where they are",
+      "filesStayDescription": "Migration won’t move or delete downloaded files.",
+      "nextTitle": "Only your downloads",
+      "nextDescription": "Your app settings stay the same.",
+      "footerNote": "Imported tasks will stay paused.",
+      "discoveryDescription": "Choose what to add to your download list. Some tasks need a new download or a check of the existing files.",
+      "previousVersion": "Motrix v1",
+      "currentVersion": "Motrix",
+      "introduction": "Choose the downloads you’d like to add to Motrix.",
+      "selectionTitle": "Choose what to migrate",
+      "searchEmpty": "No matching downloads.",
+      "resultEmptyTitle": "No new downloads",
+      "resultEmptyDescription": "Open the details to see why each task was skipped.",
+      "resultIncompleteDescription": "Downloads already imported are kept. Review the details and try importing the rest again.",
+      "resultStoppedDescription": "Downloads already imported are kept. You can import the rest when you’re ready.",
+      "outcomes": {
+        "imported": "Imported",
+        "skipped": "Skipped",
+        "failed": "Failed",
+        "unprocessed": "Not imported"
+      },
+      "sourceDescription": "From {{name}}",
+      "assistantTitle": "Migration Assistant",
+      "backToSource": "Back to source",
+      "continue": "Continue",
+      "revealSource": "Show in folder",
+      "welcomeTitle": "Migrate your downloads",
+      "sourceFeedback": {
+        "retry": "Try again",
+        "unreadableTitle": "Unable to read downloads from this location",
+        "chooseFolder": "Choose the data folder used by the previous version of Motrix.",
+        "readTitle": "Unable to read downloads",
+        "readDescription": "Check that this location is accessible, then try again.",
+        "pickTitle": "Unable to use the selected folder",
+        "pickDescription": "Try choosing the folder again. Your previous selection is still available.",
+        "revealTitle": "Unable to show this folder",
+        "revealDescription": "Check that this location is accessible, then try again.",
+        "discoverTitle": "Unable to look for previous downloads",
+        "discoverDescription": "Try again, or choose the previous Motrix data folder yourself.",
+        "reading": "Reading downloads…"
+      },
+      "sourceTitle": "Where would you like to migrate from?",
+      "sourceIntroduction": "Import your download tasks from the previous version of Motrix. You can choose what to migrate next. Your downloaded files will stay where they are.",
+      "sourceKind": "Downloads from the previous version",
+      "sourceHelp": "Choose the data folder used by Motrix v1. Your downloaded files stay where they are.",
+      "noSourceDescription": "No downloads from the previous version of Motrix were found. Choose another location to look for them.",
+      "progressTitle": "Migrating your downloads",
+      "progressDescription": "Your task list is being backed up and added to Motrix.",
+      "selectGroup": "Select {{name}}",
+      "phases": {
+        "discovery": "Choose source",
+        "selection": "Choose content",
+        "progress": "Migration",
+        "result": "Result"
+      },
+      "groups": {
+        "http": "Direct links",
+        "bt": "Torrent downloads",
+        "magnet": "Magnet links",
+        "unknown": "Other downloads"
+      },
+      "groupDescriptions": {
+        "http": "A new download is needed",
+        "bt": "Existing files will be checked before continuing",
+        "magnet": "The original torrent file is needed",
+        "unknown": "Review the task details"
+      },
+      "groupCount_one": "{{count}} task",
+      "selectedNote_one": "Selected {{count}} task. After migration, tasks will stay paused and downloaded files will remain in place.",
+      "groupCount_few": "{{count}} tasks",
+      "selectedNote_few": "Selected {{count}} tasks. After migration, tasks will stay paused and downloaded files will remain in place.",
+      "groupCount_many": "{{count}} tasks",
+      "selectedNote_many": "Selected {{count}} tasks. After migration, tasks will stay paused and downloaded files will remain in place.",
+      "groupCount_other": "{{count}} tasks",
+      "selectedNote_other": "Selected {{count}} tasks. After migration, tasks will stay paused and downloaded files will remain in place.",
+      "run": {
+        "backup": "Back up task list",
+        "backupActive": "Saving a copy of your previous task list…",
+        "backupDone": "Backup saved",
+        "add": "Add downloads",
+        "waiting": "Waiting for the backup",
+        "completeDescription": "Your tasks are now in Downloads, paused until you’re ready to continue.",
+        "partialDescription": "Imported tasks are paused. You can retry the remaining tasks or view your downloads.",
+        "stoppedEmptyDescription": "No tasks were added. You can try again when you’re ready.",
+        "failedEmptyDescription": "No tasks were added. Review the details, then try again.",
+        "imported": "Imported",
+        "remaining": "Remaining"
+      }
+    },
+    "importSelected": "Migrate",
+    "httpResumeDescription": "Motrix порівняє всі завантажені діапазони із сервером і продовжить у вихідній теці. Перевірка повторно передає ці діапазони; збережені налаштування запиту залишаються в пам’яті.",
+    "httpVerifying": "Підготовка або перевірка…",
+    "httpOriginalFilesKept": "Наявні файли збережено."
+  },
+  "rendererRecovery": {
+    "title": "Інтерфейс потребує відновлення",
+    "description": "Завантаження тривають у фоновому режимі. Незбережені зміни форми можуть бути втрачені.",
+    "recovering": "Відновлення інтерфейсу…",
+    "recover": "Відновити інтерфейс",
+    "diagnostics": "Відкрити журнали діагностики",
+    "downloads": "Відкрити завантаження",
+    "failed": "Відновлення недоступне. Спробуйте ще раз через меню застосунку.",
+    "restored": "Інтерфейс відновлено",
+    "wait": "Продовжити очікування",
+    "routeTitle": "Не вдалося показати цю сторінку",
+    "submissionNotice": "Попереднє надсилання могло завершитися. Перевірте завантаження, перш ніж створювати те саме завдання знову."
+  },
+  "pluginOperations": {
+    "requiredField": "Обов’язкове поле",
+    "run": "Run operation",
+    "runAgain": "Run again",
+    "background": "Operations continue when this panel is closed.",
+    "loading": "Loading operation…",
+    "unauthorized": "This session is no longer authorized. Sign in again.",
+    "disabled": "Enable this plugin to use its operations.",
+    "blocked": "This plugin is blocked or its permissions are changing.",
+    "unsupported": "This host does not support the operation requirements.",
+    "ffmpeg": "Configure FFmpeg in Settings → Integration → Media Tools.",
+    "busy": "Another operation is using these resources. Try again after it finishes.",
+    "unavailable": "This operation is unavailable.",
+    "draftExpired": "This selection expired. Reopen the operation and select the files again.",
+    "resourceLimit": "The operation exceeds the host resource limit or available disk space.",
+    "invalidSelection": "Select completed tasks with one local file each.",
+    "invalidFile": "Choose a regular, non-empty local file.",
+    "fileType": "The selected file type does not match this field.",
+    "outputExists": "The output already exists. Choose a different name.",
+    "fileChanged": "A selected file or directory changed. Select it again.",
+    "invalidGrant": "Select the files again before starting.",
+    "sameInput": "Choose two different input files.",
+    "invalidOutput": "The plugin did not produce a valid output.",
+    "invalidRequest": "Check the operation parameters and try again.",
+    "invalidValue": "Enter a valid value.",
+    "descriptorChanged": "The plugin changed. Reopen the operation.",
+    "jobMissing": "This operation is no longer available in this session.",
+    "cancelled": "The operation was cancelled.",
+    "failed": "The operation failed. See the plugin log for details.",
+    "interrupted": "The host stopped before this operation finished. It was not restarted.",
+    "publicationUncertain": "The host could not confirm output publication. Check the destination before trying again.",
+    "cleanupWarning": "Temporary files remain for safe recovery. The host did not delete uncertain files.",
+    "status": {
+      "accepted": "Queued",
+      "preparing": "Preparing files",
+      "running": "Running",
+      "validating": "Validating result",
+      "committing": "Saving output",
+      "cleaning": "Cleaning up",
+      "cancelling": "Cancelling",
+      "succeeded": "Completed",
+      "cancelled": "Cancelled",
+      "failed": "Failed",
+      "interrupted": "Interrupted"
+    },
+    "confirmFileTitle": "Authorize file access",
+    "confirmFile": "Allow this operation to read the following file?"
+  },
   "createTorrent": {
     "title": "Створити торрент",
-    "description": "Зібрати .torrent-файл із локального файла або папки, щоб поширювати та роздавати.",
     "source": "Джерело",
-    "sourcePlaceholder": "Виберіть файл або папку…",
-    "browse": "Огляд…",
     "trackers": "Трекери",
     "trackersPlaceholder": "По одному announce-URL на рядок",
     "webSeeds": "Web-сіди",
@@ -2989,15 +3580,17 @@
     "hashing": "Обчислення хешів…",
     "resultName": "Назва",
     "resultSize": "Розмір",
-    "files": "файлів",
-    "pieces": "шматків",
     "resultInfoHash": "Info-хеш",
     "saveFile": "Зберегти .torrent",
     "create": "Створити",
     "savedToast": "Торрент збережено у {{path}}",
     "createFailed": "Не вдалося створити торрент",
     "saveFailed": "Не вдалося зберегти торрент-файл",
-    "invalidTracker": "Один чи кілька URL трекерів виглядають некоректно",
-    "openFromAddTask": "Створити торрент із локального файла чи папки…"
+    "seedAfter": "Почати роздачу після збереження",
+    "seedFailed": "Торент збережено, але розпочати роздачу не вдалося.",
+    "seedSubmitted": "Завдання роздачі надіслано.",
+    "invalidOptions": "У кожному списку дозволено до {{limit}} дійсних URL. Приватному торенту потрібен трекер.",
+    "sourcePlaceholder": "Виберіть файл або папку…",
+    "menuLabel": "Створити торрент-файл…"
   }
 }

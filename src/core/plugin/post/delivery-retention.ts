@@ -181,7 +181,7 @@ export interface PostDeliveryRetentionRepository {
   }): Promise<number>
   terminalizePlugin(input: {
     pluginId: string
-    reason: 'disabled' | 'uninstalled' | 'quarantined'
+    reason: 'disabled' | 'uninstalled' | 'quarantined' | 'security_revoked'
     at: number
   }): Promise<number>
   terminalizePermissionRevoked(input: {
@@ -263,7 +263,7 @@ export class PostDeliveryRetention {
 
   async pluginUnavailable(
     pluginId: string,
-    reason: 'disabled' | 'uninstalled' | 'quarantined',
+    reason: 'disabled' | 'uninstalled' | 'quarantined' | 'security_revoked',
     at: number
   ): Promise<number> {
     return this.terminalize(

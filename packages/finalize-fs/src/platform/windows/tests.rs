@@ -166,6 +166,148 @@ fn rename_only_handles_use_metadata_and_do_not_authorize_removal() {
 }
 
 #[test]
+fn rename_only_file_excludes_writers_until_the_published_handle_closes() {
+    let scratch = Scratch::new("rename-write-exclusion");
+    let source = scratch.path().join("source.motrix");
+    let target = scratch.path().join("source");
+    fs::write(&source, b"payload").unwrap();
+    let root = open_root(scratch.path().to_str().unwrap()).unwrap();
+    let artifact = super::open_artifact_for_rename(&root, "source.motrix").unwrap();
+
+    let error = fs::OpenOptions::new()
+        .write(true)
+        .open(&source)
+        .unwrap_err();
+    assert_eq!(
+        error.raw_os_error(),
+        Some(windows_sys::Win32::Foundation::ERROR_SHARING_VIOLATION as i32)
+    );
+    rename_opened_no_replace(&artifact, &root, "source").unwrap();
+    let error = fs::OpenOptions::new()
+        .write(true)
+        .open(&target)
+        .unwrap_err();
+    assert_eq!(
+        error.raw_os_error(),
+        Some(windows_sys::Win32::Foundation::ERROR_SHARING_VIOLATION as i32)
+    );
+    assert_eq!(fs::read(&target).unwrap(), b"payload");
+
+    drop(artifact);
+    fs::OpenOptions::new().write(true).open(&target).unwrap();
+}
+
+#[test]
+fn synced_guard_preserves_the_post_close_stamp_and_excludes_late_writers() {
+    let scratch = Scratch::new("synced-guard");
+    let source = scratch.path().join("app.zip.motrix");
+    let target = scratch.path().join("app.zip");
+    fs::write(&source, b"download").unwrap();
+    let root = open_root(scratch.path().to_str().unwrap()).unwrap();
+    let (guard, _) = super::open_rename_guard(&root, "app.zip.motrix")
+        .unwrap()
+        .expect("NTFS guard");
+    assert!(fs::OpenOptions::new().write(true).open(&source).is_err());
+    rename_opened_no_replace(&guard, &root, "app.zip").unwrap();
+    assert!(fs::OpenOptions::new().write(true).open(&target).is_err());
+    let installed = super::metadata::change_time(&guard.handle).unwrap();
+    drop(guard);
+    let reopened =
+        super::nt::open_selected(&root.handle, &super::nt::wide_name("app.zip").unwrap()).unwrap();
+    assert_eq!(super::metadata::change_time(&reopened).unwrap(), installed);
+    assert_eq!(fs::read(target).unwrap(), b"download");
+    assert!(!source.exists());
+}
+
+#[test]
+fn rename_admission_rejects_an_existing_writer_even_when_it_shares_delete() {
+    use std::os::windows::fs::OpenOptionsExt;
+    use windows_sys::Win32::Storage::FileSystem::{
+        FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
+    };
+
+    let scratch = Scratch::new("rename-existing-writer");
+    let source = scratch.path().join("source.motrix");
+    fs::write(&source, b"payload").unwrap();
+    let root = open_root(scratch.path().to_str().unwrap()).unwrap();
+    let writer = fs::OpenOptions::new()
+        .write(true)
+        .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
+        .open(&source)
+        .unwrap();
+    let name = super::nt::wide_name("source.motrix").unwrap();
+    // Test one admission attempt; the production rename wrapper retries this
+    // sharing violation without relaxing its deny-write policy.
+    let error = super::nt::open_existing(&root.handle, &name).unwrap_err();
+    assert_eq!(
+        crate::error::os_code(&error),
+        Some(windows_sys::Win32::Foundation::ERROR_SHARING_VIOLATION as i32)
+    );
+    drop(writer);
+    let artifact = super::open_artifact_for_rename(&root, "source.motrix").unwrap();
+    rename_opened_no_replace(&artifact, &root, "source").unwrap();
+    assert_eq!(fs::read(scratch.path().join("source")).unwrap(), b"payload");
+}
+
+#[test]
+fn rename_admission_excludes_a_writable_mapping_after_its_file_handle_closes() {
+    use std::os::windows::fs::OpenOptionsExt;
+    use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
+    use windows_sys::Win32::Storage::FileSystem::{
+        FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
+    };
+    use windows_sys::Win32::System::Memory::{
+        CreateFileMappingW, FILE_MAP_WRITE, MEMORY_MAPPED_VIEW_ADDRESS, MapViewOfFile,
+        PAGE_READWRITE, UnmapViewOfFile,
+    };
+
+    struct View(MEMORY_MAPPED_VIEW_ADDRESS);
+    impl Drop for View {
+        fn drop(&mut self) {
+            unsafe { UnmapViewOfFile(self.0) };
+        }
+    }
+
+    let scratch = Scratch::new("rename-existing-mapping");
+    let source = scratch.path().join("source.motrix");
+    fs::write(&source, b"payload").unwrap();
+    let root = open_root(scratch.path().to_str().unwrap()).unwrap();
+    let writer = fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
+        .open(&source)
+        .unwrap();
+    let raw_mapping = unsafe {
+        CreateFileMappingW(
+            writer.as_raw_handle(),
+            std::ptr::null(),
+            PAGE_READWRITE,
+            0,
+            0,
+            std::ptr::null(),
+        )
+    };
+    assert!(!raw_mapping.is_null(), "create writable mapping");
+    let mapping = unsafe { OwnedHandle::from_raw_handle(raw_mapping) };
+    let raw_view = unsafe { MapViewOfFile(mapping.as_raw_handle(), FILE_MAP_WRITE, 0, 0, 0) };
+    assert!(!raw_view.Value.is_null(), "map writable view");
+    let view = View(raw_view);
+    drop(writer);
+
+    let name = super::nt::wide_name("source.motrix").unwrap();
+    assert!(
+        super::nt::open_existing(&root.handle, &name).is_err(),
+        "a surviving writable view must block metadata-only rename admission"
+    );
+    drop(view);
+    drop(mapping);
+    let artifact = super::open_artifact_for_rename(&root, "source.motrix").unwrap();
+    rename_opened_no_replace(&artifact, &root, "source").unwrap();
+    assert_eq!(fs::read(scratch.path().join("source")).unwrap(), b"payload");
+}
+
+#[test]
 fn classic_delete_finishes_after_the_admitted_handle_closes() {
     let scratch = Scratch::new("classic-delete");
     fs::write(scratch.path().join("payload.bin"), b"payload").unwrap();
@@ -244,4 +386,77 @@ fn rename_admission_waits_for_a_reader_that_denies_delete_sharing() {
         b"complete"
     );
     assert!(!scratch.path().join("source.motrix").exists());
+}
+
+#[test]
+#[ignore = "requires MOTRIX_FINALIZE_EXFAT_ROOT on a disposable exFAT volume"]
+fn exfat_volume_root_and_nested_directory_support_no_replace_rename() {
+    use std::io::Write;
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::Storage::FileSystem::GetVolumeInformationByHandleW;
+
+    let volume =
+        PathBuf::from(std::env::var("MOTRIX_FINALIZE_EXFAT_ROOT").expect("exFAT volume root"));
+    let (_, parts) = super::split_absolute_root(&volume).unwrap();
+    assert!(parts.is_empty(), "test must include the volume root itself");
+    let root = open_root(volume.to_str().unwrap()).expect("admit exFAT root without a file ID");
+    let mut filesystem = [0_u16; 32];
+    let result = unsafe {
+        GetVolumeInformationByHandleW(
+            root.handle.as_raw_handle(),
+            std::ptr::null_mut(),
+            0,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            filesystem.as_mut_ptr(),
+            filesystem.len() as u32,
+        )
+    };
+    assert_ne!(
+        result,
+        0,
+        "query exFAT volume: {}",
+        std::io::Error::last_os_error()
+    );
+    let end = filesystem.iter().position(|value| *value == 0).unwrap();
+    assert!(String::from_utf16_lossy(&filesystem[..end]).eq_ignore_ascii_case("exfat"));
+
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let prefix = format!("motrix-exfat-{}-{nonce}", std::process::id());
+    let scratch = Scratch(volume.join(&prefix));
+    fs::create_dir(scratch.path()).unwrap();
+    fs::create_dir(scratch.path().join("nested")).unwrap();
+    for directory in [volume, scratch.path().join("nested")] {
+        let root = open_root(directory.to_str().unwrap()).unwrap();
+        let source = format!("{prefix}.rar.motrix");
+        let target = format!("{prefix}.rar");
+        for (name, bytes) in [
+            (&source, b"download".as_slice()),
+            (&target, b"existing".as_slice()),
+        ] {
+            let mut file = fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(directory.join(name))
+                .unwrap();
+            file.write_all(bytes).unwrap();
+            file.sync_all().unwrap();
+        }
+        let artifact = super::open_artifact_for_rename(&root, &source).unwrap();
+        assert!(rename_opened_no_replace(&artifact, &root, &target).is_err());
+        assert_eq!(fs::read(directory.join(&target)).unwrap(), b"existing");
+        assert_eq!(fs::read(directory.join(&source)).unwrap(), b"download");
+        fs::remove_file(directory.join(&target)).unwrap();
+        let result = rename_opened_no_replace(&artifact, &root, &target).unwrap();
+        assert_eq!(result.directory_sync_mode, "directory_flushed");
+        sync_root(&root).unwrap();
+        drop(artifact);
+        assert!(!directory.join(&source).exists());
+        assert_eq!(fs::read(directory.join(&target)).unwrap(), b"download");
+        fs::remove_file(directory.join(target)).unwrap();
+    }
 }

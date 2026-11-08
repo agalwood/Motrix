@@ -13,6 +13,7 @@ import type {
 } from '@core/engine/engine-adapter'
 import { DIRECT_RESOURCE_METADATA_PROFILE } from '@core/engine/engine-adapter'
 import { ensureDirectory } from '@core/fs/ensure-directory'
+import { sanitizeFinalizeFilename } from '@core/fs/finalize-path'
 import { newEngineTaskId, newTaskId } from '@core/lib/ids'
 import { getLogger } from '@core/logger'
 import type { HookAuditLog } from '@core/plugin/hooks/audit-log'
@@ -51,7 +52,10 @@ import {
   TaskType,
   TransitionPhase,
 } from '@shared/types/task'
-import { isTorrentLikeType } from '@shared/types/task-actions'
+import {
+  canManageBtStorage,
+  isTorrentLikeType,
+} from '@shared/types/task-actions'
 import type { TaskActivityRecorder } from '@shared/types/task-activity'
 import type Database from 'better-sqlite3'
 import {
@@ -63,6 +67,12 @@ import {
   TorrentDuplicateConflictError,
   withBtOutputAdmission,
 } from './bt-duplicate-policy'
+import { verifyBtFiles } from './bt-file-verifier'
+import {
+  btOutputPaths,
+  hasBtControlFile,
+  hasReservedTaskOutput,
+} from './bt-output-reservation'
 import {
   btStoragePayload,
   createBtDirectStoragePlan,
@@ -97,6 +107,7 @@ import {
   admitTaskCreateRequest,
   DownloadSourceError,
 } from './source-admission'
+import { admitTaskCookies } from './task-cookie-admission'
 import type { TaskManager } from './task-manager'
 import type { TorrentMetaStore } from './torrent-meta-store'
 
@@ -139,7 +150,8 @@ export interface CreateTaskDeps {
    */
   persistTaskWithPluginMetadata?: (
     task: DownloadTask,
-    operations: readonly StagedMetadataOp[]
+    operations: readonly StagedMetadataOp[],
+    beforeCommit?: () => void
   ) => Promise<void>
   /** @deprecated Retained for legacy composition; never used for Hook commit. */
   db?: Database.Database
@@ -208,6 +220,12 @@ export interface CreateTaskDeps {
   /** Re-adds a terminal BT task against its final layout with integrity
    * checking. Shell command handlers inject the existing reAddTask action. */
   reuseExistingBt?: (taskId: string) => Promise<void>
+  /** Called with content and destination admission already held. */
+  relocateExistingBt?: (
+    taskId: string,
+    directory: string,
+    name: string
+  ) => Promise<void>
 }
 
 export interface CreateTaskOptions {
@@ -288,6 +306,10 @@ async function createAdmittedTask(
 ): Promise<TaskCreateSuccessResult> {
   const parsed = taskCreateRequestSchema.safeParse(rawRequest)
   if (parsed.success && parsed.data.type === 'http') {
+    // Snapshot and clean credentials before any await or task side effect.
+    // Existing idempotent receipts are resolved before reaching this admission.
+    if (opts.cookies !== undefined)
+      opts = { ...opts, cookies: admitTaskCookies(deps.adapter, opts.cookies) }
     const policy = deps.directResourceProxyPolicy
     // Cold-start waiting happens before taking the proxy read lease. Once the
     // lease is held, a later disconnect must fail fast instead of waiting on
@@ -428,16 +450,13 @@ async function handleCreateTaskUnderAdmission(
       torrentInfoName = parsedBtLayout.torrentRootName
       isPrivateFromTorrent = parsedBtLayout.isPrivate
     } catch (err) {
-      if (err instanceof UnsafeTorrentPathError) {
-        throw new AppError(
-          ErrorCode.TorrentParseFailed,
-          'Torrent contains an unsafe file path',
-          err
-        )
-      }
-      log.warn(
-        { err },
-        'failed to parse torrent paths; using engine paths inside the final directory'
+      if (err instanceof AppError) throw err
+      throw new AppError(
+        ErrorCode.TorrentParseFailed,
+        err instanceof UnsafeTorrentPathError
+          ? 'Torrent contains an unsafe file path'
+          : 'Invalid torrent metadata',
+        err
       )
     }
   }
@@ -450,12 +469,63 @@ async function handleCreateTaskUnderAdmission(
           ? extractMagnetInfoHash(req.payload.uri)
           : null))
 
+  const useExistingFiles =
+    req.type === 'bt' && req.duplicatePolicy === 'use-existing'
+  if (
+    useExistingFiles &&
+    req.type === 'bt' &&
+    parsedBtLayout &&
+    btInfoHash &&
+    deps.relocateExistingBt
+  ) {
+    const matching = deps.taskManager
+      .getAll()
+      .filter(
+        (task) =>
+          task.status !== TaskStatus.Removed &&
+          task.infoHash?.toLowerCase() === btInfoHash
+      )
+    const sameSelection = (values: readonly number[]) =>
+      [...new Set(values)].sort((a, b) => a - b).join(',')
+    const owner = matching.length === 1 ? matching[0] : undefined
+    if (
+      owner &&
+      canManageBtStorage(owner) &&
+      sameSelection(owner.bt?.selectedFiles ?? []) ===
+        sameSelection(req.selectedFiles)
+    ) {
+      await deps.relocateExistingBt(
+        owner.id,
+        effectiveSaveDir,
+        sanitizeFinalizeFilename(deriveDesiredName(req, torrentInfoName))
+      )
+      return {
+        outcome: 'rechecked',
+        taskId: owner.id,
+        gid:
+          deps.taskManager.getById(owner.id)?.engineTaskId ??
+          owner.engineTaskId,
+      }
+    }
+    if (matching.length > 0)
+      throw new TorrentDuplicateConflictError({
+        reason: 'active-info-hash',
+        infoHash: btInfoHash,
+        targetDir: effectiveSaveDir,
+        existingTaskId: matching[0].id,
+        existingTaskName: matching[0].name,
+        existingTaskStatus: matching[0].status,
+        canCreateCopy: false,
+      })
+  }
+
   if (req.type === 'bt' && btInfoHash) {
     const admission = inspectBtDuplicate(deps.taskManager.getAll(), {
       infoHash: btInfoHash,
       saveDir: effectiveSaveDir,
       selectedFiles: req.selectedFiles,
-      duplicatePolicy: req.duplicatePolicy,
+      duplicatePolicy:
+        req.duplicatePolicy === 'use-existing' ? 'reuse' : req.duplicatePolicy,
       excludeTaskId: req.existingTaskId,
     })
     if (admission.action === 'conflict') {
@@ -478,6 +548,7 @@ async function handleCreateTaskUnderAdmission(
 
   // 1. Decide final on-disk name (handles collisions).
   const desiredName = deriveDesiredName(req, torrentInfoName)
+  const existingName = sanitizeFinalizeFilename(desiredName)
   if (
     req.type === 'bt' &&
     btInfoHash &&
@@ -500,8 +571,9 @@ async function handleCreateTaskUnderAdmission(
     reservedNames.length > 0
       ? deps.finalNamePicker.pick(effectiveSaveDir, desired, reservedNames)
       : deps.finalNamePicker.pick(effectiveSaveDir, desired)
-  let finalName =
-    req.type === 'bt'
+  let finalName = useExistingFiles
+    ? existingName
+    : req.type === 'bt'
       ? await deps.finalNamePicker.pick(
           effectiveSaveDir,
           desiredName,
@@ -509,6 +581,33 @@ async function handleCreateTaskUnderAdmission(
           parsedBtLayout?.multiFile === false
         )
       : await pickHttpFinalName(desiredName)
+
+  if (useExistingFiles) {
+    if (!torrentBytes || !parsedBtLayout || req.type !== 'bt')
+      throw new AppError(
+        ErrorCode.TorrentParseFailed,
+        'task.storage.errors.unavailable'
+      )
+    const output = path.join(effectiveSaveDir, existingName)
+    if (
+      hasReservedTaskOutput(
+        deps.taskManager.getAll(),
+        btOutputPaths(output, parsedBtLayout.multiFile)
+      ) ||
+      (!parsedBtLayout.multiFile && (await hasBtControlFile(output)))
+    )
+      throw new AppError(
+        ErrorCode.TorrentDuplicateConflict,
+        'task.storage.errors.conflict'
+      )
+    const verification = await verifyBtFiles({
+      metadata: torrentBytes,
+      payloadPath: output,
+      selectedFiles: req.selectedFiles,
+    })
+    if (!verification.complete)
+      throw new AppError(ErrorCode.TaskNotRetryable, 'task.storage.incomplete')
+  }
 
   const taskType = deriveTaskType(req)
   let finalPath = path.join(effectiveSaveDir, finalName)
@@ -538,6 +637,7 @@ async function handleCreateTaskUnderAdmission(
   const btStoragePlan = isTorrentLikeType(taskType)
     ? createBtDirectStoragePlan(finalPath, parsedBtLayout, torrentMetaPath)
     : null
+  if (useExistingFiles && btStoragePlan) btStoragePlan.layout.finalized = true
 
   // Fail before a single byte moves when a destination cannot be opened at
   // all. The engine opens Windows paths past MAX_PATH (agalwood/Motrix#2183),
@@ -579,7 +679,11 @@ async function handleCreateTaskUnderAdmission(
   // incomplete suffix. BT uses its final output directory and no `out`;
   // parsed torrents additionally carry per-file output mappings. The adapter
   // is responsible for the aria2 wire shape.
+  let recordPluginEngineDispatch:
+    | ((params: CreateDownloadParams) => void)
+    | undefined
   let pluginMetadataOps: readonly StagedMetadataOp[] = []
+  let assertPluginPolicyCurrent: (() => void) | undefined
   let dispatchEngine: (reservedGid: string) => Promise<string>
   let directReplay: DirectReplayRecipe | null = null
   let canonicalUris = deriveUris(req)
@@ -598,6 +702,7 @@ async function handleCreateTaskUnderAdmission(
         {
           method: 'createDownload',
           uriCount: params.uris.length,
+          uris: params.uris,
           gid: reservedGid,
           saveDir: params.saveDir,
           filename: params.filename,
@@ -605,6 +710,7 @@ async function handleCreateTaskUnderAdmission(
         },
         'dispatching to engine'
       )
+      recordPluginEngineDispatch?.(params)
       return deps.adapter.createDownload(params)
     }
 
@@ -765,6 +871,7 @@ async function handleCreateTaskUnderAdmission(
         {
           taskId,
           aborted: result.aborted === true,
+          rewrittenUris: result.aborted ? undefined : result.final.uris,
           rewrittenUriCount: result.aborted
             ? undefined
             : result.final.uris.length,
@@ -783,6 +890,11 @@ async function handleCreateTaskUnderAdmission(
           ErrorCode.PluginRuntimeFault,
           `plugin chain aborted: ${result.reason}`
         )
+      }
+      recordPluginEngineDispatch = result.recordEngineDispatch
+      if (result.staged.hasPolicyChecks) {
+        assertPluginPolicyCurrent = () => result.staged.assertPolicyCurrent()
+        assertPluginPolicyCurrent()
       }
       // Apply merged outputs back to the create params. mergeChain is
       // well-defined for the slot keys we care about; absent keys keep
@@ -818,6 +930,7 @@ async function handleCreateTaskUnderAdmission(
         uriContributor: result.contributors.uris,
         finalHeaderCount: result.final.headers.length,
       })
+      assertPluginPolicyCurrent?.()
       pluginMetadataOps =
         typeof result.staged.allMetadataOps === 'function'
           ? result.staged.allMetadataOps()
@@ -854,6 +967,7 @@ async function handleCreateTaskUnderAdmission(
       await pickHttpName(uriBasename(params.uris[0]) ?? 'download')
     }
 
+    assertPluginPolicyCurrent?.()
     // Probe only after mux has declined the URL and the plugin chain has
     // accepted and finalized its URI/header/proxy outputs. An aborted or
     // rewritten request must never probe the stale user-supplied target.
@@ -894,6 +1008,13 @@ async function handleCreateTaskUnderAdmission(
     // future retry can be reconstructed from TaskInstance. Paths and URIs are
     // already canonical fields on the instance; modifier VALUES remain
     // engine-call-only so credentials never enter motrix.db.
+    assertPluginPolicyCurrent?.()
+    if (
+      params.uris.length === 1 &&
+      (await deps.adapter.supportsDirectTaskRetry?.())
+    ) {
+      params.retainRequestContext = true
+    }
     directReplay = buildDirectReplayRecipe(
       params,
       ambientMetadataProfile === null
@@ -927,6 +1048,7 @@ async function handleCreateTaskUnderAdmission(
         )
       }
     }
+    assertPluginPolicyCurrent?.()
     canonicalUris = [...params.uris]
     dispatchEngine = dispatchCreateDownload(params)
   } else if (req.payload.kind === 'torrent-base64') {
@@ -934,6 +1056,9 @@ async function handleCreateTaskUnderAdmission(
     // are always present on the torrent-base64 path.
     const params: AddTorrentParams = {
       metadata: torrentBytes ?? decodeBase64ToBytes(req.payload.base64),
+      ...(useExistingFiles
+        ? { checkIntegrity: true, preserveExistingFiles: true }
+        : {}),
       saveDir: btStoragePlan?.saveDir ?? diskPath,
       // CREATE-PATH +1: req indices are 0-based; aria2 select-file is
       // 1-based, and addTorrent serializes selectedFiles with a raw join.
@@ -1066,8 +1191,8 @@ async function handleCreateTaskUnderAdmission(
     infoHash: btInfoHash,
     // For BT/Magnet, seed bt.isPrivate at creation time so SessionManager.save()
     // persists is_private to db. Other bt fields are filled in by the next poll
-    // cycle via translateBtExtension; mergeTask preserves isPrivate via the
-    // saved.isPrivate injection wired in Task 4.
+    // cycle via translateBtExtension; mergeEngineTask preserves this metadata
+    // while merging live engine metrics.
     bt: isBtLike
       ? makeDefaultBtExtension({
           isPrivate: isPrivateFromTorrent,
@@ -1084,6 +1209,15 @@ async function handleCreateTaskUnderAdmission(
     deps.taskManager.reserveEngineTaskId(gid)
 
     const persistParent = async (): Promise<void> => {
+      assertPluginPolicyCurrent?.()
+      if (assertPluginPolicyCurrent && deps.persistTaskWithPluginMetadata) {
+        await deps.persistTaskWithPluginMetadata(
+          task,
+          pluginMetadataOps,
+          assertPluginPolicyCurrent
+        )
+        return
+      }
       if (pluginMetadataOps.length > 0) {
         await deps.persistTaskWithPluginMetadata?.(task, pluginMetadataOps)
         return
@@ -1093,7 +1227,8 @@ async function handleCreateTaskUnderAdmission(
     const hasDurableIntent = Boolean(
       deps.persistTask ||
         deps.parentTaskCreated ||
-        (pluginMetadataOps.length > 0 && deps.persistTaskWithPluginMetadata)
+        ((pluginMetadataOps.length > 0 || assertPluginPolicyCurrent) &&
+          deps.persistTaskWithPluginMetadata)
     )
     const rollbackDurableIntent = async (): Promise<boolean> => {
       if (!hasDurableIntent) return true
@@ -1147,7 +1282,9 @@ async function handleCreateTaskUnderAdmission(
         deps.assertEngineReady?.()
         assertAppliedProxyCurrent?.()
       }
+      assertPluginPolicyCurrent?.()
       const actualGid = await dispatchEngine(gid)
+      assertPluginPolicyCurrent?.()
       if (actualGid.toLowerCase() !== gid.toLowerCase()) {
         throw new Error(
           `Engine returned gid ${actualGid} instead of reserved gid ${gid}`

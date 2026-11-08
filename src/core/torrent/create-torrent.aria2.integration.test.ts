@@ -38,7 +38,7 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
     })
 
     it('adds and hash-checks the created metainfo against existing data', async () => {
-      const payload = 'aria2 create-torrent integration payload\n'
+      const payload = 'aria2 create-torrent integration payload\n'.repeat(2081)
       const sourceFile = path.join(directory, 'payload.bin')
       await writeFile(sourceFile, payload)
 

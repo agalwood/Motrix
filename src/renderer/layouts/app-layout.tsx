@@ -1,7 +1,10 @@
 import { AddTaskDialogHost } from '@renderer/components/add-task-dialog/add-task-dialog-host'
 import { AppSidebar } from '@renderer/components/desktop-kit/sidebar/app-sidebar'
+import {
+  RendererSubmissionNotice,
+  RendererToaster,
+} from '@renderer/components/renderer-recovery-notice'
 import { SidebarInset, SidebarProvider } from '@renderer/components/ui/sidebar'
-import { Toaster } from '@renderer/components/ui/toast'
 import { TooltipProvider } from '@renderer/components/ui/tooltip'
 import { WebConnectionNotice } from '@renderer/components/web-connection-notice'
 import { AddTaskTriggerButton } from '@renderer/components/window-chrome/add-task-trigger-button'
@@ -11,24 +14,33 @@ import { WindowChrome } from '@renderer/components/window-chrome/window-chrome'
 import { DesktopMenuActions } from '@renderer/features/application-menu/desktop-menu-actions'
 import { MenuNavigationFocus } from '@renderer/features/application-menu/navigation-focus'
 import { EngineDiagnosticsDialogHost } from '@renderer/features/engine-diagnostics/engine-diagnostics-dialog'
+import { OperationDialogHost } from '@renderer/features/plugin-operations/operation-dialog'
 import { useEngineRestartRequiredToast } from '@renderer/hooks/use-engine-restart-required-toast'
+import { useGraphicsRecoveryToast } from '@renderer/hooks/use-graphics-recovery-toast'
 import { useIpcEvent } from '@renderer/hooks/use-ipc-event'
 import { useMenuContextSync } from '@renderer/hooks/use-menu-context-sync'
 import { useNotificationToasts } from '@renderer/hooks/use-notification-toasts'
 import { useSidebarColor } from '@renderer/hooks/use-sidebar-color'
 import { useToastEvents } from '@renderer/hooks/use-toast-events'
+import { useWindowTorrentDrop } from '@renderer/hooks/use-window-torrent-drop'
 import { cn } from '@renderer/lib/utils'
 import { electronServices } from '@renderer/platform/electron-services'
+import { FnosEntry } from '@renderer/platform/fnos-entry'
 import { PlatformServicesProvider } from '@renderer/platform/services'
 import { webServices } from '@renderer/platform/web-services'
 import type { RouteHandle } from '@renderer/router-types'
+import { RedownloadOverwriteDialogHost } from '@renderer/routes/downloads/inspector/redownload-overwrite-dialog-host'
 import { RemoveTasksDialogHost } from '@renderer/routes/downloads/inspector/remove-tasks-dialog-host'
+import { RetryParametersDialogHost } from '@renderer/routes/downloads/inspector/retry-parameters-dialog-host'
 import { useDownloadsSelection } from '@renderer/routes/downloads/store'
 import { useDownloadsView } from '@renderer/routes/downloads/view-preferences'
+import { MigrationPage } from '@renderer/routes/migration/migration-page'
 import { usePairRequestPrompts } from '@renderer/routes/settings/cards/integration/use-pair-request-prompts'
+import { LEGACY_MIGRATION_ROUTE } from '@shared/lib/legacy-import-navigation'
 import { isDownloadsListRoute } from '@shared/lib/task-navigation'
 import { Events } from '@shared/protocol/events'
-import { Outlet, useMatches, useNavigate } from 'react-router'
+import { type ReactNode, useRef } from 'react'
+import { useLocation, useMatches, useNavigate, useOutlet } from 'react-router'
 
 const platformServices =
   __MOTRIX_TARGET__ === 'electron' ? electronServices : webServices
@@ -38,14 +50,27 @@ function DesktopMenuContext() {
   return <DesktopMenuActions />
 }
 
+/** Web only: drop .torrent files on the window to start the Add Task flow. */
+function WindowTorrentDrop() {
+  useWindowTorrentDrop()
+  return null
+}
+
 export function AppLayout() {
   useSidebarColor()
   useToastEvents()
   usePairRequestPrompts()
   useEngineRestartRequiredToast()
+  useGraphicsRecoveryToast()
   useNotificationToasts()
 
   const navigate = useNavigate()
+  const location = useLocation()
+  const outlet = useOutlet()
+  const migrationActive = location.pathname === LEGACY_MIGRATION_ROUTE
+  const settingsActive = /^\/settings(?:\/|$)/.test(location.pathname)
+  const retainedSettings = useRef<ReactNode>(null)
+  if (settingsActive) retainedSettings.current = outlet
   const matches = useMatches()
   const transparentInset = matches.some(
     (m) => (m.handle as RouteHandle | undefined)?.transparentInset
@@ -58,68 +83,89 @@ export function AppLayout() {
       useDownloadsView.getState().setInspectorVisible(false)
       useDownloadsSelection.getState().clearSelection()
     }
-    navigate(path)
+    return navigate(path)
   })
 
   return (
     <TooltipProvider>
-      <PlatformServicesProvider services={platformServices}>
-        {/* Unconditional bg-sidebar: below the md breakpoint the Sidebar
+      <RendererToaster>
+        <PlatformServicesProvider services={platformServices}>
+          {__MOTRIX_TARGET__ === 'web' && <FnosEntry />}
+          {/* Unconditional bg-sidebar: below the md breakpoint the Sidebar
             renders as a portaled Sheet without data-variant="inset", so the
             wrapper's built-in has-data-[variant=inset]:bg-sidebar stops
             matching and transparent-inset pages would fall through to the
             white body background. */}
-        <SidebarProvider
-          className={cn(
-            'h-svh overflow-hidden bg-sidebar',
-            __MOTRIX_TARGET__ === 'web' && 'web-window-chrome',
-            __MOTRIX_TARGET__ === 'electron' && 'electron-window-chrome',
-            __MOTRIX_TARGET__ === 'electron' &&
-              __MOTRIX_PREVIEW_MAC_MENU__ &&
-              'preview-desktop-window-controls'
-          )}
-        >
-          <WindowChrome
-            variant="overlay"
-            leading={<MotrixMenuButton />}
-            previewDesktopControls={__MOTRIX_PREVIEW_MAC_MENU__}
-          >
-            <div className="flex items-center gap-1.5">
-              <SidebarTriggerButton />
-              <AddTaskTriggerButton />
-            </div>
-          </WindowChrome>
-          <AppSidebar />
-          <SidebarInset
+          <SidebarProvider
             className={cn(
-              'min-h-0 overflow-hidden bg-sidebar-inset',
-              // Keep the inset card look below the md breakpoint too —
-              // upstream gates these behind md:peer-data-[variant=inset]:,
-              // which stops matching once the sidebar renders as a Sheet.
-              // At md+ the built-in ms-0 / collapsed ms-2 still win over
-              // m-2 (Tailwind orders ms-* after m-*).
-              'm-2 rounded-xl shadow-sm',
-              // Suppress BOTH shadow forms: tailwind-merge only collapses
-              // identical-modifier classes, so a bare shadow-none would
-              // leave the component's built-in
-              // md:peer-data-[variant=inset]:shadow-sm alive at md+.
-              transparentInset &&
-                'bg-transparent shadow-none md:peer-data-[variant=inset]:shadow-none'
+              'h-svh overflow-hidden bg-sidebar',
+              __MOTRIX_TARGET__ === 'web' && 'web-window-chrome',
+              __MOTRIX_TARGET__ === 'electron' && 'electron-window-chrome',
+              __MOTRIX_TARGET__ === 'electron' &&
+                __MOTRIX_PREVIEW_MAC_MENU__ &&
+                'preview-desktop-window-controls'
             )}
           >
-            <div className="min-h-0 flex-1 overflow-hidden">
-              <Outlet />
-            </div>
-            <WebConnectionNotice />
-          </SidebarInset>
-        </SidebarProvider>
-        {__MOTRIX_TARGET__ === 'electron' && <DesktopMenuContext />}
-        <MenuNavigationFocus />
-        <RemoveTasksDialogHost />
-        <EngineDiagnosticsDialogHost />
-        {__MOTRIX_TARGET__ === 'web' && <AddTaskDialogHost />}
-      </PlatformServicesProvider>
-      <Toaster />
+            <WindowChrome
+              variant="overlay"
+              leading={<MotrixMenuButton />}
+              previewDesktopControls={__MOTRIX_PREVIEW_MAC_MENU__}
+            >
+              <div className="flex items-center gap-1.5">
+                <SidebarTriggerButton />
+                <AddTaskTriggerButton />
+              </div>
+            </WindowChrome>
+            <AppSidebar />
+            <SidebarInset
+              className={cn(
+                'min-h-0 overflow-hidden bg-sidebar-inset',
+                // Keep the inset card look below the md breakpoint too —
+                // upstream gates these behind md:peer-data-[variant=inset]:,
+                // which stops matching once the sidebar renders as a Sheet.
+                // At md+ the built-in ms-0 / collapsed ms-2 still win over
+                // m-2 (Tailwind orders ms-* after m-*).
+                'm-2 rounded-xl shadow-sm',
+                // Suppress BOTH shadow forms: tailwind-merge only collapses
+                // identical-modifier classes, so a bare shadow-none would
+                // leave the component's built-in
+                // md:peer-data-[variant=inset]:shadow-sm alive at md+.
+                transparentInset &&
+                  'bg-transparent shadow-none md:peer-data-[variant=inset]:shadow-none'
+              )}
+            >
+              <RendererSubmissionNotice
+                className="mx-4 mb-2 mt-12"
+                onOpenDownloads={() => void navigate('/downloads/all')}
+              />
+              <div className="min-h-0 flex-1 overflow-hidden">
+                <div hidden={!migrationActive} className="h-full min-h-0">
+                  <MigrationPage active={migrationActive} />
+                </div>
+                <div hidden={!settingsActive} className="h-full min-h-0">
+                  {retainedSettings.current}
+                </div>
+                <div
+                  hidden={migrationActive || settingsActive}
+                  className="h-full min-h-0"
+                >
+                  {!settingsActive && outlet}
+                </div>
+              </div>
+              <WebConnectionNotice />
+            </SidebarInset>
+          </SidebarProvider>
+          {__MOTRIX_TARGET__ === 'electron' && <DesktopMenuContext />}
+          <MenuNavigationFocus />
+          <RemoveTasksDialogHost />
+          <RedownloadOverwriteDialogHost />
+          <RetryParametersDialogHost />
+          <OperationDialogHost />
+          <EngineDiagnosticsDialogHost />
+          {__MOTRIX_TARGET__ === 'web' && <AddTaskDialogHost />}
+          {__MOTRIX_TARGET__ === 'web' && <WindowTorrentDrop />}
+        </PlatformServicesProvider>
+      </RendererToaster>
     </TooltipProvider>
   )
 }

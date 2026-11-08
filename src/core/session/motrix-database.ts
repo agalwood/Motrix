@@ -612,6 +612,23 @@ export class MotrixDatabase {
     this.lastPersistedSig.set(payload.task.motrixId, signature)
   }
 
+  /** Publish paused import graphs and their durable ledger in one transaction. */
+  saveLegacyImportBatch(
+    graphs: TaskWithInstancesAndFiles[],
+    writeLedger: () => void
+  ): void {
+    this.db.transaction(() => {
+      for (const graph of graphs) {
+        this.writeRow(graph)
+        this.writeTaskFiles(graph.task.motrixId, graph.files)
+      }
+      writeLedger()
+    })()
+    for (const graph of graphs) {
+      this.lastPersistedSig.set(graph.task.motrixId, this.rowSignature(graph))
+    }
+  }
+
   saveTasksBatch(payloads: TaskWithInstances[]): void {
     const tx = this.db.transaction((rows: TaskWithInstances[]) => {
       for (const row of rows) {
@@ -1338,7 +1355,12 @@ export class MotrixDatabase {
     return {
       instanceId: i.instanceId,
       motrixId: i.motrixId,
-      gid: i.gid,
+      // `gid` is globally UNIQUE and nullable: "no engine gid" MUST be NULL.
+      // An empty string is a real value to SQLite, so it would occupy the one
+      // '' slot for the whole table and make every other empty-gid instance
+      // (HLS segment/mux/etc.) fail to persist with SQLITE_CONSTRAINT_UNIQUE.
+      // Normalize '' — and any other falsy gid — to NULL at the boundary.
+      gid: i.gid ? i.gid : null,
       phase: i.phase,
       status: i.status,
       progress: i.progress,
@@ -1483,7 +1505,11 @@ function mapInstanceRow(row: RawInstanceRow): TaskInstanceRow {
   return {
     instanceId: row.instance_id,
     motrixId: row.motrix_id,
-    gid: row.gid,
+    // Heal legacy rows written before the '' -> NULL normalization: a stored
+    // empty string means "no engine gid" and must surface as NULL in memory,
+    // otherwise it round-trips back into the UNIQUE(gid) column and re-poisons
+    // every later write. See serializeInstance.
+    gid: row.gid === '' ? null : row.gid,
     phase: toInstancePhase(row.phase),
     status: toTaskStatus(row.status),
     progress: row.progress,

@@ -12,6 +12,7 @@ export interface NativeThemeSyncHandle {
 // This is what makes the user's choice flow into:
 //   - macOS vibrancy material + traffic-light/titlebar tint
 //   - Windows custom-title-bar colors through `prefers-color-scheme`
+//   - Linux Window Controls Overlay symbols through the resolved-theme callback
 //   - the OS-reported `prefers-color-scheme` (and thus the renderer's
 //     own dark-class application via next-themes when in `system` mode)
 //   - the Linux tray icon picker (reads `nativeTheme.shouldUseDarkColors`)

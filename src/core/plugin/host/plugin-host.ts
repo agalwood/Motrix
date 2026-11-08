@@ -10,8 +10,11 @@ import type { CapabilityHost } from '../capabilities/interface'
 import type { GrantsManager } from '../grants/grants-manager'
 import { ffmpegSatisfies } from '../install/ffmpeg-semver'
 import { readMoextEntry } from '../install/moext-reader'
+import { loadOfficialPackage } from '../install/official-package'
 import { resolveInsidePluginDir } from '../manifest/path-safety'
+import type { OperationExecution } from '../operations/operation-files'
 import type { PluginRegistry } from '../plugin-registry'
+import type { PluginSecurityService } from '../security/security-service'
 import type { PluginStateStore } from '../state/plugin-state-store'
 import { verifyBuiltinSignature } from '../update/signature'
 import type { HookName } from './bridge-protocol'
@@ -60,7 +63,11 @@ export interface PluginPolicyLease {
   release(): void
 }
 
-export type PluginUnavailableReason = 'disabled' | 'uninstalled' | 'quarantined'
+export type PluginUnavailableReason =
+  | 'disabled'
+  | 'uninstalled'
+  | 'quarantined'
+  | 'security_revoked'
 
 export type PluginUnavailableHandler = (
   pluginId: string,
@@ -69,6 +76,8 @@ export type PluginUnavailableHandler = (
 ) => Promise<number>
 
 export interface PluginHostOptions {
+  security?: PluginSecurityService
+  onSecurityChanged?: () => void
   registry: PluginRegistry
   stateStore: PluginStateStore
   capabilityHost: CapabilityHost
@@ -132,9 +141,10 @@ interface Active {
 
 interface ActivationAttempt {
   epoch: number
+  errorRecorded: boolean
   cancelled: boolean
   cancellation: Promise<never>
-  cancel(): void
+  cancel(reason?: Error): void
   promise: Promise<void>
 }
 
@@ -167,6 +177,8 @@ export class PluginHost {
   private idleTimer?: NodeJS.Timeout
   private unsubscribeLocale: () => void = () => {}
   private shuttingDown = false
+  private unsubscribeSecurity: () => void = () => {}
+  private readonly securityStops = new Map<string, Promise<void>>()
 
   constructor(private readonly opts: PluginHostOptions) {
     this.maxActivePlugins = opts.maxActivePlugins ?? DEFAULT_MAX_ACTIVE_PLUGINS
@@ -180,6 +192,8 @@ export class PluginHost {
     this.unsubscribeLocale = this.opts.capabilityHost.onLocaleChange((lang) => {
       this.broadcastLocaleChange(lang)
     })
+    this.unsubscribeSecurity =
+      opts.security?.subscribe(() => this.enforceSecurityPolicy()) ?? (() => {})
   }
 
   private broadcastLocaleChange(_lang: string): void {
@@ -255,7 +269,10 @@ export class PluginHost {
     pluginId: string,
     commandId: string,
     args: unknown,
-    options: { callChain?: PluginCallChain } = {}
+    options: {
+      callChain?: PluginCallChain
+      operation?: OperationExecution
+    } = {}
   ): Promise<unknown> {
     return this.laneFor(pluginId).run(
       () => {
@@ -267,6 +284,19 @@ export class PluginHost {
           )
         }
         a.lastActivityAt = Date.now()
+        if (options.operation) {
+          const context = {
+            ...options.operation,
+            signal: AbortSignal.any([
+              options.operation.signal,
+              a.admissionAbort.signal,
+            ]),
+          }
+          return a.bridge
+            .callOperation(commandId, args, context)
+            .finally(() => this.teardownActive(pluginId, a, true))
+        }
+
         return raceWithAdmissionAbort(
           a.bridge.callPlugin(commandId, args),
           a.admissionAbort.signal,
@@ -281,6 +311,7 @@ export class PluginHost {
     pluginId: string,
     options: { waitForDeactivation?: boolean } = {}
   ): Promise<void> {
+    this.opts.registry.assertSecurityAllowed?.(pluginId)
     if (this.shuttingDown) {
       throw new AppError(
         ErrorCode.PluginRuntimeFault,
@@ -335,12 +366,13 @@ export class PluginHost {
     void cancellation.catch(() => undefined)
     const attempt: ActivationAttempt = {
       epoch,
+      errorRecorded: false,
       cancelled: false,
       cancellation,
-      cancel: () => {
+      cancel: (reason = this.activationSupersededError(pluginId)) => {
         if (attempt.cancelled) return
         attempt.cancelled = true
-        rejectCancellation(this.activationSupersededError(pluginId))
+        rejectCancellation(reason)
       },
       promise: Promise.resolve(),
     }
@@ -348,6 +380,23 @@ export class PluginHost {
     // published before registry/capability test doubles can re-enter us.
     const promise = Promise.resolve()
       .then(() => this.doActivate(pluginId, attempt))
+      .catch((error: unknown) => {
+        if (
+          !attempt.errorRecorded &&
+          this.isActivationCurrent(pluginId, attempt) &&
+          !this.shuttingDown &&
+          this.opts.registry.get(pluginId)?.state.enabled &&
+          !this.opts.registry.securityDecision?.(pluginId)
+        ) {
+          const message = error instanceof Error ? error.message : String(error)
+          this.recordError(
+            pluginId,
+            `plugin.runtime.activation_failed: ${message}`
+          )
+          this.opts.registry.refreshState(pluginId)
+        }
+        throw error
+      })
       .finally(() => {
         if (this.activating.get(pluginId) === attempt) {
           this.activating.delete(pluginId)
@@ -356,6 +405,54 @@ export class PluginHost {
     attempt.promise = promise
     this.activating.set(pluginId, attempt)
     return promise
+  }
+
+  /** Probe dependencies, then publish enabled state only if admission stayed current. */
+  async enable(pluginId: string): Promise<void> {
+    const checkPolicy = this.capturePolicyCheck(pluginId)
+    const indexed = this.opts.registry.get(pluginId)
+    if (!indexed) {
+      throw new AppError(
+        ErrorCode.PluginManifestInvalid,
+        `unknown plugin: ${pluginId}`
+      )
+    }
+    if (this.shuttingDown) throw laneAdmissionClosed(pluginId)
+    await this.checkRuntimeRequirements(indexed.manifest)
+    checkPolicy()
+    if (this.shuttingDown) throw laneAdmissionClosed(pluginId)
+    // No await between the final policy check and publishing enabled state.
+    // A disable, upgrade, uninstall or grant change supersedes the old probe.
+    if (!this.opts.stateStore.get(pluginId)?.enabled) {
+      this.opts.stateStore.setEnabled(pluginId, true)
+      this.opts.registry.refreshState(pluginId)
+    }
+  }
+
+  private async checkRuntimeRequirements(
+    manifest: PluginManifest
+  ): Promise<boolean> {
+    const required = manifest.permissions.includes('ffmpeg')
+    const optional = manifest.optionalPermissions?.includes('ffmpeg')
+    if ((!required && !optional) || !this.opts.ffmpegDetect) return true
+    let detection: FfmpegDetection = { available: false }
+    try {
+      detection = await this.opts.ffmpegDetect()
+    } catch {
+      // A probe failure is an unavailable runtime dependency, not a bad package.
+    }
+    const satisfied =
+      detection.available &&
+      ffmpegSatisfies(detection.version ?? '', manifest.engines.ffmpeg ?? null)
+    if (required && !satisfied) {
+      throw new AppError(
+        ErrorCode.PluginCapabilityUnavailable,
+        detection.available
+          ? 'plugin.runtime.ffmpegIncompatible'
+          : 'plugin.runtime.ffmpegUnavailable'
+      )
+    }
+    return satisfied
   }
 
   private async doActivate(
@@ -376,6 +473,12 @@ export class PluginHost {
         `plugin ${pluginId} is disabled`
       )
     }
+    await this.awaitActivation(
+      pluginId,
+      attempt,
+      this.opts.registry.recordSecurityAdmission?.(pluginId) ??
+        Promise.resolve()
+    )
     const policyGeneration = this.policyGenerationFor(pluginId)
     if (this.active.size >= this.maxActivePlugins) {
       throw new AppError(
@@ -384,40 +487,23 @@ export class PluginHost {
       )
     }
 
-    const needsFfmpeg =
-      indexed.manifest.permissions.includes('ffmpeg') ||
-      (indexed.manifest.optionalPermissions ?? []).includes('ffmpeg')
-
-    let ffmpegDetection: FfmpegDetection = { available: false }
-    if (needsFfmpeg && this.opts.ffmpegDetect) {
-      ffmpegDetection = await this.awaitActivation(
+    let ffmpegAdvertised: boolean
+    try {
+      ffmpegAdvertised = await this.awaitActivation(
         pluginId,
         attempt,
-        this.opts.ffmpegDetect()
+        this.checkRuntimeRequirements(indexed.manifest)
       )
+    } catch (error) {
+      if (
+        error instanceof AppError &&
+        error.code === ErrorCode.PluginCapabilityUnavailable
+      ) {
+        this.recordError(pluginId, error.message)
+        this.opts.registry.refreshState(pluginId)
+      }
+      throw error
     }
-
-    const ffmpegSatisfied =
-      !this.opts.ffmpegDetect ||
-      (ffmpegDetection.available &&
-        ffmpegSatisfies(
-          ffmpegDetection.version ?? '',
-          indexed.manifest.engines.ffmpeg ?? null
-        ))
-
-    if (indexed.manifest.permissions.includes('ffmpeg') && !ffmpegSatisfied) {
-      this.opts.stateStore.recordError(
-        pluginId,
-        'plugin.manifest.engines.ffmpeg_too_old'
-      )
-      this.opts.registry.refreshState(pluginId)
-      throw new AppError(
-        ErrorCode.PluginManifestInvalid,
-        'plugin.manifest.engines.ffmpeg_too_old'
-      )
-    }
-
-    const ffmpegAdvertised = !needsFfmpeg || ffmpegSatisfied
 
     // manifest.main is only length-validated by the schema; contain it to the
     // plugin's own dir so "../../x" can't make us read+eval a file elsewhere.
@@ -436,7 +522,34 @@ export class PluginHost {
     }
 
     let bundleSource: string
-    if (indexed.overlay) {
+    if (indexed.official) {
+      const archive = await this.awaitActivation(
+        pluginId,
+        attempt,
+        loadOfficialPackage(
+          indexed.rootDir,
+          indexed.official,
+          this.opts.signingPubkeys
+        )
+      )
+      const entryBytes = await this.awaitActivation(
+        pluginId,
+        attempt,
+        readMoextEntry(archive.bytes, indexed.manifest.main)
+      )
+      if (!entryBytes) {
+        throw new AppError(
+          ErrorCode.PluginManifestInvalid,
+          'plugin.install.official_signature_invalid'
+        )
+      }
+      this.assertExecutableDigest(
+        pluginId,
+        indexed.executableDigest,
+        entryBytes
+      )
+      bundleSource = entryBytes.toString('utf8')
+    } else if (indexed.overlay) {
       // Firefox packed-XPI model (2026-07-18 design §4): a builtin
       // hot-update overlay's EXECUTED CODE comes from the signature-verified
       // bundle.moext, never the separately-tamperable extracted tree — an
@@ -456,10 +569,7 @@ export class PluginHost {
           this.opts.signingPubkeys
         )
       ) {
-        this.opts.stateStore.recordError(
-          pluginId,
-          'plugin.update.builtin_bad_signature'
-        )
+        this.recordError(pluginId, 'plugin.update.builtin_bad_signature')
         this.opts.registry.refreshState(pluginId)
         throw new AppError(
           ErrorCode.PluginManifestInvalid,
@@ -472,10 +582,7 @@ export class PluginHost {
         readMoextEntry(moextBytes, indexed.manifest.main)
       )
       if (!entryBytes) {
-        this.opts.stateStore.recordError(
-          pluginId,
-          'plugin.update.builtin_bundle_entry_missing'
-        )
+        this.recordError(pluginId, 'plugin.update.builtin_bundle_entry_missing')
         this.opts.registry.refreshState(pluginId)
         throw new AppError(
           ErrorCode.PluginManifestInvalid,
@@ -563,7 +670,7 @@ export class PluginHost {
               ErrorCode.PluginRuntimeFault,
               `plugin.hook.not_registered: ${missingHooks.join(',')}`
             )
-            this.opts.stateStore.recordError(pluginId, error.message)
+            this.recordError(pluginId, error.message)
             this.opts.registry.refreshState(pluginId)
             rejectReady(error)
             return
@@ -591,9 +698,23 @@ export class PluginHost {
           ) {
             return
           }
-          this.opts.stateStore.recordError(pluginId, `${code}: ${message}`)
+          const startupFailure =
+            !this.active.get(pluginId)?.ready &&
+            [
+              'plugin.runtime.worker_crashed',
+              'plugin.runtime.worker_exited',
+              'plugin.runtime.boot_failed',
+            ].includes(code)
+          this.recordError(
+            pluginId,
+            `${startupFailure ? 'plugin.runtime.worker_start_failed' : code}: ${message}`
+          )
           this.opts.registry.refreshState(pluginId)
-          rejectReady(new AppError(ErrorCode.PluginRuntimeFault, message))
+          const error = new AppError(ErrorCode.PluginRuntimeFault, message)
+          rejectReady(error)
+          // Teardown cancels activation synchronously. Preserve the worker
+          // failure even if cancellation wins the nested readiness race.
+          attempt.cancel(error)
           void this.deactivate(pluginId).catch(() => undefined)
         },
       }
@@ -699,6 +820,12 @@ export class PluginHost {
     await attempt?.promise.catch(() => undefined)
     const active = this.active.get(pluginId)
     if (!active) return
+    if (this.opts.registry.securityDecision?.(pluginId)) {
+      active.admissionAbort.abort()
+      await this.teardownActive(pluginId, active, true)
+      await this.laneFor(pluginId).drain()
+      return
+    }
     const lane = this.laneFor(pluginId)
     const drained = await lane.drainWithin(this.deactivateBudgetMs)
     if (!drained) {
@@ -731,6 +858,8 @@ export class PluginHost {
     active: Active,
     forced: boolean
   ): Promise<void> {
+    // A revoked guest must not run its own cleanup or issue more capabilities.
+    if (forced) await this.disposeActiveBridge(pluginId, active, true)
     // 1. Run worker-side deactivate handlers (budget enforced by bridge).
     if (!forced) {
       try {
@@ -773,11 +902,12 @@ export class PluginHost {
 
   private async disposeActiveBridge(
     pluginId: string,
-    active: Active
+    active: Active,
+    force = false
   ): Promise<void> {
     if (!active.disposeNeedsBackstop) {
       try {
-        await active.bridge.dispose()
+        await active.bridge.dispose(force)
         return
       } catch (error) {
         active.disposeNeedsBackstop = true
@@ -833,6 +963,7 @@ export class PluginHost {
     pluginId: string,
     attempt: ActivationAttempt
   ): void {
+    this.opts.registry.assertSecurityAllowed?.(pluginId)
     if (!this.isActivationCurrent(pluginId, attempt)) {
       throw this.activationSupersededError(pluginId)
     }
@@ -845,6 +976,15 @@ export class PluginHost {
     )
   }
 
+  private recordError(pluginId: string, message: string): void {
+    const attempt = this.activating.get(pluginId)
+    if (attempt) attempt.errorRecorded = true
+    this.opts.stateStore.recordError(pluginId, message)
+    this.opts.capabilityHost
+      .createLog(pluginId)
+      .error(message, { source: 'host' })
+  }
+
   private assertExecutableDigest(
     pluginId: string,
     expected: string | undefined,
@@ -852,10 +992,7 @@ export class PluginHost {
   ): void {
     const actual = createHash('sha256').update(bytes).digest('hex')
     if (!expected || actual !== expected) {
-      this.opts.stateStore.recordError(
-        pluginId,
-        'plugin.runtime.executable_identity_changed'
-      )
+      this.recordError(pluginId, 'plugin.runtime.executable_identity_changed')
       this.opts.registry.refreshState(pluginId)
       throw new AppError(
         ErrorCode.PluginRuntimeFault,
@@ -1025,6 +1162,26 @@ export class PluginHost {
     return this.policyBarriers.has(pluginId)
   }
 
+  isSecurityRestricted(pluginId: string): boolean {
+    return !!this.opts.registry.securityDecision?.(pluginId)
+  }
+
+  /** A returned hook result remains subject to revocation until committed. */
+  capturePolicyCheck(pluginId: string): () => void {
+    const generation = this.policyGenerationFor(pluginId)
+    const check = () => {
+      this.opts.registry.assertSecurityAllowed?.(pluginId)
+      if (
+        this.policyBarriers.has(pluginId) ||
+        this.policyGenerationFor(pluginId) !== generation
+      ) {
+        throw laneAdmissionClosed(pluginId)
+      }
+    }
+    check()
+    return check
+  }
+
   /**
    * Registers an invocation-scoped policy lease. Policy mutation aborts every
    * registered lease before waiting for the plugin lane or worker teardown.
@@ -1033,6 +1190,7 @@ export class PluginHost {
     pluginId: string,
     expectedGeneration: number
   ): PluginPolicyLease {
+    this.opts.registry.assertSecurityAllowed?.(pluginId)
     if (
       this.policyBarriers.has(pluginId) ||
       this.policyGenerationFor(pluginId) !== expectedGeneration
@@ -1130,7 +1288,7 @@ export class PluginHost {
       const previousState = this.opts.stateStore.get(pluginId)
       this.opts.stateStore.setEnabled(pluginId, false)
       if (options.recordError !== false) {
-        this.opts.stateStore.recordError(pluginId, reason)
+        this.recordError(pluginId, reason)
       }
       this.opts.registry.refreshState(pluginId)
       try {
@@ -1153,8 +1311,15 @@ export class PluginHost {
     this.opts.registry.refreshState(pluginId)
   }
 
+  private operationsShutdown?: () => Promise<void>
+  bindOperationsShutdown(shutdown: () => Promise<void>) {
+    this.operationsShutdown = shutdown
+  }
   async shutdown(): Promise<void> {
+    await this.operationsShutdown?.()
     this.shuttingDown = true
+    this.unsubscribeSecurity()
+    await this.opts.security?.stop()
     this.unsubscribeLocale()
     if (this.idleTimer) clearInterval(this.idleTimer)
     const pluginIds = new Set([
@@ -1163,6 +1328,8 @@ export class PluginHost {
       ...this.deactivating.keys(),
     ])
     await Promise.all([...pluginIds].map((id) => this.deactivate(id)))
+    await this.opts.capabilityHost.flush()
+    await this.opts.capabilityHost.closeLogs?.()
   }
 
   private sweepIdle(): void {
@@ -1195,6 +1362,7 @@ export class PluginHost {
   }
 
   private activeForUse(pluginId: string): Active | undefined {
+    if (this.opts.registry.securityDecision?.(pluginId)) return undefined
     if (this.quiescing.has(pluginId) || this.policyBarriers.has(pluginId)) {
       return undefined
     }
@@ -1236,6 +1404,51 @@ export class PluginHost {
       this.policyBarriers.delete(pluginId)
       if (!this.shuttingDown) this.laneFor(pluginId).reopen()
     }
+  }
+
+  /** Called on signed-policy refresh; closes all affected lanes before awaiting IO. */
+  enforceSecurityPolicy(): Promise<void> {
+    const operations: Promise<void>[] = []
+    for (const plugin of this.opts.registry.list()) {
+      if (!plugin.security || plugin.security.reason === 'pending') continue
+      const existing = this.securityStops.get(plugin.id)
+      if (existing) {
+        operations.push(existing)
+        continue
+      }
+      this.opts.registry.bumpPolicyGeneration(plugin.id)
+      this.laneFor(plugin.id).close()
+      this.abortPolicyAdmission(plugin.id)
+      const active = this.active.get(plugin.id)
+      const termination = active
+        ? this.disposeActiveBridge(plugin.id, active, true)
+        : Promise.resolve()
+      void termination.catch(() => undefined)
+      const operation = this.applyPolicyMutation(plugin.id, async () => {
+        await termination
+        // An installer may have already replaced the affected identity while
+        // this mutation waited for its lane. Never terminalize its fixed successor.
+        const decision = this.opts.registry.securityDecision(plugin.id)
+        if (decision && decision.advisoryIds.length > 0) {
+          await this.pluginUnavailable(plugin.id, 'security_revoked')
+        }
+      }).finally(() => {
+        this.securityStops.delete(plugin.id)
+        this.opts.onSecurityChanged?.()
+      })
+      this.securityStops.set(plugin.id, operation)
+      operations.push(operation)
+    }
+    this.opts.onSecurityChanged?.()
+    return Promise.all(operations).then(() => undefined)
+  }
+
+  notifySecurityWake(): void {
+    this.opts.security?.notifyWake()
+  }
+
+  refreshSecurityPolicy(force = false): Promise<void> {
+    return this.opts.security?.refresh(force) ?? Promise.resolve()
   }
 }
 

@@ -119,6 +119,7 @@ function buildCapabilityHost(): BuiltHost {
     clearLog: () => {},
     setLogVerbose: () => {},
     isLogVerbose: () => false,
+    getLogState: () => ({ verbose: false, expiresAt: null }),
     subscribeLog: () => () => {},
     appSnapshot: () => ({
       version: '2.5.0',

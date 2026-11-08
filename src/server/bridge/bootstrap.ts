@@ -42,7 +42,19 @@ import {
   type ResolvePairResult,
 } from '@shared/protocol/bridge'
 import type { Handler } from '@shared/protocol/handler-types'
+import { claimExtensionPairParamsSchema } from '@shared/schemas/extension-pairing'
 import { CancellationTokenSource } from 'vscode-jsonrpc'
+import { NasCliPairingStore } from '../platform/nas/cli-pairing-store'
+import {
+  type NasAccountAuthority,
+  NasClientAuthorization,
+  resolveNasAdministrator,
+} from '../platform/nas/client-authorization'
+import {
+  currentNasApprover,
+  runAsNasGatewayUser,
+} from '../platform/nas/identity'
+import { nasPairingFile } from '../platform/nas/pairing-file'
 import {
   isIssuedRemoteExtensionConfig,
   type RemoteExtensionConfig,
@@ -61,6 +73,8 @@ export interface ServerBridgeRuntime {
   bridgeCommandHandlers: Record<string, Handler>
   bridgeQueryHandlers: Record<string, Handler>
   shutdown: () => Promise<void>
+  cancelMedia: (taskId: string) => Promise<void>
+  getMediaSegmentGids: (taskId: string) => string[]
 }
 
 /** Extension-only download application surface. The Server composition root
@@ -69,12 +83,17 @@ export interface ServerBridgeRuntime {
 export interface ServerExtensionReceiver {
   handle: NonNullable<MethodHandlers['submitDownload']>
   cancel: (taskId: string) => Promise<void>
+  cancelMedia: (taskId: string) => Promise<void>
+  getMediaSegmentGids: (taskId: string) => string[]
   restoreInflight: () => Promise<void>
   start: () => void
   stopAndDrain: () => Promise<void>
 }
 
 export interface ServerBridgeOptions {
+  /** Couples NAS credential ownership and per-request account checks. The
+   * composition root must provide a real vendor authority before enabling it. */
+  nasAccounts?: NasAccountAuthority
   /** Server data dir (env MOTRIX_DATA_DIR / platform.userDataDir); the bridge
    *  state lives under `<userDataDir>/bridge/`. */
   userDataDir: string
@@ -84,6 +103,8 @@ export interface ServerBridgeOptions {
    * the requested listener port. */
   fixedPort?: BridgeStatusInfo['fixedPort']
   motrixVersion: string
+  /** Recheck the same live resolver used by the receiver on each handshake. */
+  ffmpegAvailable?: () => Promise<boolean>
   /** The process-lifetime core EventBus (for the SSE firehose + re-emitting
    *  bridge approval events so the web broadcaster forwards them). */
   eventBus: {
@@ -148,8 +169,14 @@ export async function bootstrapBridgeForServer(
     ownership.own('bridge-data-dir-lock', () => dataDirLock.release())
   }
   try {
+    const nasPairings = opts.nasAccounts
+      ? new NasCliPairingStore(
+          opts.nasAccounts.platform,
+          nasPairingFile(join(dataDir, 'nas-cli-pairing.json'))
+        )
+      : undefined
     const pairing = new PairingService(
-      new FilePairingStore(join(dataDir, 'pairing.json'))
+      nasPairings ?? new FilePairingStore(join(dataDir, 'pairing.json'))
     )
     await pairing.load()
     const bridgeBus = new BridgeEventBus()
@@ -170,6 +197,7 @@ export async function bootstrapBridgeForServer(
     }
     const extensionMbp1 = remoteExtensionEnabled
       ? await ServerExtensionMbp1Runtime.load({
+          nasAccounts: opts.nasAccounts,
           dataDir,
           bus: bridgeBus,
           publicAuthority:
@@ -275,10 +303,21 @@ export async function bootstrapBridgeForServer(
       registry,
       motrixVersion: opts.motrixVersion,
       runtime: 'server',
-      ffmpegAvailable: false,
+      ffmpegAvailable:
+        extensionReceiver != null ? (opts.ffmpegAvailable ?? false) : false,
       localToken,
+      cliAuthorization:
+        nasPairings && opts.nasAccounts
+          ? new NasClientAuthorization(nasPairings, opts.nasAccounts)
+          : undefined,
+      extensionAuthorization: extensionMbp1?.authorization,
+      createPairCredentialIssuer: extensionMbp1?.nasBindings
+        ? (audience) => extensionMbp1.prompts.issuerFor(audience)
+        : undefined,
       deviceCode,
       onPairRequested: (payload) => bridgeBus.emitPairRequested(payload),
+      onExtensionSessionsChanged: () =>
+        opts.eventBus.emit(BridgeEvents.ExtensionSessionsChanged, {}),
       verificationUri: opts.verificationUri,
       ...(extensionMbp1 === null
         ? {}
@@ -322,13 +361,30 @@ export async function bootstrapBridgeForServer(
 
     // bridge:* RPC handlers the web renderer reaches via /rpc/{command,query}.
     const bridgeCommandHandlers: Record<string, Handler> = {
+      [BridgeCommands.ClaimExtensionPair]: async (input: unknown) => {
+        const parsed = claimExtensionPairParamsSchema.safeParse(input)
+        if (!parsed.success || !extensionMbp1?.nasBindings)
+          return { ok: false, reason: 'unavailable' }
+        return extensionMbp1.prompts.claim(parsed.data)
+      },
       [BridgeCommands.ResolvePair]: async (
         params: ResolvePairParams
       ): Promise<ResolvePairResult> => {
         if (params.kind === 'cli') {
-          return resolveCliPair(deviceCode, params, (paired) =>
-            bridgeBus.emitPaired({ identity: paired.identity })
+          const resolve = () =>
+            resolveCliPair(deviceCode, params, (paired) =>
+              bridgeBus.emitPaired({ identity: paired.identity })
+            )
+          if (!opts.nasAccounts) return resolve()
+          const actor = currentNasApprover()
+          if (
+            !actor?.administrator ||
+            actor.platform !== opts.nasAccounts.platform
           )
+            throw new Error('NAS administrator approval required')
+          if (params.decision === 'deny') return resolve()
+          const current = await resolveNasAdministrator(opts.nasAccounts, actor)
+          return runAsNasGatewayUser(current, resolve)
         }
         return (
           extensionMbp1?.settleExtensionPrompt(params) ?? {
@@ -371,8 +427,10 @@ export async function bootstrapBridgeForServer(
     }
     const bridgeQueryHandlers: Record<string, Handler> = {
       [BridgeQueries.ListPaired]: async () => [
-        ...(extensionMbp1?.extensionPairings.list().map(toPairedClientInfo) ??
-          []),
+        ...(extensionMbp1?.extensionPairings.list().map((entry) => ({
+          ...toPairedClientInfo(entry),
+          installations: server.getExtensionInstallations(entry.identity),
+        })) ?? []),
         ...pairing.listPaired().map(toPairedClientInfo),
       ],
       [BridgeQueries.ListPendingPairRequests]: async () => [
@@ -433,25 +491,23 @@ export async function bootstrapBridgeForServer(
     const port = await server.start(opts.host, opts.port)
     boundPort = port
 
-    // Per-session Extension task lifecycle push. This mirrors the Desktop
-    // shell: BridgeReceiver publishes against the authenticated session key;
-    // the shell converts those events into encrypted MDXP notifications on
-    // that session only. The global SSE stream below remains a separate agent
-    // surface and must not substitute for this routing.
+    // Match Desktop routing: modern tasks target their installation; legacy
+    // extension-wide task keys reach every ready profile of that extension.
+    // The global SSE stream remains a separate agent surface.
     bridgeBus.on('TaskProgress', ({ sessionKey, params }) => {
-      server
-        .getSession(sessionKey)
-        ?.conn.sendNotification(Notifications.TaskProgress, params)
+      for (const session of server.getTaskNotificationSessions(sessionKey)) {
+        session.conn.sendNotification(Notifications.TaskProgress, params)
+      }
     })
     bridgeBus.on('TaskCompleted', ({ sessionKey, params }) => {
-      server
-        .getSession(sessionKey)
-        ?.conn.sendNotification(Notifications.TaskCompleted, params)
+      for (const session of server.getTaskNotificationSessions(sessionKey)) {
+        session.conn.sendNotification(Notifications.TaskCompleted, params)
+      }
     })
     bridgeBus.on('TaskError', ({ sessionKey, params }) => {
-      server
-        .getSession(sessionKey)
-        ?.conn.sendNotification(Notifications.TaskError, params)
+      for (const session of server.getTaskNotificationSessions(sessionKey)) {
+        session.conn.sendNotification(Notifications.TaskError, params)
+      }
     })
 
     const streamSource = new BridgeStreamSource(server, opts.localize)
@@ -477,6 +533,9 @@ export async function bootstrapBridgeForServer(
       localToken,
       bridgeCommandHandlers,
       bridgeQueryHandlers,
+      cancelMedia: async (taskId) => extensionReceiver?.cancelMedia(taskId),
+      getMediaSegmentGids: (taskId) =>
+        extensionReceiver?.getMediaSegmentGids(taskId) ?? [],
       shutdown: () => ownership.dispose(),
     }
   } catch (error) {

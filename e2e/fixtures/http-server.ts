@@ -2,6 +2,7 @@ import crypto from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import http from 'node:http'
 import type { AddressInfo } from 'node:net'
+import { v7 as uuidv7 } from 'uuid'
 
 export interface HttpRequestRecord {
   sequence: number
@@ -85,7 +86,7 @@ export async function startHttpFixture(
   const size = opts.size ?? 1024 * 1024
   const pathname = opts.pathname ?? '/test.bin'
   let payload = crypto.randomBytes(size)
-  let etag = quoteEtag(opts.etag ?? `motrix-e2e-${crypto.randomUUID()}`)
+  let etag = quoteEtag(opts.etag ?? `motrix-e2e-${uuidv7()}`)
   let resourceVersion = 1
   let rangeSupport = opts.rangeSupport ?? true
   let sequence = 0
@@ -251,7 +252,7 @@ export async function startHttpFixture(
     changeResource: (nextEtag) => {
       payload = crypto.randomBytes(size)
       resourceVersion++
-      etag = quoteEtag(nextEtag ?? `motrix-e2e-${crypto.randomUUID()}`)
+      etag = quoteEtag(nextEtag ?? `motrix-e2e-${uuidv7()}`)
       return { etag, sha256: sha256(payload), version: resourceVersion }
     },
     verifyFile: async (filePath) => {

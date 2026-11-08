@@ -7,22 +7,69 @@ import {
   TaskType,
   TransitionPhase,
 } from '@shared/types/task'
+import { makeLegacyHttpTask } from '@test-utils/legacy-http-activation'
 import { makeDownloadTask } from '@test-utils/task'
 import { describe, expect, it } from 'vitest'
 import {
   canAttemptRetry,
   canInspectPieces,
+  canOfferRetry,
   canPause,
   canRebuildTaskInputs,
+  canRedownload,
   canRemove,
   canReseed,
   canResume,
   canRetry,
   canRetryMagnetMetadata,
+  canRetryWithParameters,
   canStopSeeding,
   getTaskRetryKind,
   isFinalizing,
+  isLegacyImportInactive,
 } from './task-actions'
+
+describe('parameterized HTTP retry', () => {
+  it('offers a form without admitting credential-free replay', () => {
+    const task = makeDownloadTask({
+      status: TaskStatus.Error,
+      instances: [directInstance('requires-credentials')],
+    })
+    expect(canRetryWithParameters(task)).toBe(true)
+    expect(canOfferRetry(task)).toBe(true)
+    expect(canAttemptRetry(task)).toBe(false)
+    expect(canRebuildTaskInputs(task)).toBe(false)
+  })
+
+  it.each([
+    { status: TaskStatus.Downloading },
+    { status: TaskStatus.Removed },
+    { status: TaskStatus.Completed },
+    { status: TaskStatus.Paused },
+    { kind: TaskKind.Mux },
+    { type: TaskType.Bt },
+    { transitionPhase: TransitionPhase.Renaming },
+  ])(
+    'keeps other lifecycle paths outside the request form: %j',
+    (overrides) => {
+      expect(
+        canRetryWithParameters(
+          makeDownloadTask({ status: TaskStatus.Error, ...overrides })
+        )
+      ).toBe(false)
+    }
+  )
+
+  it('keeps imported task activation outside the request form', () => {
+    const task = makeDownloadTask({
+      status: TaskStatus.Error,
+      instances: [
+        { ...directInstance('uri-only'), payload: { legacyImport: {} } },
+      ],
+    })
+    expect(canOfferRetry(task)).toBe(false)
+  })
+})
 
 function muxInstance(status: TaskStatus): TaskInstance {
   return {
@@ -155,6 +202,44 @@ describe('canPause', () => {
 })
 
 describe('canResume', () => {
+  it('allows an HTTP migration to resume only after its first activation', () => {
+    const task = makeLegacyHttpTask()
+    expect(isLegacyImportInactive(task)).toBe(false)
+    expect(canResume(task)).toBe(true)
+    expect(canRetry({ ...task, status: TaskStatus.Error })).toBe(false)
+    expect(canRedownload({ ...task, status: TaskStatus.Completed })).toBe(false)
+  })
+
+  it.each([
+    { stage: 'checkpoint' },
+    { stage: 'create-uncertain' },
+    { stage: 'bound' },
+    { stage: 'resume-uncertain', retainedContentDigest: 'a'.repeat(64) },
+    { version: 2 },
+    { engineTaskId: 'abcdef1234567890' },
+    { resourceValidator: { kind: 'last-modified', value: 'yesterday' } },
+  ])('blocks HTTP migration with unconfirmed intent %j', (change) => {
+    const task = makeLegacyHttpTask()
+    Object.assign(
+      task.instances[0].payload.legacyHttpActivation as object,
+      change
+    )
+    expect(isLegacyImportInactive(task)).toBe(true)
+    expect(canResume(task)).toBe(false)
+  })
+
+  it('requires the active HTTP storage marker even with a valid intent', () => {
+    const task = makeLegacyHttpTask()
+    Object.assign(task.instances[0].payload.legacyImport as object, {
+      activation: 'activating',
+    })
+    expect(canResume(task)).toBe(false)
+    delete task.instances[0].payload.legacyImport
+    expect(isLegacyImportInactive(task)).toBe(true)
+    expect(canResume(task)).toBe(false)
+    expect(canRetry({ ...task, status: TaskStatus.Error })).toBe(false)
+  })
+
   it('returns true only for Paused', () => {
     expect(canResume(makeTask({ status: TaskStatus.Paused }))).toBe(true)
     expect(canResume(makeTask({ status: TaskStatus.Downloading }))).toBe(false)
@@ -588,5 +673,46 @@ describe('canAttemptRetry', () => {
 
     expect(canRetryMagnetMetadata(task)).toBe(false)
     expect(getTaskRetryKind(task)).toBeNull()
+  })
+
+  describe('canRedownload', () => {
+    it('returns true for completed direct and torrent-like tasks', () => {
+      const httpTask = makeTask({
+        kind: TaskKind.Direct,
+        type: TaskType.Http,
+        status: TaskStatus.Completed,
+      })
+      const btTask = makeTask({
+        kind: TaskKind.Bt,
+        type: TaskType.Bt,
+        status: TaskStatus.Completed,
+      })
+      expect(canRedownload(httpTask)).toBe(true)
+      expect(canRedownload(btTask)).toBe(true)
+    })
+
+    it('returns false for non-completed statuses', () => {
+      expect(canRedownload(makeTask({ status: TaskStatus.Downloading }))).toBe(
+        false
+      )
+      expect(canRedownload(makeTask({ status: TaskStatus.Paused }))).toBe(false)
+      expect(canRedownload(makeTask({ status: TaskStatus.Error }))).toBe(false)
+      expect(canRedownload(makeTask({ status: TaskStatus.Finalizing }))).toBe(
+        false
+      )
+    })
+
+    it('returns false for coordinator media tasks', () => {
+      const muxTask = makeTask({
+        kind: TaskKind.Mux,
+        status: TaskStatus.Completed,
+      })
+      const hlsTask = makeTask({
+        kind: TaskKind.Hls,
+        status: TaskStatus.Completed,
+      })
+      expect(canRedownload(muxTask)).toBe(false)
+      expect(canRedownload(hlsTask)).toBe(false)
+    })
   })
 })

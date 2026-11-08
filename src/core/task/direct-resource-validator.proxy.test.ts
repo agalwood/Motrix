@@ -290,7 +290,7 @@ describe('DirectResourceValidatorService proxy runtime', () => {
       if (request.url === '/verify') {
         if (
           request.headers.range === 'bytes=0-0' &&
-          request.headers['if-range'] === '"proxy-release-v1"'
+          request.headers['if-range'] === undefined
         ) {
           response.writeHead(206, {
             'Content-Range': 'bytes 0-0/4096',
@@ -774,6 +774,7 @@ describe('DirectResourceValidatorService proxy runtime', () => {
             value: '"proxy-release-v1"',
             contentLength: 4096,
             capturedAt: expect.any(Number),
+            resourceUrlHash: expect.stringMatching(/^[a-f0-9]{64}$/),
           },
         })
         expect(output.globalFetchCalls).toBe(0)

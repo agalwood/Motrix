@@ -16,6 +16,22 @@ function hasC0OrDel(value: string): boolean {
   return false
 }
 
+const proxyScopesSchema = z.object({
+  download: z.boolean().catch(false),
+  updateApp: z.boolean().catch(false),
+  updateTrackers: z.boolean().catch(false),
+  plugins: z.boolean().catch(false),
+})
+
+function migrateProxyScopes(input: unknown): unknown {
+  if (typeof input !== 'object' || input === null || Array.isArray(input))
+    return input
+  const scopes = input as Record<string, unknown>
+  return Object.hasOwn(scopes, 'plugins')
+    ? scopes
+    : { ...scopes, plugins: scopes.download === true }
+}
+
 export const proxySettingsSchema = z.object({
   enabled: z.boolean().catch(false),
   protocol: z.enum(['http', 'https', 'socks5']).catch('http'),
@@ -24,13 +40,12 @@ export const proxySettingsSchema = z.object({
   user: withoutControlCharacters(256).catch(''),
   password: withoutControlCharacters(256).catch(''),
   bypass: z.array(withoutControlCharacters(253)).max(64).catch([]),
-  scopes: z
-    .object({
-      download: z.boolean().catch(false),
-      updateApp: z.boolean().catch(false),
-      updateTrackers: z.boolean().catch(false),
-    })
-    .catch({ download: false, updateApp: false, updateTrackers: false }),
+  scopes: z.preprocess(migrateProxyScopes, proxyScopesSchema).catch({
+    download: false,
+    updateApp: false,
+    updateTrackers: false,
+    plugins: false,
+  }),
 })
 
 export const DEFAULT_PROXY_SETTINGS: ProxySettings = proxySettingsSchema.parse(
@@ -56,7 +71,7 @@ function isProxyHost(host: string): boolean {
 
 export const proxySettingsInputSchema = settingsInputObject(proxySettingsSchema)
   .extend({
-    scopes: settingsInputObject(proxySettingsSchema.shape.scopes.removeCatch()),
+    scopes: settingsInputObject(proxyScopesSchema),
   })
   .superRefine((value, ctx) => {
     if (value.enabled && !isProxyHost(value.host)) {

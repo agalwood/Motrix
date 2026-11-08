@@ -22,13 +22,17 @@ export function buildAId(f: {
   verifiedOrigin: string
   claimedExtensionId: string
   clientInstallationId: string
+  safariInstallationKey?: string
 }): Uint8Array {
   return concatBytes(
     enc(A_ID_LABEL),
     enc(f.browser),
     enc(f.verifiedOrigin),
     enc(f.claimedExtensionId),
-    enc(f.clientInstallationId)
+    enc(f.clientInstallationId),
+    ...(f.safariInstallationKey === undefined
+      ? []
+      : [enc('MBP1/safari-installation/v1'), enc(f.safariInstallationKey)])
   )
 }
 
