@@ -1129,7 +1129,7 @@
         "doc": "Dokument"
       },
       "errors": {
-        "headerNameRequired": "Geben Sie einen Headernamen ein oder entfernen Sie diesen Header.",
+        "headerNameRequired": "Für jeden Header mit einem Wert ist ein Name erforderlich.",
         "urlsRequired": "Mindestens eine URL ist erforderlich",
         "saveDirRequired": "Ein Speicherordner ist erforderlich",
         "noFilesSelected": "Wählen Sie mindestens eine Datei aus",

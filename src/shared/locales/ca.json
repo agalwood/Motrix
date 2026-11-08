@@ -2870,7 +2870,7 @@
         "title": "Aquest torrent ja existeix"
       },
       "errors": {
-        "headerNameRequired": "Introduïu un nom per a la capçalera o elimineu-la.",
+        "headerNameRequired": "Introdueix un nom per a cada capçalera que tingui un valor.",
         "missingSource": "Cal un fitxer torrent o un enllaç magnet",
         "noFilesSelected": "Seleccioneu almenys un fitxer",
         "saveDirRequired": "Cal una carpeta de destinació",

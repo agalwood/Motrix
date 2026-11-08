@@ -1129,7 +1129,7 @@
         "doc": "Document"
       },
       "errors": {
-        "headerNameRequired": "Enter a header name or remove this header.",
+        "headerNameRequired": "Add a name for each header with a value.",
         "urlsRequired": "At least one URL is required",
         "saveDirRequired": "Save directory is required",
         "noFilesSelected": "Select at least one file",

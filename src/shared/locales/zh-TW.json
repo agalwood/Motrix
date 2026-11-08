@@ -1116,7 +1116,7 @@
         "doc": "文件"
       },
       "errors": {
-        "headerNameRequired": "請輸入標頭名稱，或移除此標頭。",
+        "headerNameRequired": "請為已填寫值的標頭補上名稱。",
         "urlsRequired": "至少需要一個 URL",
         "saveDirRequired": "必須指定儲存目錄",
         "noFilesSelected": "至少選擇一個檔案",

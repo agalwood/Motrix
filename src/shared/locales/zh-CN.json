@@ -1116,7 +1116,7 @@
         "doc": "文档"
       },
       "errors": {
-        "headerNameRequired": "请输入请求头名称，或移除此请求头。",
+        "headerNameRequired": "请为已填写值的请求头补全名称。",
         "urlsRequired": "至少需要一个 URL",
         "saveDirRequired": "必须指定保存目录",
         "noFilesSelected": "请至少选择一个文件",

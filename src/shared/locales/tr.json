@@ -1129,7 +1129,7 @@
         "doc": "Belge"
       },
       "errors": {
-        "headerNameRequired": "Bir üstbilgi adı girin veya bu üstbilgiyi kaldırın.",
+        "headerNameRequired": "Değeri olan her üst bilgi için bir ad girin.",
         "urlsRequired": "En az bir URL gerekli",
         "saveDirRequired": "Kayıt klasörü gerekli",
         "noFilesSelected": "En az bir dosya seçin",

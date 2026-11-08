@@ -331,6 +331,39 @@ describe('formValuesToTaskCreateRequest', () => {
     expect(req.uris).toEqual(['https://a/b', 'https://c/d'])
   })
 
+  it('drops blank draft headers, preserves explicitly empty values and rejects value-only rows', () => {
+    const input = {
+      tab: 'links' as const,
+      urls: 'https://example.com/a',
+      saveDir: '/d',
+      extraHeaders: [
+        { name: ' ', value: ' ' },
+        { name: ' X-Empty ', value: '' },
+        { name: 'Accept', value: ' application/json ' },
+      ],
+    }
+    const req = formValuesToTaskCreateRequest(addTaskFormSchema.parse(input))
+    expect(req).toMatchObject({
+      headers: [
+        { name: 'X-Empty', value: '' },
+        { name: 'Accept', value: ' application/json ' },
+      ],
+    })
+    const invalid = addTaskFormSchema.safeParse({
+      ...input,
+      extraHeaders: [...input.extraHeaders, { name: ' ', value: 'present' }],
+    })
+    expect(invalid.success).toBe(false)
+    if (!invalid.success)
+      expect(invalid.error.issues[0].path).toEqual(['extraHeaders', 3, 'name'])
+    expect(
+      taskCreateRequestSchema.safeParse({
+        ...req,
+        headers: [{ name: '', value: '' }],
+      }).success
+    ).toBe(false)
+  })
+
   it('builds headers from userAgent/referer/cookie/authorization', () => {
     const req = formValuesToTaskCreateRequest({
       tab: 'links',

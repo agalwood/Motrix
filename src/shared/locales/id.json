@@ -1116,7 +1116,7 @@
         "doc": "Dokumen"
       },
       "errors": {
-        "headerNameRequired": "Masukkan nama header atau hapus header ini.",
+        "headerNameRequired": "Beri nama setiap header yang memiliki nilai.",
         "urlsRequired": "Setidaknya satu URL diperlukan",
         "saveDirRequired": "Folder penyimpanan diperlukan",
         "noFilesSelected": "Pilih setidaknya satu berkas",

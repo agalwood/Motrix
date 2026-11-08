@@ -1141,7 +1141,7 @@
         "doc": "Documento"
       },
       "errors": {
-        "headerNameRequired": "Introduce un nombre para la cabecera o elimínala.",
+        "headerNameRequired": "Añade un nombre a cada cabecera que tenga un valor.",
         "urlsRequired": "Se requiere al menos una URL",
         "saveDirRequired": "Se requiere una carpeta de destino",
         "noFilesSelected": "Selecciona al menos un archivo",

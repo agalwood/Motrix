@@ -2850,7 +2850,7 @@
         "title": "این تورنت از قبل وجود دارد"
       },
       "errors": {
-        "headerNameRequired": "نام سرآیند را وارد کنید یا این سرآیند را حذف کنید.",
+        "headerNameRequired": "برای هر سرآیند دارای مقدار، یک نام وارد کنید.",
         "missingSource": "فایل تورنت یا پیوند magnet لازم است",
         "noFilesSelected": "حداقل یک فایل انتخاب کنید",
         "saveDirRequired": "پوشهٔ ذخیره لازم است",

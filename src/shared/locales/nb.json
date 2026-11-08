@@ -2850,7 +2850,7 @@
         "title": "Denne torrenten finnes allerede"
       },
       "errors": {
-        "headerNameRequired": "Angi et headernavn eller fjern denne headeren.",
+        "headerNameRequired": "Gi hvert hodefelt med en verdi et navn.",
         "missingSource": "En torrentfil eller magnetlenke kreves",
         "noFilesSelected": "Velg minst én fil",
         "saveDirRequired": "Lagringsmappe kreves",

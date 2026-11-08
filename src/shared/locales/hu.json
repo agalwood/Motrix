@@ -1129,7 +1129,7 @@
         "doc": "Dokumentum"
       },
       "errors": {
-        "headerNameRequired": "Adja meg a fejléc nevét, vagy távolítsa el ezt a fejlécet.",
+        "headerNameRequired": "Minden értékkel rendelkező fejléchez adjon meg nevet.",
         "urlsRequired": "Legalább egy URL megadása szükséges",
         "saveDirRequired": "Mentési mappa megadása szükséges",
         "noFilesSelected": "Válassz ki legalább egy fájlt",

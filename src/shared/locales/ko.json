@@ -1116,7 +1116,7 @@
         "doc": "문서"
       },
       "errors": {
-        "headerNameRequired": "헤더 이름을 입력하거나 이 헤더를 제거하세요.",
+        "headerNameRequired": "값을 입력한 헤더에는 이름이 필요합니다.",
         "urlsRequired": "URL을 하나 이상 입력하세요",
         "saveDirRequired": "저장 폴더를 지정하세요",
         "noFilesSelected": "파일을 하나 이상 선택하세요",

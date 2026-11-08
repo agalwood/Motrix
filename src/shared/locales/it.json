@@ -1142,7 +1142,7 @@
         "doc": "Documento"
       },
       "errors": {
-        "headerNameRequired": "Inserisci un nome per l’intestazione o rimuovila.",
+        "headerNameRequired": "Assegna un nome a ogni intestazione con un valore.",
         "urlsRequired": "È richiesto almeno un URL",
         "saveDirRequired": "È richiesta una cartella di salvataggio",
         "noFilesSelected": "Seleziona almeno un file",

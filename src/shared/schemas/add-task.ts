@@ -26,12 +26,20 @@ const httpHeaderSchema = z.object({
   value: z.string(),
 })
 
+// A blank optional form row is a draft, not an HTTP header.
+const extraHeaderDraftSchema = httpHeaderSchema
+  .extend({ name: z.string() })
+  .refine(({ name, value }) => !!name.trim() || !value.trim(), {
+    path: ['name'],
+    message: 'task.add.errors.headerNameRequired',
+  })
+
 const linksTabSchema = z.object({
   tab: z.literal('links'),
   urls: z.string().min(1, { message: 'task.add.errors.urlsRequired' }),
   saveDir: z.string().min(1, { message: 'task.add.errors.saveDirRequired' }),
   filename: z.string().optional(),
-  extraHeaders: z.array(httpHeaderSchema).optional(),
+  extraHeaders: z.array(extraHeaderDraftSchema).optional(),
   split: z.number().int().min(1).max(128).optional(),
   userAgent: z.string().optional(),
   referer: z.string().optional(),
@@ -343,7 +351,10 @@ export function formValuesToTaskCreateRequest(
       }
     }
     const headers = [
-      ...(v.extraHeaders ?? []),
+      ...(v.extraHeaders ?? []).flatMap(({ name, value }) => {
+        const key = name.trim()
+        return key || value.trim() ? [{ name: key, value }] : []
+      }),
       ...compactHeader('User-Agent', v.userAgent),
       ...compactHeader('Referer', v.referer),
       ...compactHeader('Cookie', v.cookie),

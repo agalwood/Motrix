@@ -1155,7 +1155,7 @@
         "doc": "Dokument"
       },
       "errors": {
-        "headerNameRequired": "Wprowadź nazwę nagłówka lub usuń ten nagłówek.",
+        "headerNameRequired": "Podaj nazwę każdego nagłówka z wartością.",
         "urlsRequired": "Wymagany jest co najmniej jeden adres URL",
         "saveDirRequired": "Wymagany jest folder zapisu",
         "noFilesSelected": "Wybierz co najmniej jeden plik",

@@ -2850,7 +2850,7 @@
         "title": "Αυτό το torrent υπάρχει ήδη"
       },
       "errors": {
-        "headerNameRequired": "Εισαγάγετε όνομα κεφαλίδας ή αφαιρέστε αυτήν την κεφαλίδα.",
+        "headerNameRequired": "Συμπληρώστε όνομα για κάθε κεφαλίδα που έχει τιμή.",
         "missingSource": "Απαιτείται αρχείο torrent ή σύνδεσμος magnet",
         "noFilesSelected": "Επιλέξτε τουλάχιστον ένα αρχείο",
         "saveDirRequired": "Απαιτείται φάκελος αποθήκευσης",

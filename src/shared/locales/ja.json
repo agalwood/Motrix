@@ -1116,7 +1116,7 @@
         "doc": "文書"
       },
       "errors": {
-        "headerNameRequired": "ヘッダー名を入力するか、このヘッダーを削除してください。",
+        "headerNameRequired": "値を入力したヘッダーには名前が必要です。",
         "urlsRequired": "URL を 1 件以上入力してください",
         "saveDirRequired": "保存先フォルダーを指定してください",
         "noFilesSelected": "ファイルを 1 個以上選択してください",

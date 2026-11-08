@@ -2870,7 +2870,7 @@
         "title": "Acest torrent există deja"
       },
       "errors": {
-        "headerNameRequired": "Introduceți un nume pentru antet sau eliminați acest antet.",
+        "headerNameRequired": "Introduceți un nume pentru fiecare antet care are o valoare.",
         "missingSource": "Este necesar un fișier torrent sau un link magnet",
         "noFilesSelected": "Selectează cel puțin un fișier",
         "saveDirRequired": "Este necesar un dosar de salvare",

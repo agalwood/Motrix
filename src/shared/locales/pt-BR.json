@@ -1142,7 +1142,7 @@
         "doc": "Documento"
       },
       "errors": {
-        "headerNameRequired": "Insira um nome para o cabeçalho ou remova-o.",
+        "headerNameRequired": "Dê um nome a cada cabeçalho que tenha um valor.",
         "urlsRequired": "É necessário pelo menos um URL",
         "saveDirRequired": "A pasta de destino é obrigatória",
         "noFilesSelected": "Selecione pelo menos um arquivo",

@@ -2850,7 +2850,7 @@
         "title": "Deze torrent bestaat al"
       },
       "errors": {
-        "headerNameRequired": "Voer een headernaam in of verwijder deze header.",
+        "headerNameRequired": "Geef elke header met een waarde een naam.",
         "missingSource": "Er is een torrentbestand of magnetlink nodig",
         "noFilesSelected": "Selecteer minstens één bestand",
         "saveDirRequired": "Er is een opslagmap nodig",

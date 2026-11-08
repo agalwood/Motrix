@@ -1116,7 +1116,7 @@
         "doc": "Tài liệu"
       },
       "errors": {
-        "headerNameRequired": "Nhập tên tiêu đề hoặc xóa tiêu đề này.",
+        "headerNameRequired": "Nhập tên cho mỗi tiêu đề có giá trị.",
         "urlsRequired": "Cần ít nhất một URL",
         "saveDirRequired": "Cần chọn thư mục lưu",
         "noFilesSelected": "Chọn ít nhất một tệp",

@@ -6,7 +6,6 @@ import {
   FormField,
   FormItem,
   FormLabel,
-  useFormField,
 } from '@renderer/components/ui/form'
 import { Input } from '@renderer/components/ui/input'
 import { Textarea } from '@renderer/components/ui/textarea'
@@ -14,8 +13,20 @@ import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import { cn } from '@renderer/lib/utils'
 import { EXTERNAL_URLS } from '@shared/external-urls'
 import type { AddTaskFormValues } from '@shared/schemas/add-task'
-import { type ReactNode, useId, useLayoutEffect, useState } from 'react'
-import { useFieldArray, useFormContext, useWatch } from 'react-hook-form'
+import {
+  type ReactNode,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react'
+import {
+  useFieldArray,
+  useFormContext,
+  useFormState,
+  useWatch,
+} from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { useAddTaskLayoutChange } from './add-task-layout-context'
 
@@ -26,10 +37,33 @@ export function AdvancedPanel({
 }) {
   const [open, setOpen] = useState(defaultOpen)
   const onLayoutChange = useAddTaskLayoutChange()
+  const { control, getValues, getFieldState, setFocus } =
+    useFormContext<AddTaskFormValues>()
+  const { submitCount } = useFormState({ control })
+  const lastSubmit = useRef(submitCount)
+  const pendingFocus = useRef<number | null>(null)
   const tab = useWatch<AddTaskFormValues, 'tab'>({ name: 'tab' })
   const requestOptions = useWatch<AddTaskFormValues, 'legacyRequestOptions'>({
     name: 'legacyRequestOptions',
   })
+
+  useEffect(() => {
+    if (lastSubmit.current === submitCount) return
+    lastSubmit.current = submitCount
+    if (open || tab !== 'links') return
+    const index = (getValues('extraHeaders') ?? []).findIndex(
+      (_, i) => getFieldState(`extraHeaders.${i}.name`).invalid
+    )
+    if (index < 0) return
+    pendingFocus.current = index
+    setOpen(true)
+  }, [submitCount, open, tab, getValues, getFieldState])
+  useEffect(() => {
+    if (open && pendingFocus.current !== null) {
+      setFocus(`extraHeaders.${pendingFocus.current}.name`)
+      pendingFocus.current = null
+    }
+  }, [open, setFocus])
 
   useLayoutEffect(() => {
     if (tab === 'links' && requestOptions !== undefined) setOpen(true)
@@ -112,11 +146,29 @@ function LinksAdvancedFields() {
 function ExtraHeadersFields() {
   const { t } = useTranslation()
   const labelId = useId()
-  const { control } = useFormContext<AddTaskFormValues>()
+  const errorId = useId()
+  const { control, getFieldState, getValues, setFocus } =
+    useFormContext<AddTaskFormValues>()
+  const state = useFormState({ control, name: 'extraHeaders' })
   const { fields, append, remove } = useFieldArray({
     control,
     name: 'extraHeaders',
   })
+  const hasNameError = fields.some(
+    (_, index) => getFieldState(`extraHeaders.${index}.name`, state).invalid
+  )
+  const addHeader = () => {
+    const rows = getValues('extraHeaders') ?? []
+    const unnamed = rows.findIndex((row) => !row.name.trim())
+    if (unnamed !== -1) {
+      setFocus(`extraHeaders.${unnamed}.name`)
+      return
+    }
+    append(
+      { name: '', value: '' },
+      { focusName: `extraHeaders.${rows.length}.name` }
+    )
+  }
   return (
     <fieldset
       aria-labelledby={labelId}
@@ -137,25 +189,27 @@ function ExtraHeadersFields() {
             <FormField
               control={control}
               name={`extraHeaders.${index}.name`}
-              render={({ field: nameField }) => (
+              render={({ field: nameField, fieldState }) => (
                 <FormItem className="min-w-0">
                   <FormLabel className="sr-only">
                     {t('task.add.headerName')}
                   </FormLabel>
-                  <FormControl>
+                  <FormControl
+                    aria-describedby={fieldState.invalid ? errorId : undefined}
+                  >
                     <Input
                       {...nameField}
                       placeholder={t('task.add.headerName')}
                       className="h-8 text-xs"
                     />
                   </FormControl>
-                  <HeaderNameError />
                 </FormItem>
               )}
             />
             <FormField
               control={control}
               name={`extraHeaders.${index}.value`}
+              rules={{ deps: `extraHeaders.${index}.name` }}
               render={({ field: valueField }) => (
                 <FormItem className="col-start-1 row-start-2 min-w-0 @min-[16rem]/headers:col-start-2 @min-[16rem]/headers:row-start-1">
                   <FormLabel className="sr-only">
@@ -183,17 +237,21 @@ function ExtraHeadersFields() {
             </Button>
           </div>
         ))}
+        {hasNameError && (
+          <p
+            id={errorId}
+            role="alert"
+            className="text-xs leading-4 text-destructive"
+          >
+            {t('task.add.errors.headerNameRequired')}
+          </p>
+        )}
         <Button
           type="button"
           size="xs"
           variant="ghost"
           className="-ms-1.5 self-start font-normal text-muted-foreground hover:text-foreground"
-          onClick={() =>
-            append(
-              { name: '', value: '' },
-              { focusName: `extraHeaders.${fields.length}.name` }
-            )
-          }
+          onClick={addHeader}
         >
           <AddIcon aria-hidden="true" className="size-3.5" />
           {t('task.add.addHeader')}
@@ -201,16 +259,6 @@ function ExtraHeadersFields() {
       </div>
     </fieldset>
   )
-}
-
-function HeaderNameError() {
-  const { t } = useTranslation()
-  const { error, formMessageId } = useFormField()
-  return error ? (
-    <p id={formMessageId} role="alert" className="text-xs text-destructive">
-      {t('task.add.errors.headerNameRequired')}
-    </p>
-  ) : null
 }
 
 function TorrentAdvancedFields() {

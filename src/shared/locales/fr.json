@@ -2870,7 +2870,7 @@
         "title": "Ce torrent existe déjà"
       },
       "errors": {
-        "headerNameRequired": "Saisissez un nom d’en-tête ou supprimez cet en-tête.",
+        "headerNameRequired": "Donnez un nom à chaque en-tête qui contient une valeur.",
         "missingSource": "Un fichier torrent ou un lien magnet est requis",
         "noFilesSelected": "Sélectionnez au moins un fichier",
         "saveDirRequired": "Le dossier de destination est requis",
