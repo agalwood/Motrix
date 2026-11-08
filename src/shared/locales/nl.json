@@ -3519,7 +3519,8 @@
   },
   "createTorrent": {
     "title": "Torrent aanmaken",
-    "source": "Bron",
+    "source": "Te delen inhoud",
+    "options": "Torrentopties",
     "trackers": "Trackers",
     "trackersPlaceholder": "Eén announce-URL per regel",
     "webSeeds": "Web seeds",
@@ -3542,7 +3543,6 @@
     "seedFailed": "De torrent is opgeslagen, maar het seeden kon niet worden gestart.",
     "seedSubmitted": "De seedtaak is ingediend.",
     "invalidOptions": "Elke lijst kan maximaal {{limit}} geldige URL’s bevatten. Privétorrents hebben een tracker nodig.",
-    "sourcePlaceholder": "Kies een bestand of map…",
     "menuLabel": "Torrentbestand maken…"
   }
 }

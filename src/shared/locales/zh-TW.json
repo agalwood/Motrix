@@ -3495,7 +3495,8 @@
   },
   "createTorrent": {
     "title": "建立種子",
-    "source": "來源",
+    "source": "分享內容",
+    "options": "種子選項",
     "trackers": "Tracker 伺服器",
     "trackersPlaceholder": "每行一個 announce URL",
     "webSeeds": "Web 種子",
@@ -3518,7 +3519,6 @@
     "seedFailed": "種子已儲存，但無法啟動做種任務。",
     "seedSubmitted": "已提交做種任務。",
     "invalidOptions": "每個清單最多 {{limit}} 個有效網址。私人種子至少需要一個 Tracker。",
-    "sourcePlaceholder": "選擇檔案或資料夾…",
     "menuLabel": "建立種子檔案…"
   }
 }

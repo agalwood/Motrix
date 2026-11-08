@@ -3519,7 +3519,8 @@
   },
   "createTorrent": {
     "title": "ساخت تورنت",
-    "source": "منبع",
+    "source": "محتوای اشتراکی",
+    "options": "گزینه‌های تورنت",
     "trackers": "ترکرها",
     "trackersPlaceholder": "هر خط یک announce URL",
     "webSeeds": "وب‌سیدها",
@@ -3542,7 +3543,6 @@
     "seedFailed": "تورنت ذخیره شد، اما سید کردن آغاز نشد.",
     "seedSubmitted": "درخواست سید کردن ارسال شد.",
     "invalidOptions": "هر فهرست حداکثر {{limit}} نشانی معتبر می‌پذیرد. تورنت خصوصی به ترکر نیاز دارد.",
-    "sourcePlaceholder": "انتخاب فایل یا پوشه…",
     "menuLabel": "ساخت فایل تورنت…"
   }
 }

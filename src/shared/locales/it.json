@@ -3543,7 +3543,8 @@
   },
   "createTorrent": {
     "title": "Crea torrent",
-    "source": "Origine",
+    "source": "Contenuto da condividere",
+    "options": "Opzioni torrent",
     "trackers": "Tracker",
     "trackersPlaceholder": "Un URL announce per riga",
     "webSeeds": "Web seed",
@@ -3566,7 +3567,6 @@
     "seedFailed": "Il torrent è stato salvato, ma non è stato possibile avviare la condivisione.",
     "seedSubmitted": "La richiesta di condivisione è stata inviata.",
     "invalidOptions": "Ogni elenco accetta fino a {{limit}} URL validi. I torrent privati richiedono un tracker.",
-    "sourcePlaceholder": "Scegli un file o una cartella…",
     "menuLabel": "Crea file torrent…"
   }
 }

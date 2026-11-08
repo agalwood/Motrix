@@ -3495,7 +3495,8 @@
   },
   "createTorrent": {
     "title": "创建种子",
-    "source": "源路径",
+    "source": "共享内容",
+    "options": "种子选项",
     "trackers": "Tracker 服务器",
     "trackersPlaceholder": "每行一个 announce URL",
     "webSeeds": "Web 种子",
@@ -3518,7 +3519,6 @@
     "seedFailed": "种子已保存，但无法启动做种任务。",
     "seedSubmitted": "已提交做种任务。",
     "invalidOptions": "每个列表最多 {{limit}} 个有效 URL。私有种子至少需要一个 Tracker。",
-    "sourcePlaceholder": "选择文件或文件夹…",
     "menuLabel": "创建种子文件…"
   }
 }

@@ -3495,7 +3495,8 @@
   },
   "createTorrent": {
     "title": "토렌트 만들기",
-    "source": "원본",
+    "source": "공유할 콘텐츠",
+    "options": "토렌트 옵션",
     "trackers": "트래커",
     "trackersPlaceholder": "줄마다 announce URL 하나씩",
     "webSeeds": "웹 시드",
@@ -3518,7 +3519,6 @@
     "seedFailed": "토렌트를 저장했지만 시딩 작업을 시작할 수 없습니다.",
     "seedSubmitted": "시딩 작업을 요청했습니다.",
     "invalidOptions": "목록마다 유효한 URL을 최대 {{limit}}개 입력할 수 있습니다. 비공개 토렌트에는 트래커가 필요합니다.",
-    "sourcePlaceholder": "파일 또는 폴더 선택…",
     "menuLabel": "토렌트 파일 만들기…"
   }
 }

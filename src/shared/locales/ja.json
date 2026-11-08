@@ -3495,7 +3495,8 @@
   },
   "createTorrent": {
     "title": "トレントを作成",
-    "source": "ソース",
+    "source": "共有する内容",
+    "options": "トレントの設定",
     "trackers": "トラッカー",
     "trackersPlaceholder": "1 行に 1 つの announce URL",
     "webSeeds": "Web シード",
@@ -3518,7 +3519,6 @@
     "seedFailed": "トレントは保存されましたが、シードを開始できませんでした。",
     "seedSubmitted": "シードタスクを送信しました。",
     "invalidOptions": "各リストには有効な URL を {{limit}} 件まで入力できます。プライベートトレントにはトラッカーが必要です。",
-    "sourcePlaceholder": "ファイルまたはフォルダーを選択…",
     "menuLabel": "トレントファイルを作成…"
   }
 }

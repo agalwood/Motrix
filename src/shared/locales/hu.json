@@ -3519,7 +3519,8 @@
   },
   "createTorrent": {
     "title": "Torrent létrehozása",
-    "source": "Forrás",
+    "source": "Megosztandó tartalom",
+    "options": "Torrentbeállítások",
     "trackers": "Trackerek",
     "trackersPlaceholder": "Soronként egy announce URL",
     "webSeeds": "Web seedek",
@@ -3542,7 +3543,6 @@
     "seedFailed": "A torrent mentése sikerült, de a megosztás nem indult el.",
     "seedSubmitted": "A megosztási feladat elküldve.",
     "invalidOptions": "Listánként legfeljebb {{limit}} érvényes URL adható meg. A privát torrenthez tracker szükséges.",
-    "sourcePlaceholder": "Válasszon fájlt vagy mappát…",
     "menuLabel": "Torrentfájl létrehozása…"
   }
 }

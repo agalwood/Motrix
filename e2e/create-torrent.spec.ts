@@ -185,7 +185,20 @@ test('cancelled export can be edited and saved without creating a task', async (
     path: testInfo.outputPath('creator-advanced-zh-CN.png'),
     scale: 'css',
   })
+  const pieces = creator.getByRole('combobox', { name: '分块大小' })
+  await pieces.click()
+  await creator.getByRole('option').last().click()
   await creator.getByRole('button', { name: '选择文件', exact: true }).click()
+  // An invalid URL in a collapsed group must be visible and keyboard-accessible
+  // when the user tries to create the torrent.
+  const webSeeds = creator.getByRole('textbox', { name: 'Web 种子' })
+  await webSeeds.fill('ftp://example.invalid/resource')
+  await creator.getByRole('button', { name: '高级' }).click()
+  await creator.getByRole('button', { name: '创建', exact: true }).click()
+  await expect(webSeeds).toBeFocused()
+  await expect(webSeeds).toHaveAttribute('aria-invalid', 'true')
+  await webSeeds.fill('')
+  await expect(creator.getByRole('alert')).toHaveCount(0)
   await creator.getByLabel('备注', { exact: true }).fill('first description')
   await creator.getByRole('button', { name: '创建', exact: true }).click()
   await creator.getByRole('button', { name: '保存 .torrent' }).click()
@@ -205,9 +218,9 @@ test('cancelled export can be edited and saved without creating a task', async (
   })
   await creator.getByRole('button', { name: '保存 .torrent' }).click()
   await expect(creator.getByRole('status')).toContainText('种子已保存')
-  expect(parseTorrent(new Uint8Array(await readFile(output))).comment).toBe(
-    'corrected description'
-  )
+  const metadata = parseTorrent(new Uint8Array(await readFile(output)))
+  expect(metadata.comment).toBe('corrected description')
+  expect(metadata.pieceLength).toBe(16 * 1024 ** 2)
   const tasks = await mainWindow.evaluate(
     async (channel) => (await window.motrix.invoke(channel)) as DownloadTask[],
     Queries.ListTasks

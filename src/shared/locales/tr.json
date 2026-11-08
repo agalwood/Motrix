@@ -3519,7 +3519,8 @@
   },
   "createTorrent": {
     "title": "Torrent oluştur",
-    "source": "Kaynak",
+    "source": "Paylaşılacak içerik",
+    "options": "Torrent seçenekleri",
     "trackers": "İzleyiciler",
     "trackersPlaceholder": "Her satıra bir announce URL’si",
     "webSeeds": "Web tohumları",
@@ -3542,7 +3543,6 @@
     "seedFailed": "Torrent kaydedildi ancak paylaşım başlatılamadı.",
     "seedSubmitted": "Paylaşım görevi gönderildi.",
     "invalidOptions": "Her liste en fazla {{limit}} geçerli URL içerebilir. Özel torrentler izleyici gerektirir.",
-    "sourcePlaceholder": "Bir dosya veya klasör seçin…",
     "menuLabel": "Torrent dosyası oluştur…"
   }
 }

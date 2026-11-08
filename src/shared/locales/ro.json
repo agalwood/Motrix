@@ -3543,7 +3543,8 @@
   },
   "createTorrent": {
     "title": "Creează torrent",
-    "source": "Sursă",
+    "source": "Conținut de partajat",
+    "options": "Opțiuni torrent",
     "trackers": "Trackere",
     "trackersPlaceholder": "Câte un URL announce pe linie",
     "webSeeds": "Web seed-uri",
@@ -3566,7 +3567,6 @@
     "seedFailed": "Torrentul a fost salvat, dar distribuirea nu a putut porni.",
     "seedSubmitted": "Sarcina de distribuire a fost trimisă.",
     "invalidOptions": "Fiecare listă acceptă până la {{limit}} URL-uri valide. Torrentele private necesită un tracker.",
-    "sourcePlaceholder": "Alege un fișier sau un dosar…",
     "menuLabel": "Creează un fișier torrent…"
   }
 }

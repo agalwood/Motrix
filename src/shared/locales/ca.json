@@ -3543,7 +3543,8 @@
   },
   "createTorrent": {
     "title": "Crea un torrent",
-    "source": "Origen",
+    "source": "Contingut per compartir",
+    "options": "Opcions del torrent",
     "trackers": "Trackers",
     "trackersPlaceholder": "Un URL announce per línia",
     "webSeeds": "Web seeds",
@@ -3566,7 +3567,6 @@
     "seedFailed": "El torrent s’ha desat, però no s’ha pogut començar a compartir.",
     "seedSubmitted": "S’ha enviat la tasca de compartició.",
     "invalidOptions": "Cada llista admet fins a {{limit}} URL vàlids. Els torrents privats necessiten un rastrejador.",
-    "sourcePlaceholder": "Tria un fitxer o una carpeta…",
     "menuLabel": "Crea un fitxer torrent…"
   }
 }

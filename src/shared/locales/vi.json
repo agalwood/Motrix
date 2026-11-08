@@ -3495,7 +3495,8 @@
   },
   "createTorrent": {
     "title": "Tạo torrent",
-    "source": "Nguồn",
+    "source": "Nội dung chia sẻ",
+    "options": "Tùy chọn torrent",
     "trackers": "Tracker",
     "trackersPlaceholder": "Mỗi dòng một URL announce",
     "webSeeds": "Web seed",
@@ -3518,7 +3519,6 @@
     "seedFailed": "Đã lưu torrent nhưng không thể bắt đầu chia sẻ.",
     "seedSubmitted": "Đã gửi tác vụ chia sẻ.",
     "invalidOptions": "Mỗi danh sách nhận tối đa {{limit}} URL hợp lệ. Torrent riêng tư cần có tracker.",
-    "sourcePlaceholder": "Chọn tệp hoặc thư mục…",
     "menuLabel": "Tạo tệp torrent…"
   }
 }

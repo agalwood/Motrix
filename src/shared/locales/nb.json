@@ -3519,7 +3519,8 @@
   },
   "createTorrent": {
     "title": "Opprett torrent",
-    "source": "Kilde",
+    "source": "Innhold som skal deles",
+    "options": "Torrentvalg",
     "trackers": "Trackere",
     "trackersPlaceholder": "Én announce-URL per linje",
     "webSeeds": "Web-frø",
@@ -3542,7 +3543,6 @@
     "seedFailed": "Torrenten ble lagret, men seedingen kunne ikke startes.",
     "seedSubmitted": "Seedingoppgaven er sendt inn.",
     "invalidOptions": "Hver liste kan ha opptil {{limit}} gyldige URL-er. Private torrenter trenger en tracker.",
-    "sourcePlaceholder": "Velg en fil eller mappe…",
     "menuLabel": "Opprett torrentfil…"
   }
 }

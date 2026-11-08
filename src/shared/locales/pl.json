@@ -3567,7 +3567,8 @@
   },
   "createTorrent": {
     "title": "Utwórz torrent",
-    "source": "Źródło",
+    "source": "Zawartość do udostępnienia",
+    "options": "Opcje torrenta",
     "trackers": "Trackery",
     "trackersPlaceholder": "Jeden URL announce na wiersz",
     "webSeeds": "Web seedy",
@@ -3590,7 +3591,6 @@
     "seedFailed": "Torrent zapisano, ale nie udało się rozpocząć udostępniania.",
     "seedSubmitted": "Zlecono udostępnianie.",
     "invalidOptions": "Każda lista może zawierać do {{limit}} poprawnych adresów URL. Prywatny torrent wymaga trackera.",
-    "sourcePlaceholder": "Wybierz plik lub folder…",
     "menuLabel": "Utwórz plik torrent…"
   }
 }

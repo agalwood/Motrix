@@ -3495,7 +3495,8 @@
   },
   "createTorrent": {
     "title": "Buat torrent",
-    "source": "Sumber",
+    "source": "Konten untuk dibagikan",
+    "options": "Opsi torrent",
     "trackers": "Tracker",
     "trackersPlaceholder": "Satu URL announce per baris",
     "webSeeds": "Web seed",
@@ -3518,7 +3519,6 @@
     "seedFailed": "Torrent disimpan, tetapi tugas penyemaian tidak dapat dimulai.",
     "seedSubmitted": "Tugas penyemaian telah dikirim.",
     "invalidOptions": "Maksimal {{limit}} URL valid per daftar. Torrent privat memerlukan pelacak.",
-    "sourcePlaceholder": "Pilih file atau folder…",
     "menuLabel": "Buat berkas torrent…"
   }
 }

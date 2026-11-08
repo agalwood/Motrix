@@ -3543,7 +3543,8 @@
   },
   "createTorrent": {
     "title": "Criar torrent",
-    "source": "Origem",
+    "source": "Conteúdo para compartilhar",
+    "options": "Opções do torrent",
     "trackers": "Trackers",
     "trackersPlaceholder": "Uma URL announce por linha",
     "webSeeds": "Web seeds",
@@ -3566,7 +3567,6 @@
     "seedFailed": "O torrent foi salvo, mas não foi possível iniciar a semeadura.",
     "seedSubmitted": "A tarefa de semeadura foi enviada.",
     "invalidOptions": "Cada lista aceita até {{limit}} URLs válidas. Torrents privados precisam de um rastreador.",
-    "sourcePlaceholder": "Escolher um arquivo ou pasta…",
     "menuLabel": "Criar arquivo torrent…"
   }
 }

@@ -3519,7 +3519,8 @@
   },
   "createTorrent": {
     "title": "Torrent erstellen",
-    "source": "Quelle",
+    "source": "Inhalt zum Teilen",
+    "options": "Torrent-Optionen",
     "trackers": "Tracker",
     "trackersPlaceholder": "Eine Announce-URL pro Zeile",
     "webSeeds": "Web-Seeds",
@@ -3542,7 +3543,6 @@
     "seedFailed": "Der Torrent wurde gespeichert, aber das Seeden konnte nicht gestartet werden.",
     "seedSubmitted": "Der Seeding-Auftrag wurde übermittelt.",
     "invalidOptions": "Pro Liste sind bis zu {{limit}} gültige URLs zulässig. Private Torrents benötigen einen Tracker.",
-    "sourcePlaceholder": "Datei oder Ordner wählen…",
     "menuLabel": "Torrent-Datei erstellen…"
   }
 }

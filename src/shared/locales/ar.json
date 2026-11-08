@@ -3615,7 +3615,8 @@
   },
   "createTorrent": {
     "title": "إنشاء تورنت",
-    "source": "المصدر",
+    "source": "المحتوى المراد مشاركته",
+    "options": "خيارات التورنت",
     "trackers": "المتتبعات",
     "trackersPlaceholder": "رابط announce واحد لكل سطر",
     "webSeeds": "البذور الشبكية",
@@ -3638,7 +3639,6 @@
     "seedFailed": "حُفظ التورنت، لكن تعذّر بدء مهمة البذر.",
     "seedSubmitted": "أُرسلت مهمة البذر.",
     "invalidOptions": "كل قائمة تقبل حتى {{limit}} عنوانًا صالحًا. يحتاج التورنت الخاص إلى متتبّع.",
-    "sourcePlaceholder": "اختر ملفًا أو مجلدًا…",
     "menuLabel": "إنشاء ملف تورنت…"
   }
 }

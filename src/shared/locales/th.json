@@ -3495,7 +3495,8 @@
   },
   "createTorrent": {
     "title": "สร้างไฟล์ทอร์เรนต์",
-    "source": "แหล่งที่มา",
+    "source": "เนื้อหาที่จะแชร์",
+    "options": "ตัวเลือกทอร์เรนต์",
     "trackers": "แทรกเกอร์",
     "trackersPlaceholder": "หนึ่ง announce URL ต่อบรรทัด",
     "webSeeds": "Web seed",
@@ -3518,7 +3519,6 @@
     "seedFailed": "บันทึกทอร์เรนต์แล้ว แต่เริ่มซีดไม่ได้",
     "seedSubmitted": "ส่งงานซีดแล้ว",
     "invalidOptions": "แต่ละรายการมี URL ที่ถูกต้องได้สูงสุด {{limit}} รายการ ทอร์เรนต์ส่วนตัวต้องมีแทร็กเกอร์",
-    "sourcePlaceholder": "เลือกไฟล์หรือโฟลเดอร์…",
     "menuLabel": "สร้างไฟล์ทอร์เรนต์…"
   }
 }

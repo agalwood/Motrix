@@ -3519,7 +3519,8 @@
   },
   "createTorrent": {
     "title": "Δημιουργία torrent",
-    "source": "Πηγή",
+    "source": "Περιεχόμενο για διαμοιρασμό",
+    "options": "Επιλογές torrent",
     "trackers": "Trackers",
     "trackersPlaceholder": "Ένα URL announce ανά γραμμή",
     "webSeeds": "Web seeds",
@@ -3542,7 +3543,6 @@
     "seedFailed": "Το torrent αποθηκεύτηκε, αλλά ο διαμοιρασμός δεν ξεκίνησε.",
     "seedSubmitted": "Η εργασία διαμοιρασμού υποβλήθηκε.",
     "invalidOptions": "Έως {{limit}} έγκυρα URL ανά λίστα. Τα ιδιωτικά torrent απαιτούν tracker.",
-    "sourcePlaceholder": "Επιλέξτε αρχείο ή φάκελο…",
     "menuLabel": "Δημιουργία αρχείου torrent…"
   }
 }
