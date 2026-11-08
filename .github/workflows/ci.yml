@@ -69,7 +69,7 @@ jobs:
       # hydrate dist/. The notice contract needs the runtime license payload;
       # the package installer is idempotent when dist/ already matches.
       - name: Ensure Electron runtime payload
-        run: node node_modules/electron/install.js
+        run: node scripts/ensure-electron-runtime.mjs --retry-download
 
       - name: i18n catalog and translation contract
         run: pnpm run check:i18n
@@ -129,7 +129,7 @@ jobs:
           MOTRIX_SKIP_ELECTRON_REBUILD: '1'
           MOTRIX_SKIP_ENGINE_FETCH: '1'
       - name: Ensure Electron runtime payload
-        run: node node_modules/electron/install.js
+        run: node scripts/ensure-electron-runtime.mjs --retry-download
       - name: Setup Rust for native test fixtures
         uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
         with:
@@ -409,7 +409,7 @@ jobs:
       # Electron does not hydrate dist/ during pnpm install. build:legal
       # and the electron-builder smoke both require that runtime payload.
       - name: Ensure Electron runtime payload
-        run: node node_modules/electron/install.js
+        run: node scripts/ensure-electron-runtime.mjs --retry-download
 
       - name: Fetch target aria2
         run: >-
