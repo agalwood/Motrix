@@ -1,11 +1,11 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { desktopLocaleProjection } from '../../scripts/vite-desktop-locales'
+import { appLocaleProjection } from '../../scripts/vite-app-locales'
 
 describe('desktop main locale projection', () => {
   const root = path.resolve(import.meta.dirname, '../../src/shared/locales')
-  const plugin = desktopLocaleProjection(root)
+  const plugin = appLocaleProjection(root, 'main')
   const transform = plugin.transform as (
     source: string,
     id: string
@@ -28,6 +28,7 @@ describe('desktop main locale projection', () => {
         errors: original.task.storage.errors,
       })
       delete original.operatorAdmin
+      original.createTorrent = { menuLabel: original.createTorrent.menuLabel }
       delete original.settings.integration.browser
       delete original.task.add.duplicate
       original.task.storage = {
@@ -48,6 +49,18 @@ describe('desktop main locale projection', () => {
     }
   })
 
+  it('keeps the full creator UI in both renderers without shipping CLI messages', () => {
+    const renderer = appLocaleProjection(root, 'renderer')
+      .transform as typeof transform
+    const file = path.join(root, 'en-US.json')
+    const source = readFileSync(file, 'utf8')
+    const projected = JSON.parse(renderer(source, file)!.code)
+    const original = JSON.parse(source)
+    delete original.operatorAdmin
+    expect(projected).toEqual(original)
+    expect(projected.createTorrent.seedAfter).toBeTruthy()
+  })
+
   it('leaves unrelated JSON and scripts unchanged', () => {
     expect(transform('{}', path.join(root, '../schemas/test.json'))).toBeNull()
     expect(
@@ -56,8 +69,9 @@ describe('desktop main locale projection', () => {
   })
 
   it('recognizes Windows module paths with Vite query suffixes', () => {
-    const windowsPlugin = desktopLocaleProjection(
-      'C:\\app\\src\\shared\\locales'
+    const windowsPlugin = appLocaleProjection(
+      'C:\\app\\src\\shared\\locales',
+      'main'
     )
     const windowsTransform = windowsPlugin.transform as typeof transform
     expect(

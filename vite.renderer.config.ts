@@ -2,13 +2,20 @@ import path from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'vite'
 import packageJson from './package.json' with { type: 'json' }
+import { appLocaleProjection } from './scripts/vite-app-locales'
 import { PRODUCTION_OUTPUT } from './scripts/vite-production-output'
 
 export default defineConfig(({ command }) => ({
   // Electron file:// + asar needs relative asset paths; the default
   // '/' resolves to the filesystem root, not inside the asar.
   base: './',
-  plugins: [tailwindcss()],
+  plugins: [
+    tailwindcss(),
+    appLocaleProjection(
+      path.resolve(import.meta.dirname, 'src/shared/locales'),
+      'renderer'
+    ),
+  ],
   worker: { rollupOptions: { output: PRODUCTION_OUTPUT } },
   define: {
     __MOTRIX_TARGET__: JSON.stringify('electron'),
