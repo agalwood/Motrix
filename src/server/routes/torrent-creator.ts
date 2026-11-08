@@ -15,12 +15,12 @@ import {
   TORRENT_SEED_HEADER,
   torrentExportSchema,
 } from '@shared/schemas/create-torrent'
-import type { FastifyInstance, FastifyRequest } from 'fastify'
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import type { ServerDownloadPathPolicy } from '../download-path-policy'
 
 export interface TorrentCreatorDeps {
   policy: ServerDownloadPathPolicy
-  authorizeFile?: (canonical: string) => Promise<unknown>
+  authorizeFile?: (canonical: string) => Promise<string>
   createTask: (request: TaskCreateRequest) => Promise<TaskCreateCommandResult>
 }
 type Result = Awaited<ReturnType<typeof createTorrent>>
@@ -35,7 +35,7 @@ interface Job {
   entries: Map<string, 'file' | 'directory'>
   result?: Result
   failed?: boolean
-  exporting?: boolean
+  reading?: boolean
   seed?: Promise<boolean>
 }
 const HASH_IDLE_LIMIT = 2 * 60_000
@@ -51,7 +51,7 @@ export function registerTorrentCreator(
 ) {
   const jobs = new Map<string, Job>()
   let running: Promise<void> | undefined
-  let activeExports = 0
+  let activeReads = 0
   const discard = (job: Job) => {
     job.abort.abort()
     jobs.delete(job.id)
@@ -79,7 +79,11 @@ export function registerTorrentCreator(
     await deps.policy.authorizeDirectory(path.dirname(candidate))
     const canonical = await realpath(candidate)
     await deps.policy.authorizeDirectory(path.dirname(canonical))
-    await deps.authorizeFile?.(canonical)
+    if (
+      deps.authorizeFile &&
+      (await deps.authorizeFile(canonical)) !== canonical
+    )
+      throw new Error('Authorized file changed')
     if (!(await lstat(canonical)).isFile())
       throw new Error('Not a regular file')
     return canonical
@@ -92,6 +96,74 @@ export function registerTorrentCreator(
     job.touched = Date.now()
     return job
   }
+  function reserveResultSlot(owner: string) {
+    if (jobs.size < MAX_RESULTS) return true
+    const retained = [...jobs.values()]
+    const idle = retained
+      .filter((job) => !job.reading)
+      .sort((a, b) => a.touched - b.touched)
+    // Keep one successful result per owner before retaining a second one.
+    // Failed jobs carry no useful result and can always be evicted.
+    const victim =
+      idle.find((job) => job.failed) ??
+      idle.find((job) => job.owner === owner) ??
+      idle.find((job) =>
+        retained.some((other) => other !== job && other.owner === job.owner)
+      )
+    if (!victim) return false
+    discard(victim)
+    return true
+  }
+
+  // An info hash is a swarm identifier. Apply the same current per-entry grants
+  // to revealing a ready summary as to exporting its bytes. Hold the slot
+  // until both the filesystem work and the HTTP response have finished.
+  async function readResult(
+    req: FastifyRequest,
+    reply: FastifyReply,
+    job: Job,
+    send: (t: Result, eligible: () => boolean) => Promise<void> | void
+  ) {
+    if (!job.result) return reply.code(404).send()
+    if (job.reading || activeReads >= MAX_RESULTS)
+      return reply.code(429).send({ error: 'Result busy' })
+    job.reading = true
+    activeReads++
+    let working = true
+    let finished = false
+    const release = () => {
+      if (working || !finished) return
+      reply.raw.off('finish', onFinish)
+      reply.raw.off('close', onFinish)
+      job.reading = false
+      activeReads--
+    }
+    const onFinish = () => {
+      finished = true
+      release()
+    }
+    reply.raw.once('finish', onFinish)
+    reply.raw.once('close', onFinish)
+    const user = principal(req)
+    const eligible = () =>
+      !job.abort.signal.aborted && !reply.raw.destroyed && !!user?.eligible()
+    try {
+      try {
+        for (const [entry, kind] of job.entries) {
+          if (!eligible() || (await authorize(entry, kind)) !== entry)
+            throw new Error('Source no longer authorized')
+        }
+      } catch {
+        return reply.code(403).send()
+      }
+      if (!eligible()) return reply.code(403).send()
+      await send(job.result, eligible)
+      return reply
+    } finally {
+      working = false
+      release()
+    }
+  }
   app.post(TORRENT_CREATOR_API, async (req, reply) => {
     reply.header('cache-control', 'no-store')
     const user = principal(req)
@@ -100,7 +172,7 @@ export function registerTorrentCreator(
     if (!data.success)
       return reply.code(400).send({ error: 'Invalid torrent options' })
     reap()
-    if (running || jobs.size >= MAX_RESULTS)
+    if (running || !reserveResultSlot(user.id))
       return reply.code(429).send({ error: 'Torrent creator busy' })
     const { source, options } = data.data
     const job: Job = {
@@ -155,8 +227,14 @@ export function registerTorrentCreator(
     if (!job) return reply.code(404).send()
     if (job.failed) return { state: 'failed' }
     if (!job.result) return { state: 'hashing', progress: job.progress }
-    const { bytes: _bytes, directory: _directory, ...summary } = job.result
-    return { state: 'ready', result: { id: job.id, ...summary } }
+    return readResult(
+      req,
+      reply,
+      job,
+      ({ bytes: _bytes, directory: _directory, ...summary }) => {
+        reply.send({ state: 'ready', result: { id: job.id, ...summary } })
+      }
+    )
   })
   app.delete<{ Params: { id: string } }>(endpoint, async (req, reply) => {
     const job = get(req, req.params.id)
@@ -169,59 +247,37 @@ export function registerTorrentCreator(
       const data = torrentExportSchema.safeParse(req.body)
       if (!data.success) return reply.code(400).send()
       const job = get(req, req.params.id)
-      if (!job?.result) return reply.code(404).send()
-      if (job.exporting || activeExports >= MAX_RESULTS)
-        return reply.code(429).send({ error: 'Export in progress' })
-      job.exporting = true
-      activeExports++
-      const release = () => {
-        reply.raw.off('finish', release)
-        reply.raw.off('close', release)
-        job.exporting = false
-        activeExports--
-      }
-      reply.raw.once('finish', release)
-      reply.raw.once('close', release)
-      const t = job.result
-      // Recheck the source grant on export; seeding also goes through normal NAS
-      // task ownership, output admission and full piece verification.
-      try {
-        for (const [entry, kind] of job.entries) {
-          job.abort.signal.throwIfAborted()
-          if ((await authorize(entry, kind)) !== entry)
-            throw new Error('Source changed')
+      if (!job) return reply.code(404).send()
+      return readResult(req, reply, job, async (t, eligible) => {
+        let seeding = 'not-requested'
+        if (data.data.seed) {
+          job.seed ??= deps
+            .createTask({
+              type: 'bt',
+              payload: {
+                kind: 'torrent-base64',
+                base64: Buffer.from(t.bytes).toString('base64'),
+              },
+              selectedFiles: Array.from({ length: t.fileCount }, (_, i) => i),
+              saveDir: path.dirname(job.source),
+              duplicatePolicy: 'use-existing',
+            })
+            .then((result) =>
+              ['created', 'reused', 'rechecked'].includes(result.outcome)
+            )
+            .catch(() => false)
+          seeding = (await job.seed) ? 'submitted' : 'failed'
         }
-        if (!principal(req)?.eligible() || job.abort.signal.aborted)
-          throw new Error('Export expired')
-      } catch {
-        return reply.code(403).send()
-      }
-      let seeding = 'not-requested'
-      if (data.data.seed) {
-        job.seed ??= deps
-          .createTask({
-            type: 'bt',
-            payload: {
-              kind: 'torrent-base64',
-              base64: Buffer.from(t.bytes).toString('base64'),
-            },
-            selectedFiles: Array.from({ length: t.fileCount }, (_, i) => i),
-            saveDir: path.dirname(job.source),
-            duplicatePolicy: 'use-existing',
-          })
-          .then((result) =>
-            ['created', 'reused', 'rechecked'].includes(result.outcome)
-          )
-          .catch(() => false)
-        seeding = (await job.seed) ? 'submitted' : 'failed'
-      }
-      if (job.abort.signal.aborted || !principal(req)?.eligible())
-        return reply.code(403).send()
-      return reply
-        .header('cache-control', 'no-store')
-        .header(TORRENT_SEED_HEADER, seeding)
-        .type('application/x-bittorrent')
-        .send(Buffer.from(t.bytes))
+        if (!eligible()) {
+          reply.code(403).send()
+          return
+        }
+        reply
+          .header('cache-control', 'no-store')
+          .header(TORRENT_SEED_HEADER, seeding)
+          .type('application/x-bittorrent')
+          .send(Buffer.from(t.bytes))
+      })
     }
   )
 }

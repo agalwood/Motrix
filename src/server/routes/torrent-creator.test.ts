@@ -67,6 +67,7 @@ beforeEach(async () => {
       authorizeFile: async (p) => {
         if (hold) await hold
         if (deny && p.endsWith('asset.bin')) throw Error('Access revoked')
+        return p
       },
       createTask: seed,
     },
@@ -130,6 +131,12 @@ it('exports valid multi-piece original data only to its owner; seeding is option
     })
   )
   deny = true
+  const revoked = await app.inject({
+    url: `${TORRENT_CREATOR_API}/${id}`,
+    headers,
+  })
+  expect(revoked.statusCode).toBe(403)
+  expect(revoked.body).not.toContain(ready.result.infoHash)
   expect((await exp(id, false)).statusCode).toBe(403)
   await app.inject({
     method: 'DELETE',
@@ -222,4 +229,27 @@ it('holds the single hash slot through cancellation and isolates export work', a
   }
   expect((await first).headers[TORRENT_SEED_HEADER]).toBe('submitted')
   expect(seed).toHaveBeenCalledTimes(1)
+})
+
+it('does not let abandoned, failed jobs deny a different operator a creation slot', async () => {
+  const file = path.join(allowed, 'asset.bin')
+  await writeFile(file, 'accessible')
+  for (let i = 0; i < 4; i++) {
+    const res = await start(path.join(root, 'missing'))
+    expect(res.statusCode).toBe(202)
+    expect((await wait(res.json().id)).state).toBe('failed')
+  }
+  const login = await app.inject({
+    method: 'POST',
+    url: '/rpc/auth/login',
+    payload: { token },
+  })
+  const cookie = String(login.headers['set-cookie']).split(';')[0]
+  const next = await app.inject({
+    method: 'POST',
+    url: TORRENT_CREATOR_API,
+    headers: { cookie },
+    payload: { source: { path: file, kind: 'file' }, options: {} },
+  })
+  expect(next.statusCode).toBe(202)
 })

@@ -16,6 +16,27 @@ import type { WebContents } from 'electron'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { torrentCreatorHandlers } from './create-torrent'
 
+const staging = vi.hoisted(() => ({
+  afterCreate: undefined as undefined | (() => Promise<void>),
+  noHardLinks: false,
+}))
+vi.mock('node:fs/promises', async (load) => {
+  const fs = await load<typeof import('node:fs/promises')>()
+  return {
+    ...fs,
+    link: async (from: string, to: string) => {
+      if (staging.noHardLinks)
+        throw Object.assign(new Error('Unsupported'), { code: 'EOPNOTSUPP' })
+      await fs.link(from, to)
+    },
+    mkdtemp: async (prefix: string) => {
+      const created = await fs.mkdtemp(prefix)
+      if (path.basename(prefix) === '.motrix-torrent-')
+        await staging.afterCreate?.()
+      return created
+    },
+  }
+})
 const { pick, save } = vi.hoisted(() => ({ pick: vi.fn(), save: vi.fn() }))
 vi.mock('electron', () => ({
   BrowserWindow: { fromWebContents: () => ({}) },
@@ -30,6 +51,8 @@ const seed = vi.fn()
 let handlers: ReturnType<typeof torrentCreatorHandlers>
 beforeEach(async () => {
   vi.resetAllMocks()
+  staging.afterCreate = undefined
+  staging.noHardLinks = false
   dir = await realpath(await mkdtemp(path.join(tmpdir(), 'creator-ipc-')))
   handlers = torrentCreatorHandlers((sender) => sender === owner, seed)
 })
@@ -133,3 +156,21 @@ it('rejects a replacement source picked under the original filename', async () =
   )
   expect(save).not.toHaveBeenCalled()
 })
+
+it.each([false, true])(
+  'preserves a competing file (volume without hard links: %s)',
+  async (noHardLinks) => {
+    staging.noHardLinks = noHardLinks
+    const folder = await source('directory')
+    const result = await handlers[Commands.CreateTorrent](owner, {})
+    const target = path.join(folder, 'new.torrent')
+    save.mockResolvedValue({ canceled: false, filePath: target })
+    staging.afterCreate = () =>
+      writeFile(target, 'other writer', { flag: 'wx' })
+    await expect(
+      handlers[Commands.SaveTorrentFile](owner, { id: result.id, seed: false })
+    ).rejects.toThrow()
+    expect(await readFile(target, 'utf8')).toBe('other writer')
+    expect(seed).not.toHaveBeenCalled()
+  }
+)

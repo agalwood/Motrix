@@ -1,5 +1,8 @@
 import { randomUUID } from 'node:crypto'
+import { constants } from 'node:fs'
 import {
+  copyFile,
+  link,
   lstat,
   mkdtemp,
   realpath,
@@ -35,6 +38,23 @@ const fail = () =>
     ErrorCode.TorrentCreateFailed,
     'Torrent creator request is no longer available'
   )
+
+// Claim an initially absent filename without replacing a competing writer.
+// FAT/exFAT and some network volumes do not support hard links.
+async function publishNewTorrent(file: string, target: string) {
+  try {
+    await link(file, target)
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code
+    if (
+      !['EPERM', 'ENOTSUP', 'EOPNOTSUPP', 'ENOSYS', 'EXDEV'].includes(
+        code ?? ''
+      )
+    )
+      throw error
+    await copyFile(file, target, constants.COPYFILE_EXCL)
+  }
+}
 
 export function torrentCreatorHandlers(
   isCreator: (sender: WebContents) => boolean,
@@ -189,7 +209,8 @@ export function torrentCreatorHandlers(
         try {
           const file = path.join(staging, 'metainfo')
           await writeFile(file, torrent.bytes, { flag: 'wx', mode: 0o600 })
-          await rename(file, target)
+          if (stat) await rename(file, target)
+          else await publishNewTorrent(file, target)
         } finally {
           await rm(staging, { recursive: true, force: true }).catch(
             () => undefined
