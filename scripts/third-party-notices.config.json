@@ -20,11 +20,23 @@
     "PSF-2.0"
   ],
   "reviewedRepositoryLicenseFiles": {
+    "THIRD_PARTY_LICENSES/wasm-util-LICENSE": "09e436100bf926e78df875ec80cf3d0c643dfec779b52cfe2aa96afa0de714cb",
+    "THIRD_PARTY_LICENSES/napi-rs-LICENSE": "3f1ce66533302df3a32edbfdfc0b78f0dd34659e4c1f5817162e5ea3c2297215",
+    "THIRD_PARTY_LICENSES/tailwindcss-LICENSE": "60e0b68c0f35c078eef3a5d29419d0b03ff84ec1df9c3f9d6e39a519a5ae7985",
     "THIRD_PARTY_LICENSES/MPL-2.0": "5eba353fe5076ac3432177f8ab1cf75e3afcd0584251e37c3bfead5f447d040e",
     "THIRD_PARTY_LICENSES/aria2-COPYING": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643",
     "THIRD_PARTY_LICENSES/aria2-LICENSE.OpenSSL": "e05998a2537cddad682fb240371fbf859966ff8d9b34e55f2ebe55ecaef4333f"
   },
   "packageOverrides": {
+    "@tybys/wasm-util@0.10.3": {
+      "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/wasm-util-LICENSE"]
+    },
+    "@napi-rs/wasm-runtime@1.2.2": {
+      "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/napi-rs-LICENSE"]
+    },
+    "@tailwindcss/oxide-wasm32-wasi@4.3.5": {
+      "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/tailwindcss-LICENSE"]
+    },
     "type-fest@4.41.0": {
       "licenseConcluded": "MIT"
     },

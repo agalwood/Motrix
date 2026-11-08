@@ -193,7 +193,7 @@ describe('third-party notice generator', () => {
     }
 
     expect(bundle.packageCount).toBeGreaterThan(100)
-    expect(inventory).toContain('| @xyflow/react | 12.12.0 |')
+    expect(inventory).toContain('| @xyflow/react | 12.12.1 |')
     expect(inventory).toContain('| aria2 | 1.37.0-motrix.23 |')
     expect(inventory).toContain('| motrix.filename-template | 1.1.1 |')
     expect(inventory).toContain('Apple San Francisco tray font')
@@ -203,7 +203,7 @@ describe('third-party notice generator', () => {
     )
     expect(sbom.spdxVersion).toBe('SPDX-2.3')
     expect(sbom.packages).toContainEqual(
-      expect.objectContaining({ name: 'Electron', versionInfo: '45.2.1' })
+      expect.objectContaining({ name: 'Electron', versionInfo: '45.2.3' })
     )
     expect(sbom.packages).toContainEqual(
       expect.objectContaining({

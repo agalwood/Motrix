@@ -77,7 +77,7 @@ jobs:
         timeout-minutes: 5
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
-          version: 12.16.1
+          version: 12.18.0
           run_install: false
 
       - name: Setup Node.js for verification
@@ -167,7 +167,7 @@ jobs:
         timeout-minutes: 5
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
-          version: 12.16.1
+          version: 12.18.0
           run_install: false
 
       - name: Setup Node.js for verification

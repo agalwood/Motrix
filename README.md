@@ -19,14 +19,13 @@ The same core powers two ways to run Motrix:
 - **Desktop app:** Runs on macOS, Windows, and Linux
 - **Headless server:** Runs without a desktop environment, either directly on Node.js or in Docker, and includes a web UI for NAS devices and home servers
 
-## Motrix 2.3.0
+## Motrix 2.4.0
 
-Motrix 2.3.0 refreshes the application artwork, restores cloud-drive directory
-downloads with aria2 1.37.0-motrix.23, and improves Server media tools, settings
-and update checks. It also introduces native fnOS integration; FPK packages
-follow a separate verified publication workflow.
-Download [v2.3.0 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.3.0)
-and read the [full release notes](./docs/release-notes/2.3.0.md).
+Create BitTorrent v1 torrents from files or folders in the desktop app or Server Web UI,
+and choose whether to seed them. This release also adds native Synology DSM 7 packages
+and improves filename recovery when a download finishes on Windows.
+Download [v2.4.0 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.4.0)
+and read the [full release notes](./docs/release-notes/2.4.0.md).
 
 Back up your existing Motrix profile and downloads before upgrading. The bundled
 engine upgrades its SQLite database to schema 6 and keeps a pre-upgrade backup;
@@ -187,7 +186,7 @@ included `compose.yaml` keeps Server state separate from downloaded resources:
 ```bash
 mkdir -p motrix-data downloads
 sudo chown 1000:1000 motrix-data downloads
-export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.3.0'
+export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.4.0'
 export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
 docker compose pull server
 docker compose up -d --wait
