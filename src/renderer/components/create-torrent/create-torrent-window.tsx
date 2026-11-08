@@ -7,7 +7,6 @@ import {
 import { SettingsSelectTrigger } from '@renderer/components/settings-kit/settings-select-trigger'
 import { Alert, AlertDescription } from '@renderer/components/ui/alert'
 import { Button } from '@renderer/components/ui/button'
-import { Card } from '@renderer/components/ui/card'
 import {
   Collapsible,
   CollapsibleContent,
@@ -47,8 +46,6 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ControlRow,
-  CreatorSection,
-  groupStyle,
   type PickedSource,
   type SourceKind,
   SourcePicker,
@@ -212,6 +209,16 @@ export function CreateTorrentWindow() {
       setError('')
     }
   }
+  const fieldError =
+    invalidField && error ? (
+      <p
+        id="creator-error"
+        role="alert"
+        className="mt-1.5 text-xs leading-4 text-destructive"
+      >
+        {error}
+      </p>
+    ) : null
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
       <WindowChrome
@@ -219,10 +226,10 @@ export function CreateTorrentWindow() {
         maximizable={false}
         title={t('createTorrent.title')}
       />
-      <main className="min-h-0 flex-1 overflow-y-auto border-t border-border/70 bg-muted/55">
+      <main className="min-h-0 flex-1 overflow-y-auto">
         <div
           data-adaptive-content
-          className="mx-auto w-full max-w-[42rem] space-y-4 px-5 pt-3.5 pb-5 sm:px-6"
+          className="mx-auto w-full max-w-[42rem] space-y-3 px-6 pt-2 pb-4"
         >
           {!result ? (
             <>
@@ -231,144 +238,137 @@ export function CreateTorrentWindow() {
                 disabled={locked}
                 onPick={(kind) => void pick(kind)}
               />
-              <CreatorSection title={t('createTorrent.options')}>
-                <Card className={groupStyle}>
-                  <ControlRow
+              <section
+                aria-label={t('createTorrent.options')}
+                className="min-w-0"
+              >
+                <ControlRow
+                  id="creator-trackers"
+                  label={t('createTorrent.trackers')}
+                  top
+                >
+                  <Textarea
                     id="creator-trackers"
-                    label={t('createTorrent.trackers')}
-                    top
-                  >
-                    <Textarea
-                      id="creator-trackers"
-                      spellCheck={false}
-                      dir="ltr"
-                      disabled={locked}
-                      className={listField}
-                      value={trackers}
-                      aria-invalid={invalidField === 'trackers' || undefined}
-                      aria-describedby={
-                        invalidField === 'trackers'
-                          ? 'creator-error'
-                          : undefined
-                      }
-                      onChange={(e) => {
-                        setTrackers(e.target.value)
-                        clearValidation()
-                      }}
-                      placeholder={t('createTorrent.trackersPlaceholder')}
-                    />
-                  </ControlRow>
-                  <Separator />
-                  <ToggleRow
-                    id="private"
-                    label={t('createTorrent.private')}
-                    description={t('createTorrent.privateDesc')}
-                    checked={isPrivate}
+                    spellCheck={false}
+                    dir="ltr"
                     disabled={locked}
-                    onChange={(value) => {
-                      setPrivate(value)
+                    className={listField}
+                    value={trackers}
+                    aria-invalid={invalidField === 'trackers' || undefined}
+                    aria-describedby={
+                      invalidField === 'trackers' ? 'creator-error' : undefined
+                    }
+                    onChange={(e) => {
+                      setTrackers(e.target.value)
                       clearValidation()
                     }}
+                    placeholder={t('createTorrent.trackersPlaceholder')}
                   />
-                  <Separator />
-                  {seedOption}
-                  <Separator />
-                  <Collapsible open={advanced} onOpenChange={setAdvanced}>
-                    <CollapsibleTrigger
-                      disabled={locked}
-                      render={
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-10 w-full justify-between rounded-none rounded-b-xl px-4 has-[>svg]:px-4 text-[13px] font-medium text-card-foreground aria-expanded:rounded-b-none"
-                        />
-                      }
-                    >
-                      {t('task.add.advanced')}
-                      <ChevronRightIcon
-                        className={cn(
-                          'size-3.5 text-muted-foreground motion-safe:transition-transform motion-safe:duration-150',
-                          advanced ? 'rotate-90' : 'rtl:rotate-180'
-                        )}
+                  {invalidField === 'trackers' && fieldError}
+                </ControlRow>
+                <ToggleRow
+                  id="private"
+                  label={t('createTorrent.private')}
+                  description={t('createTorrent.privateDesc')}
+                  checked={isPrivate}
+                  disabled={locked}
+                  onChange={(value) => {
+                    setPrivate(value)
+                    clearValidation()
+                  }}
+                />
+                {seedOption}
+                <Separator className="my-2 bg-border/70" />
+                <Collapsible open={advanced} onOpenChange={setAdvanced}>
+                  <CollapsibleTrigger
+                    disabled={locked}
+                    render={
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="-ms-2 h-8 gap-1.5 px-2 has-[>svg]:px-2 text-xs text-muted-foreground hover:text-foreground"
                       />
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <Separator />
-                      <ControlRow
+                    }
+                  >
+                    <ChevronRightIcon
+                      className={cn(
+                        'size-3.5 text-muted-foreground motion-safe:transition-transform motion-safe:duration-150',
+                        advanced ? 'rotate-90' : 'rtl:rotate-180'
+                      )}
+                    />
+                    {t('task.add.advanced')}
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-1">
+                    <ControlRow
+                      id="creator-web-seeds"
+                      label={t('createTorrent.webSeeds')}
+                      top
+                    >
+                      <Textarea
                         id="creator-web-seeds"
-                        label={t('createTorrent.webSeeds')}
-                        top
-                      >
-                        <Textarea
-                          id="creator-web-seeds"
-                          dir="ltr"
-                          spellCheck={false}
-                          disabled={locked}
-                          className={listField}
-                          value={webSeeds}
-                          aria-invalid={
-                            invalidField === 'webSeeds' || undefined
-                          }
-                          aria-describedby={
-                            invalidField === 'webSeeds'
-                              ? 'creator-error'
-                              : undefined
-                          }
-                          onChange={(e) => {
-                            setWebSeeds(e.target.value)
-                            clearValidation()
-                          }}
-                          placeholder={t('createTorrent.webSeedsPlaceholder')}
-                        />
-                      </ControlRow>
-                      <ControlRow
+                        dir="ltr"
+                        spellCheck={false}
+                        disabled={locked}
+                        className={listField}
+                        value={webSeeds}
+                        aria-invalid={invalidField === 'webSeeds' || undefined}
+                        aria-describedby={
+                          invalidField === 'webSeeds'
+                            ? 'creator-error'
+                            : undefined
+                        }
+                        onChange={(e) => {
+                          setWebSeeds(e.target.value)
+                          clearValidation()
+                        }}
+                        placeholder={t('createTorrent.webSeedsPlaceholder')}
+                      />
+                      {invalidField === 'webSeeds' && fieldError}
+                    </ControlRow>
+                    <ControlRow
+                      id="creator-comment"
+                      label={t('createTorrent.comment')}
+                    >
+                      <Input
                         id="creator-comment"
-                        label={t('createTorrent.comment')}
+                        className={cn(textField, 'h-8')}
+                        value={comment}
+                        disabled={locked}
+                        maxLength={CREATE_TORRENT_COMMENT_MAX}
+                        onChange={(e) => setComment(e.target.value)}
+                      />
+                    </ControlRow>
+                    <ControlRow
+                      id="creator-piece"
+                      label={t('createTorrent.pieceLength')}
+                    >
+                      <Select
+                        items={pieceOptions}
+                        value={piece}
+                        disabled={locked}
+                        onValueChange={(value) => {
+                          if (value !== null) setPiece(value)
+                        }}
                       >
-                        <Input
-                          id="creator-comment"
-                          className={cn(textField, 'h-8')}
-                          value={comment}
-                          disabled={locked}
-                          maxLength={CREATE_TORRENT_COMMENT_MAX}
-                          onChange={(e) => setComment(e.target.value)}
-                        />
-                      </ControlRow>
-                      <ControlRow
-                        id="creator-piece"
-                        label={t('createTorrent.pieceLength')}
-                      >
-                        <Select
-                          items={pieceOptions}
-                          value={piece}
-                          disabled={locked}
-                          onValueChange={(value) => {
-                            if (value !== null) setPiece(value)
-                          }}
+                        <SettingsSelectTrigger
+                          id="creator-piece"
+                          className="text-[13px]"
                         >
-                          <SettingsSelectTrigger
-                            id="creator-piece"
-                            className="text-[13px]"
-                          >
-                            <SelectValue />
-                          </SettingsSelectTrigger>
-                          <SelectContent position="popper" align="start">
-                            {pieceOptions.map((option) => (
-                              <SelectItem
-                                key={option.value}
-                                value={option.value}
-                              >
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </ControlRow>
-                    </CollapsibleContent>
-                  </Collapsible>
-                </Card>
-              </CreatorSection>
+                          <SelectValue />
+                        </SettingsSelectTrigger>
+                        <SelectContent position="popper" align="start">
+                          {pieceOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </ControlRow>
+                  </CollapsibleContent>
+                </Collapsible>
+              </section>
             </>
           ) : (
             <TorrentSummary result={result}>
@@ -410,7 +410,7 @@ export function CreateTorrentWindow() {
               </AlertDescription>
             </Alert>
           )}
-          {error && (
+          {error && !invalidField && (
             <Alert id="creator-error" variant="destructive">
               <WarningIcon />
               <AlertDescription className="text-xs">{error}</AlertDescription>
@@ -418,7 +418,7 @@ export function CreateTorrentWindow() {
           )}
         </div>
       </main>
-      <footer className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border/80 bg-background px-5 py-2.5 sm:px-6">
+      <footer className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border/70 bg-background px-6 py-2.5">
         {status === 'ready' && (
           <Button
             size="sm"
