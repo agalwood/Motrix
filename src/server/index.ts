@@ -1525,6 +1525,14 @@ async function main() {
     | Awaited<ReturnType<typeof listenNasClientGateway>>
     | undefined
   const app = await createApp({
+    torrentCreator: {
+      policy: downloadPathPolicy,
+      authorizeFile: nasFiles
+        ? (file) => nasFiles.authorizeFile(file, downloadPathPolicy)
+        : undefined,
+      createTask: async (request) =>
+        (await createTask(request)) as TaskCreateCommandResult,
+    },
     getHiddenNotificationKinds: () =>
       getHiddenNotificationKinds(settingsManager.getApp()),
     clientPairing: {

@@ -75,3 +75,28 @@ export type CreateTorrentRequest = z.infer<typeof createTorrentRequestSchema>
 export type CreateTorrentResultPayload = z.infer<
   typeof createTorrentResultSchema
 >
+
+export const serverTorrentSourceSchema = z
+  .object({
+    path: z.string().min(1).max(4096),
+    kind: pickTorrentSourceSchema,
+  })
+  .strict()
+export const serverCreateTorrentSchema = z
+  .object({
+    source: serverTorrentSourceSchema,
+    options: createTorrentRequestSchema,
+  })
+  .strict()
+export const torrentJobSchema = z.object({ id: z.uuid() }).strict()
+export const torrentJobStatusSchema = z.discriminatedUnion('state', [
+  z.object({
+    state: z.literal('hashing'),
+    progress: createTorrentProgressSchema,
+  }),
+  z.object({ state: z.literal('ready'), result: createTorrentResultSchema }),
+  z.object({ state: z.literal('failed') }),
+])
+export const torrentExportSchema = z.object({ seed: z.boolean() }).strict()
+export const TORRENT_CREATOR_API = '/api/torrent-creator'
+export const TORRENT_SEED_HEADER = 'x-motrix-seeding'

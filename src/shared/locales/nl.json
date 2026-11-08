@@ -3540,9 +3540,10 @@
     "createFailed": "Kan de torrent niet aanmaken",
     "saveFailed": "Kan het torrent-bestand niet opslaan",
     "seedAfter": "Begin met seeden na het opslaan",
-    "seedFailed": "De torrent is opgeslagen, maar het seeden kon niet worden gestart.",
+    "seedFailed": "Het seeden kon niet worden gestart.",
     "seedSubmitted": "De seedtaak is ingediend.",
     "invalidOptions": "Elke lijst kan maximaal {{limit}} geldige URL’s bevatten. Privétorrents hebben een tracker nodig.",
-    "menuLabel": "Torrentbestand maken…"
+    "menuLabel": "Torrentbestand maken…",
+    "downloadRequested": "Download aangevraagd: {{path}}"
   }
 }

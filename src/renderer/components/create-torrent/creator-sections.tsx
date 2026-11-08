@@ -99,20 +99,31 @@ export function ControlRow({
   label,
   children,
   top = false,
+  stretch = false,
 }: {
   id: string
   label: string
   children: ReactNode
   top?: boolean
+  stretch?: boolean
 }) {
   return (
     <div
-      className={cn(fieldGrid, 'py-2', top ? 'items-start' : 'items-center')}
+      className={cn(
+        fieldGrid,
+        'py-2',
+        stretch ? 'flex-1 items-stretch' : top ? 'items-start' : 'items-center'
+      )}
     >
-      <Label htmlFor={id} className={cn(controlLabel, top && 'pt-1.5')}>
+      <Label
+        htmlFor={id}
+        className={cn(controlLabel, top && 'self-start pt-1.5')}
+      >
         {label}
       </Label>
-      <div className="min-w-0">{children}</div>
+      <div className={cn('min-w-0', stretch && 'flex flex-col')}>
+        {children}
+      </div>
     </div>
   )
 }

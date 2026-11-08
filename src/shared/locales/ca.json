@@ -3564,9 +3564,10 @@
     "createFailed": "No s’ha pogut crear el torrent",
     "saveFailed": "No s’ha pogut desar el fitxer torrent",
     "seedAfter": "Comença a compartir després de desar",
-    "seedFailed": "El torrent s’ha desat, però no s’ha pogut començar a compartir.",
+    "seedFailed": "No s’ha pogut començar a compartir.",
     "seedSubmitted": "S’ha enviat la tasca de compartició.",
     "invalidOptions": "Cada llista admet fins a {{limit}} URL vàlids. Els torrents privats necessiten un rastrejador.",
-    "menuLabel": "Crea un fitxer torrent…"
+    "menuLabel": "Crea un fitxer torrent…",
+    "downloadRequested": "S’ha sol·licitat la baixada de {{path}}"
   }
 }

@@ -477,7 +477,7 @@ CLI/agent and browser-Extension pairing remain operator-approved workflows.
 
 ## Logo menu in the Web UI
 
-Open the **Motrix** logo at the upper left for About, Settings, Task, Help,
+Open the **Motrix** logo at the upper left for About, Settings, File, Task, Help,
 and **Sign out**. Narrow screens show one menu level at a time; use **Back**,
 Left Arrow, or Escape to return to the parent level.
 
@@ -486,6 +486,11 @@ Left Arrow, or Escape to return to the parent level.
   browser, supports multiple files, and lets you review each before submitting.
   The download destination is a path on the Server. See [torrent upload
   size](#torrent-upload-size) for the configurable request limit.
+- **File → Create Torrent File…** creates a BitTorrent v1 torrent from a file
+  or folder on the Server. Choose a source inside the configured download roots
+  that your account can read, then select **Create**. **Save .torrent** downloads
+  the metainfo to your browser. Enable **Start seeding after saving** to verify
+  and seed the original files on the Server; otherwise no download task is added.
 - Pause, resume, remove, and queue commands apply to the committed selection
   in the current filtered downloads list. **Select all tasks** includes rows
   outside the visible viewport. Changing the selection or filter cancels a

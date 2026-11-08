@@ -3540,9 +3540,10 @@
     "createFailed": "Kunne ikke opprette torrenten",
     "saveFailed": "Kunne ikke lagre torrentfilen",
     "seedAfter": "Start seeding etter lagring",
-    "seedFailed": "Torrenten ble lagret, men seedingen kunne ikke startes.",
+    "seedFailed": "Seedingen kunne ikke startes.",
     "seedSubmitted": "Seedingoppgaven er sendt inn.",
     "invalidOptions": "Hver liste kan ha opptil {{limit}} gyldige URL-er. Private torrenter trenger en tracker.",
-    "menuLabel": "Opprett torrentfil…"
+    "menuLabel": "Opprett torrentfil…",
+    "downloadRequested": "Nedlasting forespurt: {{path}}"
   }
 }

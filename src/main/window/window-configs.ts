@@ -1,4 +1,7 @@
-import { ADD_TASK_COLLAPSED_HEIGHT } from '@shared/constants/add-task'
+import {
+  ADD_TASK_COLLAPSED_HEIGHT,
+  TASK_FORM_WIDTH,
+} from '@shared/constants/add-task'
 import { DEFAULT_APP_SETTINGS } from '@shared/schemas/app-settings'
 import type { WindowId } from '@shared/types/window'
 import { WindowRoutes } from '@shared/types/window'
@@ -42,7 +45,7 @@ export const WINDOW_CONFIGS: Record<WindowId, WindowConfig> = {
   'add-task': {
     id: 'add-task',
     title: 'New Task',
-    width: 640,
+    width: TASK_FORM_WIDTH,
     height: ADD_TASK_COLLAPSED_HEIGHT,
     resizable: false,
     route: WindowRoutes['add-task'],
@@ -56,8 +59,8 @@ export const WINDOW_CONFIGS: Record<WindowId, WindowConfig> = {
   'create-torrent': {
     id: 'create-torrent',
     title: 'Motrix',
-    width: 600,
-    height: 390,
+    width: TASK_FORM_WIDTH,
+    height: ADD_TASK_COLLAPSED_HEIGHT,
     minWidth: 470,
     minHeight: 290,
     resizable: true,

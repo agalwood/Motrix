@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { RendererSubmissionNotice } from '@renderer/components/renderer-recovery-notice'
+import { taskFormFooter } from '@renderer/components/task-form-layout'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -804,7 +805,7 @@ export function AddTaskForm({
           ref={footerRef}
           data-slot="add-task-form-footer"
           className={cn(
-            'w-full shrink-0 border-t-[0.5px] border-border bg-background px-4 py-3',
+            taskFormFooter,
             presentation === 'window' && 'fixed bottom-0 left-0'
           )}
         >

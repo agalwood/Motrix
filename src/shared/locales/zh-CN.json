@@ -3516,9 +3516,10 @@
     "createFailed": "创建种子失败",
     "saveFailed": "保存种子文件失败",
     "seedAfter": "保存后使用原文件做种",
-    "seedFailed": "种子已保存，但无法启动做种任务。",
+    "seedFailed": "无法启动做种任务。",
     "seedSubmitted": "已提交做种任务。",
     "invalidOptions": "每个列表最多 {{limit}} 个有效 URL。私有种子至少需要一个 Tracker。",
-    "menuLabel": "创建种子文件…"
+    "menuLabel": "创建种子文件…",
+    "downloadRequested": "已请求下载 {{path}}"
   }
 }

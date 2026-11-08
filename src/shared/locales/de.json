@@ -3540,9 +3540,10 @@
     "createFailed": "Torrent konnte nicht erstellt werden",
     "saveFailed": "Torrent-Datei konnte nicht gespeichert werden",
     "seedAfter": "Nach dem Speichern seeden",
-    "seedFailed": "Der Torrent wurde gespeichert, aber das Seeden konnte nicht gestartet werden.",
+    "seedFailed": "Das Seeden konnte nicht gestartet werden.",
     "seedSubmitted": "Der Seeding-Auftrag wurde übermittelt.",
     "invalidOptions": "Pro Liste sind bis zu {{limit}} gültige URLs zulässig. Private Torrents benötigen einen Tracker.",
-    "menuLabel": "Torrent-Datei erstellen…"
+    "menuLabel": "Torrent-Datei erstellen…",
+    "downloadRequested": "Download angefordert: {{path}}"
   }
 }

@@ -1,14 +1,6 @@
-import {
-  ChevronRightIcon,
-  HelpIcon,
-  RemoveIcon,
-} from '@renderer/components/icons'
+import { HelpIcon, RemoveIcon } from '@renderer/components/icons'
+import { TaskFormAdvanced } from '@renderer/components/task-form-layout'
 import { Button } from '@renderer/components/ui/button'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@renderer/components/ui/collapsible'
 import {
   FormControl,
   FormField,
@@ -32,7 +24,6 @@ export function AdvancedPanel({
 }: {
   defaultOpen?: boolean
 }) {
-  const { t } = useTranslation()
   const [open, setOpen] = useState(defaultOpen)
   const onLayoutChange = useAddTaskLayoutChange()
   const tab = useWatch<AddTaskFormValues, 'tab'>({ name: 'tab' })
@@ -49,30 +40,9 @@ export function AdvancedPanel({
   }, [onLayoutChange, open])
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen}>
-      <CollapsibleTrigger
-        render={
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="-ms-2 h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-transparent dark:hover:bg-transparent"
-          />
-        }
-      >
-        <ChevronRightIcon
-          className={cn(
-            'h-3.5 w-3.5 transition-transform duration-150',
-            open && 'rotate-90'
-          )}
-          aria-hidden="true"
-        />
-        {t('task.add.advanced')}
-      </CollapsibleTrigger>
-      <CollapsibleContent className="mt-2 ms-1.5 space-y-2 border-s-2 border-border ps-3">
-        {tab === 'links' ? <LinksAdvancedFields /> : <TorrentAdvancedFields />}
-      </CollapsibleContent>
-    </Collapsible>
+    <TaskFormAdvanced open={open} onOpenChange={setOpen}>
+      {tab === 'links' ? <LinksAdvancedFields /> : <TorrentAdvancedFields />}
+    </TaskFormAdvanced>
   )
 }
 

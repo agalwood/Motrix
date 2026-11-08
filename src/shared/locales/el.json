@@ -3540,9 +3540,10 @@
     "createFailed": "Δεν ήταν δυνατή η δημιουργία του torrent",
     "saveFailed": "Δεν ήταν δυνατή η αποθήκευση του αρχείου torrent",
     "seedAfter": "Έναρξη διαμοιρασμού μετά την αποθήκευση",
-    "seedFailed": "Το torrent αποθηκεύτηκε, αλλά ο διαμοιρασμός δεν ξεκίνησε.",
+    "seedFailed": "Ο διαμοιρασμός δεν ξεκίνησε.",
     "seedSubmitted": "Η εργασία διαμοιρασμού υποβλήθηκε.",
     "invalidOptions": "Έως {{limit}} έγκυρα URL ανά λίστα. Τα ιδιωτικά torrent απαιτούν tracker.",
-    "menuLabel": "Δημιουργία αρχείου torrent…"
+    "menuLabel": "Δημιουργία αρχείου torrent…",
+    "downloadRequested": "Ζητήθηκε λήψη: {{path}}"
   }
 }

@@ -3540,9 +3540,10 @@
     "createFailed": "Torrent oluşturulamadı",
     "saveFailed": "Torrent dosyası kaydedilemedi",
     "seedAfter": "Kaydettikten sonra paylaşmaya başla",
-    "seedFailed": "Torrent kaydedildi ancak paylaşım başlatılamadı.",
+    "seedFailed": "Paylaşım başlatılamadı.",
     "seedSubmitted": "Paylaşım görevi gönderildi.",
     "invalidOptions": "Her liste en fazla {{limit}} geçerli URL içerebilir. Özel torrentler izleyici gerektirir.",
-    "menuLabel": "Torrent dosyası oluştur…"
+    "menuLabel": "Torrent dosyası oluştur…",
+    "downloadRequested": "İndirme istendi: {{path}}"
   }
 }

@@ -3516,9 +3516,10 @@
     "createFailed": "Tidak dapat membuat torrent",
     "saveFailed": "Tidak dapat menyimpan file torrent",
     "seedAfter": "Mulai menyemai setelah menyimpan",
-    "seedFailed": "Torrent disimpan, tetapi tugas penyemaian tidak dapat dimulai.",
+    "seedFailed": "Tugas penyemaian tidak dapat dimulai.",
     "seedSubmitted": "Tugas penyemaian telah dikirim.",
     "invalidOptions": "Maksimal {{limit}} URL valid per daftar. Torrent privat memerlukan pelacak.",
-    "menuLabel": "Buat berkas torrent…"
+    "menuLabel": "Buat berkas torrent…",
+    "downloadRequested": "Unduhan diminta: {{path}}"
   }
 }

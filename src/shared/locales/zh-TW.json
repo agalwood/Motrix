@@ -3516,9 +3516,10 @@
     "createFailed": "建立種子失敗",
     "saveFailed": "儲存種子檔案失敗",
     "seedAfter": "儲存後使用原始檔案做種",
-    "seedFailed": "種子已儲存，但無法啟動做種任務。",
+    "seedFailed": "無法啟動做種任務。",
     "seedSubmitted": "已提交做種任務。",
     "invalidOptions": "每個清單最多 {{limit}} 個有效網址。私人種子至少需要一個 Tracker。",
-    "menuLabel": "建立種子檔案…"
+    "menuLabel": "建立種子檔案…",
+    "downloadRequested": "已要求下載 {{path}}"
   }
 }

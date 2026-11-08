@@ -3588,9 +3588,10 @@
     "createFailed": "Nie udało się utworzyć torrenta",
     "saveFailed": "Nie udało się zapisać pliku torrent",
     "seedAfter": "Rozpocznij udostępnianie po zapisaniu",
-    "seedFailed": "Torrent zapisano, ale nie udało się rozpocząć udostępniania.",
+    "seedFailed": "Nie udało się rozpocząć udostępniania.",
     "seedSubmitted": "Zlecono udostępnianie.",
     "invalidOptions": "Każda lista może zawierać do {{limit}} poprawnych adresów URL. Prywatny torrent wymaga trackera.",
-    "menuLabel": "Utwórz plik torrent…"
+    "menuLabel": "Utwórz plik torrent…",
+    "downloadRequested": "Zlecono pobranie: {{path}}"
   }
 }

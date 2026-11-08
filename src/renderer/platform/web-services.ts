@@ -14,6 +14,7 @@ export type PickRequest = {
   defaultPath?: string
   allowFavoriteEditing?: boolean
   file?: FilePickerOptions
+  readDirectory?: boolean
   opener: HTMLElement | null
 }
 type PickListener = (req: PickRequest) => void
@@ -37,6 +38,7 @@ export class PathPickerBus {
     defaultPath?: string
     allowFavoriteEditing?: boolean
     file?: FilePickerOptions
+    readDirectory?: boolean
   }): Promise<string | null> {
     const id = ++this.latestId
     const opener =

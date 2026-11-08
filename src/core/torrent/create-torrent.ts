@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { constants, type Stats } from 'node:fs'
-import { lstat, open, readdir, realpath } from 'node:fs/promises'
+import { lstat, open, opendir, realpath } from 'node:fs/promises'
 import path from 'node:path'
 import { type BInput, encode } from '@motrix/torrent'
 import { MAX_TORRENT_FILE_SIZE } from '@shared/lib/torrent-meta'
@@ -17,6 +17,8 @@ export interface CreateTorrentHooks {
   onProgress?: (processed: number, total: number) => void
   signal?: AbortSignal
   picked?: { path: string; dev: number; ino: number }
+  /** Hosts with per-user filesystem access must authorize descendants before listing or hashing. */
+  authorizeEntry?: (path: string, kind: 'file' | 'directory') => Promise<void>
 }
 // Bound the path/stat snapshot even when a directory contains mostly empty files.
 const MAX_SOURCE_ENTRIES = 100_000
@@ -59,20 +61,23 @@ export async function collectSourceFiles(
   const files: SourceFile[] = []
   const directories: SourceFile[] = []
   let totalSize = 0
+  let visited = 0
   const visit = async (absolute: string, segments: string[], stat: Stats) => {
     signal?.throwIfAborted()
-    if (stat.isSymbolicLink()) return
-    if (files.length + directories.length >= MAX_SOURCE_ENTRIES)
+    if (++visited > MAX_SOURCE_ENTRIES)
       throw new Error('Too many source entries')
+    if (stat.isSymbolicLink()) return
     if (path.basename(absolute).includes('\\'))
       throw new Error('Unrepresentable torrent path')
     if (stat.isDirectory()) {
+      await hooks.authorizeEntry?.(absolute, 'directory')
       directories.push({ absolute, segments, stat })
-      for (const entry of await readdir(absolute)) {
-        const child = path.join(absolute, entry)
-        await visit(child, [...segments, entry], await lstat(child))
+      for await (const entry of await opendir(absolute)) {
+        const child = path.join(absolute, entry.name)
+        await visit(child, [...segments, entry.name], await lstat(child))
       }
     } else if (stat.isFile()) {
+      await hooks.authorizeEntry?.(absolute, 'file')
       totalSize += stat.size
       if (!Number.isSafeInteger(totalSize))
         throw new Error('Source exceeds torrent creation limits')
@@ -121,10 +126,13 @@ export async function createTorrent(
   const changed = () => new Error('Torrent source changed while hashing')
   for (const file of files) {
     hooks.signal?.throwIfAborted()
+    await hooks.authorizeEntry?.(file.absolute, 'file')
     if ((await realpath(file.absolute)) !== file.absolute) throw changed()
     const fd = await open(
       file.absolute,
-      constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0)
+      constants.O_RDONLY |
+        (constants.O_NOFOLLOW ?? 0) |
+        (constants.O_NONBLOCK ?? 0)
     )
     try {
       if (!unchanged(file.stat, await fd.stat())) throw changed()

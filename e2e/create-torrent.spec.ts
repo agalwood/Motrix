@@ -1,10 +1,19 @@
 import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { parseTorrent } from '@motrix/torrent'
+import {
+  ADD_TASK_COLLAPSED_HEIGHT,
+  TASK_FORM_WIDTH,
+} from '@shared/constants/add-task'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import type { DownloadTask } from '@shared/types/task'
-import { expect, test, waitForEngineReady } from './fixtures/electron-app'
+import {
+  expect,
+  findAddTaskWindow,
+  test,
+  waitForEngineReady,
+} from './fixtures/electron-app'
 
 test('File → Create Torrent saves and seeds the selected original folder', async ({
   electronApp,
@@ -18,6 +27,31 @@ test('File → Create Torrent saves and seeds the selected original folder', asy
       window.motrix.invoke(channel, { engine: { seedRatio: 0, seedTime: 0 } }),
     Commands.UpdateSettings
   )
+  await electronApp.evaluate(({ Menu, BrowserWindow }) => {
+    const main = BrowserWindow.getAllWindows().find((w) =>
+      w.webContents.getURL().includes('w=main')
+    )
+    const item = Menu.getApplicationMenu()?.getMenuItemById('menubar.task.new')
+    if (!main || !item) throw Error('New Task menu unavailable')
+    item.click({}, main, main.webContents)
+  })
+  const add = await findAddTaskWindow(electronApp)
+  const cancel = add.getByRole('button', { name: 'Cancel', exact: true })
+  await expect(cancel).toBeVisible()
+  await expect
+    .poll(() => add.evaluate(() => [innerWidth, innerHeight]))
+    .toEqual([TASK_FORM_WIDTH, ADD_TASK_COLLAPSED_HEIGHT])
+  const taskSize = await add.evaluate(() => ({
+    width: window.innerWidth,
+    height: window.innerHeight,
+  }))
+  const taskAdvanced = await add
+    .getByRole('button', { name: 'Advanced', exact: true })
+    .boundingBox()
+  const taskFooter = await add
+    .locator('[data-slot="add-task-form-footer"]')
+    .boundingBox()
+  await cancel.click()
   const source = path.join(await realpath(userDataDir), 'shared')
   const payload = Buffer.concat([
     Buffer.alloc(32768, 1),
@@ -62,6 +96,24 @@ test('File → Create Torrent saves and seeds the selected original folder', asy
   )
   const creator = await nextWindow
   await creator.getByRole('button', { name: 'Select folder' }).waitFor()
+  await expect
+    .poll(() =>
+      creator.evaluate(() => ({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      }))
+    )
+    .toEqual(taskSize)
+  expect(
+    (
+      await creator
+        .getByRole('button', { name: 'Advanced', exact: true })
+        .boundingBox()
+    )?.height
+  ).toBe(taskAdvanced?.height)
+  expect((await creator.locator('footer').boundingBox())?.height).toBe(
+    taskFooter?.height
+  )
   await creator.screenshot({
     path: testInfo.outputPath('creator-form.png'),
     scale: 'css',

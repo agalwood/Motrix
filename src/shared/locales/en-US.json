@@ -3540,9 +3540,10 @@
     "createFailed": "Could not create the torrent",
     "saveFailed": "Could not save the torrent file",
     "seedAfter": "Start seeding after saving",
-    "seedFailed": "The torrent was saved, but the seeding task could not be started.",
+    "seedFailed": "The seeding task could not be started.",
     "seedSubmitted": "The seeding task was submitted.",
     "invalidOptions": "Use up to {{limit}} valid URLs per list. Private torrents need a tracker.",
-    "menuLabel": "Create Torrent File…"
+    "menuLabel": "Create Torrent File…",
+    "downloadRequested": "Download requested: {{path}}"
   }
 }

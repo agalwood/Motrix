@@ -207,16 +207,15 @@ describe('AddTaskDialogHost', () => {
     renderWithRouter()
     const dialog = screen.getByRole('dialog')
     expect(dialog).toHaveClass(
-      'max-w-[640px]',
       'gap-0',
       'overflow-hidden',
       'p-0',
       'transition-[height]',
       'duration-200',
       'ease-out',
-      'motion-reduce:transition-none',
-      'sm:max-w-[640px]'
+      'motion-reduce:transition-none'
     )
+    expect(dialog.style.maxWidth).toBe('640px')
     expect(dialog.style.height).toBe(`${ADD_TASK_COLLAPSED_HEIGHT}px`)
     expect(dialog.style.maxHeight).toContain('760px')
     expect(dialog.style.maxHeight).toContain('100vh')

@@ -3564,9 +3564,10 @@
     "createFailed": "Torrentul nu a putut fi creat",
     "saveFailed": "Fișierul torrent nu a putut fi salvat",
     "seedAfter": "Începe distribuirea după salvare",
-    "seedFailed": "Torrentul a fost salvat, dar distribuirea nu a putut porni.",
+    "seedFailed": "Distribuirea nu a putut porni.",
     "seedSubmitted": "Sarcina de distribuire a fost trimisă.",
     "invalidOptions": "Fiecare listă acceptă până la {{limit}} URL-uri valide. Torrentele private necesită un tracker.",
-    "menuLabel": "Creează un fișier torrent…"
+    "menuLabel": "Creează un fișier torrent…",
+    "downloadRequested": "Descărcare solicitată: {{path}}"
   }
 }

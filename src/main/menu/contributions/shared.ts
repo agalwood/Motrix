@@ -1,24 +1,15 @@
 import { PRODUCT_MENU_ITEMS } from '@shared/application-menu-catalog'
-import { CommandIds } from '@shared/commands-catalog'
 import { MenuIds, MenuItemIds } from '../menu-ids'
 import type { MenuRegistry } from '../menu-registry'
 
 export function contributeSharedMenubar(menuReg: MenuRegistry): void {
-  menuReg.appendItem({
-    id: 'menubar.file.createTorrent',
-    menuId: MenuIds.MenubarFile,
-    type: 'normal',
-    group: '2_create',
-    order: 10,
-    commandId: CommandIds.CreateTorrentFile,
-  })
   for (const item of PRODUCT_MENU_ITEMS) {
     if (item.section === 'app') continue
     menuReg.appendItem({
       id: item.id,
       type: 'normal',
       menuId:
-        item.section === 'task' && item.group === '1_new'
+        item.section === 'file'
           ? MenuIds.MenubarFile
           : item.section === 'task'
             ? MenuIds.MenubarTask

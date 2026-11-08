@@ -3564,9 +3564,10 @@
     "createFailed": "Impossible de créer le torrent",
     "saveFailed": "Impossible d’enregistrer le fichier torrent",
     "seedAfter": "Partager après l’enregistrement",
-    "seedFailed": "Le torrent a été enregistré, mais le partage n’a pas pu démarrer.",
+    "seedFailed": "Le partage n’a pas pu démarrer.",
     "seedSubmitted": "La tâche de partage a été envoyée.",
     "invalidOptions": "Chaque liste accepte jusqu’à {{limit}} URL valides. Un torrent privé nécessite un tracker.",
-    "menuLabel": "Créer un fichier torrent…"
+    "menuLabel": "Créer un fichier torrent…",
+    "downloadRequested": "Téléchargement demandé : {{path}}"
   }
 }

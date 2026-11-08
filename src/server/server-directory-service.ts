@@ -374,7 +374,13 @@ export class ServerDirectoryService {
     if (!request.success) return failure('invalidPath')
     try {
       const directory = await this.policy.authorizeDirectory(request.data.path)
-      if (!(await this.writable(directory))) return failure('permissionDenied')
+      if (request.data.access === 'read')
+        await this.fs.access(
+          directory.canonicalPath,
+          constants.R_OK | constants.X_OK
+        )
+      else if (!(await this.writable(directory)))
+        return failure('permissionDenied')
       return ValidateServerDirectoryResultSchema.parse({
         ok: true,
         value: { path: directory.path },

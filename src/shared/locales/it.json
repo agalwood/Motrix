@@ -3564,9 +3564,10 @@
     "createFailed": "Impossibile creare il torrent",
     "saveFailed": "Impossibile salvare il file torrent",
     "seedAfter": "Avvia la condivisione dopo il salvataggio",
-    "seedFailed": "Il torrent è stato salvato, ma non è stato possibile avviare la condivisione.",
+    "seedFailed": "Impossibile avviare la condivisione.",
     "seedSubmitted": "La richiesta di condivisione è stata inviata.",
     "invalidOptions": "Ogni elenco accetta fino a {{limit}} URL validi. I torrent privati richiedono un tracker.",
-    "menuLabel": "Crea file torrent…"
+    "menuLabel": "Crea file torrent…",
+    "downloadRequested": "Download richiesto: {{path}}"
   }
 }

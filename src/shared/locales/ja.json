@@ -3516,9 +3516,10 @@
     "createFailed": "トレントを作成できませんでした",
     "saveFailed": "トレントファイルを保存できませんでした",
     "seedAfter": "保存後にシードを開始",
-    "seedFailed": "トレントは保存されましたが、シードを開始できませんでした。",
+    "seedFailed": "シードを開始できませんでした。",
     "seedSubmitted": "シードタスクを送信しました。",
     "invalidOptions": "各リストには有効な URL を {{limit}} 件まで入力できます。プライベートトレントにはトラッカーが必要です。",
-    "menuLabel": "トレントファイルを作成…"
+    "menuLabel": "トレントファイルを作成…",
+    "downloadRequested": "ダウンロードをリクエストしました：{{path}}"
   }
 }

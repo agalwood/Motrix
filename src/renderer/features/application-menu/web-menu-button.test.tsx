@@ -76,7 +76,7 @@ it('opens the links form once after the menu closes', async () => {
   const user = userEvent.setup()
   await user.click(screen.getByRole('button', { name: 'Motrix' }))
   await screen.findByRole('menu')
-  await user.click(screen.getByRole('menuitem', { name: 'Task' }))
+  await user.click(screen.getByRole('menuitem', { name: 'File' }))
   await user.click(screen.getByRole('menuitem', { name: 'New Task…' }))
   await waitFor(() =>
     expect(openAddTaskDialog).toHaveBeenCalledExactlyOnceWith({ tab: 'links' })
@@ -88,7 +88,7 @@ it('uses a one-level stack below 640px and Escape returns before closing', async
   const user = userEvent.setup()
   await user.click(screen.getByRole('button', { name: 'Motrix' }))
   await screen.findByRole('menu')
-  await user.click(screen.getByRole('menuitem', { name: 'Task' }))
+  await user.click(screen.getByRole('menuitem', { name: 'File' }))
   expect(screen.getAllByRole('menu')).toHaveLength(1)
   expect(screen.getByRole('menuitem', { name: 'Back' })).toBeVisible()
   await user.keyboard('{Escape}')
@@ -121,7 +121,7 @@ it('activates the browser file input synchronously and passes all parsed files t
   const user = userEvent.setup()
   await user.click(screen.getByRole('button', { name: 'Motrix' }))
   await screen.findByRole('menu')
-  await user.click(screen.getByRole('menuitem', { name: 'Task' }))
+  await user.click(screen.getByRole('menuitem', { name: 'File' }))
   const input = screen.getByLabelText('Open Torrent File…') as HTMLInputElement
   const click = vi.spyOn(input, 'click')
   fireEvent.click(screen.getByRole('menuitem', { name: 'Open Torrent File…' }))

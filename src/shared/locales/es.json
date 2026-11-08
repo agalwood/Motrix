@@ -3564,9 +3564,10 @@
     "createFailed": "No se pudo crear el torrent",
     "saveFailed": "No se pudo guardar el archivo torrent",
     "seedAfter": "Compartir después de guardar",
-    "seedFailed": "El torrent se guardó, pero no se pudo iniciar la tarea de siembra.",
+    "seedFailed": "No se pudo iniciar la tarea de siembra.",
     "seedSubmitted": "Se envió la tarea de siembra.",
     "invalidOptions": "Hasta {{limit}} URL válidas por lista. Los torrents privados requieren un rastreador.",
-    "menuLabel": "Crear archivo torrent…"
+    "menuLabel": "Crear archivo torrent…",
+    "downloadRequested": "Descarga solicitada: {{path}}"
   }
 }

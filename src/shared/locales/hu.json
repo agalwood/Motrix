@@ -3540,9 +3540,10 @@
     "createFailed": "A torrentet nem sikerült létrehozni",
     "saveFailed": "A torrentfájlt nem sikerült menteni",
     "seedAfter": "Megosztás indítása mentés után",
-    "seedFailed": "A torrent mentése sikerült, de a megosztás nem indult el.",
+    "seedFailed": "A megosztás nem indult el.",
     "seedSubmitted": "A megosztási feladat elküldve.",
     "invalidOptions": "Listánként legfeljebb {{limit}} érvényes URL adható meg. A privát torrenthez tracker szükséges.",
-    "menuLabel": "Torrentfájl létrehozása…"
+    "menuLabel": "Torrentfájl létrehozása…",
+    "downloadRequested": "Letöltés kérve: {{path}}"
   }
 }

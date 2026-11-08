@@ -3564,9 +3564,10 @@
     "createFailed": "Não foi possível criar o torrent",
     "saveFailed": "Não foi possível salvar o arquivo torrent",
     "seedAfter": "Começar a semear após salvar",
-    "seedFailed": "O torrent foi salvo, mas não foi possível iniciar a semeadura.",
+    "seedFailed": "Não foi possível iniciar a semeadura.",
     "seedSubmitted": "A tarefa de semeadura foi enviada.",
     "invalidOptions": "Cada lista aceita até {{limit}} URLs válidas. Torrents privados precisam de um rastreador.",
-    "menuLabel": "Criar arquivo torrent…"
+    "menuLabel": "Criar arquivo torrent…",
+    "downloadRequested": "Download solicitado: {{path}}"
   }
 }

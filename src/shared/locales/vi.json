@@ -3516,9 +3516,10 @@
     "createFailed": "Không thể tạo torrent",
     "saveFailed": "Không thể lưu tệp torrent",
     "seedAfter": "Bắt đầu chia sẻ sau khi lưu",
-    "seedFailed": "Đã lưu torrent nhưng không thể bắt đầu chia sẻ.",
+    "seedFailed": "Không thể bắt đầu chia sẻ.",
     "seedSubmitted": "Đã gửi tác vụ chia sẻ.",
     "invalidOptions": "Mỗi danh sách nhận tối đa {{limit}} URL hợp lệ. Torrent riêng tư cần có tracker.",
-    "menuLabel": "Tạo tệp torrent…"
+    "menuLabel": "Tạo tệp torrent…",
+    "downloadRequested": "Đã yêu cầu tải xuống: {{path}}"
   }
 }
