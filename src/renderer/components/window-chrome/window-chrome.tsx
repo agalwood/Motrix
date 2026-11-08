@@ -3,7 +3,7 @@ import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
 import {
   DESKTOP_WINDOW_CHROME_HEIGHT,
-  WINDOW_CONTROLS_OVERLAY_HEIGHT,
+  windowChromeHeight,
 } from '@shared/constants/window-chrome'
 import { Commands } from '@shared/protocol/commands'
 import {
@@ -156,7 +156,7 @@ export function shouldShowDesktopWindowControls(
 
 export function WindowChrome({
   actionsPosition = 'start',
-  compact: _compact,
+  compact = false,
   maximizable = true,
   previewDesktopControls = false,
   title,
@@ -196,10 +196,15 @@ export function WindowChrome({
   const offsetStartActionsForDesktopMenu =
     leading != null && actionsPosition === 'start'
 
+  const height = windowChromeHeight(
+    __MOTRIX_TARGET__ === 'electron' ? platform : 'web',
+    compact || isOverlay
+  )
+  // Compact surfaces align their controls to y=27 with an inset; full-height
+  // title bars center that same row without any additional padding.
+  const insetCaptionRow = height === DESKTOP_WINDOW_CHROME_HEIGHT
   const containerStyle: React.CSSProperties = {
-    height: usesWindowControlsOverlay
-      ? WINDOW_CONTROLS_OVERLAY_HEIGHT
-      : DESKTOP_WINDOW_CHROME_HEIGHT,
+    height,
     display: 'flex',
     alignItems: 'center',
     paddingLeft: showTrafficLight ? 94 : undefined,
@@ -233,7 +238,7 @@ export function WindowChrome({
       data-slot="window-chrome-actions"
       className={cn(
         'app-no-drag relative z-[60] flex shrink-0 items-center gap-2 empty:hidden',
-        !usesWindowControlsOverlay && 'pt-3.5',
+        insetCaptionRow && 'pt-3.5',
         offsetStartActionsForDesktopMenu && 'ms-1'
       )}
     >
@@ -252,7 +257,7 @@ export function WindowChrome({
         <div
           className={cn(
             'text-[13px] font-[600]',
-            !usesWindowControlsOverlay && 'pt-[14px]'
+            insetCaptionRow && 'pt-[14px]'
           )}
         >
           {title}
@@ -263,7 +268,7 @@ export function WindowChrome({
           data-slot="window-chrome-leading"
           className={cn(
             'app-no-drag relative z-[60] me-1.5 flex shrink-0 items-center empty:hidden',
-            !usesWindowControlsOverlay && 'pt-3.5'
+            insetCaptionRow && 'pt-3.5'
           )}
         >
           {leading}

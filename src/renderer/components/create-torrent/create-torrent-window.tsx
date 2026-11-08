@@ -30,6 +30,7 @@ import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import { useIpcEvent } from '@renderer/hooks/use-ipc-event'
 import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
+import { windowChromeHeight } from '@shared/constants/window-chrome'
 import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
 import {
@@ -93,7 +94,7 @@ export function CreateTorrentWindow() {
   useAdaptiveWindowHeight({
     minHeight: result ? 292 : 390,
     maxHeight: Math.min(700, window.screen.availHeight || 700),
-    chromeHeight: 100,
+    chromeHeight: windowChromeHeight(transport.platform, false) + 60,
   })
   useIpcEvent(Events.CreateTorrentProgress, (value) => {
     const p = createTorrentProgressSchema.safeParse(value)
@@ -215,7 +216,6 @@ export function CreateTorrentWindow() {
     <div className="flex h-screen flex-col bg-background text-foreground">
       <WindowChrome
         variant="titled"
-        compact
         maximizable={false}
         title={t('createTorrent.title')}
       />
