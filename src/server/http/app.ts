@@ -37,6 +37,10 @@ import { torrentRpcBodyLimitSchema } from '@shared/schemas/torrent-request-limit
 import Fastify, { type FastifyInstance, type FastifyReply } from 'fastify'
 import type { RemoteExtensionConfig } from '../bridge/remote-extension-config'
 import type { FnosGatewayOptions } from '../platform/fnos/identity'
+import {
+  registerTorrentCreator,
+  type TorrentCreatorDeps,
+} from '../routes/torrent-creator'
 import { bindEventHeartbeat } from './event-heartbeat'
 import { bindEventBroadcaster } from './events'
 import {
@@ -113,6 +117,7 @@ async function directoryRpc(
 }
 
 export interface AppOptions {
+  torrentCreator?: TorrentCreatorDeps
   /** Supported pairing surfaces, independent of the user's enable switch. */
   clientPairing?: ClientPairingCapabilities
   basePath?: string
@@ -186,6 +191,10 @@ export async function createApp(
       ...(clientPairing ? { clientPairing } : {}),
     }))
   }
+  if (opts.torrentCreator)
+    registerTorrentCreator(app, opts.torrentCreator, (req) =>
+      operatorSessions?.principal(req)
+    )
   const commands = opts.commandHandlers ?? {}
   const queries = opts.queryHandlers ?? {}
   const bridgeCommands = opts.bridgeCommandHandlers ?? {}

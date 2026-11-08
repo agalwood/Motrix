@@ -1142,7 +1142,7 @@
         "doc": "Documento"
       },
       "errors": {
-        "headerNameRequired": "Inserisci un nome per l’intestazione o rimuovila.",
+        "headerNameRequired": "Assegna un nome a ogni intestazione con un valore.",
         "urlsRequired": "È richiesto almeno un URL",
         "saveDirRequired": "È richiesta una cartella di salvataggio",
         "noFilesSelected": "Seleziona almeno un file",
@@ -3540,5 +3540,34 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "Crea torrent",
+    "source": "Contenuto da condividere",
+    "options": "Opzioni torrent",
+    "trackers": "Tracker",
+    "trackersPlaceholder": "Un URL announce per riga",
+    "webSeeds": "Web seed",
+    "webSeedsPlaceholder": "Un URL HTTP(S) per riga (facoltativo)",
+    "comment": "Commento",
+    "private": "Torrent privato",
+    "privateDesc": "Disattiva DHT e scambio tra peer; distribuzione solo via tracker.",
+    "pieceLength": "Dimensione pezzi",
+    "pieceAuto": "Automatica",
+    "hashing": "Calcolo degli hash…",
+    "resultName": "Nome",
+    "resultSize": "Dimensione",
+    "resultInfoHash": "Hash info",
+    "saveFile": "Salva .torrent",
+    "create": "Crea",
+    "savedToast": "Torrent salvato in {{path}}",
+    "createFailed": "Impossibile creare il torrent",
+    "saveFailed": "Impossibile salvare il file torrent",
+    "seedAfter": "Avvia la condivisione dopo il salvataggio",
+    "seedFailed": "Impossibile avviare la condivisione.",
+    "seedSubmitted": "La richiesta di condivisione è stata inviata.",
+    "invalidOptions": "Ogni elenco accetta fino a {{limit}} URL validi. I torrent privati richiedono un tracker.",
+    "menuLabel": "Crea file torrent…",
+    "downloadRequested": "Download richiesto: {{path}}"
   }
 }

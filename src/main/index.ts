@@ -752,9 +752,9 @@ function dispatchWhenReady(
   payload: unknown,
   resolvePayload?: () => unknown
 ) {
-  const id = (['main', 'add-task', 'onboarding'] as const).find(
-    (id) => windowManager?.get(id) === win
-  )
+  const id = (
+    ['main', 'add-task', 'onboarding', 'create-torrent'] as const
+  ).find((id) => windowManager?.get(id) === win)
   if (!id || win.isDestroyed()) return
   if (rendererRecovery?.intents.deliver(id, channel, payload, resolvePayload))
     return

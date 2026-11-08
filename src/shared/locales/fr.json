@@ -2870,7 +2870,7 @@
         "title": "Ce torrent existe déjà"
       },
       "errors": {
-        "headerNameRequired": "Saisissez un nom d’en-tête ou supprimez cet en-tête.",
+        "headerNameRequired": "Donnez un nom à chaque en-tête qui contient une valeur.",
         "missingSource": "Un fichier torrent ou un lien magnet est requis",
         "noFilesSelected": "Sélectionnez au moins un fichier",
         "saveDirRequired": "Le dossier de destination est requis",
@@ -3540,5 +3540,34 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "Créer un torrent",
+    "source": "Contenu à partager",
+    "options": "Options du torrent",
+    "trackers": "Trackers",
+    "trackersPlaceholder": "Une URL d’annonce par ligne",
+    "webSeeds": "Web seeds",
+    "webSeedsPlaceholder": "Une URL HTTP(S) par ligne (facultatif)",
+    "comment": "Commentaire",
+    "private": "Torrent privé",
+    "privateDesc": "Désactive DHT et l’échange entre pairs ; distribution par trackers uniquement.",
+    "pieceLength": "Taille des pièces",
+    "pieceAuto": "Automatique",
+    "hashing": "Calcul des empreintes…",
+    "resultName": "Nom",
+    "resultSize": "Taille",
+    "resultInfoHash": "Empreinte info",
+    "saveFile": "Enregistrer le .torrent",
+    "create": "Créer",
+    "savedToast": "Torrent enregistré dans {{path}}",
+    "createFailed": "Impossible de créer le torrent",
+    "saveFailed": "Impossible d’enregistrer le fichier torrent",
+    "seedAfter": "Partager après l’enregistrement",
+    "seedFailed": "Le partage n’a pas pu démarrer.",
+    "seedSubmitted": "La tâche de partage a été envoyée.",
+    "invalidOptions": "Chaque liste accepte jusqu’à {{limit}} URL valides. Un torrent privé nécessite un tracker.",
+    "menuLabel": "Créer un fichier torrent…",
+    "downloadRequested": "Téléchargement demandé : {{path}}"
   }
 }

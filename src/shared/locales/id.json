@@ -1116,7 +1116,7 @@
         "doc": "Dokumen"
       },
       "errors": {
-        "headerNameRequired": "Masukkan nama header atau hapus header ini.",
+        "headerNameRequired": "Beri nama setiap header yang memiliki nilai.",
         "urlsRequired": "Setidaknya satu URL diperlukan",
         "saveDirRequired": "Folder penyimpanan diperlukan",
         "noFilesSelected": "Pilih setidaknya satu berkas",
@@ -3492,5 +3492,34 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "Buat torrent",
+    "source": "Konten untuk dibagikan",
+    "options": "Opsi torrent",
+    "trackers": "Tracker",
+    "trackersPlaceholder": "Satu URL announce per baris",
+    "webSeeds": "Web seed",
+    "webSeedsPlaceholder": "Satu URL HTTP(S) per baris (opsional)",
+    "comment": "Komentar",
+    "private": "Torrent privat",
+    "privateDesc": "Nonaktifkan DHT dan pertukaran peer; distribusi hanya via tracker.",
+    "pieceLength": "Ukuran potongan",
+    "pieceAuto": "Otomatis",
+    "hashing": "Menghitung hash…",
+    "resultName": "Nama",
+    "resultSize": "Ukuran",
+    "resultInfoHash": "Hash info",
+    "saveFile": "Simpan .torrent",
+    "create": "Buat",
+    "savedToast": "Torrent disimpan ke {{path}}",
+    "createFailed": "Tidak dapat membuat torrent",
+    "saveFailed": "Tidak dapat menyimpan file torrent",
+    "seedAfter": "Mulai menyemai setelah menyimpan",
+    "seedFailed": "Tugas penyemaian tidak dapat dimulai.",
+    "seedSubmitted": "Tugas penyemaian telah dikirim.",
+    "invalidOptions": "Maksimal {{limit}} URL valid per daftar. Torrent privat memerlukan pelacak.",
+    "menuLabel": "Buat berkas torrent…",
+    "downloadRequested": "Unduhan diminta: {{path}}"
   }
 }

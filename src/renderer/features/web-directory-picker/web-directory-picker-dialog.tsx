@@ -115,7 +115,8 @@ export function WebDirectoryPickerDialog() {
         },
         undefined,
         undefined,
-        request.file
+        request.file,
+        request.readDirectory
       )
       current.current = { request, controller }
       setSession(current.current)

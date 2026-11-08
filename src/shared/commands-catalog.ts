@@ -15,6 +15,7 @@ export const CommandIds = {
   AppQuit: 'motrix.app.quit',
 
   // Task
+  CreateTorrentFile: 'motrix.torrent.create',
   TaskNew: 'motrix.task.new',
   TaskNewBt: 'motrix.task.newBt',
   TaskOpenFile: 'motrix.task.openFile',

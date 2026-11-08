@@ -2930,7 +2930,7 @@
         "title": "هذا التورنت موجود بالفعل"
       },
       "errors": {
-        "headerNameRequired": "أدخل اسم الترويسة أو أزل هذه الترويسة.",
+        "headerNameRequired": "أدخل اسمًا لكل ترويسة لها قيمة.",
         "missingSource": "يلزم ملف تورنت أو رابط magnet",
         "noFilesSelected": "حدد ملفًا واحدًا على الأقل",
         "saveDirRequired": "يلزم تحديد مجلد الحفظ",
@@ -3612,5 +3612,34 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "إنشاء تورنت",
+    "source": "المحتوى المراد مشاركته",
+    "options": "خيارات التورنت",
+    "trackers": "المتتبعات",
+    "trackersPlaceholder": "رابط announce واحد لكل سطر",
+    "webSeeds": "البذور الشبكية",
+    "webSeedsPlaceholder": "رابط HTTP(S) واحد لكل سطر (اختياري)",
+    "comment": "تعليق",
+    "private": "تورنت خاص",
+    "privateDesc": "يعطّل DHT وتبادل الأقران؛ التوزيع عبر المتتبعات فقط.",
+    "pieceLength": "حجم القطعة",
+    "pieceAuto": "تلقائي",
+    "hashing": "جارٍ حساب البصمات…",
+    "resultName": "الاسم",
+    "resultSize": "الحجم",
+    "resultInfoHash": "بصمة info",
+    "saveFile": "حفظ .torrent",
+    "create": "إنشاء",
+    "savedToast": "تم حفظ التورنت في {{path}}",
+    "createFailed": "تعذّر إنشاء التورنت",
+    "saveFailed": "تعذّر حفظ ملف التورنت",
+    "seedAfter": "بدء البذر بعد الحفظ",
+    "seedFailed": "تعذّر بدء البذر.",
+    "seedSubmitted": "أُرسلت مهمة البذر.",
+    "invalidOptions": "كل قائمة تقبل حتى {{limit}} عنوانًا صالحًا. يحتاج التورنت الخاص إلى متتبّع.",
+    "menuLabel": "إنشاء ملف تورنت…",
+    "downloadRequested": "طُلب تنزيل {{path}}"
   }
 }

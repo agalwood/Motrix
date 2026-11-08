@@ -127,7 +127,8 @@ export class DirectoryPickerController {
       'mutate' | 'getSnapshot'
     > = directoryPreferences,
     private readonly sortPreferences: DirectorySortPreferences = directorySortPreferences,
-    readonly file?: FilePickerOptions
+    readonly file?: FilePickerOptions,
+    private readonly readDirectory = false
   ) {
     this.state.sort = sortPreferences.get()
     this.locationsStore = new ServerDirectoryLocationsStore(transport, {
@@ -697,7 +698,7 @@ export class DirectoryPickerController {
         : await this.request(
             Queries.ValidateServerDirectory,
             ValidateServerDirectoryResultSchema,
-            { path: target }
+            { path: target, ...(this.readDirectory ? { access: 'read' } : {}) }
           )
       if (!this.current(generation) || this.target !== target) return
       if (!result.ok) throw new DirectoryRequestError(result.error.code)

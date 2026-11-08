@@ -1,3 +1,4 @@
+import { taskFormActions } from '@renderer/components/task-form-layout'
 import { Button } from '@renderer/components/ui/button'
 import { useTranslation } from 'react-i18next'
 
@@ -31,7 +32,7 @@ export function FooterActions({
       <span className="min-w-0 truncate text-xs text-muted-foreground">
         {torrentQueue ? t('task.add.torrentQueueProgress', torrentQueue) : null}
       </span>
-      <div className="flex shrink-0 items-center gap-2">
+      <div className={taskFormActions}>
         <Button
           type="button"
           variant="outline"

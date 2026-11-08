@@ -1116,7 +1116,7 @@
         "doc": "文件"
       },
       "errors": {
-        "headerNameRequired": "請輸入標頭名稱，或移除此標頭。",
+        "headerNameRequired": "請為已填寫值的標頭補上名稱。",
         "urlsRequired": "至少需要一個 URL",
         "saveDirRequired": "必須指定儲存目錄",
         "noFilesSelected": "至少選擇一個檔案",
@@ -3492,5 +3492,34 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "建立種子",
+    "source": "分享內容",
+    "options": "種子選項",
+    "trackers": "Tracker 伺服器",
+    "trackersPlaceholder": "每行一個 announce URL",
+    "webSeeds": "Web 種子",
+    "webSeedsPlaceholder": "每行一個 HTTP(S) URL（可選）",
+    "comment": "備註",
+    "private": "私人種子",
+    "privateDesc": "停用 DHT 與節點交換，僅透過 Tracker 發布。",
+    "pieceLength": "分塊大小",
+    "pieceAuto": "自動",
+    "hashing": "正在計算雜湊…",
+    "resultName": "名稱",
+    "resultSize": "大小",
+    "resultInfoHash": "Info 雜湊",
+    "saveFile": "儲存 .torrent",
+    "create": "建立",
+    "savedToast": "種子已儲存到 {{path}}",
+    "createFailed": "建立種子失敗",
+    "saveFailed": "儲存種子檔案失敗",
+    "seedAfter": "儲存後使用原始檔案做種",
+    "seedFailed": "無法啟動做種任務。",
+    "seedSubmitted": "已提交做種任務。",
+    "invalidOptions": "每個清單最多 {{limit}} 個有效網址。私人種子至少需要一個 Tracker。",
+    "menuLabel": "建立種子檔案…",
+    "downloadRequested": "已要求下載 {{path}}"
   }
 }

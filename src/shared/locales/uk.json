@@ -2890,7 +2890,7 @@
         "title": "Цей торрент уже існує"
       },
       "errors": {
-        "headerNameRequired": "Введіть назву заголовка або видаліть цей заголовок.",
+        "headerNameRequired": "Укажіть назву кожного заголовка зі значенням.",
         "missingSource": "Потрібен торрент-файл або magnet-посилання",
         "noFilesSelected": "Виберіть принаймні один файл",
         "saveDirRequired": "Потрібно вказати теку збереження",
@@ -3564,5 +3564,34 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "Створити торрент",
+    "source": "Вміст для роздачі",
+    "options": "Параметри торента",
+    "trackers": "Трекери",
+    "trackersPlaceholder": "По одному announce-URL на рядок",
+    "webSeeds": "Web-сіди",
+    "webSeedsPlaceholder": "По одному HTTP(S)-URL на рядок (необов’язково)",
+    "comment": "Коментар",
+    "private": "Приватний торрент",
+    "privateDesc": "Вимикає DHT та обмін пирами; роздача лише через трекер.",
+    "pieceLength": "Розмір шматка",
+    "pieceAuto": "Автоматично",
+    "hashing": "Обчислення хешів…",
+    "resultName": "Назва",
+    "resultSize": "Розмір",
+    "resultInfoHash": "Info-хеш",
+    "saveFile": "Зберегти .torrent",
+    "create": "Створити",
+    "savedToast": "Торрент збережено у {{path}}",
+    "createFailed": "Не вдалося створити торрент",
+    "saveFailed": "Не вдалося зберегти торрент-файл",
+    "seedAfter": "Почати роздачу після збереження",
+    "seedFailed": "Не вдалося розпочати роздачу.",
+    "seedSubmitted": "Завдання роздачі надіслано.",
+    "invalidOptions": "У кожному списку дозволено до {{limit}} дійсних URL. Приватному торенту потрібен трекер.",
+    "menuLabel": "Створити торрент-файл…",
+    "downloadRequested": "Запит на завантаження: {{path}}"
   }
 }

@@ -2850,7 +2850,7 @@
         "title": "Denne torrenten finnes allerede"
       },
       "errors": {
-        "headerNameRequired": "Angi et headernavn eller fjern denne headeren.",
+        "headerNameRequired": "Gi hvert hodefelt med en verdi et navn.",
         "missingSource": "En torrentfil eller magnetlenke kreves",
         "noFilesSelected": "Velg minst én fil",
         "saveDirRequired": "Lagringsmappe kreves",
@@ -3516,5 +3516,34 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "Opprett torrent",
+    "source": "Innhold som skal deles",
+    "options": "Torrentvalg",
+    "trackers": "Trackere",
+    "trackersPlaceholder": "Én announce-URL per linje",
+    "webSeeds": "Web-frø",
+    "webSeedsPlaceholder": "Én HTTP(S)-URL per linje (valgfritt)",
+    "comment": "Kommentar",
+    "private": "Privat torrent",
+    "privateDesc": "Slår av DHT og peer-utveksling; distribusjon kun via tracker.",
+    "pieceLength": "Stykkestørrelse",
+    "pieceAuto": "Automatisk",
+    "hashing": "Beregner sjekksummer…",
+    "resultName": "Navn",
+    "resultSize": "Størrelse",
+    "resultInfoHash": "Info-sjekksum",
+    "saveFile": "Lagre .torrent",
+    "create": "Opprett",
+    "savedToast": "Torrent lagret til {{path}}",
+    "createFailed": "Kunne ikke opprette torrenten",
+    "saveFailed": "Kunne ikke lagre torrentfilen",
+    "seedAfter": "Start seeding etter lagring",
+    "seedFailed": "Seedingen kunne ikke startes.",
+    "seedSubmitted": "Seedingoppgaven er sendt inn.",
+    "invalidOptions": "Hver liste kan ha opptil {{limit}} gyldige URL-er. Private torrenter trenger en tracker.",
+    "menuLabel": "Opprett torrentfil…",
+    "downloadRequested": "Nedlasting forespurt: {{path}}"
   }
 }

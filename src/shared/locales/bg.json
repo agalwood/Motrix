@@ -2850,7 +2850,7 @@
         "title": "Този торент вече съществува"
       },
       "errors": {
-        "headerNameRequired": "Въведете име на заглавката или я премахнете.",
+        "headerNameRequired": "Въведете име за всеки хедър със стойност.",
         "missingSource": "Необходим е торент файл или magnet връзка",
         "noFilesSelected": "Изберете поне един файл",
         "saveDirRequired": "Необходима е папка за запазване",
@@ -3516,5 +3516,34 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "Създаване на торент",
+    "source": "Съдържание за споделяне",
+    "options": "Настройки на торента",
+    "trackers": "Тракери",
+    "trackersPlaceholder": "Един announce URL на ред",
+    "webSeeds": "Web сидове",
+    "webSeedsPlaceholder": "Един HTTP(S) URL на ред (по желание)",
+    "comment": "Коментар",
+    "private": "Частен торент",
+    "privateDesc": "Изключва DHT и обмена между пиъри; разпространение само през тракер.",
+    "pieceLength": "Размер на парчето",
+    "pieceAuto": "Автоматично",
+    "hashing": "Изчисляване на хешове…",
+    "resultName": "Име",
+    "resultSize": "Размер",
+    "resultInfoHash": "Info хеш",
+    "saveFile": "Запазете .torrent",
+    "create": "Създаване",
+    "savedToast": "Торентът е запазен в {{path}}",
+    "createFailed": "Торентът не можа да бъде създаден",
+    "saveFailed": "Торент файлът не можа да бъде запазен",
+    "seedAfter": "Започване на сийдване след запазване",
+    "seedFailed": "Сийдването не можа да започне.",
+    "seedSubmitted": "Задачата за сийдване е подадена.",
+    "invalidOptions": "До {{limit}} валидни URL адреса в списък. Частните торенти изискват тракер.",
+    "menuLabel": "Създаване на торент файл…",
+    "downloadRequested": "Заявено е изтегляне: {{path}}"
   }
 }

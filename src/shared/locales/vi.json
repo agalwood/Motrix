@@ -1116,7 +1116,7 @@
         "doc": "Tài liệu"
       },
       "errors": {
-        "headerNameRequired": "Nhập tên tiêu đề hoặc xóa tiêu đề này.",
+        "headerNameRequired": "Nhập tên cho mỗi tiêu đề có giá trị.",
         "urlsRequired": "Cần ít nhất một URL",
         "saveDirRequired": "Cần chọn thư mục lưu",
         "noFilesSelected": "Chọn ít nhất một tệp",
@@ -3492,5 +3492,34 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "Tạo torrent",
+    "source": "Nội dung chia sẻ",
+    "options": "Tùy chọn torrent",
+    "trackers": "Tracker",
+    "trackersPlaceholder": "Mỗi dòng một URL announce",
+    "webSeeds": "Web seed",
+    "webSeedsPlaceholder": "Mỗi dòng một URL HTTP(S) (tùy chọn)",
+    "comment": "Ghi chú",
+    "private": "Torrent riêng tư",
+    "privateDesc": "Tắt DHT và trao đổi peer; chỉ phát hành qua tracker.",
+    "pieceLength": "Kích thước mảnh",
+    "pieceAuto": "Tự động",
+    "hashing": "Đang tính hash…",
+    "resultName": "Tên",
+    "resultSize": "Kích thước",
+    "resultInfoHash": "Hash info",
+    "saveFile": "Lưu .torrent",
+    "create": "Tạo",
+    "savedToast": "Đã lưu torrent vào {{path}}",
+    "createFailed": "Không thể tạo torrent",
+    "saveFailed": "Không thể lưu tệp torrent",
+    "seedAfter": "Bắt đầu chia sẻ sau khi lưu",
+    "seedFailed": "Không thể bắt đầu chia sẻ.",
+    "seedSubmitted": "Đã gửi tác vụ chia sẻ.",
+    "invalidOptions": "Mỗi danh sách nhận tối đa {{limit}} URL hợp lệ. Torrent riêng tư cần có tracker.",
+    "menuLabel": "Tạo tệp torrent…",
+    "downloadRequested": "Đã yêu cầu tải xuống: {{path}}"
   }
 }

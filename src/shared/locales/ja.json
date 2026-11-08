@@ -1116,7 +1116,7 @@
         "doc": "文書"
       },
       "errors": {
-        "headerNameRequired": "ヘッダー名を入力するか、このヘッダーを削除してください。",
+        "headerNameRequired": "値を入力したヘッダーには名前が必要です。",
         "urlsRequired": "URL を 1 件以上入力してください",
         "saveDirRequired": "保存先フォルダーを指定してください",
         "noFilesSelected": "ファイルを 1 個以上選択してください",
@@ -3492,5 +3492,34 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "トレントを作成",
+    "source": "共有する内容",
+    "options": "トレントの設定",
+    "trackers": "トラッカー",
+    "trackersPlaceholder": "1 行に 1 つの announce URL",
+    "webSeeds": "Web シード",
+    "webSeedsPlaceholder": "1 行に 1 つの HTTP(S) URL（任意）",
+    "comment": "コメント",
+    "private": "プライベートトレント",
+    "privateDesc": "DHT と PEX を無効化し、トラッカー限定で配信します。",
+    "pieceLength": "ピースサイズ",
+    "pieceAuto": "自動",
+    "hashing": "ハッシュ計算中…",
+    "resultName": "名前",
+    "resultSize": "サイズ",
+    "resultInfoHash": "Info ハッシュ",
+    "saveFile": ".torrent を保存",
+    "create": "作成",
+    "savedToast": "トレントを {{path}} に保存しました",
+    "createFailed": "トレントを作成できませんでした",
+    "saveFailed": "トレントファイルを保存できませんでした",
+    "seedAfter": "保存後にシードを開始",
+    "seedFailed": "シードを開始できませんでした。",
+    "seedSubmitted": "シードタスクを送信しました。",
+    "invalidOptions": "各リストには有効な URL を {{limit}} 件まで入力できます。プライベートトレントにはトラッカーが必要です。",
+    "menuLabel": "トレントファイルを作成…",
+    "downloadRequested": "ダウンロードをリクエストしました：{{path}}"
   }
 }

@@ -2830,7 +2830,7 @@
         "title": "มีทอร์เรนต์นี้อยู่แล้ว"
       },
       "errors": {
-        "headerNameRequired": "ป้อนชื่อส่วนหัวหรือลบส่วนหัวนี้",
+        "headerNameRequired": "ระบุชื่อให้ทุกส่วนหัวที่กรอกค่าไว้",
         "missingSource": "ต้องมีไฟล์ทอร์เรนต์หรือลิงก์แมกเน็ต",
         "noFilesSelected": "เลือกอย่างน้อยหนึ่งไฟล์",
         "saveDirRequired": "ต้องระบุโฟลเดอร์บันทึก",
@@ -3492,5 +3492,34 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "สร้างไฟล์ทอร์เรนต์",
+    "source": "เนื้อหาที่จะแชร์",
+    "options": "ตัวเลือกทอร์เรนต์",
+    "trackers": "แทรกเกอร์",
+    "trackersPlaceholder": "หนึ่ง announce URL ต่อบรรทัด",
+    "webSeeds": "Web seed",
+    "webSeedsPlaceholder": "หนึ่ง URL HTTP(S) ต่อบรรทัด (ไม่บังคับ)",
+    "comment": "หมายเหตุ",
+    "private": "ทอร์เรนต์ส่วนตัว",
+    "privateDesc": "ปิด DHT และการแลกเปลี่ยน peer; แจกจ่ายผ่านแทรกเกอร์เท่านั้น",
+    "pieceLength": "ขนาดชิ้นข้อมูล",
+    "pieceAuto": "อัตโนมัติ",
+    "hashing": "กำลังคำนวณแฮช…",
+    "resultName": "ชื่อ",
+    "resultSize": "ขนาด",
+    "resultInfoHash": "แฮช info",
+    "saveFile": "บันทึก .torrent",
+    "create": "สร้าง",
+    "savedToast": "บันทึกทอร์เรนต์ไปที่ {{path}} แล้ว",
+    "createFailed": "สร้างทอร์เรนต์ไม่สำเร็จ",
+    "saveFailed": "บันทึกไฟล์ทอร์เรนต์ไม่สำเร็จ",
+    "seedAfter": "เริ่มซีดหลังจากบันทึก",
+    "seedFailed": "เริ่มซีดไม่ได้",
+    "seedSubmitted": "ส่งงานซีดแล้ว",
+    "invalidOptions": "แต่ละรายการมี URL ที่ถูกต้องได้สูงสุด {{limit}} รายการ ทอร์เรนต์ส่วนตัวต้องมีแทร็กเกอร์",
+    "menuLabel": "สร้างไฟล์ทอร์เรนต์…",
+    "downloadRequested": "ขอดาวน์โหลดแล้ว: {{path}}"
   }
 }

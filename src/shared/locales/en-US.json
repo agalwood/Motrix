@@ -1129,7 +1129,7 @@
         "doc": "Document"
       },
       "errors": {
-        "headerNameRequired": "Enter a header name or remove this header.",
+        "headerNameRequired": "Add a name for each header with a value.",
         "urlsRequired": "At least one URL is required",
         "saveDirRequired": "Save directory is required",
         "noFilesSelected": "Select at least one file",
@@ -3516,5 +3516,34 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "Create torrent",
+    "source": "Content to share",
+    "options": "Torrent options",
+    "trackers": "Trackers",
+    "trackersPlaceholder": "One announce URL per line",
+    "webSeeds": "Web seeds",
+    "webSeedsPlaceholder": "One HTTP(S) URL per line (optional)",
+    "comment": "Comment",
+    "private": "Private torrent",
+    "privateDesc": "Disable DHT and peer exchange; tracker-only distribution.",
+    "pieceLength": "Piece size",
+    "pieceAuto": "Automatic",
+    "hashing": "Hashing…",
+    "resultName": "Name",
+    "resultSize": "Size",
+    "resultInfoHash": "Info hash",
+    "saveFile": "Save .torrent",
+    "create": "Create",
+    "savedToast": "Torrent saved to {{path}}",
+    "createFailed": "Could not create the torrent",
+    "saveFailed": "Could not save the torrent file",
+    "seedAfter": "Start seeding after saving",
+    "seedFailed": "The seeding task could not be started.",
+    "seedSubmitted": "The seeding task was submitted.",
+    "invalidOptions": "Use up to {{limit}} valid URLs per list. Private torrents need a tracker.",
+    "menuLabel": "Create Torrent File…",
+    "downloadRequested": "Download requested: {{path}}"
   }
 }

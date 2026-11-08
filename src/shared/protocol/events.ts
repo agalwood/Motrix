@@ -125,6 +125,8 @@ export const Events = {
   // Payload: EngineCompatibilityWarningPayload. Internal shell signal; the
   // resulting durable NotificationAdded event is what reaches renderers.
   EngineCompatibilityWarning: 'event:engineCompatibilityWarning',
+  // A 0..1 fraction delivered only to the creator window that owns the operation.
+  CreateTorrentProgress: 'event:createTorrentProgress',
   RendererTaskMenuRequested: 'event:rendererTaskMenuRequested',
   ApplicationMenuChanged: 'event:applicationMenuChanged',
   // No payload; only the main window's current Downloads list handles this.

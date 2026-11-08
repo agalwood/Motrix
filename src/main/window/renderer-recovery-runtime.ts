@@ -178,8 +178,8 @@ export function createRendererRecoveryRuntime(deps: {
     submissions,
     recoverFocused: () => {
       const id =
-        (['onboarding', 'add-task', 'main'] as const).find((id) =>
-          deps.windows().get(id)?.isFocused()
+        (['onboarding', 'create-torrent', 'add-task', 'main'] as const).find(
+          (id) => deps.windows().get(id)?.isFocused()
         ) ?? 'main'
       if (!deps.windows().get(id)) {
         deps.windows().show(id)

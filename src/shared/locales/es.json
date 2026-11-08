@@ -1141,7 +1141,7 @@
         "doc": "Documento"
       },
       "errors": {
-        "headerNameRequired": "Introduce un nombre para la cabecera o elimínala.",
+        "headerNameRequired": "Añade un nombre a cada cabecera que tenga un valor.",
         "urlsRequired": "Se requiere al menos una URL",
         "saveDirRequired": "Se requiere una carpeta de destino",
         "noFilesSelected": "Selecciona al menos un archivo",
@@ -3540,5 +3540,34 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "Crear torrent",
+    "source": "Contenido para compartir",
+    "options": "Opciones del torrent",
+    "trackers": "Trackers",
+    "trackersPlaceholder": "Una URL announce por línea",
+    "webSeeds": "Web seeds",
+    "webSeedsPlaceholder": "Una URL HTTP(S) por línea (opcional)",
+    "comment": "Comentario",
+    "private": "Torrent privado",
+    "privateDesc": "Desactiva DHT y el intercambio entre pares; distribución solo por tracker.",
+    "pieceLength": "Tamaño de pieza",
+    "pieceAuto": "Automático",
+    "hashing": "Calculando hashes…",
+    "resultName": "Nombre",
+    "resultSize": "Tamaño",
+    "resultInfoHash": "Hash de info",
+    "saveFile": "Guardar .torrent",
+    "create": "Crear",
+    "savedToast": "Torrent guardado en {{path}}",
+    "createFailed": "No se pudo crear el torrent",
+    "saveFailed": "No se pudo guardar el archivo torrent",
+    "seedAfter": "Compartir después de guardar",
+    "seedFailed": "No se pudo iniciar la tarea de siembra.",
+    "seedSubmitted": "Se envió la tarea de siembra.",
+    "invalidOptions": "Hasta {{limit}} URL válidas por lista. Los torrents privados requieren un rastreador.",
+    "menuLabel": "Crear archivo torrent…",
+    "downloadRequested": "Descarga solicitada: {{path}}"
   }
 }

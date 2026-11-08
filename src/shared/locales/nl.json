@@ -2850,7 +2850,7 @@
         "title": "Deze torrent bestaat al"
       },
       "errors": {
-        "headerNameRequired": "Voer een headernaam in of verwijder deze header.",
+        "headerNameRequired": "Geef elke header met een waarde een naam.",
         "missingSource": "Er is een torrentbestand of magnetlink nodig",
         "noFilesSelected": "Selecteer minstens één bestand",
         "saveDirRequired": "Er is een opslagmap nodig",
@@ -3516,5 +3516,34 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "Torrent aanmaken",
+    "source": "Te delen inhoud",
+    "options": "Torrentopties",
+    "trackers": "Trackers",
+    "trackersPlaceholder": "Eén announce-URL per regel",
+    "webSeeds": "Web seeds",
+    "webSeedsPlaceholder": "Eén HTTP(S)-URL per regel (optioneel)",
+    "comment": "Opmerking",
+    "private": "Privé-torrent",
+    "privateDesc": "Schakelt DHT en peer-uitwisseling uit; alleen via trackers.",
+    "pieceLength": "Piece-grootte",
+    "pieceAuto": "Automatisch",
+    "hashing": "Hashes worden berekend…",
+    "resultName": "Naam",
+    "resultSize": "Grootte",
+    "resultInfoHash": "Info-hash",
+    "saveFile": ".torrent opslaan",
+    "create": "Aanmaken",
+    "savedToast": "Torrent opgeslagen in {{path}}",
+    "createFailed": "Kan de torrent niet aanmaken",
+    "saveFailed": "Kan het torrent-bestand niet opslaan",
+    "seedAfter": "Begin met seeden na het opslaan",
+    "seedFailed": "Het seeden kon niet worden gestart.",
+    "seedSubmitted": "De seedtaak is ingediend.",
+    "invalidOptions": "Elke lijst kan maximaal {{limit}} geldige URL’s bevatten. Privétorrents hebben een tracker nodig.",
+    "menuLabel": "Torrentbestand maken…",
+    "downloadRequested": "Download aangevraagd: {{path}}"
   }
 }

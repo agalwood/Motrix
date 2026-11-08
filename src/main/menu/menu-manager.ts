@@ -33,6 +33,7 @@ export interface MenuManagerDeps {
 
 const ROOT_MENUBAR_IDS: readonly MenuId[] = [
   MenuIds.MenubarApp,
+  MenuIds.MenubarFile,
   MenuIds.MenubarTask,
   MenuIds.MenubarEdit,
   MenuIds.MenubarWindow,
@@ -40,6 +41,7 @@ const ROOT_MENUBAR_IDS: readonly MenuId[] = [
 ]
 
 const DROPDOWN_SUBMENU_IDS: readonly MenuId[] = [
+  MenuIds.MenubarFile,
   MenuIds.MenubarTask,
   MenuIds.MenubarEdit,
   MenuIds.MenubarWindow,

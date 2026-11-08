@@ -1116,7 +1116,7 @@
         "doc": "文档"
       },
       "errors": {
-        "headerNameRequired": "请输入请求头名称，或移除此请求头。",
+        "headerNameRequired": "请为已填写值的请求头补全名称。",
         "urlsRequired": "至少需要一个 URL",
         "saveDirRequired": "必须指定保存目录",
         "noFilesSelected": "请至少选择一个文件",
@@ -3492,5 +3492,34 @@
     },
     "confirmFileTitle": "授权文件访问",
     "confirmFile": "允许此操作读取以下文件？"
+  },
+  "createTorrent": {
+    "title": "创建种子",
+    "source": "共享内容",
+    "options": "种子选项",
+    "trackers": "Tracker 服务器",
+    "trackersPlaceholder": "每行一个 announce URL",
+    "webSeeds": "Web 种子",
+    "webSeedsPlaceholder": "每行一个 HTTP(S) URL（可选）",
+    "comment": "备注",
+    "private": "私有种子",
+    "privateDesc": "禁用 DHT 与节点交换，仅通过 Tracker 分发。",
+    "pieceLength": "分块大小",
+    "pieceAuto": "自动",
+    "hashing": "正在计算哈希…",
+    "resultName": "名称",
+    "resultSize": "大小",
+    "resultInfoHash": "Info 哈希",
+    "saveFile": "保存 .torrent",
+    "create": "创建",
+    "savedToast": "种子已保存到 {{path}}",
+    "createFailed": "创建种子失败",
+    "saveFailed": "保存种子文件失败",
+    "seedAfter": "保存后使用原文件做种",
+    "seedFailed": "无法启动做种任务。",
+    "seedSubmitted": "已提交做种任务。",
+    "invalidOptions": "每个列表最多 {{limit}} 个有效 URL。私有种子至少需要一个 Tracker。",
+    "menuLabel": "创建种子文件…",
+    "downloadRequested": "已请求下载 {{path}}"
   }
 }

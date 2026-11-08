@@ -178,6 +178,7 @@ import { installManagedFfmpeg } from '../plugin/verified-ffmpeg-electron'
 import type { createMainProxyApplier } from '../proxy/wiring'
 import type { createRendererRecoveryRuntime } from '../window/renderer-recovery-runtime'
 import type { WindowManager } from '../window/window-manager'
+import { torrentCreatorHandlers } from './commands/create-torrent'
 import { createOpenTaskFileHandler } from './commands/open-task-file'
 import { createRevealInFolderHandler } from './commands/reveal-in-folder'
 import { createSetSelectedFilesHandler } from './commands/set-selected-files'
@@ -953,6 +954,15 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       return { ok: true }
     },
 
+    ...torrentCreatorHandlers(
+      (sender) =>
+        windowManager.getWindowIdBySender(sender) === 'create-torrent',
+      directoryHistory.wrap(async (request) => {
+        await activatePluginsForTask('bt', '')
+        return createAndPersist(request)
+      }),
+      () => ctx.rendererRecovery?.supervisor.enterModal()
+    ),
     [Commands.CreateTask]: directoryHistory.wrap(async (request: unknown) => {
       try {
         request = admitTaskCreateRequest(request)
@@ -2076,6 +2086,9 @@ export function registerCommandHandlers(ctx: CommandContext): () => void {
       channel === Commands.MinimizeCurrentWindow ||
       channel === Commands.ToggleMaximizeCurrentWindow ||
       channel === Commands.PickSaveDir ||
+      channel === Commands.PickTorrentSource ||
+      channel === Commands.CreateTorrent ||
+      channel === Commands.SaveTorrentFile ||
       OPERATION_CHANNELS.has(channel) ||
       channel === Commands.PickFile ||
       channel === Commands.ResizeWindow ||

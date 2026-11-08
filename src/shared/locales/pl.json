@@ -1155,7 +1155,7 @@
         "doc": "Dokument"
       },
       "errors": {
-        "headerNameRequired": "Wprowadź nazwę nagłówka lub usuń ten nagłówek.",
+        "headerNameRequired": "Podaj nazwę każdego nagłówka z wartością.",
         "urlsRequired": "Wymagany jest co najmniej jeden adres URL",
         "saveDirRequired": "Wymagany jest folder zapisu",
         "noFilesSelected": "Wybierz co najmniej jeden plik",
@@ -3564,5 +3564,34 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "Utwórz torrent",
+    "source": "Zawartość do udostępnienia",
+    "options": "Opcje torrenta",
+    "trackers": "Trackery",
+    "trackersPlaceholder": "Jeden URL announce na wiersz",
+    "webSeeds": "Web seedy",
+    "webSeedsPlaceholder": "Jeden URL HTTP(S) na wiersz (opcjonalnie)",
+    "comment": "Komentarz",
+    "private": "Torrent prywatny",
+    "privateDesc": "Wyłącza DHT i wymianę peerów; dystrybucja tylko przez trackery.",
+    "pieceLength": "Rozmiar kawałka",
+    "pieceAuto": "Automatycznie",
+    "hashing": "Obliczanie skrótów…",
+    "resultName": "Nazwa",
+    "resultSize": "Rozmiar",
+    "resultInfoHash": "Skrót info",
+    "saveFile": "Zapisz .torrent",
+    "create": "Utwórz",
+    "savedToast": "Torrent zapisano w {{path}}",
+    "createFailed": "Nie udało się utworzyć torrenta",
+    "saveFailed": "Nie udało się zapisać pliku torrent",
+    "seedAfter": "Rozpocznij udostępnianie po zapisaniu",
+    "seedFailed": "Nie udało się rozpocząć udostępniania.",
+    "seedSubmitted": "Zlecono udostępnianie.",
+    "invalidOptions": "Każda lista może zawierać do {{limit}} poprawnych adresów URL. Prywatny torrent wymaga trackera.",
+    "menuLabel": "Utwórz plik torrent…",
+    "downloadRequested": "Zlecono pobranie: {{path}}"
   }
 }

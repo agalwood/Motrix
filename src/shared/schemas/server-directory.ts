@@ -78,7 +78,7 @@ export const ListServerDirectoriesResultSchema = z.discriminatedUnion('ok', [
   DirectoryFailureSchema,
 ])
 export const ValidateServerDirectoryRequestSchema = z
-  .object({ path: DirectoryPathSchema })
+  .object({ path: DirectoryPathSchema, access: z.literal('read').optional() })
   .strict()
 export const ValidateServerDirectoryResultSchema = z.discriminatedUnion('ok', [
   z

@@ -117,6 +117,10 @@ export class WindowManager {
     if (id !== requestedId) options = undefined
     this.lastFocusRequested = id
     let win = this.windows.get(id)
+    if (id === 'create-torrent' && win && !win.isDestroyed()) {
+      this.focusWindow(id, win)
+      return
+    }
     if (!win || win.isDestroyed()) {
       // Self-heal: a window with closeBehavior 'destroy' may have been
       // destroyed by the user (e.g. clicking the traffic-light close
@@ -208,6 +212,7 @@ export class WindowManager {
     if (
       !this.willQuit &&
       config.closeBehavior === 'destroy' &&
+      id !== 'create-torrent' &&
       (id !== 'add-task' || this.shouldPrewarmAddTask())
     ) {
       this.precreate(id)

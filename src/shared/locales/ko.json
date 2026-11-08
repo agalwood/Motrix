@@ -1116,7 +1116,7 @@
         "doc": "문서"
       },
       "errors": {
-        "headerNameRequired": "헤더 이름을 입력하거나 이 헤더를 제거하세요.",
+        "headerNameRequired": "값을 입력한 헤더에는 이름이 필요합니다.",
         "urlsRequired": "URL을 하나 이상 입력하세요",
         "saveDirRequired": "저장 폴더를 지정하세요",
         "noFilesSelected": "파일을 하나 이상 선택하세요",
@@ -3492,5 +3492,34 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "토렌트 만들기",
+    "source": "공유할 콘텐츠",
+    "options": "토렌트 옵션",
+    "trackers": "트래커",
+    "trackersPlaceholder": "줄마다 announce URL 하나씩",
+    "webSeeds": "웹 시드",
+    "webSeedsPlaceholder": "줄마다 HTTP(S) URL 하나씩 (선택)",
+    "comment": "메모",
+    "private": "비공개 토렌트",
+    "privateDesc": "DHT와 PEX를 비활성화하고 트래커로만 배포합니다.",
+    "pieceLength": "조각 크기",
+    "pieceAuto": "자동",
+    "hashing": "해시 계산 중…",
+    "resultName": "이름",
+    "resultSize": "크기",
+    "resultInfoHash": "Info 해시",
+    "saveFile": ".torrent 저장",
+    "create": "만들기",
+    "savedToast": "토렌트를 {{path}} 에 저장했습니다",
+    "createFailed": "토렌트를 만들 수 없습니다",
+    "saveFailed": "토렌트 파일을 저장할 수 없습니다",
+    "seedAfter": "저장 후 시딩 시작",
+    "seedFailed": "시딩 작업을 시작할 수 없습니다.",
+    "seedSubmitted": "시딩 작업을 요청했습니다.",
+    "invalidOptions": "목록마다 유효한 URL을 최대 {{limit}}개 입력할 수 있습니다. 비공개 토렌트에는 트래커가 필요합니다.",
+    "menuLabel": "토렌트 파일 만들기…",
+    "downloadRequested": "다운로드 요청됨: {{path}}"
   }
 }

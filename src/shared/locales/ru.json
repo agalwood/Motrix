@@ -1155,7 +1155,7 @@
         "doc": "Документ"
       },
       "errors": {
-        "headerNameRequired": "Введите имя заголовка или удалите этот заголовок.",
+        "headerNameRequired": "Укажите имя каждого заголовка со значением.",
         "urlsRequired": "Требуется хотя бы один URL",
         "saveDirRequired": "Укажите папку сохранения",
         "noFilesSelected": "Выберите хотя бы один файл",
@@ -3564,5 +3564,34 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "Создать торрент",
+    "source": "Содержимое для раздачи",
+    "options": "Параметры торрента",
+    "trackers": "Трекеры",
+    "trackersPlaceholder": "По одному announce-URL в строке",
+    "webSeeds": "Web-сиды",
+    "webSeedsPlaceholder": "По одному HTTP(S)-URL в строке (необязательно)",
+    "comment": "Комментарий",
+    "private": "Приватный торрент",
+    "privateDesc": "Отключает DHT и обмен пирами; раздача только через трекер.",
+    "pieceLength": "Размер куска",
+    "pieceAuto": "Автоматически",
+    "hashing": "Вычисление хешей…",
+    "resultName": "Имя",
+    "resultSize": "Размер",
+    "resultInfoHash": "Info-хеш",
+    "saveFile": "Сохранить .torrent",
+    "create": "Создать",
+    "savedToast": "Торрент сохранён в {{path}}",
+    "createFailed": "Не удалось создать торрент",
+    "saveFailed": "Не удалось сохранить торрент-файл",
+    "seedAfter": "Начать раздачу после сохранения",
+    "seedFailed": "Не удалось начать раздачу.",
+    "seedSubmitted": "Задача раздачи отправлена.",
+    "invalidOptions": "В каждом списке допускается до {{limit}} корректных URL. Для приватного торрента нужен трекер.",
+    "menuLabel": "Создать торрент-файл…",
+    "downloadRequested": "Запрошено скачивание: {{path}}"
   }
 }

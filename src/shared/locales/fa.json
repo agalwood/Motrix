@@ -2850,7 +2850,7 @@
         "title": "این تورنت از قبل وجود دارد"
       },
       "errors": {
-        "headerNameRequired": "نام سرآیند را وارد کنید یا این سرآیند را حذف کنید.",
+        "headerNameRequired": "برای هر سرآیند دارای مقدار، یک نام وارد کنید.",
         "missingSource": "فایل تورنت یا پیوند magnet لازم است",
         "noFilesSelected": "حداقل یک فایل انتخاب کنید",
         "saveDirRequired": "پوشهٔ ذخیره لازم است",
@@ -3516,5 +3516,34 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "ساخت تورنت",
+    "source": "محتوای اشتراکی",
+    "options": "گزینه‌های تورنت",
+    "trackers": "ترکرها",
+    "trackersPlaceholder": "هر خط یک announce URL",
+    "webSeeds": "وب‌سیدها",
+    "webSeedsPlaceholder": "هر خط یک URL HTTP(S) (اختیاری)",
+    "comment": "یادداشت",
+    "private": "تورنت خصوصی",
+    "privateDesc": "DHT و تبادل همتا غیرفعال می‌شود؛ توزیع فقط از طریق ترکر.",
+    "pieceLength": "اندازه قطعه",
+    "pieceAuto": "خودکار",
+    "hashing": "در حال محاسبه هش…",
+    "resultName": "نام",
+    "resultSize": "حجم",
+    "resultInfoHash": "هش info",
+    "saveFile": "ذخیره .torrent",
+    "create": "ساخت",
+    "savedToast": "تورنت در {{path}} ذخیره شد",
+    "createFailed": "ساخت تورنت ممکن نشد",
+    "saveFailed": "ذخیره فایل تورنت ممکن نشد",
+    "seedAfter": "آغاز سید کردن پس از ذخیره",
+    "seedFailed": "سید کردن آغاز نشد.",
+    "seedSubmitted": "درخواست سید کردن ارسال شد.",
+    "invalidOptions": "هر فهرست حداکثر {{limit}} نشانی معتبر می‌پذیرد. تورنت خصوصی به ترکر نیاز دارد.",
+    "menuLabel": "ساخت فایل تورنت…",
+    "downloadRequested": "درخواست دانلود: {{path}}"
   }
 }

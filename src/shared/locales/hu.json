@@ -1129,7 +1129,7 @@
         "doc": "Dokumentum"
       },
       "errors": {
-        "headerNameRequired": "Adja meg a fejléc nevét, vagy távolítsa el ezt a fejlécet.",
+        "headerNameRequired": "Minden értékkel rendelkező fejléchez adjon meg nevet.",
         "urlsRequired": "Legalább egy URL megadása szükséges",
         "saveDirRequired": "Mentési mappa megadása szükséges",
         "noFilesSelected": "Válassz ki legalább egy fájlt",
@@ -3516,5 +3516,34 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "Torrent létrehozása",
+    "source": "Megosztandó tartalom",
+    "options": "Torrentbeállítások",
+    "trackers": "Trackerek",
+    "trackersPlaceholder": "Soronként egy announce URL",
+    "webSeeds": "Web seedek",
+    "webSeedsPlaceholder": "Soronként egy HTTP(S) URL (opcionális)",
+    "comment": "Megjegyzés",
+    "private": "Privát torrent",
+    "privateDesc": "Kikapcsolja a DHT-t és a peer-cserét; csak trackeren keresztül oszt el.",
+    "pieceLength": "Darabméret",
+    "pieceAuto": "Automatikus",
+    "hashing": "Hashek számítása…",
+    "resultName": "Név",
+    "resultSize": "Méret",
+    "resultInfoHash": "Info hash",
+    "saveFile": ".torrent mentése",
+    "create": "Létrehozás",
+    "savedToast": "Torrent mentve ide: {{path}}",
+    "createFailed": "A torrentet nem sikerült létrehozni",
+    "saveFailed": "A torrentfájlt nem sikerült menteni",
+    "seedAfter": "Megosztás indítása mentés után",
+    "seedFailed": "A megosztás nem indult el.",
+    "seedSubmitted": "A megosztási feladat elküldve.",
+    "invalidOptions": "Listánként legfeljebb {{limit}} érvényes URL adható meg. A privát torrenthez tracker szükséges.",
+    "menuLabel": "Torrentfájl létrehozása…",
+    "downloadRequested": "Letöltés kérve: {{path}}"
   }
 }

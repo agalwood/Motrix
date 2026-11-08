@@ -1129,7 +1129,7 @@
         "doc": "Belge"
       },
       "errors": {
-        "headerNameRequired": "Bir üstbilgi adı girin veya bu üstbilgiyi kaldırın.",
+        "headerNameRequired": "Değeri olan her üst bilgi için bir ad girin.",
         "urlsRequired": "En az bir URL gerekli",
         "saveDirRequired": "Kayıt klasörü gerekli",
         "noFilesSelected": "En az bir dosya seçin",
@@ -3516,5 +3516,34 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "Torrent oluştur",
+    "source": "Paylaşılacak içerik",
+    "options": "Torrent seçenekleri",
+    "trackers": "İzleyiciler",
+    "trackersPlaceholder": "Her satıra bir announce URL’si",
+    "webSeeds": "Web tohumları",
+    "webSeedsPlaceholder": "Her satıra bir HTTP(S) URL (isteğe bağlı)",
+    "comment": "Yorum",
+    "private": "Özel torrent",
+    "privateDesc": "DHT ve eş değişimi devre dışı; dağıtım yalnızca izleyiciyle.",
+    "pieceLength": "Parça boyutu",
+    "pieceAuto": "Otomatik",
+    "hashing": "Hash hesaplanıyor…",
+    "resultName": "Ad",
+    "resultSize": "Boyut",
+    "resultInfoHash": "Info hash",
+    "saveFile": ".torrent kaydet",
+    "create": "Oluştur",
+    "savedToast": "Torrent {{path}} konumuna kaydedildi",
+    "createFailed": "Torrent oluşturulamadı",
+    "saveFailed": "Torrent dosyası kaydedilemedi",
+    "seedAfter": "Kaydettikten sonra paylaşmaya başla",
+    "seedFailed": "Paylaşım başlatılamadı.",
+    "seedSubmitted": "Paylaşım görevi gönderildi.",
+    "invalidOptions": "Her liste en fazla {{limit}} geçerli URL içerebilir. Özel torrentler izleyici gerektirir.",
+    "menuLabel": "Torrent dosyası oluştur…",
+    "downloadRequested": "İndirme istendi: {{path}}"
   }
 }

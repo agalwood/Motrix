@@ -84,10 +84,10 @@ describe('AddTaskForm', () => {
     await userEvent.type(screen.getByLabelText('Header value'), 'fresh-value')
     await userEvent.click(screen.getByRole('button', { name: 'Download' }))
     expect(
-      await screen.findByText('Enter a header name or remove this header.')
+      await screen.findByText('Add a name for each header with a value.')
     ).toBeVisible()
     expect(screen.getByLabelText('Header name')).toHaveAccessibleDescription(
-      'Enter a header name or remove this header.'
+      'Add a name for each header with a value.'
     )
     expect(
       invokeMock.mock.calls.filter(
@@ -100,6 +100,70 @@ describe('AddTaskForm', () => {
       expect(invokeMock).toHaveBeenCalledWith(
         Commands.CreateTask,
         expect.objectContaining({ headers: [] })
+      )
+    )
+  })
+
+  it('reuses the unfinished row and omits it from a download', async () => {
+    renderForm({
+      defaultValues: {
+        tab: 'links',
+        urls: 'https://example.com/a',
+        saveDir: '/d',
+      },
+    })
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Advanced' }))
+    const add = screen.getByRole('button', { name: 'Add header' })
+    await user.click(add)
+    await user.click(add)
+    const name = screen.getByLabelText('Header name')
+    expect(name).toHaveFocus()
+    await user.type(name, ' ')
+    await user.tab()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Download' }))
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith(
+        Commands.CreateTask,
+        expect.objectContaining({ headers: [] })
+      )
+    )
+  })
+
+  it('reveals incomplete headers on submit and shares one accessible hint until corrected', async () => {
+    const user = userEvent.setup()
+    renderForm({
+      defaultValues: {
+        tab: 'links',
+        urls: 'https://example.com/a',
+        saveDir: '/d',
+        extraHeaders: [
+          { name: '', value: 'one' },
+          { name: ' ', value: 'two' },
+        ],
+      },
+    })
+    await user.click(screen.getByRole('button', { name: 'Download' }))
+    const hint = await screen.findByRole('alert')
+    const [first, second] = screen.getAllByLabelText('Header name')
+    for (const name of [first, second]) {
+      expect(name).toHaveAttribute('aria-invalid', 'true')
+      expect(name).toHaveAccessibleDescription(hint.textContent ?? '')
+    }
+    await waitFor(() => expect(first).toHaveFocus())
+    await user.type(first, 'Accept')
+    expect(second).toHaveAttribute('aria-invalid', 'true')
+    await user.clear(screen.getAllByLabelText('Header value')[1])
+    await user.tab()
+    await waitFor(() =>
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    )
+    await user.click(screen.getByRole('button', { name: 'Download' }))
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith(
+        Commands.CreateTask,
+        expect.objectContaining({ headers: [{ name: 'Accept', value: 'one' }] })
       )
     )
   })

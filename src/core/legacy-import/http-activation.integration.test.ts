@@ -478,13 +478,15 @@ describe.skipIf(!binaryPath)('real native HTTP migration activation', () => {
 
   it('quarantines same-inode edits to old bytes despite a valid native binding and real progress', async () => {
     const f = await nativeFixture({ holdDownload: true })
-    const { adapter } = await f.start()
+    const { adapter, rpc } = await f.start()
     const resume = adapter.resumeTask.bind(adapter)
+    const paused = vi.fn()
     const resumeSpy = vi
       .spyOn(adapter, 'resumeTask')
       .mockImplementationOnce(async (gid) => {
         await resume(gid)
         await progressed(adapter, gid)
+        rpc.onDownloadPause(paused)
         await adapter.pauseTask(gid)
         throw new Error('Lost resume response')
       })
@@ -493,6 +495,11 @@ describe.skipIf(!binaryPath)('real native HTTP migration activation', () => {
     ).rejects.toThrow('Lost resume response')
     const intent = legacyHttpActivationSchema.parse(
       f.db.getTask(f.taskId)?.instances[0].payload.legacyHttpActivation
+    )
+    // The pause RPC can return before aria2 flushes its last range to disk.
+    await vi.waitFor(
+      () => expect(paused).toHaveBeenCalledWith({ gid: intent.engineTaskId }),
+      { timeout: 10_000 }
     )
     const bytes = await readFile(f.target)
     bytes[LEGACY_HTTP_COMPLETED - 1] ^= 255

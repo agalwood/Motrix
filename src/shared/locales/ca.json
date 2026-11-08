@@ -2870,7 +2870,7 @@
         "title": "Aquest torrent ja existeix"
       },
       "errors": {
-        "headerNameRequired": "Introduïu un nom per a la capçalera o elimineu-la.",
+        "headerNameRequired": "Introdueix un nom per a cada capçalera que tingui un valor.",
         "missingSource": "Cal un fitxer torrent o un enllaç magnet",
         "noFilesSelected": "Seleccioneu almenys un fitxer",
         "saveDirRequired": "Cal una carpeta de destinació",
@@ -3540,5 +3540,34 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "Crea un torrent",
+    "source": "Contingut per compartir",
+    "options": "Opcions del torrent",
+    "trackers": "Trackers",
+    "trackersPlaceholder": "Un URL announce per línia",
+    "webSeeds": "Web seeds",
+    "webSeedsPlaceholder": "Un URL HTTP(S) per línia (opcional)",
+    "comment": "Comentari",
+    "private": "Torrent privat",
+    "privateDesc": "Desactiva DHT i l’intercanvi entre peers; distribució només per tracker.",
+    "pieceLength": "Mida de les peces",
+    "pieceAuto": "Automàtica",
+    "hashing": "Calculant els hash…",
+    "resultName": "Nom",
+    "resultSize": "Mida",
+    "resultInfoHash": "Hash info",
+    "saveFile": "Desa el .torrent",
+    "create": "Crea",
+    "savedToast": "Torrent desat a {{path}}",
+    "createFailed": "No s’ha pogut crear el torrent",
+    "saveFailed": "No s’ha pogut desar el fitxer torrent",
+    "seedAfter": "Comença a compartir després de desar",
+    "seedFailed": "No s’ha pogut començar a compartir.",
+    "seedSubmitted": "S’ha enviat la tasca de compartició.",
+    "invalidOptions": "Cada llista admet fins a {{limit}} URL vàlids. Els torrents privats necessiten un rastrejador.",
+    "menuLabel": "Crea un fitxer torrent…",
+    "downloadRequested": "S’ha sol·licitat la baixada de {{path}}"
   }
 }
