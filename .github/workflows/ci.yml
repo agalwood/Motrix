@@ -412,6 +412,8 @@ jobs:
         run: node scripts/ensure-electron-runtime.mjs --retry-download
 
       - name: Fetch target aria2
+        env:
+          MOTRIX_ENGINE_FETCH_TIMEOUT_MS: '90000'
         run: >-
           pnpm run fetch:engine
           --platform ${{ matrix.platform }}

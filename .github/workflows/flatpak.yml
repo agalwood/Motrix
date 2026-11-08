@@ -110,7 +110,7 @@ jobs:
       # dist/ anyway. The notice contract needs dist/LICENSE and
       # dist/LICENSES.chromium.html, so fetch the runtime explicitly.
       - name: Fetch Electron runtime for the notice contract
-        run: node node_modules/electron/install.js
+        run: node scripts/ensure-electron-runtime.mjs --retry-download
 
       - name: Third-party notice contract
         run: pnpm --config.verify-deps-before-run=false run check:third-party-notices
