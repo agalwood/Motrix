@@ -209,9 +209,6 @@ importers:
       '@resvg/resvg-wasm':
         specifier: ^2.6.2
         version: 2.6.2
-      '@tailwindcss/vite':
-        specifier: ^4.3.5
-        version: 4.3.5(vite@8.3.6(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
       '@tanstack/react-virtual':
         specifier: ^3.14.26
         version: 3.14.26(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -360,6 +357,9 @@ importers:
       '@playwright/test':
         specifier: ^1.65.0
         version: 1.65.0
+      '@tailwindcss/vite':
+        specifier: ^4.3.5
+        version: 4.3.5(vite@8.3.6(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
       '@testing-library/jest-dom':
         specifier: ^7.0.1
         version: 7.0.1(@testing-library/dom@10.4.2)(vitest@5.1.0)
