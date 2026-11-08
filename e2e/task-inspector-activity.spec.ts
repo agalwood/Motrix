@@ -587,6 +587,16 @@ test.describe('Task Inspector Activity', () => {
         await handle.focus()
         await handle.press(key)
         await content.hover()
+        // The snap transition changes the scroll range. Wait for the drawer to
+        // settle before testing whether a wheel gesture reaches the last row.
+        await drawer.evaluate(async (element) => {
+          const transitions = element
+            .getAnimations({ subtree: true })
+            .filter((animation) => animation instanceof CSSTransition)
+          await Promise.all(
+            transitions.map((transition) => transition.finished)
+          )
+        })
         await page.mouse.wheel(0, 10_000)
         await expect
           .poll(() =>
