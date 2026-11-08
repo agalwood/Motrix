@@ -23,8 +23,8 @@ export const ARIA2_SOURCE = Object.freeze({
 })
 
 const PNPM_SOURCE = Object.freeze({
-  url: 'https://registry.npmjs.org/pnpm/-/pnpm-12.16.1.tgz',
-  sha256: 'ca362a16f2e1c3cfa81d406f3242446179a0e4aea457ba3e9e6c39e6476aba65',
+  url: 'https://registry.npmjs.org/pnpm/-/pnpm-12.18.0.tgz',
+  sha256: '29d1d7d99bf6ec6d0a3dbb0ec5656f0d16e997e8be676ca45c581d11cb71f753',
 })
 
 const RUST_SOURCES = Object.freeze({
@@ -282,7 +282,7 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
       'pnpm_root=/run/build/motrix/flatpak-node/pnpm-cli/lib/node_modules/pnpm'
     ) &&
       motrixCommands.includes('node "$pnpm_root/install.js"') &&
-      motrixCommands.includes('test "$(pnpm --version)" = \'12.16.1\'') &&
+      motrixCommands.includes('test "$(pnpm --version)" = \'12.18.0\'') &&
       motrixBuildOptions.includes(
         '/run/build/motrix/flatpak-node/pnpm-cli/bin'
       ),
@@ -442,7 +442,7 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
     'generated pnpm store must use v11'
   )
   for (const arch of ['x64', 'arm64']) {
-    const filename = `@pnpm__exe.linux-${arch}-12.16.1.tgz`
+    const filename = `@pnpm__exe.linux-${arch}-12.18.0.tgz`
     const source = generatedSources.find(
       (candidate) => candidate?.['dest-filename'] === filename
     )

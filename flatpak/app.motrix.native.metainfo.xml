@@ -68,6 +68,15 @@
   </screenshots>
 
   <releases>
+    <release version="2.4.0" date="2026-11-08">
+      <description>
+        <p>
+          Create BitTorrent v1 torrents from a file or folder and choose whether
+          to seed the source files. Adds native Synology DSM 7 packages and
+          improves recovery when renaming completed downloads on Windows.
+        </p>
+      </description>
+    </release>
     <release version="2.3.0" date="2026-11-05">
       <description>
         <p>
