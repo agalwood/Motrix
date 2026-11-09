@@ -165,7 +165,9 @@ describe('MotrixMenuButton', () => {
     )
     const logo = trigger.querySelector('[data-slot="motrix-menu-logo"]')
     expect(logo).toHaveClass('h-2.5', 'w-11', 'bg-foreground')
-    expect(logo).toHaveStyle({ maskImage: 'url("./mo-logo.svg")' })
+    expect(logo).toHaveStyle({
+      maskImage: `url("${new URL('./mo-logo.svg', document.baseURI).href}")`,
+    })
 
     await user.click(trigger)
     await waitFor(() => expect(mocks.refresh).toHaveBeenCalledTimes(1))

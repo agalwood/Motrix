@@ -1864,7 +1864,7 @@ async function initializeMainProcess(): Promise<void> {
     getMainWindow: () => windowManager?.get('main') ?? null,
     showMainWindow: () => windowManager?.show('main'),
     getAppSettings: () => settingsManager.getApp(),
-    translate: i18n.t.bind(i18n),
+    translate: (key, params = {}) => i18n.t(key, params),
     getTaskStatus: (taskId) => taskManager.getById(taskId)?.status ?? null,
     navigateToTask,
     navigateToDownloads: () => {
@@ -3185,7 +3185,7 @@ async function initializeMainProcess(): Promise<void> {
     },
     broadcast: (state) =>
       windowManager.broadcast(Events.CompletionShutdownChanged, state),
-    translate: (key, params) => i18n.t(key, params),
+    translate: (key, params = {}) => i18n.t(key, params),
     logError: (err) => log.warn({ err }, 'completion shutdown failed'),
   })
   disposeIpcIngress = () => {

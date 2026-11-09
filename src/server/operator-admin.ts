@@ -252,7 +252,7 @@ async function createTranslator(env: NodeJS.ProcessEnv): Promise<Translate> {
     },
   })
   const fixedT = instance.getFixedT(locale)
-  return (key, values) => String(fixedT(key, values))
+  return (key, values) => String(fixedT(key, values ?? {}))
 }
 
 function exitCodeFor(error: OperatorAdminError): OperatorAdminExitCode {

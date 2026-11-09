@@ -68,6 +68,14 @@
   </screenshots>
 
   <releases>
+    <release version="2.4.1" date="2026-11-10">
+      <description>
+        <p>
+          Updates aria2 to retry other resolved addresses after a connection fails on
+          Windows. Updates the translation libraries used by the desktop app and Web UI.
+        </p>
+      </description>
+    </release>
     <release version="2.4.0" date="2026-11-08">
       <description>
         <p>
