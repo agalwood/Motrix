@@ -161,7 +161,7 @@ export function createWebServices(
     },
 
     notify(kind, messageKey, values) {
-      const msg = i18n.t(messageKey, values)
+      const msg = i18n.t(messageKey, values ?? {})
       if (kind === 'error') toast.add({ title: msg, type: 'error' })
       else if (kind === 'warn') toast.add({ title: msg, type: 'warning' })
       else toast.add({ title: msg, type: 'info' })

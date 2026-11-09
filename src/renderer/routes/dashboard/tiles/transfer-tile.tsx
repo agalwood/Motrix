@@ -225,7 +225,7 @@ function coverageCaption({
   scope: TransferScope
   range: TransferRangeStats
   locale: string
-  translate: (key: string, values?: Record<string, string>) => string
+  translate: (key: string, values: Record<string, string>) => string
 }): string | null {
   if (scope === 'today') {
     if (range.coverageStartedAt <= range.startedAt) return null
