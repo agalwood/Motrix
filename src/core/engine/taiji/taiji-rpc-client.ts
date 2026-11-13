@@ -109,6 +109,25 @@ export class TaijiRpcClient extends Aria2RpcClient {
     return result
   }
 
+  protected override reconcileResult(
+    method: string,
+    params: unknown[],
+    result: unknown,
+    sequence: number
+  ): unknown {
+    if (
+      method === 'taiji.confirmTorrentSelection' &&
+      typeof params[0] === 'string' &&
+      result === params[0]
+    ) {
+      this.invalidateTaskMetadata(params[0])
+      // Confirmation also starts the task. Clear an earlier accepted pause
+      // without sending another command or changing the native wire method.
+      return super.reconcileResult('aria2.unpause', params, result, sequence)
+    }
+    return super.reconcileResult(method, params, result, sequence)
+  }
+
   protected override wireResult(method: string, result: unknown): unknown {
     const name = method.replace(/^(?:aria2|taiji)\./, '')
     const normalizeStatus = (value: unknown): unknown => {
@@ -178,7 +197,12 @@ export class TaijiRpcClient extends Aria2RpcClient {
     gid: string,
     options: Record<string, string>
   ): Promise<string> {
-    return this.call('taiji.confirmTorrentSelection', [gid, options])
+    this.invalidateTaskMetadata(gid)
+    try {
+      return await this.call('taiji.confirmTorrentSelection', [gid, options])
+    } finally {
+      this.invalidateTaskMetadata(gid)
+    }
   }
 
   async getHttpOutput(gid: string): Promise<HttpOutput> {

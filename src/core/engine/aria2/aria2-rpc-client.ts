@@ -43,7 +43,7 @@ export class Aria2RpcClient {
     return () => this.metadataListeners.delete(handler)
   }
 
-  private invalidateTaskMetadata(gid?: string): void {
+  protected invalidateTaskMetadata(gid?: string): void {
     for (const listener of this.metadataListeners) listener(gid)
   }
 
@@ -140,7 +140,7 @@ export class Aria2RpcClient {
     return this.reconcileResult(method, params, result, sequence) as T
   }
 
-  private reconcileResult(
+  protected reconcileResult(
     method: string,
     params: unknown[],
     result: unknown,

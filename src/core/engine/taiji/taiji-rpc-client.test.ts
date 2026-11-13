@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { JsonRpcProtocol } from '../aria2/json-rpc-protocol'
+import { TaskFileMetadata } from '../aria2/task-file-metadata'
 import type { WebSocketTransport } from '../aria2/web-socket-transport'
 import { TaijiAdapter } from './taiji-adapter'
 import { TaijiRpcClient } from './taiji-rpc-client'
@@ -29,6 +30,72 @@ function fixture() {
 }
 
 describe('native taiji RPC boundary', () => {
+  it('discards pre-confirmation file reads and clears accepted pause state on the same GID', async () => {
+    const { rpc, protocol } = fixture()
+    const cache = new TaskFileMetadata(rpc)
+    rpc.onTaskMetadataChanged((gid) => cache.invalidate(gid))
+    const files = (selected: boolean) => [
+      {
+        index: '1',
+        path: '/downloads/a',
+        length: '1',
+        completedLength: '0',
+        selected: String(selected),
+        uris: [],
+      },
+      {
+        index: '2',
+        path: '/downloads/b',
+        length: '1',
+        completedLength: '0',
+        selected: 'true',
+        uris: [],
+      },
+    ]
+    let finish!: (value: ReturnType<typeof files>) => void
+    const oldRead = new Promise<ReturnType<typeof files>>((resolve) => {
+      finish = resolve
+    })
+    let first = true
+    protocol.call.mockImplementation(async (method) => {
+      if (method === 'taiji.getFiles') {
+        if (first) {
+          first = false
+          return oldRead
+        }
+        return files(false)
+      }
+      if (method === 'taiji.tellStatus')
+        return { gid: 'gid', status: 'active', downloadSpeed: '10' }
+      return 'gid'
+    })
+    const snapshot = {
+      gid: 'gid',
+      status: 'paused',
+      dir: '/downloads',
+      totalLength: '2',
+      infoHash: 'hash',
+      bittorrent: { info: { name: 'bundle' } },
+    }
+    const stale = cache.hydrate(snapshot as never)
+    await rpc.pause('gid')
+    await rpc.confirmTorrentSelection('gid', {
+      dir: '/downloads',
+      'select-file': '2',
+    })
+    finish(files(true))
+    expect(await stale).toBeNull()
+    expect(
+      (await cache.hydrate(snapshot as never))?.fileMetadata.selectedFiles
+    ).toEqual([1])
+    expect((await rpc.tellStatus('gid')).status).toBe('active')
+    expect(protocol.call).toHaveBeenCalledWith(
+      'taiji.confirmTorrentSelection',
+      ['token:secret', 'gid', { dir: '/downloads', 'select-file': '2' }],
+      undefined
+    )
+  })
+
   it('projects native seed/check status consistently in single and batched replies', async () => {
     const { rpc, protocol } = fixture()
     const seed = { gid: 'seed', status: 'seeding', bittorrent: {} }
