@@ -215,6 +215,29 @@ async function licenseBundle(sourceDir, target) {
   return sections.join('\n')
 }
 
+export function taijiBuildEnvironment(rustTarget, environment = process.env) {
+  const result = { ...environment }
+  if (rustTarget.endsWith('-windows-msvc')) {
+    // A standalone sidecar must not require an external VC++ redistributable.
+    // Cargo gives encoded flags precedence over ordinary RUSTFLAGS.
+    if (result.CARGO_ENCODED_RUSTFLAGS !== undefined) {
+      result.CARGO_ENCODED_RUSTFLAGS = [
+        result.CARGO_ENCODED_RUSTFLAGS,
+        '-C',
+        'target-feature=+crt-static',
+        '-C',
+        'link-arg=/STACK:8388608',
+      ]
+        .filter(Boolean)
+        .join('\x1f')
+    } else {
+      result.RUSTFLAGS =
+        `${result.RUSTFLAGS ?? ''} -C target-feature=+crt-static -C link-arg=/STACK:8388608`.trim()
+    }
+  }
+  return result
+}
+
 export async function buildTaiji(options = {}) {
   const root = options.root ?? projectRoot
   const info = await readEngineSource(root)
@@ -266,7 +289,7 @@ export async function buildTaiji(options = {}) {
           root
         )
   const targetDir = path.join(root, 'output/taiji-build')
-  const buildEnv = { ...process.env }
+  const buildEnv = taijiBuildEnvironment(rustTarget)
   if (process.platform === 'linux' && rustTarget.includes('musl')) {
     const host = execute('rustc', ['-vV']).match(/^host: (\S+)$/m)?.[1]
     const compilerKey = `CC_${rustTarget.replaceAll('-', '_')}`

@@ -10,6 +10,7 @@ import {
   prepareSource,
   readEngineSource,
   sha256Hex,
+  taijiBuildEnvironment,
 } from '../../scripts/build-taiji.mjs'
 // @ts-expect-error JavaScript build tooling
 import { verifyEngineArtifact } from '../../scripts/verify-engine-artifact.mjs'
@@ -65,6 +66,37 @@ async function fixture() {
   await writeFile(receipt, JSON.stringify(record))
   return { root, scripts, binary, license, receipt, record }
 }
+
+describe('taiji Windows runtime linkage', () => {
+  it.each(['x86_64', 'aarch64', 'i686'])(
+    'builds %s with a static CRT and preserves caller flags',
+    (arch) => {
+      const original = { RUSTFLAGS: '-C debuginfo=1', PATH: '/tools' }
+      expect(
+        taijiBuildEnvironment(`${arch}-pc-windows-msvc`, original)
+      ).toEqual({
+        ...original,
+        RUSTFLAGS:
+          '-C debuginfo=1 -C target-feature=+crt-static -C link-arg=/STACK:8388608',
+      })
+      expect(original.RUSTFLAGS).toBe('-C debuginfo=1')
+    }
+  )
+  it('respects the precedence of Cargo encoded flags', () => {
+    expect(
+      taijiBuildEnvironment('x86_64-pc-windows-msvc', {
+        CARGO_ENCODED_RUSTFLAGS: '-C\x1fdebuginfo=1',
+        RUSTFLAGS: 'ignored by Cargo',
+      }).CARGO_ENCODED_RUSTFLAGS
+    ).toBe(
+      '-C\x1fdebuginfo=1\x1f-C\x1ftarget-feature=+crt-static\x1f-C\x1flink-arg=/STACK:8388608'
+    )
+  })
+  it('preserves non-Windows target policies', () => {
+    const flags = { RUSTFLAGS: '-C debuginfo=1' }
+    expect(taijiBuildEnvironment('aarch64-apple-darwin', flags)).toEqual(flags)
+  })
+})
 
 describe('pinned taiji build', () => {
   it('reuses a verified source, binary and license receipt without fetching or rebuilding', async () => {
