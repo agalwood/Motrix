@@ -152,7 +152,7 @@ jobs:
 
       - name: Generate Flatpak Cargo sources
         run: |
-          # Vendor the union of the two reviewed native dependency locks.
+          # Vendor the union of all three reviewed native dependency locks.
           "$RUNNER_TEMP/flatpak-builder-tools/bin/python" \
             "$RUNNER_TEMP/flatpak-cargo-generator.py" \
             packages/native-host/Cargo.lock \
@@ -161,8 +161,14 @@ jobs:
             "$RUNNER_TEMP/flatpak-cargo-generator.py" \
             packages/finalize-fs/Cargo.lock \
             --output "$RUNNER_TEMP/finalize-cargo-sources.json"
+          "$RUNNER_TEMP/flatpak-builder-tools/bin/python" \
+            "$RUNNER_TEMP/flatpak-cargo-generator.py" \
+            flatpak/taiji-Cargo.lock \
+            --output "$RUNNER_TEMP/taiji-cargo-sources.json"
           node scripts/normalize-flatpak-cargo-sources.mjs \
             "$RUNNER_TEMP/cargo-sources.json" "$RUNNER_TEMP/finalize-cargo-sources.json"
+          node scripts/normalize-flatpak-cargo-sources.mjs \
+            "$RUNNER_TEMP/cargo-sources.json" "$RUNNER_TEMP/taiji-cargo-sources.json"
           cmp flatpak/cargo-sources.json \
             "$RUNNER_TEMP/cargo-sources.json"
 
@@ -290,8 +296,8 @@ jobs:
             app.motrix.native \
             -eu -c '
               set -x
-              aria2c="/app/motrix/resources/extra/linux/$MOTRIX_EXPECTED_ARCH/aria2c"
-              test -x "$aria2c"
+              taiji="/app/motrix/resources/extra/linux/$MOTRIX_EXPECTED_ARCH/taiji"
+              test -x "$taiji"
               test ! -e /app/motrix/resources/bin/motrix-native-host
               test ! -e /app/motrix/resources/bin/motrix-native-host-broker
               test -x /app/bin/motrix-native-host-broker
@@ -304,15 +310,9 @@ jobs:
                 -path "*/NativeMessagingHosts/*" -o \
                 -path "*/native-messaging-hosts/*" \
               \) -print -quit)"
-              output="$("$aria2c" --version)"
-              printf "%s\n" "$output" | grep -qF "aria2 version 1.37.0-motrix.25"
-              printf "%s\n" "$output" | grep -qF "Async DNS"
-              printf "%s\n" "$output" | grep -qF "BitTorrent"
-              printf "%s\n" "$output" | grep -qF "HTTPS"
-              printf "%s\n" "$output" | grep -qF "SFTP"
-              # aria2c --version never lists WebSocket; assert the wslay RPC
-              # handshake path is compiled in by scanning the binary itself.
-              grep -qa "Sec-WebSocket-Accept" "$aria2c"
+              output="$("$taiji" --version)"
+              printf "%s\n" "$output" | grep -qF "taiji/0.2.0"
+              test -s "/app/motrix/resources/extra/linux/$MOTRIX_EXPECTED_ARCH/taiji-licenses.txt"
             '
           broker_hex="$(
             printf 'MXBR\001\000\000\000\025\000\000\000%s' \

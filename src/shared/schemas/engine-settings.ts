@@ -94,9 +94,12 @@ export const engineSettingsInputSchema = settingsInputObject(
   persistedEngineSettingsSchema
 )
 
-export const engineSettingsSchema = persistedEngineSettingsSchema.transform(
-  applyEnginePerformanceProfile
-)
+export const engineSettingsSchema = persistedEngineSettingsSchema
+  .transform(applyEnginePerformanceProfile)
+  .transform((settings) => ({
+    ...settings,
+    dhtListenPort: settings.listenPort,
+  }))
 
 export const DEFAULT_ENGINE_SETTINGS: EngineSettings =
   engineSettingsSchema.parse({})

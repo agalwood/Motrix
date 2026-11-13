@@ -66,12 +66,12 @@ test('create on the server, download in the browser, and seed the original folde
         MOTRIX_PUBLIC_URL: origin,
         MOTRIX_WEB_BASE_PATH: '/motrix',
         MOTRIX_OPERATOR_TOKEN: token,
-        MOTRIX_ARIA2_BIN: path.join(
+        MOTRIX_TAIJI_BIN: path.join(
           repo,
           'extra',
           process.platform,
           process.arch,
-          process.platform === 'win32' ? 'aria2c.exe' : 'aria2c'
+          process.platform === 'win32' ? 'taiji.exe' : 'taiji'
         ),
         MOTRIX_RENDERER_DIR: path.join(repo, 'dist/renderer-web'),
         MOTRIX_BUILTIN_PLUGIN_DIR: path.join(repo, 'dist/builtin-plugins'),
@@ -259,6 +259,43 @@ test('create on the server, download in the browser, and seed the original folde
     await localized.screenshot({
       path: info.outputPath('server-creator-zh.png'),
     })
+  } catch (error) {
+    {
+      await info.attach('server-log', { body: logs, contentType: 'text/plain' })
+      const settings = JSON.parse(
+        await readFile(path.join(data, 'settings.json'), 'utf8')
+      )
+      const response = await fetch(
+        `http://127.0.0.1:${settings.engine.rpcPort}/jsonrpc`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: 'diagnostics',
+            method: 'system.multicall',
+            params: [
+              [
+                ...['tellActive', 'tellWaiting', 'tellStopped'].map(
+                  (method) => ({
+                    methodName: `taiji.${method}`,
+                    params: [
+                      `token:${settings.engine.rpcSecret}`,
+                      ...(method === 'tellActive' ? [] : [0, 100]),
+                    ],
+                  })
+                ),
+              ],
+            ],
+          }),
+        }
+      ).catch(() => null)
+      if (response)
+        await info.attach('engine-status', {
+          body: await response.text(),
+          contentType: 'application/json',
+        })
+    }
+    throw error
   } finally {
     if (server.exitCode === null && server.signalCode === null) {
       server.kill('SIGTERM')

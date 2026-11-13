@@ -682,40 +682,7 @@ export function BitTorrentDialog({
                               {t('settings.bittorrent.listen.listenPort')}
                             </FormLabel>
                             <FormDescription className="text-xs">
-                              {t('settings.bittorrent.listen.listenPortDesc')}
-                            </FormDescription>
-                          </div>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              type="number"
-                              min={1024}
-                              max={65535}
-                              className="w-30 h-8"
-                              value={
-                                Number.isFinite(field.value) ? field.value : ''
-                              }
-                              onChange={(event) =>
-                                field.onChange(event.target.valueAsNumber)
-                              }
-                            />
-                          </FormControl>
-                        </SettingsFormRow>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="engine.dhtListenPort"
-                      render={({ field }) => (
-                        <SettingsFormRow>
-                          <div className="space-y-1">
-                            <FormLabel>
-                              {t('settings.bittorrent.listen.dhtListenPort')}
-                            </FormLabel>
-                            <FormDescription className="text-xs">
-                              {t(
-                                'settings.bittorrent.listen.dhtListenPortDesc'
-                              )}
+                              {t('settings.bittorrent.listen.sharedPortDesc')}
                             </FormDescription>
                           </div>
                           <FormControl>

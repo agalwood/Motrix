@@ -481,13 +481,13 @@ describe('stageServerApp', () => {
     const root = await createFixture()
     const contract = fixtureContract()
     contract.resourceInputs.unshift({
-      source: 'extra/{platform}/{arch}/{aria2Binary}',
-      destination: 'bin/{aria2Binary}',
+      source: 'extra/{platform}/{arch}/{engineBinary}',
+      destination: 'bin/{engineBinary}',
       type: 'file',
     })
     await writeFixtureFile(
       root,
-      'extra/linux/x64/aria2c',
+      'extra/linux/x64/taiji',
       nativeHeader('linux', 'x64')
     )
 
@@ -503,12 +503,12 @@ describe('stageServerApp', () => {
 
     expect(result.manifest.target.key).toBe('linux-x64-musl')
     expect(
-      await readFile(path.join(root, 'dist/server-app/bin/aria2c'))
+      await readFile(path.join(root, 'dist/server-app/bin/taiji'))
     ).toEqual(nativeHeader('linux', 'x64'))
     expect(result.manifest.inputFingerprints).toContainEqual(
       expect.objectContaining({
-        destination: 'bin/aria2c',
-        source: 'extra/linux/x64/aria2c',
+        destination: 'bin/taiji',
+        source: 'extra/linux/x64/taiji',
       })
     )
   })

@@ -45,7 +45,7 @@ test('completed raw RPC download stays deleted after restart and a new same-URL 
         body: JSON.stringify({
           jsonrpc: '2.0',
           id: 'completed-rpc-recovery',
-          method: `aria2.${method}`,
+          method: `taiji.${method}`,
           params: [`token:${settings.engine.rpcSecret}`, ...params],
         }),
       })

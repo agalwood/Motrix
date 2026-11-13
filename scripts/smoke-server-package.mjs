@@ -8,6 +8,7 @@ import {
   realpath,
   rm,
   stat,
+  writeFile,
 } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import net from 'node:net'
@@ -299,7 +300,7 @@ function parseArguments(argv) {
     if (!argument.startsWith('--'))
       throw new Error(`unknown argument: ${argument}`)
     const key = argument.slice(2)
-    if (!['app-dir', 'aria2-bin', 'timeout-ms'].includes(key)) {
+    if (!['app-dir', 'taiji-bin', 'timeout-ms'].includes(key)) {
       throw new Error(`unknown option: --${key}`)
     }
     const value = argv[index + 1]
@@ -321,19 +322,19 @@ export async function smokeServerPackage(options) {
     )
   }
   const stageRoot = path.resolve(options.appDir)
-  const bundledAria2 = path.join(
+  const bundledTaiji = path.join(
     stageRoot,
     'bin',
-    process.platform === 'win32' ? 'aria2c.exe' : 'aria2c'
+    process.platform === 'win32' ? 'taiji.exe' : 'taiji'
   )
-  const aria2Source = path.resolve(
-    options.aria2Bin ?? process.env.MOTRIX_ARIA2_BIN ?? bundledAria2
+  const taijiSource = path.resolve(
+    options.taijiBin ?? process.env.MOTRIX_TAIJI_BIN ?? bundledTaiji
   )
   if (!(await stat(stageRoot)).isDirectory()) {
     throw new Error('staged Server app is not a directory')
   }
-  if (!(await stat(aria2Source).catch(() => null))?.isFile()) {
-    throw new Error('aria2 binary is not a file')
+  if (!(await stat(taijiSource).catch(() => null))?.isFile()) {
+    throw new Error('taiji binary is not a file')
   }
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1_000) {
@@ -358,8 +359,10 @@ export async function smokeServerPackage(options) {
     await assertOperatorCli(stageRoot, timeoutMs)
 
     const port = await availablePort()
+    let engineRpcPort = await availablePort()
+    while (engineRpcPort === port) engineRpcPort = await availablePort()
     const systemRoot = path.join(scratchRoot, 'system')
-    const aria2Bin = path.join(systemRoot, 'aria2c')
+    const taijiBin = path.join(systemRoot, 'taiji')
     const dataDir = path.join(scratchRoot, 'data')
     const homeDir = path.join(scratchRoot, 'home')
     await Promise.all([
@@ -367,8 +370,17 @@ export async function smokeServerPackage(options) {
       mkdir(dataDir, { recursive: true }),
       mkdir(path.join(homeDir, 'Downloads'), { recursive: true }),
     ])
-    await copyFile(aria2Source, aria2Bin)
-    await chmod(aria2Bin, 0o755)
+    await writeFile(
+      path.join(dataDir, 'settings.json'),
+      JSON.stringify({
+        version: 13,
+        engine: { rpcPort: engineRpcPort },
+        tracker: { autoSync: false },
+      }),
+      { mode: 0o600 }
+    )
+    await copyFile(taijiSource, taijiBin)
+    await chmod(taijiBin, 0o755)
     const operatorToken = 'motrix-runtime-smoke-operator-token'
     child = spawn(process.execPath, [manifest.main], {
       cwd: stageRoot,
@@ -376,7 +388,7 @@ export async function smokeServerPackage(options) {
         ...process.env,
         HOME: homeDir,
         LOG_LEVEL: 'info',
-        MOTRIX_ARIA2_BIN: aria2Bin,
+        MOTRIX_TAIJI_BIN: taijiBin,
         MOTRIX_BUILTIN_PLUGIN_DIR: path.join(stageRoot, 'builtin-plugins'),
         MOTRIX_DATA_DIR: dataDir,
         MOTRIX_EXTRA_DIR: path.join(stageRoot, 'extra'),
@@ -448,7 +460,7 @@ if (
     : undefined
   smokeServerPackage({
     appDir: raw['app-dir'],
-    aria2Bin: raw['aria2-bin'],
+    taijiBin: raw['taiji-bin'],
     timeoutMs,
   })
     .then((result) => {

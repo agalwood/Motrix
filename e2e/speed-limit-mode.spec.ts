@@ -83,7 +83,7 @@ test('the Downloads speed menu changes the limit of an already-running transfer 
     await expect
       .poll(
         async () => {
-          const speed = (await readTask())?.downloadSpeed ?? 0
+          const speed = (await sample())?.downloadSpeed ?? 0
           consecutive =
             speed >= limit * 0.7 && speed <= limit * 1.4 ? consecutive + 1 : 0
           return consecutive

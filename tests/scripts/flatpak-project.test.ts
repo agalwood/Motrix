@@ -117,8 +117,18 @@ describe('prepare-flatpak-project', () => {
       originalMotrix?.sources.slice(1)
     )
     expect(
-      prepared.modules.find((candidate) => candidate.name === 'aria2')
-    ).toEqual(manifest.modules.find((candidate) => candidate.name === 'aria2'))
+      prepared.modules
+        .find((candidate) => candidate.name === 'motrix')
+        ?.sources?.find(
+          (source: Record<string, unknown>) => source.dest === 'taiji-source'
+        )
+    ).toEqual(
+      manifest.modules
+        .find((candidate) => candidate.name === 'motrix')
+        ?.sources?.find(
+          (source: Record<string, unknown>) => source.dest === 'taiji-source'
+        )
+    )
   })
 
   it('rejects an ambiguous application source', () => {

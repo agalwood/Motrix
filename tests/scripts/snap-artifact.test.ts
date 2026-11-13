@@ -154,7 +154,7 @@ async function writeFixture(
       'extra',
       'linux',
       arch === 'amd64' ? 'x64' : 'arm64',
-      'aria2c'
+      'taiji'
     ),
     arch
   )

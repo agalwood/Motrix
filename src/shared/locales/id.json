@@ -158,7 +158,7 @@
       "engine": {
         "title": "Mesin",
         "features": "Fitur",
-        "startFailed": "Mesin aria2 tidak dapat dimulai",
+        "startFailed": "Mesin taiji tidak dapat dimulai",
         "state": {
           "ready": "Siap",
           "starting": "Memulai…",
@@ -167,7 +167,7 @@
           "disconnected": "Terputus",
           "stopped": "Berhenti"
         },
-        "name": "Aria2",
+        "name": "taiji",
         "version": "Versi",
         "rpcPort": "Port RPC",
         "listenPort": "Port penerima",
@@ -210,21 +210,21 @@
             "unknown": "PID {{pid}}, tidak teridentifikasi; tidak akan dihentikan"
           },
           "communication": {
-            "ready": "Motrix dapat berkomunikasi dengan aria2."
+            "ready": "Motrix dapat berkomunikasi dengan taiji."
           },
           "reason": {
-            "port_in_use": "Port RPC Motrix sedang digunakan, sehingga mesin aria2 tidak dapat dimulai.",
-            "binary_unavailable": "Berkas eksekusi aria2 bawaan tidak ditemukan atau tidak tersedia.",
-            "spawn_failed": "Proses aria2 tidak dapat dibuat.",
-            "rpc_unavailable": "Mesin aria2 telah dimulai, tetapi tidak menerima koneksi RPC Motrix.",
-            "unexpected_exit": "Mesin aria2 berhenti secara tak terduga.",
-            "health_check_failed": "aria2 berhenti merespons Motrix.",
-            "unknown": "Mesin aria2 tidak dapat dimulai karena alasan yang tidak diketahui."
+            "port_in_use": "Port RPC Motrix sedang digunakan, sehingga mesin taiji tidak dapat dimulai.",
+            "binary_unavailable": "Berkas eksekusi taiji bawaan tidak ditemukan atau tidak tersedia.",
+            "spawn_failed": "Proses taiji tidak dapat dibuat.",
+            "rpc_unavailable": "Mesin taiji telah dimulai, tetapi tidak menerima koneksi RPC Motrix.",
+            "unexpected_exit": "Mesin taiji berhenti secara tak terduga.",
+            "health_check_failed": "taiji berhenti merespons Motrix.",
+            "unknown": "Mesin taiji tidak dapat dimulai karena alasan yang tidak diketahui."
           },
           "recommendation": {
             "title": "Pemulihan yang disarankan",
-            "retry": "Port tersedia. Coba jalankan aria2 lagi tanpa mengubah pengaturan.",
-            "force_terminate": "Proses ini terverifikasi sebagai milik Motrix. Hentikan paksa proses dengan PID {{pid}}, lalu mulai ulang aria2 pada port RPC Motrix {{rpcPort}}.",
+            "retry": "Port tersedia. Coba jalankan taiji lagi tanpa mengubah pengaturan.",
+            "force_terminate": "Proses ini terverifikasi sebagai milik Motrix. Hentikan paksa proses dengan PID {{pid}}, lalu mulai ulang taiji pada port RPC Motrix {{rpcPort}}.",
             "switch_port": "Proses tidak dapat dihentikan dengan aman. Gunakan port {{port}} hanya sebagai alternatif, atau tutup sendiri proses yang berkonflik."
           },
           "technicalDetails": "Detail teknis",
@@ -232,12 +232,12 @@
           "restart": "Mulai ulang mesin",
           "switchPort": "Gunakan port {{port}}",
           "forceRecover": "Hentikan paksa dan pulihkan",
-          "recovered": "Mesin aria2 tersedia kembali.",
-          "recoveredOnPort": "Mesin aria2 dipulihkan pada port RPC {{port}}.",
+          "recovered": "Mesin taiji tersedia kembali.",
+          "recoveredOnPort": "Mesin taiji dipulihkan pada port RPC {{port}}.",
           "recoveryFailed": "Pemulihan mesin gagal. Jalankan diagnostik lagi untuk melihat status terbaru.",
           "fallback": {
             "available": "Port bawaan Motrix {{port}} tersedia dan dapat dipulihkan sekarang.",
-            "verifiedOrphan": "Proses sisa aria2 Motrix yang terverifikasi (PID {{pid}}) menggunakan port bawaan {{port}}. Motrix dapat menghentikannya dengan aman sebelum memulihkan port.",
+            "verifiedOrphan": "Proses sisa taiji Motrix yang terverifikasi (PID {{pid}}) menggunakan port bawaan {{port}}. Motrix dapat menghentikannya dengan aman sebelum memulihkan port.",
             "blocked": "Port bawaan {{port}} digunakan oleh PID {{pid}} ({{name}}), tetapi Motrix tidak dapat memverifikasi kepemilikannya. Proses tidak akan dihentikan.",
             "unidentified": "Proses yang menggunakan port bawaan {{port}} tidak dapat diidentifikasi. Motrix akan tetap menggunakan port saat ini.",
             "restore": "Pulihkan port bawaan Motrix {{port}}",
@@ -245,13 +245,13 @@
             "restoredDefault": "Port RPC bawaan Motrix {{port}} telah dipulihkan.",
             "confirm": {
               "title": "Hentikan proses sisa dan pulihkan port {{port}}?",
-              "description": "Proses dengan PID {{pid}} terverifikasi sebagai proses sisa aria2 Motrix. Proses akan dihentikan, port bawaan {{port}} akan disimpan, lalu aria2 akan dimulai ulang.",
+              "description": "Proses dengan PID {{pid}} terverifikasi sebagai proses sisa taiji Motrix. Proses akan dihentikan, port bawaan {{port}} akan disimpan, lalu taiji akan dimulai ulang.",
               "action": "Hentikan dan pulihkan port {{port}}"
             }
           },
           "confirmForce": {
-            "title": "Hentikan paksa proses sisa aria2?",
-            "description": "Proses dengan PID {{pid}} cocok dengan berkas eksekusi bawaan, rahasia RPC privat, dan jalur data Motrix. Proses akan segera dihentikan, lalu aria2 dimulai ulang pada port RPC Motrix.",
+            "title": "Hentikan paksa proses sisa taiji?",
+            "description": "Proses dengan PID {{pid}} cocok dengan berkas eksekusi bawaan, rahasia RPC privat, dan jalur data Motrix. Proses akan segera dihentikan, lalu taiji dimulai ulang pada port RPC Motrix.",
             "action": "Hentikan paksa dan pulihkan"
           },
           "details": "Detail diagnostik",
@@ -294,7 +294,7 @@
             "listening": "{{port}} (Menerima koneksi)",
             "occupied": "{{port}} (Sedang digunakan)"
           },
-          "motrixEngine": "aria2 Motrix",
+          "motrixEngine": "taiji Motrix",
           "transport": {
             "websocket": "WebSocket"
           }
@@ -1439,7 +1439,8 @@
         "historySessionOnly": "Jangan simpan",
         "historyCount": "Jumlah catatan yang disimpan",
         "historyCountHint": "Catatan pemulihan yang lebih lama akan dihapus.",
-        "historyCountPositive": "Masukkan angka yang lebih besar dari 0."
+        "historyCountPositive": "Masukkan angka yang lebih besar dari 0.",
+        "managedByTaiji": "taiji automatically saves tasks and progress in its own database. Completed task history remains in Motrix."
       },
       "description": "RPC, progres, dan pemulihan",
       "configFile": {
@@ -1578,7 +1579,8 @@
         "dhtListenPort": "Port penerima DHT",
         "dhtListenPortDesc": "Cari peer melalui DHT pada port ini.",
         "dhtEnabled": "Aktifkan DHT",
-        "dhtEnabledDesc": "Cari peer tanpa bergantung pada pelacak."
+        "dhtEnabledDesc": "Cari peer tanpa bergantung pada pelacak.",
+        "sharedPortDesc": "taiji uses this port for peer connections and DHT."
       },
       "peers": {
         "title": "Peer",
@@ -1683,7 +1685,8 @@
         "diskCache": "Cache disk ({{unit}})",
         "diskCacheDesc": "Memori untuk menampung sementara data berkas sebelum ditulis ke disk.",
         "sessionSaveInterval": "Interval penyimpanan progres (dtk)",
-        "sessionSaveIntervalDesc": "Simpan lebih sering untuk mengurangi progres yang hilang setelah aplikasi berhenti mendadak."
+        "sessionSaveIntervalDesc": "Simpan lebih sering untuk mengurangi progres yang hilang setelah aplikasi berhenti mendadak.",
+        "managedByTaiji": "taiji manages disk allocation and cache automatically."
       },
       "magnet": {
         "title": "Magnet",

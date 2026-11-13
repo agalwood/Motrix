@@ -1,7 +1,7 @@
 // electron-builder beforePack hook: fail fast when a target's bundled assets
 // are missing, instead of shipping an engine-less app or dying mid-copy.
 // Guards two concrete per-arch executables:
-//   extra/<platform>/<arch>/aria2c[.exe]        — the download engine
+//   extra/<platform>/<arch>/taiji[.exe]        — the download engine
 //   packages/native-host/dist/<platform>-<arch>/
 //     motrix-native-host[.exe]                  — the browser-bridge host
 //   packages/finalize-fs/dist/<platform>-<arch>/
@@ -11,6 +11,7 @@ import { constants } from 'node:fs'
 import { access, readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { assertNativeBinaryTarget } from './native-binary-target.mjs'
+import { verifyEngineArtifact } from './verify-engine-artifact.mjs'
 import { configureWindowsArtifactNames } from './windows-artifact-names.mjs'
 
 // electron-builder Arch enum ordinals (builder-util/src/arch.ts).
@@ -145,7 +146,7 @@ export default async function beforePack(context) {
   if (platform === 'win32') {
     configureWindowsArtifactNames(context.targets, archName)
   }
-  const engineBin = platform === 'win32' ? 'aria2c.exe' : 'aria2c'
+  const engineBin = platform === 'win32' ? 'taiji.exe' : 'taiji'
   const hostBin =
     platform === 'win32' ? 'motrix-native-host.exe' : 'motrix-native-host'
   const finalizeBin =
@@ -154,7 +155,19 @@ export default async function beforePack(context) {
 
   for (const arch of arches) {
     const engine = path.join(projectDir, 'extra', platform, arch, engineBin)
-    await verifyExecutable(engine, 'bundled aria2 engine', platform, arch)
+    await verifyExecutable(engine, 'bundled taiji engine', platform, arch)
+    await verifyEngineArtifact(
+      engine,
+      path.join(path.dirname(engine), 'taiji-build.json'),
+      path.join(path.dirname(engine), 'taiji-licenses.txt'),
+      {
+        platform,
+        arch,
+        distribution:
+          process.env.MOTRIX_FLATPAK_BUILD === '1' ? 'flatpak' : 'desktop',
+      },
+      projectDir
+    )
 
     const host = path.join(
       projectDir,

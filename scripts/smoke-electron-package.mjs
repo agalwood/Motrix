@@ -394,8 +394,28 @@ async function runPackagedApplication(layout, tempDir) {
       .first()
       .waitFor({ state: 'visible', timeout: 20_000 })
     await markProgress('sidebar-visible')
-    await new Promise((resolve) => setTimeout(resolve, 1500))
+    await page.waitForFunction(
+      async () => {
+        try {
+          const status = await window.motrix.invoke('query:getEngineStatus')
+          return (
+            status.state === 'ready' &&
+            status.featureReport?.version.startsWith('taiji/')
+          )
+        } catch {
+          return false
+        }
+      },
+      undefined,
+      { timeout: 30_000 }
+    )
+    const engine = await page.evaluate(() =>
+      window.motrix.invoke('query:getEngineStatus')
+    )
+    await markProgress('taiji-ready')
     return {
+      engineReady: true,
+      engineVersion: engine.featureReport.version,
       rendererErrors,
       title: await page.title(),
       urlHasMainWindow: page.url().includes('w=main'),

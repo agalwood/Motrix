@@ -8,14 +8,20 @@ COPY packages/finalize-fs/Cargo.toml packages/finalize-fs/Cargo.lock ./
 COPY packages/finalize-fs/src ./src
 RUN cargo build --release --locked
 
+FROM ${RUST_IMAGE} AS taiji-build
+RUN apk add --no-cache nodejs git build-base musl-dev
+WORKDIR /app
+COPY scripts/build-taiji.mjs scripts/engine-source.mjs scripts/native-engine-digest.mjs scripts/engine.lock.json scripts/taiji-source.lock.json ./scripts/
+RUN node scripts/build-taiji.mjs
+
 FROM ${NODE_IMAGE} AS deps
 RUN apk add --no-cache python3 make g++
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY packages/native-host/package.json ./packages/native-host/package.json
 COPY scripts/postinstall.mjs ./scripts/postinstall.mjs
-COPY scripts/fetch-engine.mjs ./scripts/fetch-engine.mjs
-# The Server build fetches its target-specific aria2_motrix release explicitly.
+COPY scripts/fetch-engine.mjs scripts/build-taiji.mjs scripts/engine-source.mjs scripts/native-engine-digest.mjs ./scripts/
+# The Rust stage builds the locked taiji source for the target architecture.
 # Electron's locked install script is invoked in the build stage because the
 # legal inventory requires its license payload.
 ENV MOTRIX_SKIP_ELECTRON_REBUILD=1 \
@@ -32,7 +38,7 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY packages/native-host/package.json ./packages/native-host/package.json
 COPY scripts/postinstall.mjs ./scripts/postinstall.mjs
-COPY scripts/fetch-engine.mjs ./scripts/fetch-engine.mjs
+COPY scripts/fetch-engine.mjs scripts/build-taiji.mjs scripts/engine-source.mjs scripts/native-engine-digest.mjs ./scripts/
 ENV CI=true \
     MOTRIX_SKIP_ELECTRON_REBUILD=1 \
     MOTRIX_SKIP_ENGINE_FETCH=1
@@ -48,6 +54,7 @@ ENV MOTRIX_SERVER_FINALIZE_FS_PREBUILT=1
 WORKDIR /app
 COPY --from=finalize-fs-build /src/target/release/motrix-finalize-fs /tmp/motrix-finalize-fs
 COPY . .
+COPY --from=taiji-build /app/extra ./extra
 RUN node node_modules/electron/install.js
 RUN --mount=type=cache,id=motrix-builtins,target=/app/node_modules/.cache/motrix-builtins \
     case "${TARGETARCH}" in \
@@ -83,10 +90,11 @@ COPY --from=build --chown=node:node /app/package.json ./package.json
 COPY --from=build --chown=node:node /app/dist/server ./dist/server
 COPY --from=build --chown=node:node /app/dist/core/plugin/host ./dist/core/plugin/host
 COPY --from=build --chown=node:node /app/dist/renderer-web ./dist/renderer-web
-COPY --from=build --chown=node:node /app/dist/server-app/bin/aria2c ./bin/aria2c
+COPY --from=build --chown=node:node /app/dist/server-app/bin/taiji ./bin/taiji
+COPY --from=build --chown=node:node /app/dist/server-app/bin/taiji-build.json ./bin/taiji-build.json
+COPY --from=build --chown=node:node /app/dist/server-app/bin/taiji-licenses.txt ./bin/taiji-licenses.txt
 COPY --from=build --chown=node:node /app/dist/server-app/bin/motrix-finalize-fs ./bin/motrix-finalize-fs
 COPY --from=full-root-production-deps --chown=node:node /app/node_modules ./node_modules
-COPY --from=build --chown=node:node /app/extra/aria2.conf ./extra/aria2.conf
 COPY --from=build --chown=node:node /app/dist/builtin-plugins ./builtin-plugins
 COPY --from=build --chown=node:node /app/LICENSE ./LICENSE
 COPY --from=build --chown=node:node /app/THIRD_PARTY_NOTICES.md ./THIRD_PARTY_NOTICES.md
@@ -102,7 +110,7 @@ ENV YARN_VERSION= \
     MOTRIX_TEMP_DIR=/data/tmp \
     MOTRIX_PLUGIN_DIR=/data/plugins \
     MOTRIX_EXTRA_DIR=/app/extra \
-    MOTRIX_ARIA2_BIN=/app/bin/aria2c \
+    MOTRIX_TAIJI_BIN=/app/bin/taiji \
     MOTRIX_FINALIZE_FS_BIN=/app/bin/motrix-finalize-fs \
     MOTRIX_DEFAULT_SAVE_DIR=/downloads \
     MOTRIX_ALLOWED_SAVE_DIRS=/downloads \
@@ -149,7 +157,7 @@ ENV YARN_VERSION= \
     MOTRIX_TEMP_DIR=/data/tmp \
     MOTRIX_PLUGIN_DIR=/data/plugins \
     MOTRIX_EXTRA_DIR=/app/extra \
-    MOTRIX_ARIA2_BIN=/app/bin/aria2c \
+    MOTRIX_TAIJI_BIN=/app/bin/taiji \
     MOTRIX_FINALIZE_FS_BIN=/app/bin/motrix-finalize-fs \
     MOTRIX_DEFAULT_SAVE_DIR=/downloads \
     MOTRIX_ALLOWED_SAVE_DIRS=/downloads \

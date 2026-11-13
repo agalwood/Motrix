@@ -77,6 +77,7 @@ export function semverGte(a: string, b: string): boolean {
  * without it there is no durable row a not-found could be hiding.
  */
 export function hasDurableRemoveSemantics(version: string): boolean {
+  if (version.startsWith('taiji/')) return true
   const match = MOTRIX_VERSION.exec(version)
   if (!match) return false
   const [, base, patch] = match

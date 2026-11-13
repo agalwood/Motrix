@@ -101,6 +101,7 @@ jobs:
           MOTRIX_FNOS_BUILD: '1'
           FNOS_PACKAGE_REVISION: ${{ inputs.revision || '0' }}
         run: |
+          sudo apt-get update && sudo apt-get install --yes musl-tools
           pnpm run fetch:engine -- --platform linux --arch '${{ matrix.arch }}'
           pnpm run build:server
           pnpm run check:third-party-notices

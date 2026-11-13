@@ -159,7 +159,7 @@
       "engine": {
         "title": "Engine",
         "features": "Features",
-        "startFailed": "aria2 engine could not start",
+        "startFailed": "taiji engine could not start",
         "state": {
           "ready": "Ready",
           "starting": "Starting…",
@@ -168,7 +168,7 @@
           "disconnected": "Disconnected",
           "stopped": "Stopped"
         },
-        "name": "Aria2",
+        "name": "taiji",
         "version": "Version",
         "rpcPort": "RPC port",
         "listenPort": "Listen port",
@@ -211,21 +211,21 @@
             "unknown": "PID {{pid}}, Unidentified; will not be stopped"
           },
           "communication": {
-            "ready": "Motrix can communicate with aria2."
+            "ready": "Motrix can communicate with taiji."
           },
           "reason": {
-            "port_in_use": "Motrix’s RPC port is occupied, so aria2 engine could not start.",
-            "binary_unavailable": "The bundled aria2 executable is missing or unavailable.",
-            "spawn_failed": "The aria2 process could not be created.",
-            "rpc_unavailable": "aria2 engine started but did not accept Motrix RPC connections.",
-            "unexpected_exit": "aria2 engine exited unexpectedly.",
-            "health_check_failed": "aria2 stopped responding to Motrix.",
-            "unknown": "aria2 engine could not start for an unknown reason."
+            "port_in_use": "Motrix’s RPC port is occupied, so taiji engine could not start.",
+            "binary_unavailable": "The bundled taiji executable is missing or unavailable.",
+            "spawn_failed": "The taiji process could not be created.",
+            "rpc_unavailable": "taiji engine started but did not accept Motrix RPC connections.",
+            "unexpected_exit": "taiji engine exited unexpectedly.",
+            "health_check_failed": "taiji stopped responding to Motrix.",
+            "unknown": "taiji engine could not start for an unknown reason."
           },
           "recommendation": {
             "title": "Recommended recovery",
-            "retry": "The port is free. Retry aria2 without changing your settings.",
-            "force_terminate": "This process is verified as Motrix-owned. Force stop PID {{pid}}, then restart aria2 on the Motrix RPC port {{rpcPort}}.",
+            "retry": "The port is free. Retry taiji without changing your settings.",
+            "force_terminate": "This process is verified as Motrix-owned. Force stop PID {{pid}}, then restart taiji on the Motrix RPC port {{rpcPort}}.",
             "switch_port": "The process cannot be safely terminated. Use port {{port}} only as a fallback, or close the conflicting process yourself."
           },
           "technicalDetails": "Technical details",
@@ -233,12 +233,12 @@
           "restart": "Restart engine",
           "switchPort": "Use port {{port}}",
           "forceRecover": "Force stop & recover",
-          "recovered": "The aria2 engine is available again.",
-          "recoveredOnPort": "The aria2 engine recovered on RPC port {{port}}.",
+          "recovered": "The taiji engine is available again.",
+          "recoveredOnPort": "The taiji engine recovered on RPC port {{port}}.",
           "recoveryFailed": "Engine recovery failed. Run diagnostics again for the latest status.",
           "fallback": {
             "available": "Motrix’s default port {{port}} is available and can be restored now.",
-            "verifiedOrphan": "A verified leftover Motrix aria2 process (PID {{pid}}) is using the default port {{port}}. Motrix can safely stop it before restoring the port.",
+            "verifiedOrphan": "A verified leftover Motrix taiji process (PID {{pid}}) is using the default port {{port}}. Motrix can safely stop it before restoring the port.",
             "blocked": "The default port {{port}} is used by PID {{pid}} ({{name}}), but Motrix cannot verify ownership. The process will not be terminated.",
             "unidentified": "The process using default port {{port}} could not be identified. Motrix will keep using the current port.",
             "restore": "Restore Motrix default port {{port}}",
@@ -246,13 +246,13 @@
             "restoredDefault": "Motrix’s default RPC port {{port}} has been restored.",
             "confirm": {
               "title": "Stop the leftover process and restore port {{port}}?",
-              "description": "PID {{pid}} is verified as a leftover Motrix aria2 process. It will be stopped, the default port {{port}} will be saved, and aria2 will restart.",
+              "description": "PID {{pid}} is verified as a leftover Motrix taiji process. It will be stopped, the default port {{port}} will be saved, and taiji will restart.",
               "action": "Stop and restore port {{port}}"
             }
           },
           "confirmForce": {
-            "title": "Force stop the leftover aria2 process?",
-            "description": "PID {{pid}} matches Motrix’s bundled binary, private RPC secret, and data paths. It will be terminated immediately, then aria2 will restart on the Motrix RPC port.",
+            "title": "Force stop the leftover taiji process?",
+            "description": "PID {{pid}} matches Motrix’s bundled binary, private RPC secret, and data paths. It will be terminated immediately, then taiji will restart on the Motrix RPC port.",
             "action": "Force stop & recover"
           },
           "details": "Diagnostic details",
@@ -295,7 +295,7 @@
             "listening": "{{port}} (Listening)",
             "occupied": "{{port}} (In use)"
           },
-          "motrixEngine": "aria2 Motrix",
+          "motrixEngine": "taiji Motrix",
           "transport": {
             "websocket": "WebSocket"
           }
@@ -1453,7 +1453,8 @@
         "historySessionOnly": "Do not retain",
         "historyCount": "Records to keep",
         "historyCountHint": "Older recovery records are removed.",
-        "historyCountPositive": "Enter a number greater than 0."
+        "historyCountPositive": "Enter a number greater than 0.",
+        "managedByTaiji": "taiji automatically saves tasks and progress in its own database. Completed task history remains in Motrix."
       },
       "description": "RPC, progress and recovery",
       "configFile": {
@@ -1592,7 +1593,8 @@
         "dhtListenPort": "DHT listen port",
         "dhtListenPortDesc": "Find peers through DHT on this port.",
         "dhtEnabled": "Enable DHT",
-        "dhtEnabledDesc": "Find peers without relying on a tracker."
+        "dhtEnabledDesc": "Find peers without relying on a tracker.",
+        "sharedPortDesc": "taiji uses this port for peer connections and DHT."
       },
       "peers": {
         "title": "Peers",
@@ -1697,7 +1699,8 @@
         "diskCache": "Disk cache ({{unit}})",
         "diskCacheDesc": "Memory used to buffer files before writing to disk.",
         "sessionSaveInterval": "Progress save interval (s)",
-        "sessionSaveIntervalDesc": "Save more often to reduce progress lost after a crash."
+        "sessionSaveIntervalDesc": "Save more often to reduce progress lost after a crash.",
+        "managedByTaiji": "taiji manages disk allocation and cache automatically."
       },
       "magnet": {
         "title": "Magnet",

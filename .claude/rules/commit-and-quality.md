@@ -45,6 +45,9 @@ Run every check that matches the change:
   cargo clippy --manifest-path packages/native-host/Cargo.toml --all-targets --locked -- -D warnings
   cargo test --manifest-path packages/native-host/Cargo.toml --locked --all-targets
   ```
+- taiji integration or engine source: `pnpm run fetch:engine -- --test`,
+  then `pnpm exec vitest run src/core/engine/taiji/`. The build prepares the
+  locked upstream source itself; it must not depend on an adjacent checkout.
 - Packaging or release code: run the focused tests under `tests/scripts/` and
   the relevant verifier. Follow workflow-supplied arguments for checks such as
   `check:update-artifacts`.

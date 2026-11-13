@@ -50,10 +50,19 @@ export class Aria2RpcClient {
   constructor(
     private transport: WebSocketTransport,
     private protocol: JsonRpcProtocol,
-    private secret: string
+    private secret: string,
+    private readonly namespace: 'aria2' | 'taiji' = 'aria2'
   ) {
     this.protocol.onNotification((method, params) => {
-      this.handleNotification(method, params as unknown[])
+      // Keep the established adapter/polling vocabulary inside this boundary.
+      // The wire uses exactly one engine namespace, including notifications.
+      const prefix = `${this.namespace}.`
+      if (method.startsWith(prefix)) {
+        this.handleNotification(
+          `aria2.${method.slice(prefix.length)}`,
+          params as unknown[]
+        )
+      }
     })
   }
 
@@ -99,15 +108,28 @@ export class Aria2RpcClient {
     return this.secret === '' ? params : [`token:${this.secret}`, ...params]
   }
 
-  private async call<T>(method: string, params: unknown[]): Promise<T> {
+  protected wireMethod(method: string): string {
+    return method.replace(/^aria2\./, `${this.namespace}.`)
+  }
+
+  protected wireParams(_method: string, params: unknown[]): unknown[] {
+    return params
+  }
+
+  protected wireResult(_method: string, result: unknown): unknown {
+    return result
+  }
+
+  protected async call<T>(method: string, params: unknown[]): Promise<T> {
     const sequence = ++this.requestSequence
+    const wireParams = this.wireParams(method, params)
     const finalParams = SECRET_EXEMPT_METHODS.has(method)
-      ? params
-      : this.withSecret(params)
+      ? wireParams
+      : this.withSecret(wireParams)
     // Large file maps can take longer to initialize even when the request is
     // within the wire budget. Keep ordinary status/control deadlines short.
     const result = await this.protocol.call<T>(
-      method,
+      this.wireMethod(method),
       finalParams,
       method === 'aria2.addTorrent' ? { timeoutMs: 60_000 } : undefined
     )
@@ -128,7 +150,12 @@ export class Aria2RpcClient {
       // Includes selection, output paths and URI-affecting task options.
       this.invalidateTaskMetadata(params[0])
     }
-    return this.pauseState.reconcile(method, params, result, sequence)
+    return this.pauseState.reconcile(
+      method,
+      params,
+      this.wireResult(method, result),
+      sequence
+    )
   }
 
   // ─── Download management ─────────────────────────────────────
@@ -349,10 +376,10 @@ export class Aria2RpcClient {
     // silently corrupts every downstream consumer (most visibly
     // PollingScheduler). See spec 2026-04-25-engine-config-design.
     const withSecret = calls.map((c) => ({
-      method: c.method,
+      method: this.wireMethod(c.method),
       params: SECRET_EXEMPT_METHODS.has(c.method)
-        ? c.params
-        : this.withSecret(c.params),
+        ? this.wireParams(c.method, c.params)
+        : this.withSecret(this.wireParams(c.method, c.params)),
     }))
     const results = await this.protocol.multicall(withSecret)
     return results.map((result, index) =>
@@ -376,10 +403,10 @@ export class Aria2RpcClient {
   ): Promise<PromiseSettledResult<unknown>[]> {
     const sequence = ++this.requestSequence
     const withSecret = calls.map((c) => ({
-      method: c.method,
+      method: this.wireMethod(c.method),
       params: SECRET_EXEMPT_METHODS.has(c.method)
-        ? c.params
-        : this.withSecret(c.params),
+        ? this.wireParams(c.method, c.params)
+        : this.withSecret(this.wireParams(c.method, c.params)),
     }))
     const results = await this.protocol.multicallSettled(withSecret)
     return results.map((result, index) =>

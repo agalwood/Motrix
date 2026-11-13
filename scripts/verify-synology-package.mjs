@@ -83,7 +83,7 @@ export async function verifySynologyProject(root) {
     assert.ok(info.split('\n').includes(field), field)
   for (const file of [
     'runtime/bin/node',
-    'server/bin/aria2c',
+    'server/bin/taiji',
     'server/bin/motrix-finalize-fs',
   ])
     await verifyFnosBinary(path.join(app, file), arch)

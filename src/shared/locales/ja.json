@@ -158,7 +158,7 @@
       "engine": {
         "title": "エンジン",
         "features": "機能",
-        "startFailed": "aria2 エンジンを起動できませんでした",
+        "startFailed": "taiji エンジンを起動できませんでした",
         "state": {
           "ready": "準備完了",
           "starting": "起動中…",
@@ -167,7 +167,7 @@
           "disconnected": "切断済み",
           "stopped": "停止中"
         },
-        "name": "Aria2",
+        "name": "taiji",
         "version": "バージョン",
         "rpcPort": "RPC ポート",
         "listenPort": "待ち受けポート",
@@ -210,21 +210,21 @@
             "unknown": "PID {{pid}}、特定できません。停止しません"
           },
           "communication": {
-            "ready": "Motrix は aria2 と通信できます。"
+            "ready": "Motrix は taiji と通信できます。"
           },
           "reason": {
-            "port_in_use": "Motrix の RPC ポートが使用されているため、aria2 エンジンを起動できませんでした。",
-            "binary_unavailable": "同梱の aria2 実行ファイルが見つからないか、利用できません。",
-            "spawn_failed": "aria2 プロセスを作成できませんでした。",
-            "rpc_unavailable": "aria2 エンジンは起動しましたが、Motrix からの RPC 接続を受け付けませんでした。",
-            "unexpected_exit": "aria2 エンジンが予期せず終了しました。",
-            "health_check_failed": "aria2 が Motrix に応答しなくなりました。",
-            "unknown": "不明な理由で aria2 エンジンを起動できませんでした。"
+            "port_in_use": "Motrix の RPC ポートが使用されているため、taiji エンジンを起動できませんでした。",
+            "binary_unavailable": "同梱の taiji 実行ファイルが見つからないか、利用できません。",
+            "spawn_failed": "taiji プロセスを作成できませんでした。",
+            "rpc_unavailable": "taiji エンジンは起動しましたが、Motrix からの RPC 接続を受け付けませんでした。",
+            "unexpected_exit": "taiji エンジンが予期せず終了しました。",
+            "health_check_failed": "taiji が Motrix に応答しなくなりました。",
+            "unknown": "不明な理由で taiji エンジンを起動できませんでした。"
           },
           "recommendation": {
             "title": "推奨する復旧方法",
-            "retry": "ポートは空いています。設定を変更せずに aria2 の起動を再試行してください。",
-            "force_terminate": "このプロセスが Motrix のものであることを確認しました。PID {{pid}} を強制終了してから、Motrix の RPC ポート {{rpcPort}} で aria2 を再起動します。",
+            "retry": "ポートは空いています。設定を変更せずに taiji の起動を再試行してください。",
+            "force_terminate": "このプロセスが Motrix のものであることを確認しました。PID {{pid}} を強制終了してから、Motrix の RPC ポート {{rpcPort}} で taiji を再起動します。",
             "switch_port": "このプロセスは安全に終了できません。代替手段としてポート {{port}} を使用するか、競合しているプロセスを手動で終了してください。"
           },
           "technicalDetails": "技術的な詳細",
@@ -232,12 +232,12 @@
           "restart": "エンジンを再起動",
           "switchPort": "ポート {{port}} を使用",
           "forceRecover": "強制終了して復旧",
-          "recovered": "aria2 エンジンが再び利用できるようになりました。",
-          "recoveredOnPort": "RPC ポート {{port}} で aria2 エンジンが復旧しました。",
+          "recovered": "taiji エンジンが再び利用できるようになりました。",
+          "recoveredOnPort": "RPC ポート {{port}} で taiji エンジンが復旧しました。",
           "recoveryFailed": "エンジンを復旧できませんでした。診断を再実行して最新の状態を確認してください。",
           "fallback": {
             "available": "Motrix の既定のポート {{port}} は空いており、今すぐ元に戻せます。",
-            "verifiedOrphan": "既定のポート {{port}} は、Motrix の残存 aria2 プロセス（PID {{pid}}、確認済み）が使用しています。Motrix はこのプロセスを安全に停止してから、ポートを元に戻せます。",
+            "verifiedOrphan": "既定のポート {{port}} は、Motrix の残存 taiji プロセス（PID {{pid}}、確認済み）が使用しています。Motrix はこのプロセスを安全に停止してから、ポートを元に戻せます。",
             "blocked": "既定のポート {{port}} は PID {{pid}}（{{name}}）が使用していますが、Motrix のプロセスか確認できません。このプロセスは終了しません。",
             "unidentified": "既定のポート {{port}} を使用しているプロセスを特定できませんでした。Motrix は現在のポートを引き続き使用します。",
             "restore": "Motrix の既定のポート {{port}} に戻す",
@@ -245,13 +245,13 @@
             "restoredDefault": "Motrix の既定の RPC ポート {{port}} に戻しました。",
             "confirm": {
               "title": "残存プロセスを停止してポート {{port}} に戻しますか？",
-              "description": "PID {{pid}} は Motrix の残存 aria2 プロセスであることを確認済みです。このプロセスを停止し、既定のポート {{port}} を保存して、aria2 を再起動します。",
+              "description": "PID {{pid}} は Motrix の残存 taiji プロセスであることを確認済みです。このプロセスを停止し、既定のポート {{port}} を保存して、taiji を再起動します。",
               "action": "停止してポート {{port}} に戻す"
             }
           },
           "confirmForce": {
-            "title": "残存 aria2 プロセスを強制終了しますか？",
-            "description": "PID {{pid}} は Motrix に同梱の実行ファイル、専用 RPC シークレット、データパスと一致しています。このプロセスを直ちに終了してから、Motrix の RPC ポートで aria2 を再起動します。",
+            "title": "残存 taiji プロセスを強制終了しますか？",
+            "description": "PID {{pid}} は Motrix に同梱の実行ファイル、専用 RPC シークレット、データパスと一致しています。このプロセスを直ちに終了してから、Motrix の RPC ポートで taiji を再起動します。",
             "action": "強制終了して復旧"
           },
           "details": "診断の詳細",
@@ -294,7 +294,7 @@
             "listening": "{{port}}（待ち受け中）",
             "occupied": "{{port}}（使用中）"
           },
-          "motrixEngine": "aria2 Motrix",
+          "motrixEngine": "taiji Motrix",
           "transport": {
             "websocket": "WebSocket"
           }
@@ -1439,7 +1439,8 @@
         "historySessionOnly": "保持しない",
         "historyCount": "保持する記録数",
         "historyCountHint": "古い復旧記録は削除されます。",
-        "historyCountPositive": "0 より大きい数値を入力してください。"
+        "historyCountPositive": "0 より大きい数値を入力してください。",
+        "managedByTaiji": "taiji automatically saves tasks and progress in its own database. Completed task history remains in Motrix."
       },
       "description": "RPC、進捗と復旧",
       "configFile": {
@@ -1578,7 +1579,8 @@
         "dhtListenPort": "DHT 待ち受けポート",
         "dhtListenPortDesc": "このポートで DHT を使ってピアを検索します。",
         "dhtEnabled": "DHT を有効にする",
-        "dhtEnabledDesc": "トラッカーに依存せずにピアを検索します。"
+        "dhtEnabledDesc": "トラッカーに依存せずにピアを検索します。",
+        "sharedPortDesc": "taiji uses this port for peer connections and DHT."
       },
       "peers": {
         "title": "ピア",
@@ -1683,7 +1685,8 @@
         "diskCache": "ディスクキャッシュ（{{unit}}）",
         "diskCacheDesc": "ディスクに書き込む前にファイルを一時保存するためのメモリ量です。",
         "sessionSaveInterval": "進捗の保存間隔（秒）",
-        "sessionSaveIntervalDesc": "頻繁に保存すると、クラッシュ時に失われる進捗を減らせます。"
+        "sessionSaveIntervalDesc": "頻繁に保存すると、クラッシュ時に失われる進捗を減らせます。",
+        "managedByTaiji": "taiji manages disk allocation and cache automatically."
       },
       "magnet": {
         "title": "マグネット",

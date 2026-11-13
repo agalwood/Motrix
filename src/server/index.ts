@@ -13,12 +13,7 @@ import { FileRegistryStoreAdapter } from '@core/bridge/registry-store-adapter'
 import { TrustedExtensionRegistry } from '@core/bridge/trusted-extension-registry'
 import { BridgeReceiver } from '@core/bridge-receiver/bridge-receiver'
 import { createDownloadDirectories } from '@core/bridge-receiver/download-directories'
-import { Aria2Adapter } from '@core/engine/aria2/aria2-adapter'
-import { Aria2ConfigBuilder } from '@core/engine/aria2/aria2-config-builder'
-import { Aria2ProcessManager } from '@core/engine/aria2/aria2-process-manager'
-import { Aria2RpcClient } from '@core/engine/aria2/aria2-rpc-client'
 import { Aria2TrustStore } from '@core/engine/aria2/aria2-trust-store'
-import { CompletedTaskStartupGuard } from '@core/engine/aria2/completed-task-startup-guard'
 import { createDnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
 import { JsonRpcProtocol } from '@core/engine/aria2/json-rpc-protocol'
 import {
@@ -32,6 +27,12 @@ import {
   ENGINE_READY_TIMEOUT_MS,
   EngineSupervisor,
 } from '@core/engine/engine-supervisor'
+import { TaijiAdapter } from '@core/engine/taiji/taiji-adapter'
+import { TaijiConfigBuilder } from '@core/engine/taiji/taiji-config-builder'
+import { TaijiNatBridge } from '@core/engine/taiji/taiji-nat-bridge'
+import { TaijiProcessManager } from '@core/engine/taiji/taiji-process-manager'
+import { TaijiRpcClient } from '@core/engine/taiji/taiji-rpc-client'
+import { TaijiStartupGuard } from '@core/engine/taiji/taiji-startup-guard'
 import { EventBus } from '@core/events/event-bus'
 import { pathExists } from '@core/fs/path-exists'
 import { GeoIPManager } from '@core/geoip/geo-ip-manager'
@@ -578,21 +579,17 @@ async function main() {
   const protocol = new JsonRpcProtocol(transport, {
     maxRequestBytes: torrentBodyLimitBytes,
   })
-  const processManager = new Aria2ProcessManager({
-    ownershipFilePath: path.join(platform.userDataDir, 'aria2-owner.json'),
+  const processManager = new TaijiProcessManager({
+    ownershipFilePath: path.join(platform.userDataDir, 'taiji-owner.json'),
   })
-  const configBuilder = new Aria2ConfigBuilder(
-    path.join(platform.extraResourceDir, 'aria2.conf'),
-    platform.userDataDir,
-    {
-      supervisorPid: process.pid,
-      rpcListenAll: parseServerBoolean(
-        process.env.MOTRIX_ARIA2_RPC_LISTEN_ALL,
-        'MOTRIX_ARIA2_RPC_LISTEN_ALL'
-      ),
-      rpcMaxRequestSizeBytes: torrentBodyLimitBytes,
-    }
-  )
+  const configBuilder = new TaijiConfigBuilder(platform.userDataDir, {
+    supervisorPid: process.pid,
+    rpcListenAll: parseServerBoolean(
+      process.env.MOTRIX_TAIJI_RPC_LISTEN_ALL,
+      'MOTRIX_TAIJI_RPC_LISTEN_ALL'
+    ),
+    rpcMaxRequestSizeBytes: torrentBodyLimitBytes,
+  })
   const trustStore = new Aria2TrustStore(platform.userDataDir)
 
   // ─── Database ─────────────────────────────────────────────────
@@ -810,14 +807,12 @@ async function main() {
   // ─── Engine + Session ─────────────────────────────────────────
   const engineSettings = settingsManager.getEngine()
 
-  const rpcClient = new Aria2RpcClient(
+  const rpcClient = new TaijiRpcClient(
     transport,
     protocol,
     engineSettings.rpcSecret
   )
-  const adapter = new Aria2Adapter(rpcClient, undefined, () =>
-    settingsManager.getEngine()
-  )
+  const adapter = new TaijiAdapter(rpcClient, () => settingsManager.getEngine())
   shutdownActions.unsubscribeProducers = () => {
     let firstError: unknown
     for (const unsubscribe of pollingNotificationUnsubscribers.splice(0)) {
@@ -849,11 +844,22 @@ async function main() {
     proxyBridge,
     appliedDownloadProxyPolicy
   )
+  const taijiNatBridge = new TaijiNatBridge({
+    rpc: rpcClient,
+    eventBus,
+    settingsManager,
+    isEngineReady: () => supervisor.getState() === EngineState.Ready,
+  })
+  taijiNatBridge.start()
   shutdownActions.stopEngine = async () => {
     try {
-      await supervisor.stop()
+      await taijiNatBridge.stop()
     } finally {
-      await proxyBridge.close()
+      try {
+        await supervisor.stop()
+      } finally {
+        await proxyBridge.close()
+      }
     }
   }
   const mediaRuntime = createServerMediaRuntime({
@@ -909,7 +915,7 @@ async function main() {
       nasRecoveryAccess.authorizeWrite
     )
   supervisor.setStartupGuard(
-    new CompletedTaskStartupGuard({
+    new TaijiStartupGuard({
       completedGids: () => sessionManager.getCompletedDirectEngineTaskIds(),
       heldGids: () =>
         new Set(
@@ -1410,7 +1416,7 @@ async function main() {
     getMediaSegmentGids: (taskId) =>
       bridgeManager.current?.getMediaSegmentGids(taskId) ?? [],
     cancelMedia: (taskId) => bridgeManager.cancelMedia(taskId),
-    aria2BinaryPath: platform.aria2BinaryPath,
+    engineBinaryPath: platform.engineBinaryPath,
     finalNamePicker,
     torrentMetaStore,
     taskManager,
@@ -1738,7 +1744,7 @@ async function main() {
     })
 
     // ─── Engine Start & Session Restore ───────────────────────────
-    log.info({ binaryPath: platform.aria2BinaryPath }, 'resolved aria2 binary')
+    log.info({ binaryPath: platform.engineBinaryPath }, 'resolved taiji binary')
 
     // Engine-incident notifications (Task 13): wired BEFORE supervisor.start()
     // runs, NOT next to the occurrence-consumer registration further down.
@@ -1887,7 +1893,7 @@ async function main() {
       )
 
       await pluginStartup.startEngine(() =>
-        startServerEngine(supervisor, platform.aria2BinaryPath)
+        startServerEngine(supervisor, platform.engineBinaryPath)
       )
       if (!shellAsyncWork.isAccepting()) return
 

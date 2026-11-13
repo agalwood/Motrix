@@ -51,7 +51,7 @@ and packaged-file checks.
 - Native modules such as `better-sqlite3` must match the active ABI. Tests use
   the Node ABI; Electron and E2E use the Electron ABI. Preserve the
   `ensure-native-abi.mjs` hooks when changing test or start scripts.
-- `postinstall.mjs` independently controls Electron rebuild and aria2 fetch
+- `postinstall.mjs` independently controls Electron rebuild and the pinned taiji build
   through `MOTRIX_SKIP_ELECTRON_REBUILD` and `MOTRIX_SKIP_ENGINE_FETCH`.
   Skipping one must never imply skipping the other.
 - If Electron or a native dependency changes, rebuild for the intended target
@@ -59,8 +59,9 @@ and packaged-file checks.
 
 ## Server Docker Boundary
 
-The server image uses system aria2 and skips both Electron rebuild and engine
-fetch. `stage-server-app.mjs` selects one target-platform `better-sqlite3`
+The server image builds taiji in its Rust stage and ships only that engine.
+Dependency installation skips Electron rebuild and engine acquisition; packaging
+verifies the target binary, locked source identity, and license receipt. `stage-server-app.mjs` selects one target-platform `better-sqlite3`
 prebuild, and `verify-server-package.mjs` verifies the staged payload. The
 runtime image intentionally has no pnpm or build toolchain; never rely on a
 runtime native rebuild.

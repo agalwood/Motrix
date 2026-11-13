@@ -1793,6 +1793,12 @@ describe('release workflow publication contract', () => {
       'electron-package-size-budgets.json',
       'electron-package-utils.mjs',
       'native-binary-target.mjs',
+      'engine-source.mjs',
+      'native-engine-digest.mjs',
+      'verify-engine-artifact.mjs',
+      'engine.lock.json',
+      'taiji-source.lock.json',
+
       'verify-electron-package.mjs',
     ]
     const install = steps[installIndex]!

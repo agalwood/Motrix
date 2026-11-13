@@ -158,7 +158,7 @@
       "engine": {
         "title": "엔진",
         "features": "기능",
-        "startFailed": "aria2 엔진을 시작하지 못했습니다",
+        "startFailed": "taiji 엔진을 시작하지 못했습니다",
         "state": {
           "ready": "준비됨",
           "starting": "시작 중…",
@@ -167,7 +167,7 @@
           "disconnected": "연결 끊김",
           "stopped": "중지됨"
         },
-        "name": "Aria2",
+        "name": "taiji",
         "version": "버전",
         "rpcPort": "RPC 포트",
         "listenPort": "수신 포트",
@@ -210,21 +210,21 @@
             "unknown": "PID {{pid}}, 확인되지 않아 중지하지 않음"
           },
           "communication": {
-            "ready": "Motrix가 aria2와 통신할 수 있습니다."
+            "ready": "Motrix가 taiji와 통신할 수 있습니다."
           },
           "reason": {
-            "port_in_use": "Motrix의 RPC 포트가 사용 중이어서 aria2 엔진을 시작하지 못했습니다.",
-            "binary_unavailable": "기본 제공되는 aria2 실행 파일이 없거나 사용할 수 없습니다.",
-            "spawn_failed": "aria2 프로세스를 만들지 못했습니다.",
-            "rpc_unavailable": "aria2 엔진이 시작되었지만 Motrix의 RPC 연결을 수락하지 않았습니다.",
-            "unexpected_exit": "aria2 엔진이 예기치 않게 종료되었습니다.",
-            "health_check_failed": "aria2가 Motrix에 응답하지 않습니다.",
-            "unknown": "알 수 없는 이유로 aria2 엔진을 시작하지 못했습니다."
+            "port_in_use": "Motrix의 RPC 포트가 사용 중이어서 taiji 엔진을 시작하지 못했습니다.",
+            "binary_unavailable": "기본 제공되는 taiji 실행 파일이 없거나 사용할 수 없습니다.",
+            "spawn_failed": "taiji 프로세스를 만들지 못했습니다.",
+            "rpc_unavailable": "taiji 엔진이 시작되었지만 Motrix의 RPC 연결을 수락하지 않았습니다.",
+            "unexpected_exit": "taiji 엔진이 예기치 않게 종료되었습니다.",
+            "health_check_failed": "taiji가 Motrix에 응답하지 않습니다.",
+            "unknown": "알 수 없는 이유로 taiji 엔진을 시작하지 못했습니다."
           },
           "recommendation": {
             "title": "권장 복구 방법",
-            "retry": "포트를 사용할 수 있습니다. 설정을 변경하지 않고 aria2 시작을 다시 시도하세요.",
-            "force_terminate": "이 프로세스가 Motrix 소유임을 확인했습니다. PID {{pid}}을(를) 강제 종료한 후 Motrix RPC 포트 {{rpcPort}}에서 aria2를 다시 시작합니다.",
+            "retry": "포트를 사용할 수 있습니다. 설정을 변경하지 않고 taiji 시작을 다시 시도하세요.",
+            "force_terminate": "이 프로세스가 Motrix 소유임을 확인했습니다. PID {{pid}}을(를) 강제 종료한 후 Motrix RPC 포트 {{rpcPort}}에서 taiji를 다시 시작합니다.",
             "switch_port": "이 프로세스를 안전하게 종료할 수 없습니다. 대안으로 포트 {{port}}을(를) 사용하거나 충돌하는 프로세스를 직접 종료하세요."
           },
           "technicalDetails": "기술 세부 정보",
@@ -232,12 +232,12 @@
           "restart": "엔진 재시작",
           "switchPort": "포트 {{port}} 사용",
           "forceRecover": "강제 종료 후 복구",
-          "recovered": "aria2 엔진을 다시 사용할 수 있습니다.",
-          "recoveredOnPort": "RPC 포트 {{port}}에서 aria2 엔진을 복구했습니다.",
+          "recovered": "taiji 엔진을 다시 사용할 수 있습니다.",
+          "recoveredOnPort": "RPC 포트 {{port}}에서 taiji 엔진을 복구했습니다.",
           "recoveryFailed": "엔진 복구에 실패했습니다. 최신 상태를 확인하려면 진단을 다시 실행하세요.",
           "fallback": {
             "available": "Motrix 기본 포트 {{port}}을(를) 사용할 수 있으며 지금 복원할 수 있습니다.",
-            "verifiedOrphan": "종료 후 남아 있는 것으로 확인된 Motrix aria2 프로세스(PID {{pid}})가 기본 포트 {{port}}을(를) 사용 중입니다. 포트를 복원하기 전에 Motrix가 이 프로세스를 안전하게 중지할 수 있습니다.",
+            "verifiedOrphan": "종료 후 남아 있는 것으로 확인된 Motrix taiji 프로세스(PID {{pid}})가 기본 포트 {{port}}을(를) 사용 중입니다. 포트를 복원하기 전에 Motrix가 이 프로세스를 안전하게 중지할 수 있습니다.",
             "blocked": "PID {{pid}}({{name}})이(가) 기본 포트 {{port}}을(를) 사용 중이지만 Motrix가 소유 관계를 확인할 수 없습니다. 해당 프로세스는 종료하지 않습니다.",
             "unidentified": "기본 포트 {{port}}을(를) 사용하는 프로세스를 확인하지 못했습니다. Motrix는 현재 포트를 계속 사용합니다.",
             "restore": "Motrix 기본 포트 {{port}} 복원",
@@ -245,13 +245,13 @@
             "restoredDefault": "Motrix 기본 RPC 포트 {{port}}을(를) 복원했습니다.",
             "confirm": {
               "title": "남아 있는 프로세스를 중지하고 포트 {{port}}을(를) 복원하시겠습니까?",
-              "description": "PID {{pid}}은(는) 종료 후 남아 있는 Motrix aria2 프로세스로 확인되었습니다. 이 프로세스를 중지하고 기본 포트 {{port}}을(를) 저장한 후 aria2를 재시작합니다.",
+              "description": "PID {{pid}}은(는) 종료 후 남아 있는 Motrix taiji 프로세스로 확인되었습니다. 이 프로세스를 중지하고 기본 포트 {{port}}을(를) 저장한 후 taiji를 재시작합니다.",
               "action": "중지 후 포트 {{port}} 복원"
             }
           },
           "confirmForce": {
-            "title": "남아 있는 aria2 프로세스를 강제 종료하시겠습니까?",
-            "description": "PID {{pid}} 프로세스의 바이너리, 비공개 RPC 비밀 키 및 데이터 경로가 Motrix의 기본 제공 엔진과 일치합니다. 이 프로세스를 즉시 종료한 후 Motrix RPC 포트에서 aria2를 재시작합니다.",
+            "title": "남아 있는 taiji 프로세스를 강제 종료하시겠습니까?",
+            "description": "PID {{pid}} 프로세스의 바이너리, 비공개 RPC 비밀 키 및 데이터 경로가 Motrix의 기본 제공 엔진과 일치합니다. 이 프로세스를 즉시 종료한 후 Motrix RPC 포트에서 taiji를 재시작합니다.",
             "action": "강제 종료 후 복구"
           },
           "details": "진단 세부 정보",
@@ -294,7 +294,7 @@
             "listening": "{{port}}(수신 대기 중)",
             "occupied": "{{port}}(사용 중)"
           },
-          "motrixEngine": "aria2 Motrix",
+          "motrixEngine": "taiji Motrix",
           "transport": {
             "websocket": "WebSocket"
           }
@@ -1439,7 +1439,8 @@
         "historySessionOnly": "보관하지 않음",
         "historyCount": "보관할 기록 수",
         "historyCountHint": "오래된 복구 기록은 제거됩니다.",
-        "historyCountPositive": "0보다 큰 숫자를 입력하세요."
+        "historyCountPositive": "0보다 큰 숫자를 입력하세요.",
+        "managedByTaiji": "taiji automatically saves tasks and progress in its own database. Completed task history remains in Motrix."
       },
       "description": "RPC, 진행 상황 및 복구",
       "configFile": {
@@ -1578,7 +1579,8 @@
         "dhtListenPort": "DHT 수신 포트",
         "dhtListenPortDesc": "이 포트에서 DHT를 통해 피어를 찾습니다.",
         "dhtEnabled": "DHT 켜기",
-        "dhtEnabledDesc": "트래커에 의존하지 않고 피어를 찾습니다."
+        "dhtEnabledDesc": "트래커에 의존하지 않고 피어를 찾습니다.",
+        "sharedPortDesc": "taiji uses this port for peer connections and DHT."
       },
       "peers": {
         "title": "피어",
@@ -1683,7 +1685,8 @@
         "diskCache": "디스크 캐시({{unit}})",
         "diskCacheDesc": "디스크에 쓰기 전에 파일 데이터를 임시 보관하는 메모리입니다.",
         "sessionSaveInterval": "진행 상황 저장 간격(초)",
-        "sessionSaveIntervalDesc": "자주 저장하면 비정상 종료 시 잃는 진행 상황을 줄일 수 있습니다."
+        "sessionSaveIntervalDesc": "자주 저장하면 비정상 종료 시 잃는 진행 상황을 줄일 수 있습니다.",
+        "managedByTaiji": "taiji manages disk allocation and cache automatically."
       },
       "magnet": {
         "title": "마그넷",

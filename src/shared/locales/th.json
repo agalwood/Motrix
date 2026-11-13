@@ -541,12 +541,12 @@
             "rpc": "พอร์ต RPC"
           },
           "communication": {
-            "ready": "Motrix สื่อสารกับ aria2 ได้"
+            "ready": "Motrix สื่อสารกับ taiji ได้"
           },
           "confirmForce": {
             "action": "บังคับหยุดและกู้คืน",
-            "description": "PID {{pid}} ตรงกับไฟล์ปฏิบัติการที่มากับ Motrix ข้อมูลลับ RPC ส่วนตัว และเส้นทางข้อมูล ระบบจะหยุดโปรเซสทันที แล้วเริ่ม aria2 ใหม่บนพอร์ต RPC ของ Motrix",
-            "title": "บังคับหยุดโปรเซส aria2 ที่ตกค้างหรือไม่"
+            "description": "PID {{pid}} ตรงกับไฟล์ปฏิบัติการที่มากับ Motrix ข้อมูลลับ RPC ส่วนตัว และเส้นทางข้อมูล ระบบจะหยุดโปรเซสทันที แล้วเริ่ม taiji ใหม่บนพอร์ต RPC ของ Motrix",
+            "title": "บังคับหยุดโปรเซส taiji ที่ตกค้างหรือไม่"
           },
           "copied": "คัดลอกแล้ว",
           "copy": "คัดลอกผลวินิจฉัย",
@@ -559,14 +559,14 @@
             "blocked": "PID {{pid}} ({{name}}) กำลังใช้พอร์ตเริ่มต้น {{port}} แต่ Motrix ยืนยันเจ้าของไม่ได้ จึงจะไม่หยุดโปรเซสนี้",
             "confirm": {
               "action": "หยุดและกลับมาใช้พอร์ต {{port}}",
-              "description": "ยืนยันแล้วว่า PID {{pid}} เป็นโปรเซส aria2 ตกค้างของ Motrix ระบบจะหยุดโปรเซสนี้ บันทึกพอร์ตเริ่มต้น {{port}} และเริ่ม aria2 ใหม่",
+              "description": "ยืนยันแล้วว่า PID {{pid}} เป็นโปรเซส taiji ตกค้างของ Motrix ระบบจะหยุดโปรเซสนี้ บันทึกพอร์ตเริ่มต้น {{port}} และเริ่ม taiji ใหม่",
               "title": "หยุดโปรเซสตกค้างและกลับมาใช้พอร์ต {{port}} หรือไม่"
             },
             "restore": "กลับมาใช้พอร์ตเริ่มต้น {{port}} ของ Motrix",
             "restoredDefault": "กลับมาใช้พอร์ต RPC เริ่มต้น {{port}} ของ Motrix แล้ว",
             "restoring": "กำลังกลับมาใช้พอร์ตเริ่มต้น {{port}} ของ Motrix…",
             "unidentified": "ระบุโปรเซสที่ใช้พอร์ตเริ่มต้น {{port}} ไม่ได้ Motrix จะใช้พอร์ตปัจจุบันต่อไป",
-            "verifiedOrphan": "โปรเซส aria2 ตกค้างที่ยืนยันแล้วว่าเป็นของ Motrix (PID {{pid}}) กำลังใช้พอร์ตเริ่มต้น {{port}} Motrix สามารถหยุดได้อย่างปลอดภัยก่อนกลับมาใช้พอร์ตนี้"
+            "verifiedOrphan": "โปรเซส taiji ตกค้างที่ยืนยันแล้วว่าเป็นของ Motrix (PID {{pid}}) กำลังใช้พอร์ตเริ่มต้น {{port}} Motrix สามารถหยุดได้อย่างปลอดภัยก่อนกลับมาใช้พอร์ตนี้"
           },
           "features": {
             "none": "ไม่มีรายงาน",
@@ -580,7 +580,7 @@
           },
           "lastChecked": "ตรวจสอบเมื่อ {{time}}",
           "loadFailed": "เรียกใช้การวินิจฉัยเอนจินไม่ได้",
-          "motrixEngine": "aria2 Motrix",
+          "motrixEngine": "taiji Motrix",
           "open": "วินิจฉัย",
           "port": {
             "available": "{{port}} (ว่าง)",
@@ -597,22 +597,22 @@
             "verified_orphan": "PID {{pid}} ({{name}}) ยืนยันแล้วว่าเป็นโปรเซสตกค้างของ Motrix หยุดได้อย่างปลอดภัย"
           },
           "reason": {
-            "binary_unavailable": "ไฟล์ปฏิบัติการ aria2 ที่มาพร้อมแอปหายไปหรือไม่พร้อมใช้งาน",
-            "health_check_failed": "aria2 หยุดตอบสนองต่อ Motrix",
-            "port_in_use": "พอร์ต RPC ของ Motrix มีผู้ใช้งานอยู่ จึงเริ่มเอนจิน aria2 ไม่ได้",
-            "rpc_unavailable": "เอนจิน aria2 เริ่มแล้ว แต่ไม่ยอมรับการเชื่อมต่อ RPC จาก Motrix",
-            "spawn_failed": "สร้างโปรเซส aria2 ไม่ได้",
-            "unexpected_exit": "เอนจิน aria2 ปิดตัวลงโดยไม่คาดคิด",
-            "unknown": "เริ่มเอนจิน aria2 ไม่ได้โดยไม่ทราบสาเหตุ"
+            "binary_unavailable": "ไฟล์ปฏิบัติการ taiji ที่มาพร้อมแอปหายไปหรือไม่พร้อมใช้งาน",
+            "health_check_failed": "taiji หยุดตอบสนองต่อ Motrix",
+            "port_in_use": "พอร์ต RPC ของ Motrix มีผู้ใช้งานอยู่ จึงเริ่มเอนจิน taiji ไม่ได้",
+            "rpc_unavailable": "เอนจิน taiji เริ่มแล้ว แต่ไม่ยอมรับการเชื่อมต่อ RPC จาก Motrix",
+            "spawn_failed": "สร้างโปรเซส taiji ไม่ได้",
+            "unexpected_exit": "เอนจิน taiji ปิดตัวลงโดยไม่คาดคิด",
+            "unknown": "เริ่มเอนจิน taiji ไม่ได้โดยไม่ทราบสาเหตุ"
           },
           "recommendation": {
-            "force_terminate": "ยืนยันแล้วว่าโปรเซสนี้เป็นของ Motrix บังคับหยุด PID {{pid}} แล้วเริ่ม aria2 ใหม่บนพอร์ต RPC {{rpcPort}} ของ Motrix",
-            "retry": "พอร์ตว่างอยู่ ลองเริ่ม aria2 อีกครั้งโดยไม่เปลี่ยนการตั้งค่า",
+            "force_terminate": "ยืนยันแล้วว่าโปรเซสนี้เป็นของ Motrix บังคับหยุด PID {{pid}} แล้วเริ่ม taiji ใหม่บนพอร์ต RPC {{rpcPort}} ของ Motrix",
+            "retry": "พอร์ตว่างอยู่ ลองเริ่ม taiji อีกครั้งโดยไม่เปลี่ยนการตั้งค่า",
             "switch_port": "ไม่สามารถหยุดโปรเซสได้อย่างปลอดภัย ใช้พอร์ต {{port}} เป็นทางเลือกสำรองเท่านั้น หรือปิดโปรเซสที่ขัดแย้งด้วยตนเอง",
             "title": "วิธีกู้คืนที่แนะนำ"
           },
-          "recovered": "เอนจิน aria2 พร้อมใช้งานอีกครั้งแล้ว",
-          "recoveredOnPort": "กู้คืนเอนจิน aria2 บนพอร์ต RPC {{port}} แล้ว",
+          "recovered": "เอนจิน taiji พร้อมใช้งานอีกครั้งแล้ว",
+          "recoveredOnPort": "กู้คืนเอนจิน taiji บนพอร์ต RPC {{port}} แล้ว",
           "recoveryFailed": "กู้คืนเอนจินไม่สำเร็จ เรียกใช้การวินิจฉัยอีกครั้งเพื่อดูสถานะล่าสุด",
           "refreshFailed": "รีเฟรชผลวินิจฉัยไม่ได้ ด้านล่างแสดงรายงานล่าสุดที่สำเร็จ",
           "restart": "เริ่มเอนจินใหม่",
@@ -657,9 +657,9 @@
         },
         "features": "ความสามารถ",
         "listenPort": "พอร์ตรับการเชื่อมต่อ",
-        "name": "Aria2",
+        "name": "taiji",
         "rpcPort": "พอร์ต RPC",
-        "startFailed": "เริ่มเอนจิน aria2 ไม่ได้",
+        "startFailed": "เริ่มเอนจิน taiji ไม่ได้",
         "state": {
           "disconnected": "ตัดการเชื่อมต่อแล้ว",
           "failed": "ล้มเหลว",
@@ -1852,7 +1852,8 @@
         "historyLimit": "ประวัติกู้คืนของงานที่เสร็จสิ้น",
         "historyLimitDesc": "ไม่กระทบรายการดาวน์โหลดและไฟล์ที่ดาวน์โหลด",
         "historySessionOnly": "ไม่เก็บ",
-        "title": "ความคืบหน้าและการกู้คืน"
+        "title": "ความคืบหน้าและการกู้คืน",
+        "managedByTaiji": "taiji automatically saves tasks and progress in its own database. Completed task history remains in Motrix."
       },
       "rpc": {
         "port": "พอร์ต RPC",
@@ -1971,7 +1972,8 @@
         "dhtListenPortDesc": "ค้นหาเพียร์ผ่าน DHT บนพอร์ตนี้",
         "listenPort": "พอร์ตรับการเชื่อมต่อ BT",
         "listenPortDesc": "รับการเชื่อมต่อขาเข้าจากเพียร์บนพอร์ตนี้",
-        "title": "การเชื่อมต่อขาเข้า"
+        "title": "การเชื่อมต่อขาเข้า",
+        "sharedPortDesc": "taiji uses this port for peer connections and DHT."
       },
       "newMagnetTasks": "งานแมกเน็ตใหม่",
       "peers": {
@@ -2098,7 +2100,8 @@
         "modifiedTimeServer": "เวลาจากเซิร์ฟเวอร์",
         "sessionSaveInterval": "ช่วงเวลาบันทึกความคืบหน้า (วินาที)",
         "sessionSaveIntervalDesc": "บันทึกถี่ขึ้นเพื่อลดความคืบหน้าที่สูญหายหากแอปขัดข้อง",
-        "title": "ดิสก์และไฟล์"
+        "title": "ดิสก์และไฟล์",
+        "managedByTaiji": "taiji manages disk allocation and cache automatically."
       },
       "fillInLinksWhenOpeningNewTask": "วางลิงก์ที่คัดลอกไว้เมื่อเปิดงานใหม่",
       "magnet": {

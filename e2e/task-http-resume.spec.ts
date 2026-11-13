@@ -1,6 +1,7 @@
 import { mkdir, readFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import path from 'node:path'
+import { DatabaseSync } from 'node:sqlite'
 import type { ElectronApplication, Page } from '@playwright/test'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
@@ -18,12 +19,12 @@ for (const restart of [false, true]) {
     electronApp,
     userDataDir,
     rpcPort,
-  }) => {
+  }, testInfo) => {
     test.setTimeout(90000)
     let page = mainWindow
     let restarted: ElectronApplication | undefined
     let interrupted = true
-    const payload = Buffer.alloc(4 * 1024 * 1024, 0x6d)
+    const payload = Buffer.alloc(12 * 1024 * 1024, 0x6d)
     const requests: Array<{ range?: string; authorization?: string }> = []
     const server = createServer((request, response) => {
       requests.push({
@@ -38,6 +39,10 @@ for (const restart of [false, true]) {
       const offset = Number(range?.[1] ?? 0)
       const end = range?.[2] ? Number(range[2]) : payload.length - 1
       const bytes = payload.subarray(offset, end + 1)
+      if (interrupted && offset >= 4 * 1024 * 1024) {
+        response.destroy()
+        return
+      }
       response.writeHead(range ? 206 : 200, {
         'content-length': bytes.length,
         'accept-ranges': 'bytes',
@@ -46,8 +51,22 @@ for (const restart of [false, true]) {
           ? { 'content-range': `bytes ${offset}-${end}/${payload.length}` }
           : {}),
       })
-      if (interrupted) {
-        response.write(bytes.subarray(0, 512 * 1024))
+      if (
+        interrupted &&
+        offset + bytes.length > 4 * 1024 * 1024 &&
+        bytes.length > 1
+      ) {
+        response.write(
+          bytes.subarray(
+            0,
+            Math.max(
+              1,
+              offset < 4 * 1024 * 1024
+                ? 4 * 1024 * 1024 - offset
+                : Math.floor(bytes.length / 2)
+            )
+          )
+        )
         setTimeout(() => response.destroy(), 100)
       } else response.end(bytes)
     })
@@ -102,7 +121,10 @@ for (const restart of [false, true]) {
         'Requires an engine with native HTTP retry support'
       )
       expect(recipe?.engineContextVersion).toBe(1)
-      const partial = await readFile(original.diskPath)
+      const partial = (await readFile(`${original.diskPath}.part`)).subarray(
+        0,
+        original.downloadedBytes
+      )
       expect(partial.length).toBeGreaterThan(0)
       const mark = requests.length
       if (restart) {
@@ -151,6 +173,27 @@ for (const restart of [false, true]) {
         page.getByRole('dialog', { name: 'Retry download' })
       ).not.toBeVisible()
     } finally {
+      await testInfo.attach('http-requests', {
+        body: JSON.stringify(requests),
+        contentType: 'application/json',
+      })
+      const db = new DatabaseSync(path.join(userDataDir, 'taiji.sqlite3'), {
+        readOnly: true,
+      })
+      try {
+        await testInfo.attach('http-persistence', {
+          body: JSON.stringify(
+            db
+              .prepare(
+                'SELECT state, total_done, block_size, block_count, hex(block_bitmap) AS bitmap FROM http_task'
+              )
+              .all()
+          ),
+          contentType: 'application/json',
+        })
+      } finally {
+        db.close()
+      }
       await restarted?.close().catch(() => {})
       server.closeAllConnections()
       await new Promise<void>((resolve) => server.close(() => resolve()))

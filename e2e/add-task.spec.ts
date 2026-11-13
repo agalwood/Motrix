@@ -1,5 +1,9 @@
-import { writeFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { once } from 'node:events'
+import { readFile, writeFile } from 'node:fs/promises'
+import { createServer } from 'node:http'
 import path from 'node:path'
+import { encode } from '@motrix/torrent'
 import type { Page } from '@playwright/test'
 import { ADD_TASK_COLLAPSED_HEIGHT } from '../src/shared/constants/add-task'
 import { Queries } from '../src/shared/protocol/queries'
@@ -8,6 +12,7 @@ import {
   TaskStatus,
   TaskType,
 } from '../src/shared/types/task'
+import { startMetadataPeer } from '../src/test-utils/metadata-peer'
 import {
   expect,
   findAddTaskWindow,
@@ -410,6 +415,80 @@ test.describe('add task', () => {
       }
     })
   }
+
+  test('magnet fetching reaches file selection using the configured tracker', async ({
+    electronApp,
+    mainWindow,
+    userDataDir,
+    rpcPort,
+  }) => {
+    const info = Buffer.from(
+      encode({
+        name: 'metadata-fixture.bin',
+        length: 16384,
+        'piece length': 16384,
+        pieces: createHash('sha1').update(Buffer.alloc(16384)).digest(),
+      })
+    )
+    const peer = await startMetadataPeer(info)
+    const compact = Buffer.from([127, 0, 0, 1, 0, 0])
+    compact.writeUInt16BE(peer.port, 4)
+    const tracker = createServer((_request, response) =>
+      response.end(encode({ interval: 3600, peers: compact }))
+    )
+    tracker.listen(0, '127.0.0.1')
+    await once(tracker, 'listening')
+    try {
+      await waitForEngineReady(mainWindow)
+      const address = tracker.address()
+      if (!address || typeof address === 'string')
+        throw new Error('Missing tracker')
+      const settings = JSON.parse(
+        await readFile(path.join(userDataDir, 'settings.json'), 'utf8')
+      )
+      const result = await fetch(`http://127.0.0.1:${rpcPort}/jsonrpc`, {
+        method: 'POST',
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 'metadata-tracker',
+          method: 'taiji.changeGlobalOption',
+          params: [
+            `token:${settings.engine.rpcSecret}`,
+            { 'bt-tracker': `http://127.0.0.1:${address.port}/announce` },
+          ],
+        }),
+      })
+      expect((await result.json()).error).toBeUndefined()
+      await mainWindow.getByRole('button', { name: 'New task' }).click()
+      const add = await findAddTaskWindow(electronApp)
+      await add
+        .getByRole('textbox', { name: 'URLs' })
+        .fill(`magnet:?xt=urn:btih:${peer.hash}`)
+      await add.getByRole('button', { name: 'Download', exact: true }).click()
+      await expect
+        .poll(
+          async () => {
+            const tasks = (await mainWindow.evaluate(
+              (channel) => window.motrix.invoke(channel),
+              Queries.ListTasks
+            )) as DownloadTask[]
+            return tasks.find((task) => task.infoHash === peer.hash)?.status
+          },
+          { timeout: 12000 }
+        )
+        .toBe(TaskStatus.MetadataReady)
+      expect(peer.requests()).toBeGreaterThan(0)
+      const selection = await findAddTaskWindow(electronApp)
+      await expect(
+        selection.getByText('metadata-fixture.bin', { exact: true }).first()
+      ).toBeVisible()
+    } finally {
+      await removeAllTasks(mainWindow).catch(() => {})
+      tracker.closeAllConnections()
+      await new Promise<void>((resolve) => tracker.close(() => resolve()))
+      await peer.close()
+    }
+  })
 
   test('http url submitted via the add-task window reveals hidden main and appears in Downloads', async ({
     electronApp,

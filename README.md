@@ -218,15 +218,17 @@ TLS reverse proxy and firewall rules around the origin ports. See the
 Docker Hub/GHCR image and tag selection, DSM 7 and fnOS installation, ports,
 diagnostics, and backup/upgrade instructions.
 
+See [taiji engine and migration](./docs/taiji-engine.md) for the source build and automatic upgrade behavior.
+
 ##  🛠  Development
 
-Development requires Node.js 22 or later and pnpm. Use the pnpm version specified by the `packageManager` field in `package.json`.
+Development requires Node.js 24 or later, pnpm, Git, and Rust 1.94.1 or later. Linux source builds also require `musl-tools`. Use the pnpm version specified by the `packageManager` field in `package.json`.
 
 ```bash
 git clone https://github.com/agalwood/Motrix.git
 cd Motrix
 
-pnpm install     # Install dependencies, download aria2 for your platform, and rebuild native modules
+pnpm install     # Install dependencies, build the pinned taiji engine for your platform, and rebuild native modules
 pnpm start       # Start the Electron app in development mode with Vite HMR in the renderer
 
 pnpm test        # Run the Vitest unit tests
@@ -271,7 +273,7 @@ See the scripts in `package.json` for the available packaging commands. Platform
 | Language | TypeScript in strict mode |
 | Build system | Vite 8 with separate main, preload, worker, and renderer targets |
 | Validation | Zod 4 for settings, IPC payloads, and wire schemas |
-| Download engine | A Motrix-maintained fork of [aria2](https://github.com/motrixapp/aria2), bundled with the app |
+| Download engine | [taiji](https://github.com/motrixapp/taiji), built from pinned Rust sources and bundled with the app |
 | Persistence | better-sqlite3 for download session storage and recovery |
 | Plugin sandbox | quickjs-emscripten |
 | Server runtime | Node.js + Fastify + WebSocket |
@@ -287,7 +289,7 @@ app core (tasks, settings, plugins, bridge)
    |
 engine adapter
    |
-aria2 (download engine)
+taiji (download engine)
 ```
 
 The Electron desktop app and the Node.js headless server share the same core. Platform-specific capabilities such as notifications and secret storage have separate implementations with consistent behavior.

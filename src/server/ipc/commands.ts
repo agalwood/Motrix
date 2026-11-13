@@ -161,7 +161,7 @@ export interface ServerCommandContext {
   }
   getMediaSegmentGids?: (taskId: string) => string[]
   cancelMedia?: (taskId: string) => Promise<void>
-  aria2BinaryPath: string
+  engineBinaryPath: string
   finalNamePicker: FinalNamePicker
   mediaMetaStore: MediaMetaStore
   torrentMetaStore: TorrentMetaStore

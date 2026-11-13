@@ -18,14 +18,16 @@ NODE = json.loads((ROOT / 'scripts/fnos-runtime.lock.json').read_text())
 SHA = pub.run('git', 'rev-parse', 'HEAD')
 TEMPLATES = pub.package_templates(SHA)
 VERSION = '2.3.0'
-ENGINES = {'assets': {}}
+ENGINES = json.loads((ROOT / 'scripts/engine.lock.json').read_text())
+ENGINE_SOURCE = json.loads((ROOT / 'scripts/taiji-source.lock.json').read_text())
+ENGINE_DIGEST = hashlib.sha256(json.dumps({'lock': ENGINES, 'source': ENGINE_SOURCE},
+                                        separators=(',', ':'), ensure_ascii=False).encode()).hexdigest()
 for arch, target in LOCK['targets'].items():
     header = bytearray(20)
     header[:6] = b'\x7fELF\x02\x01'
     header[18:20] = target['machine'].to_bytes(2, 'little')
     digest = hashlib.sha256(header).hexdigest()
     NODE['node'][arch]['binarySha256'] = digest
-    ENGINES['assets'][f'linux-{arch}'] = {'binarySha256': digest}
 
 
 def tar(files, mode, executable=()):
@@ -50,7 +52,7 @@ def fixture(directory, arch, *, replace_payload=False, source=SHA, outer_changes
     header = bytearray(20)
     header[:6] = b'\x7fELF\x02\x01'
     header[18:20] = (0 if wrong_machine else target['machine']).to_bytes(2, 'little')
-    files = {f: bytes(header) for f in ['runtime/bin/node', 'server/bin/aria2c', 'server/bin/motrix-finalize-fs', 'server/sqlite.node']}
+    files = {f: bytes(header) for f in ['runtime/bin/node', 'server/bin/taiji', 'server/bin/motrix-finalize-fs', 'server/sqlite.node']}
     if foreign_node:
         files['runtime/bin/node'] += b'untrusted executable'
     elf = [{'file': f, 'sha256': hashlib.sha256(b).hexdigest()} for f, b in files.items()]
@@ -62,6 +64,12 @@ def fixture(directory, arch, *, replace_payload=False, source=SHA, outer_changes
             if is_exec:
                 app_exec.add(name_in_app)
     files['synology-build.json'] = json.dumps(receipt).encode()
+    files['server/bin/taiji-licenses.txt'] = b'engine licenses'
+    files['server/bin/taiji-build.json'] = json.dumps(dict(
+        version=ENGINES['version'], sourceDigest=ENGINE_DIGEST, profile='release',
+        target=ENGINES['assets'][f'linux-{arch}']['rustTarget'],
+        binarySha256=hashlib.sha256(files['server/bin/taiji']).hexdigest(),
+        licenseSha256=hashlib.sha256(files['server/bin/taiji-licenses.txt']).hexdigest())).encode()
     files['payload-sha256.json'] = json.dumps(
         {f: {'sha256': hashlib.sha256(b).hexdigest(), 'executable': f in app_exec} for f, b in files.items()}).encode()
     if replace_payload:
@@ -90,7 +98,7 @@ class PublicationTests(unittest.TestCase):
         self.root = Path(temporary.name)
         fixture(self.root, 'x64')
         self.arm = fixture(self.root, 'arm64')
-        patcher = patch.object(pub, 'run', side_effect=lambda *args: json.dumps(LOCK if 'synology' in args[-1] else ENGINES if 'engine.lock' in args[-1] else NODE))
+        patcher = patch.object(pub, 'run', side_effect=lambda *args: json.dumps(LOCK if 'synology' in args[-1] else ENGINES if 'engine.lock' in args[-1] else ENGINE_SOURCE if 'taiji-source.lock' in args[-1] else NODE))
         patcher.start()
         self.addCleanup(patcher.stop)
 

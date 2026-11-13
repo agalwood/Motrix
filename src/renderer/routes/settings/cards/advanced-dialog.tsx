@@ -1,6 +1,5 @@
 import { RandomizeIcon } from '@renderer/components/icons'
 import { SettingsFormRow } from '@renderer/components/settings-kit/settings-form-row'
-import { SettingsSelectTrigger } from '@renderer/components/settings-kit/settings-select-trigger'
 import {
   useSettingsForm,
   useSettingsSubmit,
@@ -28,7 +27,6 @@ import {
   FormMessage,
 } from '@renderer/components/ui/form'
 import { Input } from '@renderer/components/ui/input'
-import { Label } from '@renderer/components/ui/label'
 import { PasswordInput } from '@renderer/components/ui/password-input'
 import {
   ScrollArea,
@@ -36,23 +34,13 @@ import {
   ScrollAreaViewport,
   ScrollBar,
 } from '@renderer/components/ui/scroll-area'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectValue,
-} from '@renderer/components/ui/select'
 import { Separator } from '@renderer/components/ui/separator'
-import { Switch } from '@renderer/components/ui/switch'
-import { usePortableMode } from '@renderer/hooks/use-portable-mode'
 import { pickDirty } from '@renderer/lib/form-utils'
 import { saveSettings } from '@renderer/lib/settings-save'
 import { LEGACY_MIGRATION_SETTINGS_ROUTE } from '@shared/lib/legacy-import-navigation'
 import { DEFAULT_ENGINE_SETTINGS } from '@shared/schemas'
 import type { EngineSettings } from '@shared/types/settings'
 import { generateRpcSecret } from '@shared/utils/rpc-secret'
-import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import type { SettingsCardDialogProps } from './card-types'
@@ -60,25 +48,14 @@ import { OperatorTokenSection } from './operator-token-section'
 import { SettingsFileSection } from './settings-file-section'
 import { advancedFormSchema } from './settings-form-schemas'
 
-type HistoryRetentionMode = 'all' | 'limited' | 'session'
-
 type AdvancedFields = Pick<
   EngineSettings,
-  | 'sessionSaveInterval'
-  | 'rpcPort'
-  | 'rpcSecret'
-  | 'sqlite3Persistence'
-  | 'sqlite3DbPath'
-  | 'sqlite3HistoryLimit'
+  'sessionSaveInterval' | 'rpcPort' | 'rpcSecret'
 >
-
 const DEFAULTS: AdvancedFields = {
   sessionSaveInterval: DEFAULT_ENGINE_SETTINGS.sessionSaveInterval,
   rpcPort: DEFAULT_ENGINE_SETTINGS.rpcPort,
   rpcSecret: DEFAULT_ENGINE_SETTINGS.rpcSecret,
-  sqlite3Persistence: DEFAULT_ENGINE_SETTINGS.sqlite3Persistence,
-  sqlite3DbPath: DEFAULT_ENGINE_SETTINGS.sqlite3DbPath,
-  sqlite3HistoryLimit: DEFAULT_ENGINE_SETTINGS.sqlite3HistoryLimit,
 }
 
 export function AdvancedDialog({
@@ -87,65 +64,17 @@ export function AdvancedDialog({
   labelKey,
 }: SettingsCardDialogProps) {
   const { t } = useTranslation()
-  const portable = usePortableMode()
   const navigate = useNavigate()
-  const [historyModeOverride, setHistoryModeOverride] =
-    useState<HistoryRetentionMode | null>(null)
-  const historyModeRef = useRef<HistoryRetentionMode | null>(null)
-  const lastHistoryCount = useRef(1000)
-  const historyCountId = useId()
-  const historyCountHintId = useId()
-  const historyErrorId = useId()
-  const form = useSettingsForm<AdvancedFields>(
-    advancedFormSchema.refine(
-      (values) =>
-        historyModeRef.current !== 'limited' || values.sqlite3HistoryLimit > 0,
-      {
-        path: ['sqlite3HistoryLimit'],
-        message: t('settings.advanced.persistence.historyCountPositive'),
-      }
-    ),
-    DEFAULTS
-  )
-  const historyLimit = form.watch('sqlite3HistoryLimit')
-  const historyMode =
-    historyModeOverride ??
-    (historyLimit === -1 ? 'all' : historyLimit === 0 ? 'session' : 'limited')
-  const historyModeOptions = [
-    { value: 'all', label: t('settings.advanced.persistence.historyKeepAll') },
-    {
-      value: 'limited',
-      label: t('settings.advanced.persistence.historyKeepRecent'),
-    },
-    {
-      value: 'session',
-      label: t('settings.advanced.persistence.historySessionOnly'),
-    },
-  ] as const
-
-  useEffect(() => {
-    if (
-      Number.isInteger(historyLimit) &&
-      historyLimit > 0 &&
-      historyLimit <= 1000000
-    ) {
-      lastHistoryCount.current = historyLimit
-    }
-  }, [historyLimit])
+  const form = useSettingsForm<AdvancedFields>(advancedFormSchema, DEFAULTS)
 
   const load = useSettingsLoad((all) => {
     if (!all?.engine) throw new Error('Missing settings baseline')
     if (all?.engine) {
-      historyModeRef.current = null
-      setHistoryModeOverride(null)
       form.reset({
         sessionSaveInterval:
           all.engine.sessionSaveInterval ?? DEFAULTS.sessionSaveInterval,
         rpcPort: all.engine.rpcPort,
         rpcSecret: all.engine.rpcSecret,
-        sqlite3Persistence: all.engine.sqlite3Persistence,
-        sqlite3DbPath: all.engine.sqlite3DbPath,
-        sqlite3HistoryLimit: all.engine.sqlite3HistoryLimit,
       })
     }
   })
@@ -161,8 +90,6 @@ export function AdvancedDialog({
     await saveSettings(patch)
     onClose()
   })
-
-  const persistenceOn = form.watch('sqlite3Persistence')
 
   return (
     <Dialog
@@ -290,189 +217,9 @@ export function AdvancedDialog({
                       {t('settings.advanced.persistence.title')}
                     </h3>
 
-                    <FormField
-                      control={form.control}
-                      name="sqlite3Persistence"
-                      render={({ field }) => (
-                        <SettingsFormRow>
-                          <div className="space-y-1">
-                            <FormLabel>
-                              {t('settings.advanced.persistence.enable')}
-                            </FormLabel>
-                            <FormDescription className="text-xs">
-                              {t('settings.advanced.persistence.enableDesc')}
-                            </FormDescription>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </SettingsFormRow>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="sqlite3DbPath"
-                      render={({ field }) => (
-                        <SettingsFormRow>
-                          <div className="space-y-1">
-                            <FormLabel>
-                              {t('settings.advanced.persistence.dbPath')}
-                            </FormLabel>
-                            <FormDescription className="text-xs">
-                              {t(
-                                portable
-                                  ? 'settings.portable.enginePathDescription'
-                                  : 'settings.advanced.persistence.dbPathDesc'
-                              )}
-                            </FormDescription>
-                          </div>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              className="w-56 h-8"
-                              placeholder={t(
-                                'settings.advanced.persistence.dbPathPlaceholder'
-                              )}
-                              disabled={
-                                portable ||
-                                (!persistenceOn &&
-                                  !form.formState.errors.sqlite3DbPath)
-                              }
-                              value={field.value}
-                              onChange={field.onChange}
-                            />
-                          </FormControl>
-                        </SettingsFormRow>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="sqlite3HistoryLimit"
-                      render={({ field, fieldState }) => {
-                        const disabled = !persistenceOn && !fieldState.error
-                        return (
-                          <FormItem className="space-y-3">
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="space-y-1">
-                                <FormLabel>
-                                  {t(
-                                    'settings.advanced.persistence.historyLimit'
-                                  )}
-                                </FormLabel>
-                                <FormDescription className="text-xs">
-                                  {t(
-                                    'settings.advanced.persistence.historyLimitDesc'
-                                  )}
-                                </FormDescription>
-                              </div>
-                              <Select
-                                items={historyModeOptions}
-                                value={historyMode}
-                                disabled={disabled}
-                                onValueChange={(
-                                  next: HistoryRetentionMode | null
-                                ) => {
-                                  if (!next) return
-                                  historyModeRef.current = next
-                                  setHistoryModeOverride(next)
-                                  form.setValue(
-                                    'sqlite3HistoryLimit',
-                                    next === 'all'
-                                      ? -1
-                                      : next === 'session'
-                                        ? 0
-                                        : lastHistoryCount.current,
-                                    {
-                                      shouldDirty: true,
-                                      shouldValidate: true,
-                                    }
-                                  )
-                                }}
-                              >
-                                <FormControl>
-                                  <SettingsSelectTrigger
-                                    ref={
-                                      historyMode === 'limited'
-                                        ? undefined
-                                        : field.ref
-                                    }
-                                    onBlur={field.onBlur}
-                                    className="shrink-0"
-                                  >
-                                    <SelectValue />
-                                  </SettingsSelectTrigger>
-                                </FormControl>
-                                <SelectContent position="popper" align="end">
-                                  <SelectGroup>
-                                    {historyModeOptions.map((option) => (
-                                      <SelectItem
-                                        key={option.value}
-                                        value={option.value}
-                                      >
-                                        {option.label}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectGroup>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            {historyMode === 'limited' && (
-                              <div className="flex items-start justify-between gap-4 border-s border-border/60 ps-4">
-                                <div className="space-y-1">
-                                  <Label htmlFor={historyCountId}>
-                                    {t(
-                                      'settings.advanced.persistence.historyCount'
-                                    )}
-                                  </Label>
-                                  <p
-                                    id={historyCountHintId}
-                                    className="text-xs text-muted-foreground"
-                                  >
-                                    {t(
-                                      'settings.advanced.persistence.historyCountHint'
-                                    )}
-                                  </p>
-                                </div>
-                                <Input
-                                  id={historyCountId}
-                                  ref={field.ref}
-                                  name={field.name}
-                                  type="number"
-                                  min={1}
-                                  max={1000000}
-                                  step={1}
-                                  className="w-30 h-8 shrink-0"
-                                  disabled={disabled}
-                                  aria-invalid={Boolean(fieldState.error)}
-                                  aria-describedby={`${historyCountHintId}${fieldState.error ? ` ${historyErrorId}` : ''}`}
-                                  value={
-                                    Number.isFinite(field.value)
-                                      ? field.value
-                                      : ''
-                                  }
-                                  onBlur={field.onBlur}
-                                  onChange={(event) => {
-                                    historyModeRef.current = 'limited'
-                                    setHistoryModeOverride('limited')
-                                    field.onChange(event.target.valueAsNumber)
-                                  }}
-                                />
-                              </div>
-                            )}
-                            {fieldState.error && (
-                              <div id={historyErrorId}>
-                                <FormMessage className="text-xs" />
-                              </div>
-                            )}
-                          </FormItem>
-                        )
-                      }}
-                    />
+                    <p className="text-xs text-muted-foreground">
+                      {t('settings.advanced.persistence.managedByTaiji')}
+                    </p>
                     <FormField
                       control={form.control}
                       name="sessionSaveInterval"

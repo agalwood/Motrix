@@ -46,7 +46,10 @@ export function mergeEngineTask(
   // direct history. Explicit re-add changes ownership/state before merging.
   if (
     existing.engineTaskId === engineTask.engineTaskId &&
-    (isCompletedDirectOutput(existing) ||
+    ((existing.type === TaskType.Bt &&
+      existing.status === TaskStatus.Completed &&
+      engineTask.status === TaskStatus.Removed) ||
+      isCompletedDirectOutput(existing) ||
       (hasLegacyImport(existing) &&
         [TaskStatus.Completed, TaskStatus.Error].includes(existing.status)))
   ) {

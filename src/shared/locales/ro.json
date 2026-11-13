@@ -543,12 +543,12 @@
             "rpc": "Port RPC"
           },
           "communication": {
-            "ready": "Motrix poate comunica cu aria2."
+            "ready": "Motrix poate comunica cu taiji."
           },
           "confirmForce": {
             "action": "Oprește forțat și restabilește",
-            "description": "PID {{pid}} corespunde executabilului inclus în Motrix, secretului RPC privat și căilor de date. Va fi oprit imediat, apoi aria2 va reporni pe portul RPC al Motrix.",
-            "title": "Oprești forțat procesul aria2 rămas?"
+            "description": "PID {{pid}} corespunde executabilului inclus în Motrix, secretului RPC privat și căilor de date. Va fi oprit imediat, apoi taiji va reporni pe portul RPC al Motrix.",
+            "title": "Oprești forțat procesul taiji rămas?"
           },
           "copied": "Copiat",
           "copy": "Copiază diagnosticul",
@@ -561,14 +561,14 @@
             "blocked": "Portul implicit {{port}} este folosit de PID {{pid}} ({{name}}), dar Motrix nu poate verifica apartenența procesului. Procesul nu va fi oprit.",
             "confirm": {
               "action": "Oprește și restabilește portul {{port}}",
-              "description": "PID {{pid}} a fost verificat ca proces aria2 Motrix rămas. Acesta va fi oprit, portul implicit {{port}} va fi salvat, iar aria2 va reporni.",
+              "description": "PID {{pid}} a fost verificat ca proces taiji Motrix rămas. Acesta va fi oprit, portul implicit {{port}} va fi salvat, iar taiji va reporni.",
               "title": "Oprești procesul rămas și restabilești portul {{port}}?"
             },
             "restore": "Restabilește portul implicit {{port}} al Motrix",
             "restoredDefault": "Portul RPC implicit {{port}} al Motrix a fost restabilit.",
             "restoring": "Se restabilește portul implicit {{port}} al Motrix…",
             "unidentified": "Procesul care folosește portul implicit {{port}} nu a putut fi identificat. Motrix va continua să folosească portul curent.",
-            "verifiedOrphan": "Un proces aria2 Motrix rămas, verificat (PID {{pid}}), folosește portul implicit {{port}}. Motrix îl poate opri în siguranță înainte de a restabili portul."
+            "verifiedOrphan": "Un proces taiji Motrix rămas, verificat (PID {{pid}}), folosește portul implicit {{port}}. Motrix îl poate opri în siguranță înainte de a restabili portul."
           },
           "features": {
             "none": "Neraportate",
@@ -582,7 +582,7 @@
           },
           "lastChecked": "Verificat la {{time}}",
           "loadFailed": "Diagnosticarea motorului nu a putut fi executată.",
-          "motrixEngine": "aria2 Motrix",
+          "motrixEngine": "taiji Motrix",
           "open": "Diagnostichează",
           "port": {
             "available": "{{port}} (disponibil)",
@@ -599,22 +599,22 @@
             "verified_orphan": "PID {{pid}} ({{name}}), proces Motrix rămas, verificat; poate fi oprit în siguranță"
           },
           "reason": {
-            "binary_unavailable": "Executabilul aria2 inclus lipsește sau nu este disponibil.",
-            "health_check_failed": "aria2 nu mai răspunde la cererile Motrix.",
-            "port_in_use": "Portul RPC al Motrix este ocupat, astfel că motorul aria2 nu a putut porni.",
-            "rpc_unavailable": "Motorul aria2 a pornit, dar nu a acceptat conexiunile RPC ale Motrix.",
-            "spawn_failed": "Procesul aria2 nu a putut fi creat.",
-            "unexpected_exit": "Motorul aria2 s-a închis neașteptat.",
-            "unknown": "Motorul aria2 nu a putut porni dintr-un motiv necunoscut."
+            "binary_unavailable": "Executabilul taiji inclus lipsește sau nu este disponibil.",
+            "health_check_failed": "taiji nu mai răspunde la cererile Motrix.",
+            "port_in_use": "Portul RPC al Motrix este ocupat, astfel că motorul taiji nu a putut porni.",
+            "rpc_unavailable": "Motorul taiji a pornit, dar nu a acceptat conexiunile RPC ale Motrix.",
+            "spawn_failed": "Procesul taiji nu a putut fi creat.",
+            "unexpected_exit": "Motorul taiji s-a închis neașteptat.",
+            "unknown": "Motorul taiji nu a putut porni dintr-un motiv necunoscut."
           },
           "recommendation": {
-            "force_terminate": "S-a verificat că acest proces aparține Motrix. Oprește forțat PID {{pid}}, apoi repornește aria2 pe portul RPC {{rpcPort}} al Motrix.",
-            "retry": "Portul este liber. Încearcă să pornești aria2 din nou fără să schimbi setările.",
+            "force_terminate": "S-a verificat că acest proces aparține Motrix. Oprește forțat PID {{pid}}, apoi repornește taiji pe portul RPC {{rpcPort}} al Motrix.",
+            "retry": "Portul este liber. Încearcă să pornești taiji din nou fără să schimbi setările.",
             "switch_port": "Procesul nu poate fi oprit în siguranță. Folosește portul {{port}} doar ca soluție de rezervă sau închide manual procesul care produce conflictul.",
             "title": "Restabilire recomandată"
           },
-          "recovered": "Motorul aria2 este din nou disponibil.",
-          "recoveredOnPort": "Motorul aria2 a fost restabilit pe portul RPC {{port}}.",
+          "recovered": "Motorul taiji este din nou disponibil.",
+          "recoveredOnPort": "Motorul taiji a fost restabilit pe portul RPC {{port}}.",
           "recoveryFailed": "Restabilirea motorului a eșuat. Rulează din nou diagnosticarea pentru starea actuală.",
           "refreshFailed": "Diagnosticul nu a putut fi reîmprospătat. Mai jos este afișat ultimul raport reușit.",
           "restart": "Repornește motorul",
@@ -659,9 +659,9 @@
         },
         "features": "Funcționalități",
         "listenPort": "Port de ascultare",
-        "name": "Aria2",
+        "name": "taiji",
         "rpcPort": "Port RPC",
-        "startFailed": "Motorul aria2 nu a putut porni",
+        "startFailed": "Motorul taiji nu a putut porni",
         "state": {
           "disconnected": "Deconectat",
           "failed": "Eșuat",
@@ -1890,7 +1890,8 @@
         "historyLimit": "Înregistrări de recuperare pentru sarcini finalizate",
         "historyLimitDesc": "Lista de descărcări și fișierele descărcate nu sunt afectate.",
         "historySessionOnly": "Nu păstra",
-        "title": "Progres și recuperare"
+        "title": "Progres și recuperare",
+        "managedByTaiji": "taiji automatically saves tasks and progress in its own database. Completed task history remains in Motrix."
       },
       "rpc": {
         "port": "Port RPC",
@@ -2009,7 +2010,8 @@
         "dhtListenPortDesc": "Găsește parteneri prin DHT pe acest port.",
         "listenPort": "Port de ascultare BT",
         "listenPortDesc": "Acceptă conexiunile de intrare ale partenerilor pe acest port.",
-        "title": "Conexiuni de intrare"
+        "title": "Conexiuni de intrare",
+        "sharedPortDesc": "taiji uses this port for peer connections and DHT."
       },
       "newMagnetTasks": "Sarcini magnet noi",
       "peers": {
@@ -2136,7 +2138,8 @@
         "modifiedTimeServer": "Data de pe server",
         "sessionSaveInterval": "Interval de salvare a progresului (s)",
         "sessionSaveIntervalDesc": "Salvează mai des pentru a pierde mai puțin progres după o închidere neașteptată.",
-        "title": "Disc și fișiere"
+        "title": "Disc și fișiere",
+        "managedByTaiji": "taiji manages disk allocation and cache automatically."
       },
       "fillInLinksWhenOpeningNewTask": "Lipește linkurile copiate la deschiderea unei sarcini noi.",
       "magnet": {

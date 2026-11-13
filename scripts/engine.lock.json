@@ -1,56 +1,42 @@
 {
-  "engine": "aria2",
-  "repo": "motrixapp/aria2",
-  "tag": "v1.37.0-motrix.25",
-  "version": "1.37.0-motrix.25",
+  "engine": "taiji",
+  "repo": "motrixapp/taiji",
+  "tag": "v0.2.0",
+  "version": "0.2.0",
   "assets": {
     "darwin-arm64": {
-      "file": "aria2c-1.37.0-motrix.25-darwin-arm64.tar.gz",
-      "bin": "aria2c",
-      "archiveSha256": "fb9e8cfc64cb38a7cc8f9a735d065620d16f6ed24dc09a1250b6c7d9261ca630",
-      "binarySha256": "4b72f07d733109c619615f6a15d7904f456da8205fe93ae7bfaab57ae860e910"
+      "bin": "taiji",
+      "rustTarget": "aarch64-apple-darwin"
     },
     "darwin-x64": {
-      "file": "aria2c-1.37.0-motrix.25-darwin-x64.tar.gz",
-      "bin": "aria2c",
-      "archiveSha256": "7dc2e0041088b061c8690ef32e8c560224cff76de54aae820052872dc51b12a2",
-      "binarySha256": "03164972de91c3226d24f4e322d63b3ce9fef9754331cdc1e0138f5fb195bd0d"
-    },
-    "win32-arm64": {
-      "file": "aria2c-1.37.0-motrix.25-win32-arm64.zip",
-      "bin": "aria2c.exe",
-      "archiveSha256": "b650f9c5d51617a2a2447ab7a119bc7451394779e35d8b3fd7630552b9033418",
-      "binarySha256": "385062ead137fa50d114ef581c20405b22faf6bb707dea871ee4cd8785051b9c"
-    },
-    "win32-x64": {
-      "file": "aria2c-1.37.0-motrix.25-win32-x64.zip",
-      "bin": "aria2c.exe",
-      "archiveSha256": "8058bb40b518990f611c27276e6a646991b9a9a44964b04e02e329461af74a36",
-      "binarySha256": "cbdd159c948e1f652a78b8904669d1dc4a140ad5484fd3710f07d7d16919c5bc"
-    },
-    "win32-ia32": {
-      "file": "aria2c-1.37.0-motrix.25-win32-ia32.zip",
-      "bin": "aria2c.exe",
-      "archiveSha256": "c1ede373a2cdc2ab1190e3b6034fd42446730c5738223dfafe1aad57d77186cd",
-      "binarySha256": "81f69a61a995c62d764fd473800fbaf77b7ed29d7fe1763ce92e2e6cbe1b997c"
+      "bin": "taiji",
+      "rustTarget": "x86_64-apple-darwin"
     },
     "linux-x64": {
-      "file": "aria2c-1.37.0-motrix.25-linux-x64.tar.gz",
-      "bin": "aria2c",
-      "archiveSha256": "881c5184341eda22c47d81330e9f48697f9c5389e5f2599324dae881cda50719",
-      "binarySha256": "3148270e05d62abc58bea04944ed940dbc8ba2c5aef9f3936a706b9d3b627201"
+      "bin": "taiji",
+      "rustTarget": "x86_64-unknown-linux-musl",
+      "flatpakRustTarget": "x86_64-unknown-linux-gnu"
     },
     "linux-arm64": {
-      "file": "aria2c-1.37.0-motrix.25-linux-arm64.tar.gz",
-      "bin": "aria2c",
-      "archiveSha256": "1f9a8187305b848ad0b0ffa90358f2712fc64bdde6eabba76955a3c45ecea1ed",
-      "binarySha256": "0b25678b2337c23d0537fc916c57ae61dcc27f87a4f4e64a870d00949a286936"
+      "bin": "taiji",
+      "rustTarget": "aarch64-unknown-linux-musl",
+      "flatpakRustTarget": "aarch64-unknown-linux-gnu"
     },
     "linux-arm": {
-      "file": "aria2c-1.37.0-motrix.25-linux-armv7l.tar.gz",
-      "bin": "aria2c",
-      "archiveSha256": "287bc571b46e3e767d3398834dea8e8d893c7e348d3e0c567a63e9d66873a611",
-      "binarySha256": "76d2bb7c3de7831554da393e031251e0c590a22b59b54deeb77e82e8726e905f"
+      "bin": "taiji",
+      "rustTarget": "armv7-unknown-linux-musleabihf"
+    },
+    "win32-x64": {
+      "bin": "taiji.exe",
+      "rustTarget": "x86_64-pc-windows-msvc"
+    },
+    "win32-arm64": {
+      "bin": "taiji.exe",
+      "rustTarget": "aarch64-pc-windows-msvc"
+    },
+    "win32-ia32": {
+      "bin": "taiji.exe",
+      "rustTarget": "i686-pc-windows-msvc"
     }
   }
 }

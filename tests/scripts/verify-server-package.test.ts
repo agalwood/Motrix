@@ -11,8 +11,10 @@ import {
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
+import pinnedEngine from '../../scripts/engine.lock.json'
 import { stageServerApp } from '../../scripts/stage-server-app.mjs'
 import { verifyServerPackage } from '../../scripts/verify-server-package.mjs'
+import { writeEngineReceipt } from './engine-fixture'
 
 const temporaryRoots: string[] = []
 
@@ -211,24 +213,38 @@ async function createStagedFixture(
   let engineLock: FixtureEngineLock | undefined
   if (options.withEngine) {
     const engineBytes = nativeHeader('darwin', 'arm64')
-    await writeFixtureFile(root, 'extra/darwin/arm64/aria2c', engineBytes)
-    await chmod(path.join(root, 'extra/darwin/arm64/aria2c'), 0o755)
+    await writeFixtureFile(root, 'extra/darwin/arm64/taiji', engineBytes)
+    await chmod(path.join(root, 'extra/darwin/arm64/taiji'), 0o755)
+    await writeEngineReceipt(
+      path.join(root, 'extra/darwin/arm64/taiji'),
+      'darwin',
+      'arm64'
+    )
+    for (const name of ['taiji-build.json', 'taiji-licenses.txt'])
+      contract.resourceInputs.push({
+        source: `extra/{platform}/{arch}/${name}`,
+        destination: `bin/${name}`,
+        type: 'file',
+      })
     contract.resourceInputs.splice(1, 0, {
-      source: 'extra/{platform}/{arch}/{aria2Binary}',
-      destination: 'bin/{aria2Binary}',
+      source: 'extra/{platform}/{arch}/{engineBinary}',
+      destination: 'bin/{engineBinary}',
       type: 'file',
     })
     engineLock = {
-      engine: 'aria2',
-      version: '1.37.0-motrix.test',
+      engine: 'taiji',
+      version: pinnedEngine.version,
       assets: {
         'darwin-arm64': {
-          bin: 'aria2c',
+          bin: 'taiji',
           binarySha256: createHash('sha256').update(engineBytes).digest('hex'),
         },
       },
     }
   }
+  contract.resourceInputs.sort((a, b) =>
+    a.source < b.source ? -1 : a.source > b.source ? 1 : 0
+  )
   await stageServerApp({
     repoRoot: root,
     platform: 'darwin',
@@ -275,14 +291,14 @@ describe('verifyServerPackage', () => {
     expect(JSON.parse(reportJson)).toEqual(report)
   })
 
-  it('accepts only the target aria2 binary pinned by the engine lock', async () => {
+  it('accepts only the target taiji binary pinned by the engine lock', async () => {
     const fixture = await createStagedFixture({ withEngine: true })
     const report = await verifyFixture(fixture)
 
     expect(report.engineBinary).toEqual(
       expect.objectContaining({
-        path: 'bin/aria2c',
-        version: '1.37.0-motrix.test',
+        path: 'bin/taiji',
+        version: pinnedEngine.version,
         format: 'mach-o',
         arch: 'arm64',
       })
@@ -290,7 +306,10 @@ describe('verifyServerPackage', () => {
 
     const asset = fixture.engineLock?.assets['darwin-arm64']
     if (!asset) throw new Error('fixture engine lock is missing its asset')
-    asset.binarySha256 = '0'.repeat(64)
+    await writeFile(
+      path.join(fixture.stageRoot, 'bin/taiji'),
+      'modified binary'
+    )
     await expect(verifyFixture(fixture)).rejects.toThrow('bundled-engine')
   })
 

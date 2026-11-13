@@ -40,24 +40,6 @@ export function EngineTuningSection({
       label: t('settings.downloads.disk.fileDeletionPermanent'),
     },
   ] as const
-  const fileAllocationOptions = [
-    {
-      value: 'none',
-      label: t('settings.downloads.disk.fileAllocationNone'),
-    },
-    {
-      value: 'prealloc',
-      label: t('settings.downloads.disk.fileAllocationPrealloc'),
-    },
-    {
-      value: 'trunc',
-      label: t('settings.downloads.disk.fileAllocationTrunc'),
-    },
-    {
-      value: 'falloc',
-      label: t('settings.downloads.disk.fileAllocationFalloc'),
-    },
-  ] as const
   const modifiedTimeOptions = [
     {
       value: 'local',
@@ -179,44 +161,9 @@ export function EngineTuningSection({
           )}
         />
       )}
-      <FormField
-        control={form.control}
-        name="engine.fileAllocation"
-        render={({ field }) => (
-          <SettingsFormRow className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-            <div className="min-w-0 flex-1 space-y-1">
-              <FormLabel>
-                {t('settings.downloads.disk.fileAllocation')}
-              </FormLabel>
-              <FormDescription className="text-xs">
-                {t('settings.downloads.disk.fileAllocationDesc')}
-              </FormDescription>
-            </div>
-            <FormControl>
-              <Select
-                items={fileAllocationOptions}
-                value={field.value}
-                onValueChange={(value) => {
-                  if (value !== null) field.onChange(value)
-                }}
-              >
-                <SettingsSelectTrigger>
-                  <SelectValue />
-                </SettingsSelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {fileAllocationOptions.map(({ label, value }) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </FormControl>
-          </SettingsFormRow>
-        )}
-      />
+      <p className="text-xs text-muted-foreground">
+        {t('settings.downloads.disk.managedByTaiji')}
+      </p>
       <FormField
         control={form.control}
         name="engine.remoteTime"

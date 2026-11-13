@@ -278,7 +278,6 @@ describe('<DownloadsDialog>', () => {
     ['max connections per server', '65', 'Enter a whole number from 1 to 64.'],
     ['min segment size', '1025', 'Enter a number from 1 to 1024.'],
     ['min segment size', '0.5', 'Enter a number from 1 to 1024.'],
-    ['disk cache', '129', 'Enter a number from 0 to 128.'],
     ['simultaneous downloads', '201', 'Enter a whole number from 1 to 200.'],
     ['connection timeout', '601', 'Enter a whole number from 1 to 600.'],
     ['maximum attempts', '-1', 'Enter a whole number from 0 to 100.'],
@@ -433,7 +432,6 @@ describe('<DownloadsDialog>', () => {
             maxConnectionPerServer:
               ENGINE_PERFORMANCE_PROFILES.high.maxConnectionPerServer,
             split: ENGINE_PERFORMANCE_PROFILES.high.split,
-            diskCache: ENGINE_PERFORMANCE_PROFILES.high.diskCache,
           },
         },
         directories: {
@@ -469,7 +467,7 @@ describe('<DownloadsDialog>', () => {
     ).toBeTruthy()
   })
 
-  it('saves split, file allocation, and disk cache as explicit user values', async () => {
+  it('saves native connection settings while storage allocation stays automatic', async () => {
     render(
       <DownloadsDialog
         open
@@ -489,15 +487,10 @@ describe('<DownloadsDialog>', () => {
     fireEvent.change(screen.getByLabelText(/max connections per file/i), {
       target: { value: '32' },
     })
-    fireEvent.change(screen.getByLabelText(/disk cache/i), {
-      target: { value: '64' },
-    })
-    await user.click(
-      screen.getByRole('combobox', { name: /reserve disk space/i })
-    )
-    await user.click(
-      await screen.findByRole('option', { name: /^preallocate$/i })
-    )
+    expect(screen.queryByLabelText(/disk cache/i)).toBeNull()
+    expect(
+      screen.queryByRole('combobox', { name: /reserve disk space/i })
+    ).toBeNull()
     await user.click(screen.getByRole('button', { name: /save/i }))
 
     expect(transport.invoke).toHaveBeenCalledWith(
@@ -508,8 +501,6 @@ describe('<DownloadsDialog>', () => {
           engine: {
             performanceProfile: 'custom',
             split: 32,
-            fileAllocation: 'prealloc',
-            diskCache: 64 * 1024 * 1024,
           },
         },
         directories: {

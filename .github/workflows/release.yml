@@ -6,7 +6,7 @@
 # assembly path without signing or publishing.
 #
 # Release-enabled targets are the current intersection of:
-#   - a locked scripts/engine.lock.json aria2 asset;
+#   - a taiji build verified against the locked source;
 #   - an Electron 44 / electron-builder package target;
 #   - a native GitHub-hosted runner;
 #   - a packages/native-host/build.mjs Rust target.
@@ -175,7 +175,7 @@ jobs:
     # musl-gcc mixes CRTs and produces binaries that SIGSEGV at load (see
     # ci.yml package-targets).
     env:
-      # Electron 44 requires macOS 13 even though the locked aria2 binaries
+      # Electron 44 requires macOS 13 even though the locked taiji targets
       # themselves are built with an 11.0 deployment target.
       MACOSX_DEPLOYMENT_TARGET: ${{ matrix.platform == 'darwin' && '13.0' || '' }}
 
@@ -204,7 +204,7 @@ jobs:
           # squashfs-tools provides `unsquashfs`, used by
           # verify-appimage-artifact.mjs to read the AppImage's embedded
           # desktop entry. zsync provides the canonical `zsyncmake` generator.
-          sudo apt-get install --yes rpm squashfs-tools zsync zstd libarchive-tools
+          sudo apt-get install --yes rpm squashfs-tools zsync zstd libarchive-tools musl-tools
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
@@ -238,11 +238,16 @@ jobs:
       - name: Ensure Electron runtime payload
         run: node node_modules/electron/install.js
 
-      - name: Fetch target aria2
+      - name: Install taiji C build tools
+        if: matrix.platform == 'linux'
+        run: sudo apt-get update && sudo apt-get install --yes musl-tools
+
+      - name: Build target taiji
         run: >-
           pnpm run fetch:engine
           --platform ${{ matrix.platform }}
           --arch ${{ matrix.arch }}
+          --test
 
       - name: Third-party notice contract
         run: pnpm run check:third-party-notices
@@ -256,16 +261,11 @@ jobs:
 
       - name: Native runtime integration
         env:
-          MOTRIX_ARIA2_TEST_BIN: ${{ github.workspace }}/extra/${{ matrix.platform }}/${{ matrix.arch }}/${{ matrix.platform == 'win32' && 'aria2c.exe' || 'aria2c' }}
-          MOTRIX_REQUIRE_HTTP_RETRY_TEST: '1'
-          MOTRIX_LEGACY_CHECKPOINT_ENGINE: ${{ github.workspace }}/extra/${{ matrix.platform }}/${{ matrix.arch }}/${{ matrix.platform == 'win32' && 'aria2c.exe' || 'aria2c' }}
+          MOTRIX_TAIJI_BIN: ${{ github.workspace }}/extra/${{ matrix.platform }}/${{ matrix.arch }}/${{ matrix.platform == 'win32' && 'taiji.exe' || 'taiji' }}
           MOTRIX_FINALIZE_FS_TEST_BIN: packages/finalize-fs/dist/${{ matrix.platform }}-${{ matrix.arch }}/${{ matrix.platform == 'win32' && 'motrix-finalize-fs.exe' || 'motrix-finalize-fs' }}
         run: >-
           pnpm exec vitest run
-          src/core/task/direct-task-retry.integration.test.ts
-          src/core/task/http-finalize.integration.test.ts
-          src/core/engine/aria2/aria2-session-identity-recovery.integration.test.ts
-          src/core/legacy-import/http-activation.integration.test.ts
+          src/core/engine/taiji/
           src/core/plugin/finalize/native-artifact-operations.integration.test.ts
           src/core/plugin/finalize/finalize-adversarial.integration.test.ts
           src/core/plugin/finalize/finalize-smb-recovery.integration.test.ts
@@ -346,7 +346,7 @@ jobs:
               ? 'motrix-native-host.exe'
               : 'motrix-native-host'
           const engine =
-            process.env.TARGET_PLATFORM === 'win32' ? 'aria2c.exe' : 'aria2c'
+            process.env.TARGET_PLATFORM === 'win32' ? 'taiji.exe' : 'taiji'
           const finalize =
             process.env.TARGET_PLATFORM === 'win32'
               ? 'motrix-finalize-fs.exe'
@@ -356,7 +356,7 @@ jobs:
             'app.asar',
             'THIRD_PARTY_NOTICES.md',
             'THIRD_PARTY_NOTICES.zh-CN.md',
-            path.join('THIRD_PARTY_LICENSES', 'aria2-COPYING'),
+            path.join('THIRD_PARTY_LICENSES', 'taiji-COPYING'),
             path.join('legal', 'THIRD_PARTY_DEPENDENCIES.md'),
             path.join('legal', 'THIRD_PARTY_LICENSES.txt'),
             path.join('legal', 'sbom.spdx.json'),
@@ -392,13 +392,13 @@ jobs:
           --arch ${{ matrix.arch }}
           --report "release/size-reports/${{ matrix.target }}-runtime.json"
 
-      - name: Verify staged Windows aria2 WebSocket contract
+      - name: Verify staged Windows taiji RPC contract
         if: matrix.platform == 'win32'
         env:
-          MOTRIX_ARIA2_TEST_BIN: ${{ matrix.resources_dir }}/extra/win32/${{ matrix.arch }}/aria2c.exe
+          MOTRIX_TAIJI_BIN: ${{ matrix.resources_dir }}/extra/win32/${{ matrix.arch }}/taiji.exe
         run: >-
           pnpm exec vitest run
-          src/core/engine/aria2/engine-websocket-contract.integration.test.ts
+          src/core/engine/taiji/taiji-adapter.integration.test.ts
           --reporter=verbose
 
       - name: Create isolated signing input
@@ -941,7 +941,7 @@ jobs:
           EXPECTED_COMMIT: ${{ github.sha }}
           EXPECTED_PLATFORM: ${{ matrix.platform }}
           # Updated only after reviewing the verifier source itself.
-          VERIFIER_SHA256: 7fbe001750d6edf30e883521f7c7b0ec252d429c33157b961b46abcbff8a9c66
+          VERIFIER_SHA256: d93805a5a6952ed5b7d8e8060fc9b835b81ef0331c0700383ebc349b4213148d
         run: |
           const crypto = require('node:crypto')
           const fs = require('node:fs')
@@ -1057,6 +1057,12 @@ jobs:
             'electron-package-size-budgets.json',
             'electron-package-utils.mjs',
             'native-binary-target.mjs',
+            'engine-source.mjs',
+            'native-engine-digest.mjs',
+            'verify-engine-artifact.mjs',
+            'engine.lock.json',
+            'taiji-source.lock.json',
+
             'verify-electron-package.mjs',
           ]) {
             const source = path.join('signing-input', 'scripts', name)

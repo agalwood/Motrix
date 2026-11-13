@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "artifactBytes": 50528256,
+  "artifactBytes": 67108864,
   "dependencyBytes": 26214400,
   "packageInstances": 131,
   "unexpectedRuntimeRoots": 0,

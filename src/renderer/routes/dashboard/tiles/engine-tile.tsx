@@ -70,8 +70,10 @@ export function EngineTile({
   const stateLabel = t(`panel.dashboard.engine.state.${status.state}`)
   const dot = DOT[status.state]
 
-  // 'aria2c 1.37.0-motrix.1' only show '1.37.0'
-  const shortVersion = String(status.version).split('-')[0]
+  // Keep the tile compact; diagnostics retain the full engine build version.
+  const shortVersion = String(status.version)
+    .replace(/^taiji\//, '')
+    .split('-')[0]
   const subItems = [
     {
       label: t('panel.dashboard.engine.name'),
@@ -157,7 +159,7 @@ export function EngineTile({
           className="mt-auto flex items-center justify-between"
         >
           <div className="flex shrink-0 items-center gap-3 text-muted-foreground text-[11px]">
-            {`aria2 v${shortVersion}`}
+            {`taiji v${shortVersion}`}
           </div>
           <StatusDot pulse={pulse} className={cn(dot)} />
         </div>

@@ -34,7 +34,7 @@ async function writeFixtureFile(
 
 async function createFixture(): Promise<{
   stageRoot: string
-  aria2Bin: string
+  taijiBin: string
 }> {
   const root = await mkdtemp(
     path.join(os.tmpdir(), 'motrix-server-smoke-test-')
@@ -108,13 +108,13 @@ async function createFixture(): Promise<{
   )
   await writeFixtureFile(stageRoot, 'extra/aria2.conf', '')
   await mkdir(path.join(stageRoot, 'builtin-plugins'), { recursive: true })
-  const aria2Bin = await writeFixtureFile(
+  const taijiBin = await writeFixtureFile(
     stageRoot,
-    'bin/aria2c',
+    'bin/taiji',
     '#!/bin/sh\nexit 0\n'
   )
-  await chmod(aria2Bin, 0o755)
-  return { stageRoot, aria2Bin }
+  await chmod(taijiBin, 0o755)
+  return { stageRoot, taijiBin }
 }
 
 describe('smokeServerPackage', () => {
@@ -144,9 +144,9 @@ describe('smokeServerPackage', () => {
     await expect(
       smokeServerPackage({
         appDir: fixture.stageRoot,
-        aria2Bin: path.join(fixture.stageRoot, 'missing-aria2c'),
+        taijiBin: path.join(fixture.stageRoot, 'missing-taiji'),
       })
-    ).rejects.toThrow('aria2 binary is not a file')
+    ).rejects.toThrow('taiji binary is not a file')
   })
 
   it('reports startup logs when the Server terminates without graceful shutdown', async () => {

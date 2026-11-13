@@ -542,12 +542,12 @@
             "rpc": "RPC порт"
           },
           "communication": {
-            "ready": "Motrix може да се свърже с aria2."
+            "ready": "Motrix може да се свърже с taiji."
           },
           "confirmForce": {
             "action": "Принудително спиране и възстановяване",
-            "description": "PID {{pid}} съответства на включения изпълним файл, частния RPC таен код и пътищата за данни на Motrix. Той ще бъде прекратен незабавно, след което aria2 ще се рестартира на RPC порта на Motrix.",
-            "title": "Принудително спиране на остатъчния процес aria2?"
+            "description": "PID {{pid}} съответства на включения изпълним файл, частния RPC таен код и пътищата за данни на Motrix. Той ще бъде прекратен незабавно, след което taiji ще се рестартира на RPC порта на Motrix.",
+            "title": "Принудително спиране на остатъчния процес taiji?"
           },
           "copied": "Копирано",
           "copy": "Копиране на диагностиката",
@@ -560,14 +560,14 @@
             "blocked": "Портът по подразбиране {{port}} се използва от PID {{pid}} ({{name}}), но Motrix не може да потвърди принадлежността на процеса. Процесът няма да бъде прекратен.",
             "confirm": {
               "action": "Спиране и възстановяване на порт {{port}}",
-              "description": "PID {{pid}} е потвърден остатъчен процес aria2 на Motrix. Той ще бъде спрян, портът по подразбиране {{port}} ще бъде запазен и aria2 ще се рестартира.",
+              "description": "PID {{pid}} е потвърден остатъчен процес taiji на Motrix. Той ще бъде спрян, портът по подразбиране {{port}} ще бъде запазен и taiji ще се рестартира.",
               "title": "Спиране на остатъчния процес и възстановяване на порт {{port}}?"
             },
             "restore": "Възстановяване на порта по подразбиране {{port}}",
             "restoredDefault": "RPC портът по подразбиране на Motrix {{port}} е възстановен.",
             "restoring": "Възстановяване на порта по подразбиране на Motrix {{port}}…",
             "unidentified": "Процесът, използващ порта по подразбиране {{port}}, не можа да бъде идентифициран. Motrix ще продължи да използва текущия порт.",
-            "verifiedOrphan": "Потвърден остатъчен процес aria2 на Motrix (PID {{pid}}) използва порта по подразбиране {{port}}. Motrix може безопасно да го спре, преди да възстанови порта."
+            "verifiedOrphan": "Потвърден остатъчен процес taiji на Motrix (PID {{pid}}) използва порта по подразбиране {{port}}. Motrix може безопасно да го спре, преди да възстанови порта."
           },
           "features": {
             "none": "Няма отчетени данни",
@@ -581,7 +581,7 @@
           },
           "lastChecked": "Проверено в {{time}}",
           "loadFailed": "Диагностиката на модула не можа да се изпълни.",
-          "motrixEngine": "aria2 Motrix",
+          "motrixEngine": "taiji Motrix",
           "open": "Диагностика",
           "port": {
             "available": "{{port}} (Свободен)",
@@ -598,22 +598,22 @@
             "verified_orphan": "PID {{pid}} ({{name}}), потвърден остатъчен процес на Motrix; може безопасно да се спре"
           },
           "reason": {
-            "binary_unavailable": "Включеният изпълним файл aria2 липсва или е недостъпен.",
-            "health_check_failed": "aria2 спря да отговаря на Motrix.",
-            "port_in_use": "RPC портът на Motrix е зает и модулът aria2 не можа да се стартира.",
-            "rpc_unavailable": "Модулът aria2 се стартира, но не прие RPC връзките на Motrix.",
-            "spawn_failed": "Процесът aria2 не можа да бъде създаден.",
-            "unexpected_exit": "Модулът aria2 приключи неочаквано.",
-            "unknown": "Модулът aria2 не можа да се стартира по неизвестна причина."
+            "binary_unavailable": "Включеният изпълним файл taiji липсва или е недостъпен.",
+            "health_check_failed": "taiji спря да отговаря на Motrix.",
+            "port_in_use": "RPC портът на Motrix е зает и модулът taiji не можа да се стартира.",
+            "rpc_unavailable": "Модулът taiji се стартира, но не прие RPC връзките на Motrix.",
+            "spawn_failed": "Процесът taiji не можа да бъде създаден.",
+            "unexpected_exit": "Модулът taiji приключи неочаквано.",
+            "unknown": "Модулът taiji не можа да се стартира по неизвестна причина."
           },
           "recommendation": {
-            "force_terminate": "Потвърдено е, че този процес принадлежи на Motrix. Спрете принудително PID {{pid}}, след което рестартирайте aria2 на RPC порта на Motrix {{rpcPort}}.",
-            "retry": "Портът е свободен. Опитайте да стартирате aria2 отново, без да променяте настройките.",
+            "force_terminate": "Потвърдено е, че този процес принадлежи на Motrix. Спрете принудително PID {{pid}}, след което рестартирайте taiji на RPC порта на Motrix {{rpcPort}}.",
+            "retry": "Портът е свободен. Опитайте да стартирате taiji отново, без да променяте настройките.",
             "switch_port": "Процесът не може да бъде прекратен безопасно. Използвайте порт {{port}} само като резервен вариант или затворете конфликтния процес сами.",
             "title": "Препоръчано възстановяване"
           },
-          "recovered": "Модулът aria2 отново е достъпен.",
-          "recoveredOnPort": "Модулът aria2 е възстановен на RPC порт {{port}}.",
+          "recovered": "Модулът taiji отново е достъпен.",
+          "recoveredOnPort": "Модулът taiji е възстановен на RPC порт {{port}}.",
           "recoveryFailed": "Възстановяването на модула е неуспешно. Изпълнете диагностиката отново за актуалното състояние.",
           "refreshFailed": "Диагностиката не можа да бъде обновена. По-долу е показан последният успешен отчет.",
           "restart": "Рестартиране на модула",
@@ -658,9 +658,9 @@
         },
         "features": "Възможности",
         "listenPort": "Порт за входящи връзки",
-        "name": "Aria2",
+        "name": "taiji",
         "rpcPort": "RPC порт",
-        "startFailed": "Модулът aria2 не можа да се стартира",
+        "startFailed": "Модулът taiji не можа да се стартира",
         "state": {
           "disconnected": "Няма връзка",
           "failed": "Грешка",
@@ -1871,7 +1871,8 @@
         "historyLimit": "Записи за възстановяване на завършени задачи",
         "historyLimitDesc": "Списъкът с изтегляния и изтеглените файлове не се засягат.",
         "historySessionOnly": "Без запазване",
-        "title": "Напредък и възстановяване"
+        "title": "Напредък и възстановяване",
+        "managedByTaiji": "taiji automatically saves tasks and progress in its own database. Completed task history remains in Motrix."
       },
       "rpc": {
         "port": "RPC порт",
@@ -1990,7 +1991,8 @@
         "dhtListenPortDesc": "Намира участници чрез DHT на този порт.",
         "listenPort": "BT порт за входящи връзки",
         "listenPortDesc": "Приема входящи връзки от участници на този порт.",
-        "title": "Входящи връзки"
+        "title": "Входящи връзки",
+        "sharedPortDesc": "taiji uses this port for peer connections and DHT."
       },
       "newMagnetTasks": "Нови magnet задачи",
       "peers": {
@@ -2117,7 +2119,8 @@
         "modifiedTimeServer": "Време от сървъра",
         "sessionSaveInterval": "Интервал за запазване на напредъка (сек)",
         "sessionSaveIntervalDesc": "По-честото запазване намалява загубения напредък при срив.",
-        "title": "Диск и файлове"
+        "title": "Диск и файлове",
+        "managedByTaiji": "taiji manages disk allocation and cache automatically."
       },
       "fillInLinksWhenOpeningNewTask": "Поставя копираните връзки при отваряне на нова задача.",
       "magnet": {

@@ -1633,7 +1633,11 @@ export class SessionManager {
       saveDir: restoreTaskSaveDirectory(taskPart, pair.instances, aria2.dir),
       createdAt: taskPart.createdAt,
       updatedAt: now,
-      uris: hasLegacyImport(pair) ? (primary?.uris ?? []) : extractUris(aria2),
+      uris: hasLegacyImport(pair)
+        ? (primary?.uris ?? [])
+        : extractUris(aria2).length > 0
+          ? extractUris(aria2)
+          : (primary?.uris ?? []),
       uploadedBytes,
       uploadedBytesBaseline,
       fileCount,

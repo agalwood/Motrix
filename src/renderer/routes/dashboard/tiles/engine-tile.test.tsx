@@ -119,8 +119,8 @@ describe('EngineTile', () => {
     expect(diagnoseButton).toHaveAttribute('data-variant', 'ghost')
     expect(screen.queryByTestId('engine-subs')).not.toBeInTheDocument()
     expect(screen.getByTestId('engine-footer')).toContainElement(statusDot)
-    // Compact collapses the details to a single "aria2 v<version>" line.
-    expect(screen.getByText(/aria2 v1\.37\.0/)).toBeInTheDocument()
+    // Compact collapses the details to a single "taiji v<version>" line.
+    expect(screen.getByText(/taiji v1\.37\.0/)).toBeInTheDocument()
   })
 
   it('renders Reconnecting state', () => {

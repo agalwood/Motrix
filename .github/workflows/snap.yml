@@ -144,7 +144,10 @@ jobs:
       - name: Ensure Electron runtime payload
         run: node scripts/ensure-electron-runtime.mjs --retry-download
 
-      - name: Fetch target aria2
+      - name: Install taiji C build tools
+        run: sudo apt-get update && sudo apt-get install --yes musl-tools
+
+      - name: Build target taiji
         run: >-
           pnpm run fetch:engine
           --platform linux

@@ -58,7 +58,7 @@ flatpak uninstall --user app.motrix.native
 
 Release 工作流复用 PR CI 使用的 x86_64/aarch64 原生 Flatpak 构建流程。它归档
 发布事件对应的提交，核对源码版本、发布预检版本及 AppStream 版本，并固定源码
-归档的校验和。每个包都会实际安装，检查应用 ID、架构、分支、版本、aria2 功能和
+归档的校验和。每个包都会实际安装，检查应用 ID、架构、分支、版本、taiji 引擎身份和
 私有 broker 协议。x86_64 还会检查宿主机 companion 的 Native Messaging 帧通信。
 
 两种架构都成功后才能组装和发布 Release。主程序包属于必需发布产物，不进入

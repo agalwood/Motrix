@@ -421,12 +421,12 @@ export async function stageServerApp(options = {}) {
   }
   const resolvedContract = {
     ...contract,
-    buildInputs: contract.buildInputs.map((input) =>
-      resolveServerInput(input, target)
-    ),
-    resourceInputs: contract.resourceInputs.map((input) =>
-      resolveServerInput(input, target)
-    ),
+    buildInputs: contract.buildInputs
+      .map((input) => resolveServerInput(input, target))
+      .sort((a, b) => (a.source < b.source ? -1 : a.source > b.source ? 1 : 0)),
+    resourceInputs: contract.resourceInputs
+      .map((input) => resolveServerInput(input, target))
+      .sort((a, b) => (a.source < b.source ? -1 : a.source > b.source ? 1 : 0)),
   }
   const inputs = [
     ...resolvedContract.buildInputs,

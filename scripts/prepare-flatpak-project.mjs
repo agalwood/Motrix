@@ -68,7 +68,8 @@ export function replaceApplicationSource(manifest, archivePath, sha256) {
     if (
       typeof source === 'object' &&
       source !== null &&
-      source.type === 'git'
+      source.type === 'git' &&
+      !source.dest
     ) {
       return [index]
     }

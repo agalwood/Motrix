@@ -6,7 +6,7 @@ import { createNodePlatformServices } from './services'
 const FAKE_MODULE_URL = 'file:///fake/repo/dist/server/index.mjs'
 
 describe('createNodePlatformServices', () => {
-  it('linux falls back to /var/lib/motrix /usr/share/motrix/extra /usr/bin/aria2c', () => {
+  it('linux uses profile defaults and resolves the bundled engine relative to the module', () => {
     const svc = createNodePlatformServices({
       platform: 'linux',
       env: {},
@@ -15,8 +15,10 @@ describe('createNodePlatformServices', () => {
     })
     expect(svc.host).toBe(RunHost.Node)
     expect(svc.userDataDir).toBe('/var/lib/motrix')
-    expect(svc.extraResourceDir).toBe('/usr/share/motrix/extra')
-    expect(svc.aria2BinaryPath).toBe('/usr/bin/aria2c')
+    expect(svc.extraResourceDir).toBe('/fake/repo/extra')
+    expect(svc.engineBinaryPath).toBe(
+      `/fake/repo/extra/linux/${process.arch}/taiji`
+    )
   })
 
   it('darwin resolves userDataDir to ~/Library/Application Support/motrix-turbo-server', () => {
@@ -46,7 +48,7 @@ describe('createNodePlatformServices', () => {
     expect(svc.extraResourceDir).toBe(path.join('/fake/repo', 'extra'))
   })
 
-  it('darwin resolves aria2BinaryPath inside extra/darwin/<arch>/aria2c', () => {
+  it('darwin resolves engineBinaryPath inside extra/darwin/<arch>/taiji', () => {
     const svc = createNodePlatformServices({
       platform: 'darwin',
       arch: 'arm64',
@@ -54,8 +56,8 @@ describe('createNodePlatformServices', () => {
       homedir: () => '/home/test',
       moduleUrl: FAKE_MODULE_URL,
     })
-    expect(svc.aria2BinaryPath).toBe(
-      path.join('/fake/repo', 'extra', 'darwin', 'arm64', 'aria2c')
+    expect(svc.engineBinaryPath).toBe(
+      path.join('/fake/repo', 'extra', 'darwin', 'arm64', 'taiji')
     )
   })
 
@@ -81,7 +83,7 @@ describe('createNodePlatformServices', () => {
     expect(svc.userDataDir).toBe(path.join('/fake/home', 'motrix-turbo-server'))
   })
 
-  it('win32 aria2BinaryPath ends with aria2c.exe', () => {
+  it('win32 engineBinaryPath ends with taiji.exe', () => {
     const svc = createNodePlatformServices({
       platform: 'win32',
       arch: 'x64',
@@ -89,8 +91,8 @@ describe('createNodePlatformServices', () => {
       homedir: () => '/fake/home',
       moduleUrl: FAKE_MODULE_URL,
     })
-    expect(svc.aria2BinaryPath).toContain(
-      path.join('extra', 'win32', 'x64', 'aria2c.exe')
+    expect(svc.engineBinaryPath).toContain(
+      path.join('extra', 'win32', 'x64', 'taiji.exe')
     )
   })
 
@@ -100,14 +102,14 @@ describe('createNodePlatformServices', () => {
       env: {
         MOTRIX_DATA_DIR: '/custom/data',
         MOTRIX_EXTRA_DIR: '/custom/extra',
-        MOTRIX_ARIA2_BIN: '/custom/aria2c',
+        MOTRIX_TAIJI_BIN: '/custom/taiji',
       },
       homedir: () => '/home/test',
       moduleUrl: FAKE_MODULE_URL,
     })
     expect(svc.userDataDir).toBe('/custom/data')
     expect(svc.extraResourceDir).toBe('/custom/extra')
-    expect(svc.aria2BinaryPath).toBe('/custom/aria2c')
+    expect(svc.engineBinaryPath).toBe('/custom/taiji')
   })
 
   it('NODE_ENV=development flips isDev true', () => {

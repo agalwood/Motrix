@@ -402,7 +402,7 @@ export async function verifyExtractedSnap({ root, arch, version }) {
       'extra',
       'linux',
       architecture.electronArch,
-      'aria2c'
+      'taiji'
     ),
     'aria2 executable',
     architecture.elfMachine

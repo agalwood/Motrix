@@ -159,7 +159,7 @@
       "engine": {
         "title": "Motor",
         "features": "Özellikler",
-        "startFailed": "aria2 motoru başlatılamadı",
+        "startFailed": "taiji motoru başlatılamadı",
         "state": {
           "ready": "Hazır",
           "starting": "Başlatılıyor…",
@@ -168,7 +168,7 @@
           "disconnected": "Bağlantı kesildi",
           "stopped": "Durduruldu"
         },
-        "name": "Aria2",
+        "name": "taiji",
         "version": "Sürüm",
         "rpcPort": "RPC bağlantı noktası",
         "listenPort": "Dinleme bağlantı noktası",
@@ -211,21 +211,21 @@
             "unknown": "PID {{pid}}, tanımlanamadı; durdurulmayacak"
           },
           "communication": {
-            "ready": "Motrix, aria2 ile iletişim kurabiliyor."
+            "ready": "Motrix, taiji ile iletişim kurabiliyor."
           },
           "reason": {
-            "port_in_use": "Motrix’in RPC bağlantı noktası kullanımda olduğu için aria2 motoru başlatılamadı.",
-            "binary_unavailable": "Uygulamayla gelen aria2 yürütülebilir dosyası eksik veya kullanılamıyor.",
-            "spawn_failed": "aria2 işlemi oluşturulamadı.",
-            "rpc_unavailable": "aria2 motoru başlatıldı ancak Motrix’in RPC bağlantılarını kabul etmedi.",
-            "unexpected_exit": "aria2 motoru beklenmedik şekilde kapandı.",
-            "health_check_failed": "aria2, Motrix’e yanıt vermeyi durdurdu.",
-            "unknown": "aria2 motoru bilinmeyen bir nedenle başlatılamadı."
+            "port_in_use": "Motrix’in RPC bağlantı noktası kullanımda olduğu için taiji motoru başlatılamadı.",
+            "binary_unavailable": "Uygulamayla gelen taiji yürütülebilir dosyası eksik veya kullanılamıyor.",
+            "spawn_failed": "taiji işlemi oluşturulamadı.",
+            "rpc_unavailable": "taiji motoru başlatıldı ancak Motrix’in RPC bağlantılarını kabul etmedi.",
+            "unexpected_exit": "taiji motoru beklenmedik şekilde kapandı.",
+            "health_check_failed": "taiji, Motrix’e yanıt vermeyi durdurdu.",
+            "unknown": "taiji motoru bilinmeyen bir nedenle başlatılamadı."
           },
           "recommendation": {
             "title": "Önerilen kurtarma işlemi",
-            "retry": "Bağlantı noktası boş. Ayarlarınızı değiştirmeden aria2’yi yeniden başlatmayı deneyin.",
-            "force_terminate": "Bu işlemin Motrix’e ait olduğu doğrulandı. PID {{pid}} işlemini zorla durdurun, ardından aria2’yi Motrix’in {{rpcPort}} RPC bağlantı noktasında yeniden başlatın.",
+            "retry": "Bağlantı noktası boş. Ayarlarınızı değiştirmeden taiji’yi yeniden başlatmayı deneyin.",
+            "force_terminate": "Bu işlemin Motrix’e ait olduğu doğrulandı. PID {{pid}} işlemini zorla durdurun, ardından taiji’yi Motrix’in {{rpcPort}} RPC bağlantı noktasında yeniden başlatın.",
             "switch_port": "İşlem güvenle sonlandırılamıyor. {{port}} bağlantı noktasını yalnızca alternatif olarak kullanın veya çakışan işlemi kendiniz kapatın."
           },
           "technicalDetails": "Teknik ayrıntılar",
@@ -233,12 +233,12 @@
           "restart": "Motoru yeniden başlat",
           "switchPort": "{{port}} bağlantı noktasını kullan",
           "forceRecover": "Zorla durdur ve kurtar",
-          "recovered": "aria2 motoru yeniden kullanılabilir durumda.",
-          "recoveredOnPort": "aria2 motoru {{port}} RPC bağlantı noktasında kurtarıldı.",
+          "recovered": "taiji motoru yeniden kullanılabilir durumda.",
+          "recoveredOnPort": "taiji motoru {{port}} RPC bağlantı noktasında kurtarıldı.",
           "recoveryFailed": "Motor kurtarılamadı. Güncel durum için tanılamayı yeniden çalıştırın.",
           "fallback": {
             "available": "Motrix’in varsayılan {{port}} bağlantı noktası kullanılabilir ve şimdi geri yüklenebilir.",
-            "verifiedOrphan": "Motrix’ten kaldığı doğrulanmış bir aria2 işlemi (PID {{pid}}), varsayılan {{port}} bağlantı noktasını kullanıyor. Motrix, bağlantı noktasını geri yüklemeden önce bu işlemi güvenle durdurabilir.",
+            "verifiedOrphan": "Motrix’ten kaldığı doğrulanmış bir taiji işlemi (PID {{pid}}), varsayılan {{port}} bağlantı noktasını kullanıyor. Motrix, bağlantı noktasını geri yüklemeden önce bu işlemi güvenle durdurabilir.",
             "blocked": "Varsayılan {{port}} bağlantı noktasını PID {{pid}} ({{name}}) kullanıyor ancak Motrix bu işlemin kendisine ait olduğunu doğrulayamıyor. İşlem sonlandırılmayacak.",
             "unidentified": "Varsayılan {{port}} bağlantı noktasını kullanan işlem tanımlanamadı. Motrix mevcut bağlantı noktasını kullanmaya devam edecek.",
             "restore": "Motrix’in varsayılan {{port}} bağlantı noktasını geri yükle",
@@ -246,13 +246,13 @@
             "restoredDefault": "Motrix’in varsayılan {{port}} RPC bağlantı noktası geri yüklendi.",
             "confirm": {
               "title": "Kalan işlem durdurulup {{port}} bağlantı noktası geri yüklensin mi?",
-              "description": "PID {{pid}} işleminin Motrix’ten kalan bir aria2 işlemi olduğu doğrulandı. İşlem durdurulacak, varsayılan {{port}} bağlantı noktası kaydedilecek ve aria2 yeniden başlatılacak.",
+              "description": "PID {{pid}} işleminin Motrix’ten kalan bir taiji işlemi olduğu doğrulandı. İşlem durdurulacak, varsayılan {{port}} bağlantı noktası kaydedilecek ve taiji yeniden başlatılacak.",
               "action": "Durdur ve {{port}} bağlantı noktasını geri yükle"
             }
           },
           "confirmForce": {
-            "title": "Kalan aria2 işlemi zorla durdurulsun mu?",
-            "description": "PID {{pid}}, Motrix’le gelen yürütülebilir dosya, özel RPC gizli anahtarı ve veri yollarıyla eşleşiyor. İşlem hemen sonlandırılacak, ardından aria2 Motrix’in RPC bağlantı noktasında yeniden başlatılacak.",
+            "title": "Kalan taiji işlemi zorla durdurulsun mu?",
+            "description": "PID {{pid}}, Motrix’le gelen yürütülebilir dosya, özel RPC gizli anahtarı ve veri yollarıyla eşleşiyor. İşlem hemen sonlandırılacak, ardından taiji Motrix’in RPC bağlantı noktasında yeniden başlatılacak.",
             "action": "Zorla durdur ve kurtar"
           },
           "details": "Tanılama ayrıntıları",
@@ -295,7 +295,7 @@
             "listening": "{{port}} (Dinleniyor)",
             "occupied": "{{port}} (Kullanımda)"
           },
-          "motrixEngine": "aria2 Motrix",
+          "motrixEngine": "taiji Motrix",
           "transport": {
             "websocket": "WebSocket"
           }
@@ -1453,7 +1453,8 @@
         "historySessionOnly": "Kayıtları saklama",
         "historyCount": "Saklanacak kayıt sayısı",
         "historyCountHint": "Daha eski kurtarma kayıtları kaldırılır.",
-        "historyCountPositive": "0’dan büyük bir sayı girin."
+        "historyCountPositive": "0’dan büyük bir sayı girin.",
+        "managedByTaiji": "taiji automatically saves tasks and progress in its own database. Completed task history remains in Motrix."
       },
       "description": "RPC, ilerleme ve kurtarma",
       "configFile": {
@@ -1592,7 +1593,8 @@
         "dhtListenPort": "DHT dinleme bağlantı noktası",
         "dhtListenPortDesc": "Bu bağlantı noktasında DHT aracılığıyla eşleri bulun.",
         "dhtEnabled": "DHT’yi etkinleştir",
-        "dhtEnabledDesc": "Bir izleyiciye bağlı kalmadan eşleri bulun."
+        "dhtEnabledDesc": "Bir izleyiciye bağlı kalmadan eşleri bulun.",
+        "sharedPortDesc": "taiji uses this port for peer connections and DHT."
       },
       "peers": {
         "title": "Eşler",
@@ -1697,7 +1699,8 @@
         "diskCache": "Disk önbelleği ({{unit}})",
         "diskCacheDesc": "Dosyaları diske yazmadan önce arabellekte tutmak için kullanılan bellek.",
         "sessionSaveInterval": "İlerleme kaydetme aralığı (sn)",
-        "sessionSaveIntervalDesc": "Çökme sonrasında kaybolan ilerlemeyi azaltmak için daha sık kaydedin."
+        "sessionSaveIntervalDesc": "Çökme sonrasında kaybolan ilerlemeyi azaltmak için daha sık kaydedin.",
+        "managedByTaiji": "taiji manages disk allocation and cache automatically."
       },
       "magnet": {
         "title": "Magnet",

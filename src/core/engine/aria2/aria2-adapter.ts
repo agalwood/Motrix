@@ -361,9 +361,10 @@ export class Aria2Adapter implements EngineAdapter {
     this.httpRetryMethods = null
     this.httpRetryGeneration++
     this.featureReport = report
-    this.connectionOptionLimit = isMotrixFork(report)
-      ? null
-      : STANDARD_ARIA2_CONNECTION_LIMIT
+    this.connectionOptionLimit =
+      isMotrixFork(report) || report.version.startsWith('taiji/')
+        ? null
+        : STANDARD_ARIA2_CONNECTION_LIMIT
   }
 
   private capConnectionOptions(

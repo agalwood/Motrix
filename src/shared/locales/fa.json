@@ -542,12 +542,12 @@
             "rpc": "درگاه RPC"
           },
           "communication": {
-            "ready": "Motrix می‌تواند با aria2 ارتباط برقرار کند."
+            "ready": "Motrix می‌تواند با taiji ارتباط برقرار کند."
           },
           "confirmForce": {
             "action": "توقف اجباری و بازیابی",
-            "description": "PID {{pid}} با فایل اجرایی همراه Motrix، رمز محرمانهٔ خصوصی RPC و مسیرهای داده مطابقت دارد. فوراً متوقف می‌شود، سپس aria2 روی درگاه RPC متعلق به Motrix دوباره راه‌اندازی می‌شود.",
-            "title": "فرایند باقی‌ماندهٔ aria2 به‌اجبار متوقف شود؟"
+            "description": "PID {{pid}} با فایل اجرایی همراه Motrix، رمز محرمانهٔ خصوصی RPC و مسیرهای داده مطابقت دارد. فوراً متوقف می‌شود، سپس taiji روی درگاه RPC متعلق به Motrix دوباره راه‌اندازی می‌شود.",
+            "title": "فرایند باقی‌ماندهٔ taiji به‌اجبار متوقف شود؟"
           },
           "copied": "کپی شد",
           "copy": "کپی اطلاعات عیب‌یابی",
@@ -560,14 +560,14 @@
             "blocked": "فرایند PID {{pid}} ({{name}}) از درگاه پیش‌فرض {{port}} استفاده می‌کند، اما Motrix نمی‌تواند مالکیت آن را تأیید کند. فرایند متوقف نخواهد شد.",
             "confirm": {
               "action": "توقف و بازگرداندن درگاه {{port}}",
-              "description": "PID {{pid}} به‌عنوان فرایند باقی‌ماندهٔ aria2 متعلق به Motrix تأیید شده است. متوقف می‌شود، درگاه پیش‌فرض {{port}} ذخیره می‌شود و aria2 دوباره راه‌اندازی می‌شود.",
+              "description": "PID {{pid}} به‌عنوان فرایند باقی‌ماندهٔ taiji متعلق به Motrix تأیید شده است. متوقف می‌شود، درگاه پیش‌فرض {{port}} ذخیره می‌شود و taiji دوباره راه‌اندازی می‌شود.",
               "title": "فرایند باقی‌مانده متوقف و درگاه {{port}} بازگردانده شود؟"
             },
             "restore": "بازگرداندن درگاه پیش‌فرض Motrix، {{port}}",
             "restoredDefault": "درگاه RPC پیش‌فرض Motrix، {{port}}، بازگردانده شد.",
             "restoring": "در حال بازگرداندن درگاه پیش‌فرض Motrix، {{port}}…",
             "unidentified": "شناسایی فرایندی که از درگاه پیش‌فرض {{port}} استفاده می‌کند ممکن نشد. Motrix همچنان از درگاه فعلی استفاده خواهد کرد.",
-            "verifiedOrphan": "فرایند باقی‌مانده و تأییدشدهٔ aria2 متعلق به Motrix (PID {{pid}}) از درگاه پیش‌فرض {{port}} استفاده می‌کند. Motrix می‌تواند پیش از بازگرداندن درگاه، آن را به‌طور ایمن متوقف کند."
+            "verifiedOrphan": "فرایند باقی‌مانده و تأییدشدهٔ taiji متعلق به Motrix (PID {{pid}}) از درگاه پیش‌فرض {{port}} استفاده می‌کند. Motrix می‌تواند پیش از بازگرداندن درگاه، آن را به‌طور ایمن متوقف کند."
           },
           "features": {
             "none": "گزارش نشده",
@@ -581,7 +581,7 @@
           },
           "lastChecked": "بررسی در {{time}}",
           "loadFailed": "اجرای عیب‌یابی موتور ممکن نشد.",
-          "motrixEngine": "aria2 Motrix",
+          "motrixEngine": "taiji Motrix",
           "open": "عیب‌یابی",
           "port": {
             "available": "{{port}} (آزاد)",
@@ -598,22 +598,22 @@
             "verified_orphan": "PID {{pid}} ({{name}})، فرایند باقی‌ماندهٔ Motrix تأیید شده؛ توقف آن ایمن است"
           },
           "reason": {
-            "binary_unavailable": "فایل اجرایی aria2 همراه برنامه موجود نیست یا در دسترس نیست.",
-            "health_check_failed": "aria2 دیگر به Motrix پاسخ نمی‌دهد.",
-            "port_in_use": "درگاه RPC متعلق به Motrix اشغال است، بنابراین موتور aria2 راه‌اندازی نشد.",
-            "rpc_unavailable": "موتور aria2 شروع شد، اما اتصال‌های RPC متعلق به Motrix را نپذیرفت.",
-            "spawn_failed": "ساخت فرایند aria2 ممکن نشد.",
-            "unexpected_exit": "موتور aria2 به‌طور غیرمنتظره متوقف شد.",
-            "unknown": "راه‌اندازی موتور aria2 به دلیلی نامشخص ممکن نشد."
+            "binary_unavailable": "فایل اجرایی taiji همراه برنامه موجود نیست یا در دسترس نیست.",
+            "health_check_failed": "taiji دیگر به Motrix پاسخ نمی‌دهد.",
+            "port_in_use": "درگاه RPC متعلق به Motrix اشغال است، بنابراین موتور taiji راه‌اندازی نشد.",
+            "rpc_unavailable": "موتور taiji شروع شد، اما اتصال‌های RPC متعلق به Motrix را نپذیرفت.",
+            "spawn_failed": "ساخت فرایند taiji ممکن نشد.",
+            "unexpected_exit": "موتور taiji به‌طور غیرمنتظره متوقف شد.",
+            "unknown": "راه‌اندازی موتور taiji به دلیلی نامشخص ممکن نشد."
           },
           "recommendation": {
-            "force_terminate": "تأیید شده است که این فرایند متعلق به Motrix است. PID {{pid}} را به‌اجبار متوقف کنید، سپس aria2 را روی درگاه RPC متعلق به Motrix، {{rpcPort}}، دوباره راه‌اندازی کنید.",
-            "retry": "درگاه آزاد است. بدون تغییر تنظیمات، اجرای aria2 را دوباره امتحان کنید.",
+            "force_terminate": "تأیید شده است که این فرایند متعلق به Motrix است. PID {{pid}} را به‌اجبار متوقف کنید، سپس taiji را روی درگاه RPC متعلق به Motrix، {{rpcPort}}، دوباره راه‌اندازی کنید.",
+            "retry": "درگاه آزاد است. بدون تغییر تنظیمات، اجرای taiji را دوباره امتحان کنید.",
             "switch_port": "پایان دادن ایمن به فرایند ممکن نیست. فقط به‌عنوان راه جایگزین از درگاه {{port}} استفاده کنید، یا خودتان فرایند متداخل را ببندید.",
             "title": "روش بازیابی پیشنهادی"
           },
-          "recovered": "موتور aria2 دوباره در دسترس است.",
-          "recoveredOnPort": "موتور aria2 روی درگاه RPC {{port}} بازیابی شد.",
+          "recovered": "موتور taiji دوباره در دسترس است.",
+          "recoveredOnPort": "موتور taiji روی درگاه RPC {{port}} بازیابی شد.",
           "recoveryFailed": "بازیابی موتور ناموفق بود. برای دیدن وضعیت جدید، عیب‌یابی را دوباره اجرا کنید.",
           "refreshFailed": "تازه‌سازی اطلاعات عیب‌یابی ممکن نشد. آخرین گزارش موفق در زیر نمایش داده می‌شود.",
           "restart": "راه‌اندازی دوبارهٔ موتور",
@@ -658,9 +658,9 @@
         },
         "features": "قابلیت‌ها",
         "listenPort": "درگاه ورودی",
-        "name": "Aria2",
+        "name": "taiji",
         "rpcPort": "درگاه RPC",
-        "startFailed": "راه‌اندازی موتور aria2 ممکن نشد",
+        "startFailed": "راه‌اندازی موتور taiji ممکن نشد",
         "state": {
           "disconnected": "قطع‌شده",
           "failed": "ناموفق",
@@ -1871,7 +1871,8 @@
         "historyLimit": "سوابق بازیابی کارهای تکمیل‌شده",
         "historyLimitDesc": "فهرست دانلودها و فایل‌های دانلودشده تغییر نمی‌کنند.",
         "historySessionOnly": "نگه‌داری نشود",
-        "title": "پیشرفت و بازیابی"
+        "title": "پیشرفت و بازیابی",
+        "managedByTaiji": "taiji automatically saves tasks and progress in its own database. Completed task history remains in Motrix."
       },
       "rpc": {
         "port": "درگاه RPC",
@@ -1990,7 +1991,8 @@
         "dhtListenPortDesc": "همتاها از طریق DHT روی این درگاه پیدا شوند.",
         "listenPort": "درگاه ورودی BT",
         "listenPortDesc": "اتصال‌های ورودی همتاها روی این درگاه پذیرفته شوند.",
-        "title": "اتصال‌های ورودی"
+        "title": "اتصال‌های ورودی",
+        "sharedPortDesc": "taiji uses this port for peer connections and DHT."
       },
       "newMagnetTasks": "کارهای magnet جدید",
       "peers": {
@@ -2117,7 +2119,8 @@
         "modifiedTimeServer": "زمان دریافتی از سرور",
         "sessionSaveInterval": "فاصلهٔ ذخیرهٔ پیشرفت (ثانیه)",
         "sessionSaveIntervalDesc": "با ذخیرهٔ مکررتر، پیشرفت کمتری پس از خرابی برنامه از دست می‌رود.",
-        "title": "دیسک و فایل‌ها"
+        "title": "دیسک و فایل‌ها",
+        "managedByTaiji": "taiji manages disk allocation and cache automatically."
       },
       "fillInLinksWhenOpeningNewTask": "هنگام باز کردن کار جدید، پیوندهای کپی‌شده جای‌گذاری شوند.",
       "magnet": {

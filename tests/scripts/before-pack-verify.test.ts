@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import beforePack from '../../scripts/before-pack-verify.mjs'
+import { writeEngineReceipt } from './engine-fixture'
 
 const X64_ARCH_ORDINAL = 1
 
@@ -29,7 +30,7 @@ describe('before-pack-verify', () => {
   }
 
   function enginePath(platform = 'darwin', arch = 'x64') {
-    const binaryName = platform === 'win32' ? 'aria2c.exe' : 'aria2c'
+    const binaryName = platform === 'win32' ? 'taiji.exe' : 'taiji'
     return join(projectDir, 'extra', platform, arch, binaryName)
   }
 
@@ -131,6 +132,8 @@ describe('before-pack-verify', () => {
       Buffer.concat([header, Buffer.from('test-binary')])
     )
     await chmod(filePath, mode)
+    if (filePath.endsWith('/taiji') || filePath.endsWith('/taiji.exe'))
+      await writeEngineReceipt(filePath, platform, arch, projectDir)
   }
 
   async function writeUniversalMachBinary(
@@ -149,6 +152,8 @@ describe('before-pack-verify', () => {
     })
     await writeFile(filePath, header)
     await chmod(filePath, 0o755)
+    if (filePath.endsWith('/taiji'))
+      await writeEngineReceipt(filePath, 'darwin', 'x64', projectDir)
   }
 
   it('rejects an empty native-host target directory', async () => {
@@ -213,7 +218,7 @@ describe('before-pack-verify', () => {
     await writeBinary(hostPath())
 
     await expect(beforePack(context())).rejects.toThrow(
-      /bundled aria2 engine is not executable/
+      /bundled taiji engine is not executable/
     )
   })
 

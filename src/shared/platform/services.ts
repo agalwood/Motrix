@@ -7,6 +7,6 @@ export interface PlatformServices {
   readonly host: RunHost
   readonly userDataDir: string
   readonly extraResourceDir: string
-  readonly aria2BinaryPath: string
+  readonly engineBinaryPath: string
   readonly isDev: boolean
 }

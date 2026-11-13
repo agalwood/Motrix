@@ -26,6 +26,7 @@ import {
   type EngineStatusSnapshot,
 } from '@shared/types/engine'
 import type { EngineSettings } from '@shared/types/settings'
+import { generateRpcSecret } from '@shared/utils/rpc-secret'
 import type { EventBus } from '../events/event-bus'
 import { probePrecise } from '../probe/disk-probe'
 import type { SettingsManager } from '../settings/settings-manager'
@@ -89,6 +90,7 @@ function getBackoffDelay(attempt: number): number {
 }
 
 export class EngineSupervisor {
+  private startAbort: AbortController | null = null
   private sessionRecoveryStore?: EngineSessionRecoveryStore
   private state: EngineState = EngineState.Stopped
   private featureReport: EngineFeatureReport | null = null
@@ -119,7 +121,21 @@ export class EngineSupervisor {
     private eventBus: EventBus,
     private settingsManager: SettingsManager,
     private processManager: Aria2ProcessManager,
-    private configBuilder: Aria2ConfigBuilder,
+    private configBuilder: Pick<
+      Aria2ConfigBuilder,
+      | 'ensureUserConfig'
+      | 'buildArgs'
+      | 'hasSavedSession'
+      | 'resolveSqliteDbPath'
+      | 'quarantineSqliteDatabase'
+    > & {
+      migrateSession?: (
+        binaryPath: string,
+        settings: EngineSettings,
+        defaultSaveDir: string,
+        signal?: AbortSignal
+      ) => Promise<void>
+    },
     private trustStore: Aria2TrustStore,
     private rpcClient: Aria2RpcClient,
     private adapter: Aria2Adapter,
@@ -163,6 +179,8 @@ export class EngineSupervisor {
   }
 
   async start(binaryPath: string): Promise<void> {
+    this.startAbort?.abort()
+    this.startAbort = new AbortController()
     this.stopping = false
     this.binaryPath = binaryPath
     this.restartAttempts = 0
@@ -275,7 +293,8 @@ export class EngineSupervisor {
 
   private applyCompatibilityLimits(settings: EngineSettings): EngineSettings {
     const report = this.featureReport
-    if (!report || isMotrixFork(report)) return settings
+    if (!report || report.version.startsWith('taiji/') || isMotrixFork(report))
+      return settings
 
     return {
       ...settings,
@@ -399,6 +418,7 @@ export class EngineSupervisor {
    */
   prepareForShutdown(): void {
     this.stopping = true
+    this.startAbort?.abort()
     this.stopHealthCheck()
     this.clearRestartTimer()
   }
@@ -432,7 +452,9 @@ export class EngineSupervisor {
   }
 
   private async doStart(): Promise<void> {
-    if (!this.binaryPath || this.stopping) return
+    const startSignal = this.startAbort?.signal
+    const cancelled = () => this.stopping || startSignal?.aborted === true
+    if (!this.binaryPath || cancelled()) return
 
     this.setState(EngineState.Starting)
     this.lastError = null
@@ -443,14 +465,17 @@ export class EngineSupervisor {
 
     try {
       const featureReport = await this.processManager.probe(this.binaryPath)
-      if (this.stopping) return
+      if (cancelled()) return
 
       this.featureReport = featureReport
       // The adapter's durable-remove trust gate reads its own featureReport,
       // and nothing calls adapter.connect() in production — inject the report
       // we just probed so the gate reflects the real engine version.
       this.adapter.setFeatureReport(featureReport)
-      if (!isMotrixFork(featureReport)) {
+      if (
+        !featureReport.version.startsWith('taiji/') &&
+        !isMotrixFork(featureReport)
+      ) {
         const payload: EngineCompatibilityWarningPayload = {
           version: featureReport.version,
           connectionLimit: STANDARD_ARIA2_CONNECTION_LIMIT,
@@ -461,10 +486,18 @@ export class EngineSupervisor {
       // Step 2: Ensure config and build args
       phase = 'config'
       await this.configBuilder.ensureUserConfig()
-      if (this.stopping) return
+      if (cancelled()) return
       const processEnv = await this.trustStore.prepareEnvironment()
-      if (this.stopping) return
+      if (cancelled()) return
 
+      if (
+        featureReport.version.startsWith('taiji/') &&
+        !this.settingsManager.getEngine().rpcSecret.trim()
+      ) {
+        await this.settingsManager.update({
+          engine: { rpcSecret: generateRpcSecret() },
+        })
+      }
       const configuredEngineSettings = this.settingsManager.getEngine()
       const resolvedEngineSettings = this.applyCompatibilityLimits(
         await this.resolveRuntimeEngineSettings(
@@ -481,7 +514,7 @@ export class EngineSupervisor {
       const configuredProxy = structuredClone(this.settingsManager.getProxy())
       const resolvedProxy =
         await this.proxyBridge.resolveForDownload(configuredProxy)
-      if (this.stopping) return
+      if (cancelled()) return
       const defaultSaveDir = this.settingsManager.getApp().defaultSaveDir
       // Provider is wired by the shell (Task 8) before start() in production;
       // the { 0, 0 } (unlimited) fallback only fires in tests or if start()
@@ -491,11 +524,12 @@ export class EngineSupervisor {
         upload: 0,
       }
       const sqliteActive =
+        !featureReport.version.startsWith('taiji/') &&
         featureReport.hasSqlitePersistence &&
         engineSettings.sqlite3Persistence === true
       const loadTextSession =
         !sqliteActive && (await this.configBuilder.hasSavedSession())
-      if (this.stopping) return
+      if (cancelled()) return
       log.debug(
         {
           rpcPort: engineSettings.rpcPort,
@@ -532,12 +566,20 @@ export class EngineSupervisor {
         return
       }
 
+      await this.configBuilder.migrateSession?.(
+        this.binaryPath,
+        engineSettings,
+        defaultSaveDir,
+        startSignal
+      )
+      if (cancelled()) return
+
       // Repair known fork session identities only after the RPC ownership
       // check, and before the completed-task guard reads persisted run intent.
       if (sqliteActive) {
         const recovery = await recoverAria2SessionIdentity(
           this.configBuilder.resolveSqliteDbPath(engineSettings),
-          () => !this.stopping && !this.processManager.isRunning(),
+          () => !cancelled() && !this.processManager.isRunning(),
           this.sessionRecoveryStore
         )
         if (recovery)
@@ -545,30 +587,42 @@ export class EngineSupervisor {
       }
 
       // Step 4: Spawn process (abort if stop() was called during earlier awaits)
-      if (this.stopping) return
+      if (cancelled()) return
       phase = 'spawn'
       const guardedStartup = await this.startupGuard?.prepare(args)
-      if (this.stopping) return
+      if (cancelled()) return
       const startArgs = guardedStartup?.args ?? args
       this.lastStartArgs = startArgs
       await this.processManager.spawn(this.binaryPath, startArgs, processEnv)
 
       // Step 5: Connect RPC
-      if (this.stopping) {
+      if (cancelled()) {
         await this.processManager.gracefulStop()
         return
       }
       phase = 'rpc'
       await this.rpcClient.connect(engineSettings.rpcPort)
-      if (this.stopping) {
+      if (cancelled()) {
         this.rpcClient.disconnect()
         await this.processManager.gracefulStop()
         return
       }
+      if (featureReport.version.startsWith('taiji/')) {
+        await this.adapter.connect()
+        await this.rpcClient.changeGlobalOption({
+          ...Object.fromEntries(
+            Object.entries(HOT_ENGINE_OPTIONS).map(([key, option]) => [
+              option,
+              String(engineSettings?.[key as keyof EngineSettings]),
+            ])
+          ),
+        })
+        await this.writeGlobalProxyOptions(resolvedProxy)
+      }
       // Unlike best-effort maintenance, failure here must stop the paused
       // process. Otherwise a known completed GID can recreate deleted files.
-      await guardedStartup?.reconcile(() => this.stopping)
-      if (this.stopping) {
+      await guardedStartup?.reconcile(() => cancelled())
+      if (cancelled()) {
         this.rpcClient.disconnect()
         await this.processManager.gracefulStop()
         return
@@ -581,7 +635,7 @@ export class EngineSupervisor {
           // the visibility/resume window but must not make aria2 unavailable.
           log.warn({ err: error }, 'pre-ready engine maintenance failed')
         }
-        if (this.stopping) {
+        if (cancelled()) {
           this.rpcClient.disconnect()
           await this.processManager.gracefulStop()
           return
@@ -610,7 +664,7 @@ export class EngineSupervisor {
       }
 
       // Step 6: Ready
-      if (this.stopping) {
+      if (cancelled()) {
         this.rpcClient.disconnect()
         await this.processManager.gracefulStop()
         return
@@ -637,7 +691,7 @@ export class EngineSupervisor {
               return latestResolvedProxy
             },
             publishReady,
-            () => !this.stopping
+            () => !cancelled()
           )
         if (!published) return
       } else {
@@ -650,6 +704,7 @@ export class EngineSupervisor {
       this.consecutiveFailures = 0
       this.startHealthCheck()
     } catch (err) {
+      if (startSignal?.aborted) return
       this.lastError = err instanceof Error ? err.message : String(err)
       const stderr = this.processManager.getRecentStderr?.() ?? ''
       // Preserve the startup identity failure instead of its later connection
@@ -705,6 +760,7 @@ export class EngineSupervisor {
     diagnostic: string
   ): Promise<boolean> {
     if (
+      this.featureReport?.version.startsWith('taiji/') ||
       this.sqliteFallbackAttempted ||
       this.sqliteFallbackActive ||
       !this.featureReport?.hasSqlitePersistence ||
@@ -880,7 +936,7 @@ export class EngineSupervisor {
         // Checked above; the non-null assertion only bridges TS narrowing
         // across the second method call.
         pid: this.processManager.getPid() as number,
-        name: binaryPath ? path.basename(binaryPath) : 'aria2c',
+        name: binaryPath ? path.basename(binaryPath) : 'taiji',
         executableName: binaryPath ? path.basename(binaryPath) : null,
         ownership: EngineProcessOwnership.CurrentApp,
         safeToTerminate: true,
@@ -926,7 +982,7 @@ export class EngineSupervisor {
       ...this.getStatus(),
       generatedAt: Date.now(),
       binary: {
-        name: binaryPath ? path.basename(binaryPath) : 'aria2c',
+        name: binaryPath ? path.basename(binaryPath) : 'taiji',
         available: binaryAvailable,
         version: binaryVersion,
       },

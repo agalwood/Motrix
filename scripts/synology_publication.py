@@ -85,7 +85,7 @@ def verify_payload(payload, templates, machine):
     seen, files, elf = set(), {}, {}
     static = {k.removeprefix('app/'): v for k, v in templates.items() if k.startswith('app/')}
     total = 0
-    inventory = receipt = None
+    inventory = receipt = engine_receipt = None
     with tarfile.open(fileobj=io.BytesIO(payload), mode='r|gz') as app:
         for member in app:
             name = member_name(member, seen)
@@ -102,11 +102,16 @@ def verify_payload(payload, templates, machine):
                     continue
                 header = stream.read(20)
                 digest = hashlib.sha256(header)
-                if name == 'synology-build.json':
+                if name in ('server/bin/aria2c', 'server/bin/aria2c.exe', 'server/extra/aria2.conf'):
+                    raise ValueError('Legacy engine in SPK payload')
+                if name in ('synology-build.json', 'server/bin/taiji-build.json'):
                     if member.size > 65536:
                         raise ValueError('Oversized SPK build receipt')
                     tail = stream.read()
-                    receipt = json.loads(header + tail)
+                    if name == 'synology-build.json':
+                        receipt = json.loads(header + tail)
+                    else:
+                        engine_receipt = json.loads(header + tail)
                     digest.update(tail)
                 else:
                     for block in iter(lambda: stream.read(1024 * 1024), b''):
@@ -122,9 +127,9 @@ def verify_payload(payload, templates, machine):
                     if len(header) < 20 or header[4:6] != b'\x02\x01' or int.from_bytes(header[18:20], 'little') != machine:
                         raise ValueError('Foreign ELF in SPK payload')
                     elf[name] = actual
-    if inventory != files or not static.keys() <= files.keys() or receipt is None:
+    if inventory != files or not static.keys() <= files.keys() or receipt is None or engine_receipt is None:
         raise ValueError('Payload inventory mismatch')
-    return receipt, elf
+    return receipt, elf, engine_receipt, files
 
 
 def verify_bundle(directory, version, sha):
@@ -133,7 +138,13 @@ def verify_bundle(directory, version, sha):
         raise ValueError('Invalid source commit')
     lock = json.loads(run('git', 'show', f'{sha}:scripts/synology-runtime.lock.json'))
     node = json.loads(run('git', 'show', f'{sha}:scripts/fnos-runtime.lock.json'))
-    engines = json.loads(run('git', 'show', f'{sha}:scripts/engine.lock.json'))['assets']
+    engine_lock = json.loads(run('git', 'show', f'{sha}:scripts/engine.lock.json'))
+    engine_source = json.loads(run('git', 'show', f'{sha}:scripts/taiji-source.lock.json'))
+    engine_digest = hashlib.sha256(json.dumps(
+        {'lock': engine_lock, 'source': engine_source}, separators=(',', ':'), ensure_ascii=False
+    ).encode()).hexdigest()
+    if engine_lock.get('engine') != 'taiji':
+        raise ValueError('Expected locked taiji source')
     templates = package_templates(sha)
     rev = lock['revision']
     root = Path(directory)
@@ -154,11 +165,18 @@ def verify_bundle(directory, version, sha):
         platforms = target['platforms']
         sdk = {key: profile['toolchain']['sha256'] for key, profile in platforms.items()}
         payload = verify_outer(path, templates, version, rev, target.get('infoArch', ' '.join(platforms)))
-        receipt, shipped_elf = verify_payload(payload, templates, target['machine'])
+        receipt, shipped_elf, engine, files = verify_payload(payload, templates, target['machine'])
         node_digest = node['node'][arch].get('binarySha256')
-        if ((rev >= 13 and not node_digest) or (node_digest and shipped_elf.get('runtime/bin/node') != node_digest)
-                or shipped_elf.get('server/bin/aria2c') != engines[f'linux-{arch}']['binarySha256']):
+        if ((rev >= 13 and not node_digest) or (node_digest and shipped_elf.get('runtime/bin/node') != node_digest)):
             raise ValueError('SPK binary differs from the release lock')
+        expected_engine = dict(version=engine_lock['version'], sourceDigest=engine_digest,
+                               target=engine_lock['assets'][f'linux-{arch}']['rustTarget'], profile='release')
+        if (any(engine.get(k) != v for k, v in expected_engine.items())
+                or engine.get('binarySha256') != shipped_elf.get('server/bin/taiji')
+                or not shipped_elf.get('server/bin/taiji')
+                or engine.get('licenseSha256') != files.get('server/bin/taiji-licenses.txt', {}).get('sha256')
+                or not engine.get('licenseSha256')):
+            raise ValueError('SPK taiji artifact differs from the locked source build')
         required = dict(schemaVersion=2, architecture=arch, revision=rev, version=version, sourceCommit=sha,
                         sourceDirty=False, minimumDsm=lock['dsmVersion'], nodeArchiveSha256=node['node'][arch]['sha256'],
                         platforms=list(platforms), toolchainDigests=sdk)
@@ -175,7 +193,7 @@ def verify_bundle(directory, version, sha):
                     or report.get('cpuEmulation') != target.get('cpu')):
                 raise ValueError('DSM userspace or CPU validation mismatch')
             elf = {item['file']: item['sha256'] for item in report['elf']}
-            required_elf = {'runtime/bin/node', 'server/bin/aria2c', 'server/bin/motrix-finalize-fs'}
+            required_elf = {'runtime/bin/node', 'server/bin/taiji', 'server/bin/motrix-finalize-fs'}
             if (not required_elf <= elf.keys() or not any(f.endswith('.node') for f in elf)
                     or elf != shipped_elf or len(elf) != len(report['elf'])):
                 raise ValueError('ABI evidence does not match the package inventory')

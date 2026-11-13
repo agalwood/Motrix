@@ -158,7 +158,7 @@
       "engine": {
         "title": "引擎",
         "features": "特性",
-        "startFailed": "aria2 启动失败",
+        "startFailed": "taiji 启动失败",
         "state": {
           "ready": "就绪",
           "starting": "启动中…",
@@ -167,7 +167,7 @@
           "disconnected": "未连接",
           "stopped": "已停止"
         },
-        "name": "Aria2",
+        "name": "taiji",
         "version": "版本",
         "rpcPort": "RPC 端口",
         "listenPort": "监听端口",
@@ -210,21 +210,21 @@
             "unknown": "PID {{pid}}，无法识别，不会终止"
           },
           "communication": {
-            "ready": "Motrix 可以正常连接 aria2。"
+            "ready": "Motrix 可以正常连接 taiji。"
           },
           "reason": {
-            "port_in_use": "Motrix RPC 端口被占用，aria2 无法启动。",
-            "binary_unavailable": "内置 aria2 可执行文件缺失或不可用。",
-            "spawn_failed": "无法创建 aria2 引擎进程。",
-            "rpc_unavailable": "aria2 引擎已启动，但未能接受 Motrix 的 RPC 连接。",
-            "unexpected_exit": "aria2 引擎意外退出。",
-            "health_check_failed": "aria2 引擎已停止响应 Motrix。",
-            "unknown": "aria2 引擎因未知原因启动失败。"
+            "port_in_use": "Motrix RPC 端口被占用，taiji 无法启动。",
+            "binary_unavailable": "内置 taiji 可执行文件缺失或不可用。",
+            "spawn_failed": "无法创建 taiji 引擎进程。",
+            "rpc_unavailable": "taiji 引擎已启动，但未能接受 Motrix 的 RPC 连接。",
+            "unexpected_exit": "taiji 引擎意外退出。",
+            "health_check_failed": "taiji 引擎已停止响应 Motrix。",
+            "unknown": "taiji 引擎因未知原因启动失败。"
           },
           "recommendation": {
             "title": "建议的恢复方式",
-            "retry": "端口当前空闲，可以在不更改设置的情况下重试 aria2。",
-            "force_terminate": "已确认该进程由 Motrix 启动。强制终止 PID {{pid}} 后，在 Motrix RPC 端口 {{rpcPort}} 重新启动 aria2。",
+            "retry": "端口当前空闲，可以在不更改设置的情况下重试 taiji。",
+            "force_terminate": "已确认该进程由 Motrix 启动。强制终止 PID {{pid}} 后，在 Motrix RPC 端口 {{rpcPort}} 重新启动 taiji。",
             "switch_port": "无法安全终止占用进程。仅在必要时改用端口 {{port}}，或自行关闭冲突进程。"
           },
           "technicalDetails": "技术详情",
@@ -232,12 +232,12 @@
           "restart": "重启引擎",
           "switchPort": "改用端口 {{port}}",
           "forceRecover": "强制终止并恢复",
-          "recovered": "aria2 引擎已恢复可用。",
-          "recoveredOnPort": "aria2 引擎已在 RPC 端口 {{port}} 恢复。",
+          "recovered": "taiji 引擎已恢复可用。",
+          "recoveredOnPort": "taiji 引擎已在 RPC 端口 {{port}} 恢复。",
           "recoveryFailed": "引擎恢复失败，请重新诊断以获取最新状态。",
           "fallback": {
             "available": "Motrix 默认端口 {{port}} 当前空闲，可以立即恢复。",
-            "verifiedOrphan": "Motrix 默认端口 {{port}} 被已验证的 Motrix 遗留 aria2 进程（PID {{pid}}）占用，可以在恢复前安全终止。",
+            "verifiedOrphan": "Motrix 默认端口 {{port}} 被已验证的 Motrix 遗留 taiji 进程（PID {{pid}}）占用，可以在恢复前安全终止。",
             "blocked": "Motrix 默认端口 {{port}} 被 PID {{pid}}（{{name}}）占用，但无法确认进程归属，因此不会将其终止。",
             "unidentified": "无法识别占用 Motrix 默认端口 {{port}} 的进程，将继续使用当前端口。",
             "restore": "恢复 Motrix 默认端口 {{port}}",
@@ -245,13 +245,13 @@
             "restoredDefault": "已恢复 Motrix 默认 RPC 端口 {{port}}。",
             "confirm": {
               "title": "终止遗留进程并恢复端口 {{port}}？",
-              "description": "PID {{pid}} 已验证为 Motrix 遗留的 aria2 进程。该进程将被终止，默认端口 {{port}} 会保存到设置中，随后重启 aria2。",
+              "description": "PID {{pid}} 已验证为 Motrix 遗留的 taiji 进程。该进程将被终止，默认端口 {{port}} 会保存到设置中，随后重启 taiji。",
               "action": "终止并恢复端口 {{port}}"
             }
           },
           "confirmForce": {
-            "title": "强制终止残留的 aria2 进程？",
-            "description": "PID {{pid}} 与 Motrix 内置可执行文件、私有 RPC 密钥和数据路径一致。该进程会被立即终止，随后 aria2 将在 Motrix RPC 端口重新启动。",
+            "title": "强制终止残留的 taiji 进程？",
+            "description": "PID {{pid}} 与 Motrix 内置可执行文件、私有 RPC 密钥和数据路径一致。该进程会被立即终止，随后 taiji 将在 Motrix RPC 端口重新启动。",
             "action": "强制终止并恢复"
           },
           "details": "诊断详情",
@@ -294,7 +294,7 @@
             "listening": "{{port}}（监听中）",
             "occupied": "{{port}}（已占用）"
           },
-          "motrixEngine": "aria2 Motrix",
+          "motrixEngine": "taiji Motrix",
           "transport": {
             "websocket": "WebSocket"
           }
@@ -1512,7 +1512,8 @@
         "historySessionOnly": "不保留",
         "historyCount": "保留条数",
         "historyCountHint": "较早的恢复记录会被移除。",
-        "historyCountPositive": "请输入大于 0 的数量。"
+        "historyCountPositive": "请输入大于 0 的数量。",
+        "managedByTaiji": "taiji 自动将任务和进度保存到独立数据库，已完成任务的历史记录仍由 Motrix 管理。"
       },
       "description": "RPC、进度与恢复",
       "configFile": {
@@ -1578,7 +1579,8 @@
         "dhtListenPort": "DHT 监听端口",
         "dhtListenPortDesc": "用于通过 DHT 查找其他用户。",
         "dhtEnabled": "启用 DHT",
-        "dhtEnabledDesc": "无需依赖 Tracker 也能查找其他用户。"
+        "dhtEnabledDesc": "无需依赖 Tracker 也能查找其他用户。",
+        "sharedPortDesc": "taiji 的节点连接与 DHT 共用此端口。"
       },
       "peers": {
         "title": "节点",
@@ -1683,7 +1685,8 @@
         "diskCache": "磁盘缓存 ({{unit}})",
         "diskCacheDesc": "写入磁盘前暂存文件数据的内存。",
         "sessionSaveInterval": "进度保存间隔（秒）",
-        "sessionSaveIntervalDesc": "保存越频繁，意外退出时丢失的进度越少。"
+        "sessionSaveIntervalDesc": "保存越频繁，意外退出时丢失的进度越少。",
+        "managedByTaiji": "taiji 自动管理磁盘分配与缓存。"
       },
       "magnet": {
         "title": "磁力链",

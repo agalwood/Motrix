@@ -72,7 +72,7 @@ test('retry parameters create a fresh download and preserve the failed task and 
     await mainWindow
       .getByRole('button', { name: 'Retry', exact: true })
       .first()
-      .click()
+      .click({ modifiers: ['Alt'] })
     const dialog = mainWindow.getByRole('dialog', { name: 'Retry download' })
     await expect(dialog).toBeVisible()
     await expect(

@@ -1,7 +1,6 @@
 import {
   ArrowUpRightIcon,
   ConnectionsIcon,
-  DiskCacheIcon,
   type MotrixIcon,
   PieceSizeIcon,
   ServerConnectionsIcon,
@@ -81,14 +80,6 @@ export function PerformanceSection({
               'MiB'
             ),
           },
-          {
-            icon: DiskCacheIcon,
-            label: t('settings.downloads.performance.metrics.cache'),
-            value: formatByteQuantity(
-              Math.round(selectedPerformanceValues.diskCache / MB),
-              'MiB'
-            ),
-          },
         ]
       : null
 
@@ -105,10 +96,6 @@ export function PerformanceSection({
       shouldValidate: true,
     })
     form.setValue('engine.minSplitSize', values.minSplitSize, {
-      shouldDirty: true,
-      shouldValidate: true,
-    })
-    form.setValue('engine.diskCache', values.diskCache, {
       shouldDirty: true,
       shouldValidate: true,
     })
@@ -217,8 +204,7 @@ export function PerformanceSection({
       {(performanceProfile === 'custom' ||
         form.formState.errors.engine?.split ||
         form.formState.errors.engine?.maxConnectionPerServer ||
-        form.formState.errors.engine?.minSplitSize ||
-        form.formState.errors.engine?.diskCache) && (
+        form.formState.errors.engine?.minSplitSize) && (
         <div className="space-y-4 rounded-md border border-border bg-muted/20 p-3">
           <h4 className="text-xs font-semibold text-foreground">
             {t('settings.downloads.performance.customParameters')}
@@ -261,17 +247,6 @@ export function PerformanceSection({
               { label: formatByteQuantity(4, 'MiB'), value: 4 },
               { label: formatByteQuantity(10, 'MiB'), value: 10 },
               { label: formatByteQuantity(20, 'MiB'), value: 20 },
-            ]}
-          />
-          <EngineNumberSettingRow
-            form={form}
-            name="diskCache"
-            labelKey="settings.downloads.disk.diskCache"
-            descKey="settings.downloads.disk.diskCacheDesc"
-            presets={[
-              { label: formatByteQuantity(16, 'MiB'), value: 16 },
-              { label: formatByteQuantity(32, 'MiB'), value: 32 },
-              { label: formatByteQuantity(64, 'MiB'), value: 64 },
             ]}
           />
         </div>

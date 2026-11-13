@@ -21,6 +21,7 @@ import {
   validateServerSizeBudgets,
 } from './server-package-utils.mjs'
 import { assertServerExternalsResolve } from './stage-server-app.mjs'
+import { verifyEngineArtifact } from './verify-engine-artifact.mjs'
 
 const REPOSITORY_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -43,6 +44,8 @@ const FORBIDDEN_ROOT_PATHS = [
   'pnpm-workspace.yaml',
   'scripts',
   'src',
+  'bin/aria2c',
+  'bin/aria2c.exe',
 ]
 const EXPECTED_MANIFEST = {
   name: '@motrix/server-runtime',
@@ -217,19 +220,10 @@ export async function verifyServerPackage(options) {
   const resolvedResourceInputs = contract.resourceInputs.map((input) =>
     resolveServerInput(input, target)
   )
-  const engineBinaryName = target.platform === 'win32' ? 'aria2c.exe' : 'aria2c'
+  const engineBinaryName = target.platform === 'win32' ? 'taiji.exe' : 'taiji'
   const engineInput = resolvedResourceInputs.find(
     (input) => input.destination === `bin/${engineBinaryName}`
   )
-  const engineLock = engineInput
-    ? (options.engineLock ??
-      JSON.parse(
-        await readFile(
-          path.join(REPOSITORY_ROOT, 'scripts/engine.lock.json'),
-          'utf8'
-        )
-      ))
-    : null
   const checks = []
   const errors = []
   let stageManifest
@@ -343,30 +337,20 @@ export async function verifyServerPackage(options) {
   })
   await check('bundled-engine', async () => {
     if (!engineInput) return 'runtime contract does not bundle an engine'
-    const assetKey = `${target.platform}-${target.arch}`
-    const asset = engineLock?.assets?.[assetKey]
-    if (
-      engineLock?.engine !== 'aria2' ||
-      typeof engineLock.version !== 'string' ||
-      !asset ||
-      asset.bin !== engineBinaryName ||
-      !/^[a-f0-9]{64}$/.test(asset.binarySha256)
-    ) {
-      throw new Error(`engine lock has no valid ${assetKey} aria2 asset`)
-    }
     const absolute = path.join(stageRoot, ...engineInput.destination.split('/'))
     const info = await lstat(absolute)
-    if (!info.isFile()) throw new Error('bundled aria2 is not a regular file')
-    if (target.platform !== 'win32' && (info.mode & 0o111) === 0) {
-      throw new Error('bundled aria2 is not executable')
-    }
+    if (!info.isFile()) throw new Error('bundled taiji is not a regular file')
+    if (target.platform !== 'win32' && (info.mode & 0o111) === 0)
+      throw new Error('bundled taiji is not executable')
+    const verified = await verifyEngineArtifact(
+      absolute,
+      path.join(stageRoot, 'bin/taiji-build.json'),
+      path.join(stageRoot, 'bin/taiji-licenses.txt'),
+      target,
+      REPOSITORY_ROOT
+    )
     const bytes = await readFile(absolute)
-    const digest = sha256(bytes)
-    if (digest !== asset.binarySha256) {
-      throw new Error(
-        `bundled aria2 digest mismatch; expected=${asset.binarySha256} actual=${digest}`
-      )
-    }
+    const digest = verified.sha256
     const detected = detectNativeBinaryTarget(bytes)
     if (
       detected?.format !== FORMAT_BY_PLATFORM[target.platform] ||
@@ -379,12 +363,12 @@ export async function verifyServerPackage(options) {
     }
     engineBinary = {
       path: engineInput.destination,
-      version: engineLock.version,
+      version: verified.version,
       sha256: digest,
       format: detected.format,
       arch: target.arch,
     }
-    return `aria2 ${engineLock.version} matches the locked ${assetKey} binary`
+    return `taiji ${verified.version} matches the locked source build`
   })
   await check('forbidden-payloads', () => {
     const paths = tree.files.map((entry) => entry.path)

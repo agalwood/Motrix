@@ -128,7 +128,7 @@ describe('EngineDiagnosticsDialogHost', () => {
     ).toBeVisible()
     expect(
       await screen.findByTestId('engine-version-summary')
-    ).toHaveTextContent('aria2 Motrix 1.37.0-motrix.14')
+    ).toHaveTextContent('taiji Motrix 1.37.0-motrix.14')
     expect(
       screen.getByRole('button', { name: 'Force stop & recover' })
     ).toBeVisible()
@@ -437,7 +437,7 @@ describe('EngineDiagnosticsDialogHost', () => {
       await screen.findByRole('button', { name: 'Force stop & recover' })
     )
     expect(
-      await screen.findByText('Force stop the leftover aria2 process?')
+      await screen.findByText('Force stop the leftover taiji process?')
     ).toBeVisible()
     expect(screen.getByText(/matches Motrix’s bundled binary/i)).toBeVisible()
     const actions = screen.getAllByRole('button', {

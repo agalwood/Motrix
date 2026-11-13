@@ -18,7 +18,7 @@ import {
 import { Aria2ProcessOutput } from './aria2-process-output'
 import { buildFeatureReport } from './feature-report'
 
-const log = getLogger('aria2')
+const log = getLogger('engine-process')
 
 const OWNER_RECORD_VERSION = 1
 const STDERR_TAIL_LIMIT = 32 * 1024
@@ -52,6 +52,7 @@ const ownerRecordSchema = z.object({
 type OwnerRecord = z.infer<typeof ownerRecordSchema>
 
 export interface Aria2ProcessManagerOptions {
+  parentPipe?: boolean
   ownershipFilePath?: string
   inspector?: Aria2ProcessInspector
 }
@@ -118,6 +119,8 @@ function redactSpawnError(error: Error, fallbackArgs: string[]) {
 }
 
 export class Aria2ProcessManager {
+  protected readonly engineName: string = 'aria2'
+  private readonly parentPipe: boolean
   private process: ChildProcess | null = null
   private running = false
   private readonly ownershipFilePath: string | null
@@ -129,6 +132,7 @@ export class Aria2ProcessManager {
   onError: ((err: Error) => void) | null = null
 
   constructor(options: Aria2ProcessManagerOptions = {}) {
+    this.parentPipe = options.parentPipe ?? false
     this.ownershipFilePath = options.ownershipFilePath ?? null
     this.inspector = options.inspector ?? new Aria2ProcessInspector()
   }
@@ -139,7 +143,7 @@ export class Aria2ProcessManager {
     if (!report) {
       throw new AppError(
         ErrorCode.EngineStartFailed,
-        `Unrecognized aria2 version output from ${binaryPath}`
+        `Unrecognized ${this.engineName} version output from ${binaryPath}`
       )
     }
     return report
@@ -152,7 +156,7 @@ export class Aria2ProcessManager {
           reject(
             new AppError(
               ErrorCode.EngineStartFailed,
-              `Failed to probe aria2 binary at ${binaryPath}: ${err.message}`,
+              `Failed to probe ${this.engineName} binary at ${binaryPath}: ${err.message}`,
               err
             )
           )
@@ -171,7 +175,7 @@ export class Aria2ProcessManager {
     this.recentStderr = ''
     const outputGeneration = ++this.outputGeneration
     const options: SpawnOptions = {
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: [this.parentPipe ? 'pipe' : 'ignore', 'pipe', 'pipe'],
     }
     if (env) options.env = env
     const child = spawn(binaryPath, args, options)
@@ -181,16 +185,8 @@ export class Aria2ProcessManager {
 
     log.info(
       { pid: child.pid, args: redactArgs(args) },
-      'aria2 process spawned'
+      `${this.engineName} process spawned`
     )
-
-    if (child.pid) {
-      await this.writeOwnershipRecord(child.pid, binaryPath, args).catch(
-        (err) => {
-          log.warn({ err }, 'failed to persist aria2 ownership record')
-        }
-      )
-    }
 
     for (const stream of ['stdout', 'stderr'] as const) {
       const output = new Aria2ProcessOutput(
@@ -216,7 +212,7 @@ export class Aria2ProcessManager {
     }
 
     child.on('exit', (code, signal) => {
-      log.info({ code, signal }, 'aria2 process exited')
+      log.info({ code, signal }, `${this.engineName} process exited`)
       this.running = false
       this.process = null
       if (child.pid) void this.clearOwnershipRecord(child.pid)
@@ -224,12 +220,26 @@ export class Aria2ProcessManager {
     })
 
     child.on('error', (err) => {
-      log.error({ err: redactSpawnError(err, args) }, 'aria2 process error')
+      log.error(
+        { err: redactSpawnError(err, args) },
+        `${this.engineName} process error`
+      )
       this.running = false
       this.process = null
       if (child.pid) void this.clearOwnershipRecord(child.pid)
       this.onError?.(err)
     })
+
+    if (child.pid) {
+      await this.writeOwnershipRecord(child.pid, binaryPath, args).catch(
+        (err) => {
+          log.warn({ err }, 'failed to persist aria2 ownership record')
+        }
+      )
+    }
+
+    if (child.pid && this.process !== child)
+      await this.clearOwnershipRecord(child.pid)
   }
 
   gracefulStop(timeoutMs = 5000): Promise<void> {
@@ -252,7 +262,8 @@ export class Aria2ProcessManager {
         resolve()
       }
 
-      child.kill('SIGTERM')
+      if (this.parentPipe) child.stdin?.end()
+      else child.kill('SIGTERM')
     })
   }
 
@@ -397,7 +408,7 @@ export class Aria2ProcessManager {
 
   private isAria2(inspected: InspectedProcess): boolean {
     return [inspected.name, inspected.executablePath ?? ''].some((value) =>
-      /(^|[/\\])aria2c(?:\.exe)?$/i.test(value)
+      /(^|[/\\])(?:aria2c|taiji)(?:\.exe)?$/i.test(value)
     )
   }
 
@@ -481,7 +492,7 @@ export class Aria2ProcessManager {
     await unlink(this.ownershipFilePath).catch(() => {})
   }
 
-  private parseVersionOutput(stdout: string): EngineFeatureReport | null {
+  protected parseVersionOutput(stdout: string): EngineFeatureReport | null {
     const versionMatch = stdout.match(/aria2 version (\S+)/)
     if (!versionMatch) return null
     const version = versionMatch[1]

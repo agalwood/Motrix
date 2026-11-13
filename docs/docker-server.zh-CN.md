@@ -1,10 +1,8 @@
 # Docker Server 部署
 
-Motrix Server 将 Web 界面和经过 checksum 校验的
-[`motrixapp/aria2`](https://github.com/motrixapp/aria2) fork 打包为非 root、
-多架构容器镜像，适合 NAS 与家庭服务器。该 fork 提供 Motrix 所需的 SQLite
-持久化契约；镜像不安装发行版提供的通用 aria2 软件包。带 tag 的正式发布会把
-同一镜像发布到两个 registry：
+Motrix Server 将 Web 界面和唯一下载引擎 [taiji](https://github.com/motrixapp/taiji)
+打包为非 root、多架构容器镜像，适合 NAS 与家庭服务器。引擎从锁定源码和集成补丁构建，
+由构建记录校验二进制与许可证包。带 tag 的正式发布会把同一镜像发布到两个 registry：
 
 - Docker Hub：`docker.io/motrixapp/motrix-server`
 - GitHub Container Registry：`ghcr.io/agalwood/motrix-server`
@@ -56,7 +54,7 @@ cosign verify \
 ### TLS 信任库生命周期
 
 官方镜像在构建时安装 Alpine 的 `ca-certificates`，并通过 `SSL_CERT_FILE` 让
-aria2 fork 使用 `/etc/ssl/certs/ca-certificates.crt`。因此 Motrix 不会在
+taiji fork 使用 `/etc/ssl/certs/ca-certificates.crt`。因此 Motrix 不会在
 `/data` 中生成长期保留的 CA 快照；用新镜像重建容器时会直接使用新镜像携带的
 信任库。
 
@@ -71,7 +69,7 @@ aria2 fork 使用 `/etc/ssl/certs/ca-certificates.crt`。因此 Motrix 不会在
 
 | 容器路径 | 用途 | 是否备份 |
 | --- | --- | --- |
-| `/data` | SQLite 数据库、设置、aria2 session 与 DHT 状态、种子元数据、operator token、插件包/状态/日志和插件 secret lockbox | 必须 |
+| `/data` | SQLite 数据库、设置、taiji session 与 DHT 状态、种子元数据、operator token、插件包/状态/日志和插件 secret lockbox | 必须 |
 | `/downloads` | HTTP、BT 和 magnet 任务正在下载及最终完成的用户资源 | 按数据策略决定 |
 
 不要让这些数据只写入容器层。重新创建没有这两个挂载的容器会丢失状态或下载
@@ -147,17 +145,17 @@ Docker 能够转发流量，但不会单独把服务变成公网服务。最终�
 `MOTRIX_MDXP_HOST` 改为 `127.0.0.1`：该 loopback 属于容器，Docker 端口转发和其他容器
 都无法访问它。
 
-### 显式开启原始 aria2 RPC
+### 显式开启原始 taiji RPC
 
-aria2 引擎 RPC endpoint 与 Motrix Web/API、MDXP 是相互独立的服务，默认只在
-loopback（`127.0.0.1`）监听。只有外部 aria2 RPC 客户端确实需要直连引擎时，才设置
-`MOTRIX_ARIA2_RPC_LISTEN_ALL=true`。RPC secret 为空时，Server 会拒绝开启该模式；
+taiji 引擎 RPC endpoint 与 Motrix Web/API、MDXP 是相互独立的服务，默认只在
+loopback（`127.0.0.1`）监听。只有外部 taiji RPC 客户端确实需要直连引擎时，才设置
+`MOTRIX_TAIJI_RPC_LISTEN_ALL=true`。RPC secret 为空时，Server 会拒绝开启该模式；
 重启前请先在**设置 > 高级设置**中确认 RPC 端口和 secret。
 浏览器集成应优先使用 Motrix 扩展和 MDXP。
 
 仓库自带的 Compose 文件会把该 opt-in 传入容器，但有意不发布 16800 端口。启用后，
 同一 Compose network 内的客户端可以连接 `http://server:16800/jsonrpc`。如果客户端
-运行在 Docker 宿主上，请把以下显式 override 保存为 `compose.aria2-rpc.yaml`：
+运行在 Docker 宿主上，请把以下显式 override 保存为 `compose.taiji-rpc.yaml`：
 
 ```yaml
 services:
@@ -169,14 +167,14 @@ services:
 然后同时启用 listener 和端口发布，并重建 service：
 
 ```bash
-export MOTRIX_ARIA2_RPC_LISTEN_ALL=true
-docker compose -f compose.yaml -f compose.aria2-rpc.yaml up -d --wait
+export MOTRIX_TAIJI_RPC_LISTEN_ALL=true
+docker compose -f compose.yaml -f compose.taiji-rpc.yaml up -d --wait
 ```
 
 如果需要从可信 LAN 访问，请把 override 宿主侧的 `127.0.0.1` 换成 NAS 的具体 LAN
 地址，并在宿主 firewall 中只允许所需来源。若已在 Motrix 设置中修改 RPC 端口，
-映射两侧也要同步修改。外部客户端必须配置相同的 RPC secret；aria2 会把它作为
-`token:<secret>` 鉴权参数。原始 aria2 RPC 不受 Motrix operator 鉴权和下载路径
+映射两侧也要同步修改。外部客户端必须配置相同的 RPC secret；taiji 会把它作为
+`token:<secret>` 鉴权参数。原始 taiji RPC 不受 Motrix operator 鉴权和下载路径
 策略约束；持有该 RPC secret 基本等同于获得下载引擎控制权。它也没有 TLS 保护，
 切勿直接发布到公网；优先使用私有 Docker network、宿主 loopback、VPN 或其他带
 鉴权的加密 tunnel。
@@ -199,7 +197,7 @@ docker compose -f compose.yaml up -d --wait
 服务最多同时接收两个大请求或长度未知的种子请求，额外请求返回 HTTP 429。
 请求接收超时为 120 秒。
 
-Motrix 启动受管 aria2 时会设置相同的 `--rpc-max-request-size` 上限。
+Motrix 启动受管 taiji 时会设置相同的 `--rpc-max-request-size` 上限。
 独立管理的引擎或反向代理也需要配置匹配的限制；使用上面的配置时，在 Nginx 代理 Web API 的
 `server` 或 `location` 块中设置
 [`client_max_body_size 16m;`](https://nginx.org/en/docs/http/ngx_http_core_module.html#client_max_body_size)。
@@ -613,7 +611,7 @@ Server 会刷新媒体能力，无需重启；仅在浏览器所在电脑安装 
 Server 不会下载安装包、替换应用文件，或为安装更新而自动重启。
 
 升级前记录当前镜像 digest 并备份 `/data`。做文件系统级备份前先停止服务，
-确保 SQLite 与 aria2 session 一致：
+确保 SQLite 与 taiji session 一致：
 
 ```bash
 docker compose stop server
@@ -629,7 +627,7 @@ docker compose up -d --wait
 docker compose ps
 ```
 
-两个挂载、生成的 operator token、下载、aria2 状态和已安装插件都会保留。如需
+两个挂载、生成的 operator token、下载、taiji 状态和已安装插件都会保留。如需
 受控升级，拉取前把 `MOTRIX_IMAGE` 设置为不可变 SemVer tag 或 digest。新的
 主版本属于兼容性边界，应先阅读 release notes。
 
@@ -640,7 +638,7 @@ docker compose ps
 
 ## 健康检查、诊断与故障排查
 
-公开的 `GET /healthz` 只有在 HTTP 服务和 aria2 均就绪时才成功。详细诊断需要
+公开的 `GET /healthz` 只有在 HTTP 服务和 taiji 均就绪时才成功。详细诊断需要
 operator token：
 
 ```bash
@@ -662,7 +660,7 @@ secret-store 状态和 FFmpeg 探测结果。
 | 启动报告 `EACCES`、只读或路径失败 | 对比 `docker inspect ... .Config.User` 与两个挂载的数字 owner。修正 owner/ACL；不要改用 privileged 或 root。 |
 | 端口已分配 | 修改 `MOTRIX_HTTP_PORT` 或 `MOTRIX_MDXP_PUBLIC_PORT`；Web 端口变化时同步更新 `MOTRIX_PUBLIC_URL`。 |
 | Web 界面健康但连接 16801 被拒绝 | 查找 `bridge data ownership unavailable`，检查日志中的 `stage` 和 `reason` 字段。ownership 就绪时，再核对 MDXP 发布地址和四个远程 Extension 变量。 |
-| 外部 aria2 RPC 客户端无法连接 | 确认 `MOTRIX_ARIA2_RPC_LISTEN_ALL=true`、RPC secret 非空且匹配、16800（或自定义 RPC 端口）映射正确，并检查宿主 firewall。标准 Compose 文件不会发布该端口。 |
+| 外部 taiji RPC 客户端无法连接 | 确认 `MOTRIX_TAIJI_RPC_LISTEN_ALL=true`、RPC secret 非空且匹配、16800（或自定义 RPC 端口）映射正确，并检查宿主 firewall。标准 Compose 文件不会发布该端口。 |
 | Web 能打开但无法解锁 | 读取当前持久化 `/data/operator-token`，不要使用另一套部署的 token。确认它是普通文件、内容为非空白单行令牌且权限为 `0600`；环境变量配置优先。尝试过多时等待一分钟再试。 |
 | 下载目录被拒绝或 NAS 共享目录中没有文件 | 使用 `MOTRIX_ALLOWED_SAVE_DIRS` 下的绝对容器路径；确认目标宿主目录正好挂载到该路径，并允许 runtime UID/GID 写入。 |
 | 插件安装失败 | 检查 `/api/diagnostics` 与日志，保留 `/data`，核实包/来源可信且网络/TLS 可达；显式挂载所有 `MOTRIX_PLUGIN_IMPORT_DIRS`。正常 `.moext`、URL 或 registry 安装不要开启 unmanaged plugins。 |
@@ -713,8 +711,8 @@ bridge lock 的恢复会把该 ownership 记录与已绑定的 Web listener 共�
 | `MOTRIX_ALLOW_UNMANAGED_PLUGINS` | `false` | 允许没有安装来源记录的插件目录 |
 | `MOTRIX_OPERATOR_TOKEN` | 自动生成文件 | operator 控制面凭据 |
 | `MOTRIX_SECRETS_SEED` | 自动生成 lockbox | 64 位十六进制插件 secret 密钥 |
-| `MOTRIX_ARIA2_RPC_LISTEN_ALL` | `false` | 显式开启带鉴权、面向所有接口的 aria2 RPC listener；Docker 端口发布仍需单独配置 |
-| `MOTRIX_TORRENT_BODY_LIMIT_MIB` | `8` | 种子 JSON 请求上限，单位 MiB，取值为 2–64 的整数；同步用于受管 aria2 RPC，重启后生效 |
+| `MOTRIX_TAIJI_RPC_LISTEN_ALL` | `false` | 显式开启带鉴权、面向所有接口的 taiji RPC listener；Docker 端口发布仍需单独配置 |
+| `MOTRIX_TORRENT_BODY_LIMIT_MIB` | `8` | 种子 JSON 请求上限，单位 MiB，取值为 2–64 的整数；同步用于受管 taiji RPC，重启后生效 |
 | `MOTRIX_WEB_BIND_IP` | Compose：`0.0.0.0` | 发布 Web 8080 端口的宿主地址；通过 `MOTRIX_BIND_IP` fallback |
 | `MOTRIX_MDXP_BIND_IP` | Compose：`0.0.0.0` | 发布 MDXP 16801 端口的宿主地址；通过 `MOTRIX_BIND_IP` fallback |
 | `MOTRIX_BIND_IP` | Compose：`0.0.0.0` | 向后兼容的共享宿主发布 fallback |
@@ -728,6 +726,6 @@ bridge lock 的恢复会把该 ownership 记录与已绑定的 Web listener 共�
 | `MOTRIX_HOST_LANGUAGE` | 系统设置 | Server/插件语言覆盖值 |
 | `LOG_LEVEL` | `info` | 输出到容器 stdout 的 Pino 日志级别 |
 
-`MOTRIX_ARIA2_BIN`（`/app/bin/aria2c`）、`MOTRIX_EXTRA_DIR` 和
+`MOTRIX_TAIJI_BIN`（`/app/bin/taiji`）、`MOTRIX_EXTRA_DIR` 和
 `MOTRIX_RENDERER_DIR` 由官方镜像固定。只有自定义镜像同时提供对应 artifact
 时才应覆盖它们。

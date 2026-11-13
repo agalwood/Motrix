@@ -294,7 +294,7 @@ function interpolate(template, values) {
 }
 
 // Which artifacts a component actually ships in. The Server runtime stages
-// bin/aria2c and builtin-plugins/, but never Electron, so its notices must not
+// bin/taiji and builtin-plugins/, but never Electron, so its notices must not
 // carry Chromium's license set — by far the largest block in the bundle.
 const DISTRIBUTIONS = Object.freeze(['desktop', 'server'])
 

@@ -6,8 +6,8 @@ const MIB = 1024 * 1024
 const ROOT = path.resolve(import.meta.dirname, '../..')
 const TARGETS = [
   // Keep the 2 MiB startup ceiling and bound the complete lazy-loaded output.
-  // The desktop handoff journal and recovery handlers add 13 KiB of JS.
-  { name: 'main', initial: 2 * MIB, total: 5.5 * MIB + 28 * 1024 },
+  // Account for desktop handoff and per-listener NAT integration together.
+  { name: 'main', initial: 2 * MIB, total: 5.5 * MIB + 32 * 1024 },
   { name: 'preload', initial: 80 * 1024, total: 80 * 1024 },
   { name: 'worker', initial: 48 * 1024, total: 48 * 1024 },
   // Native NAS strings in all 26 catalogs add ~60 KiB; the Web-only settings

@@ -158,7 +158,7 @@
       "engine": {
         "title": "Bộ máy tải xuống",
         "features": "Tính năng",
-        "startFailed": "Không thể khởi động bộ máy aria2",
+        "startFailed": "Không thể khởi động bộ máy taiji",
         "state": {
           "ready": "Sẵn sàng",
           "starting": "Đang khởi động…",
@@ -167,7 +167,7 @@
           "disconnected": "Đã ngắt kết nối",
           "stopped": "Đã dừng"
         },
-        "name": "Aria2",
+        "name": "taiji",
         "version": "Phiên bản",
         "rpcPort": "Cổng RPC",
         "listenPort": "Cổng lắng nghe",
@@ -210,21 +210,21 @@
             "unknown": "PID {{pid}}, chưa xác định; sẽ không bị dừng"
           },
           "communication": {
-            "ready": "Motrix có thể giao tiếp với aria2."
+            "ready": "Motrix có thể giao tiếp với taiji."
           },
           "reason": {
-            "port_in_use": "Cổng RPC của Motrix đang được sử dụng nên không thể khởi động bộ máy aria2.",
-            "binary_unavailable": "Tệp thực thi aria2 đi kèm bị thiếu hoặc không khả dụng.",
-            "spawn_failed": "Không thể tạo tiến trình aria2.",
-            "rpc_unavailable": "Bộ máy aria2 đã khởi động nhưng không chấp nhận kết nối RPC từ Motrix.",
-            "unexpected_exit": "Bộ máy aria2 đã thoát ngoài dự kiến.",
-            "health_check_failed": "aria2 ngừng phản hồi Motrix.",
-            "unknown": "Không thể khởi động bộ máy aria2 vì lý do không xác định."
+            "port_in_use": "Cổng RPC của Motrix đang được sử dụng nên không thể khởi động bộ máy taiji.",
+            "binary_unavailable": "Tệp thực thi taiji đi kèm bị thiếu hoặc không khả dụng.",
+            "spawn_failed": "Không thể tạo tiến trình taiji.",
+            "rpc_unavailable": "Bộ máy taiji đã khởi động nhưng không chấp nhận kết nối RPC từ Motrix.",
+            "unexpected_exit": "Bộ máy taiji đã thoát ngoài dự kiến.",
+            "health_check_failed": "taiji ngừng phản hồi Motrix.",
+            "unknown": "Không thể khởi động bộ máy taiji vì lý do không xác định."
           },
           "recommendation": {
             "title": "Cách khôi phục đề xuất",
-            "retry": "Cổng đang trống. Hãy thử chạy lại aria2 mà không thay đổi cài đặt.",
-            "force_terminate": "Đã xác minh tiến trình này thuộc Motrix. Buộc dừng PID {{pid}} rồi khởi động lại aria2 trên cổng RPC {{rpcPort}} của Motrix.",
+            "retry": "Cổng đang trống. Hãy thử chạy lại taiji mà không thay đổi cài đặt.",
+            "force_terminate": "Đã xác minh tiến trình này thuộc Motrix. Buộc dừng PID {{pid}} rồi khởi động lại taiji trên cổng RPC {{rpcPort}} của Motrix.",
             "switch_port": "Không thể kết thúc tiến trình này một cách an toàn. Chỉ dùng cổng {{port}} làm phương án dự phòng hoặc tự đóng tiến trình gây xung đột."
           },
           "technicalDetails": "Chi tiết kỹ thuật",
@@ -232,12 +232,12 @@
           "restart": "Khởi động lại bộ máy",
           "switchPort": "Dùng cổng {{port}}",
           "forceRecover": "Buộc dừng và khôi phục",
-          "recovered": "Bộ máy aria2 đã hoạt động trở lại.",
-          "recoveredOnPort": "Bộ máy aria2 đã được khôi phục trên cổng RPC {{port}}.",
+          "recovered": "Bộ máy taiji đã hoạt động trở lại.",
+          "recoveredOnPort": "Bộ máy taiji đã được khôi phục trên cổng RPC {{port}}.",
           "recoveryFailed": "Không thể khôi phục bộ máy tải xuống. Hãy chạy lại chẩn đoán để xem trạng thái mới nhất.",
           "fallback": {
             "available": "Cổng mặc định {{port}} của Motrix đang trống và có thể khôi phục ngay.",
-            "verifiedOrphan": "Một tiến trình aria2 còn sót lại đã được xác minh thuộc Motrix (PID {{pid}}) đang dùng cổng mặc định {{port}}. Motrix có thể dừng tiến trình này an toàn trước khi khôi phục cổng.",
+            "verifiedOrphan": "Một tiến trình taiji còn sót lại đã được xác minh thuộc Motrix (PID {{pid}}) đang dùng cổng mặc định {{port}}. Motrix có thể dừng tiến trình này an toàn trước khi khôi phục cổng.",
             "blocked": "PID {{pid}} ({{name}}) đang dùng cổng mặc định {{port}} nhưng Motrix không thể xác minh tiến trình thuộc về ứng dụng nào. Tiến trình sẽ không bị kết thúc.",
             "unidentified": "Không thể xác định tiến trình đang dùng cổng mặc định {{port}}. Motrix sẽ tiếp tục dùng cổng hiện tại.",
             "restore": "Khôi phục cổng mặc định {{port}} của Motrix",
@@ -245,13 +245,13 @@
             "restoredDefault": "Đã khôi phục cổng RPC mặc định {{port}} của Motrix.",
             "confirm": {
               "title": "Dừng tiến trình còn sót lại và khôi phục cổng {{port}}?",
-              "description": "PID {{pid}} đã được xác minh là tiến trình aria2 còn sót lại của Motrix. Tiến trình sẽ bị dừng, cổng mặc định {{port}} sẽ được lưu và aria2 sẽ khởi động lại.",
+              "description": "PID {{pid}} đã được xác minh là tiến trình taiji còn sót lại của Motrix. Tiến trình sẽ bị dừng, cổng mặc định {{port}} sẽ được lưu và taiji sẽ khởi động lại.",
               "action": "Dừng và khôi phục cổng {{port}}"
             }
           },
           "confirmForce": {
-            "title": "Buộc dừng tiến trình aria2 còn sót lại?",
-            "description": "PID {{pid}} khớp với tệp thực thi đi kèm, mã bí mật RPC riêng và đường dẫn dữ liệu của Motrix. Tiến trình sẽ bị kết thúc ngay, sau đó aria2 sẽ khởi động lại trên cổng RPC của Motrix.",
+            "title": "Buộc dừng tiến trình taiji còn sót lại?",
+            "description": "PID {{pid}} khớp với tệp thực thi đi kèm, mã bí mật RPC riêng và đường dẫn dữ liệu của Motrix. Tiến trình sẽ bị kết thúc ngay, sau đó taiji sẽ khởi động lại trên cổng RPC của Motrix.",
             "action": "Buộc dừng và khôi phục"
           },
           "details": "Chi tiết chẩn đoán",
@@ -294,7 +294,7 @@
             "listening": "{{port}} (Đang lắng nghe)",
             "occupied": "{{port}} (Đang được sử dụng)"
           },
-          "motrixEngine": "aria2 Motrix",
+          "motrixEngine": "taiji Motrix",
           "transport": {
             "websocket": "WebSocket"
           }
@@ -1439,7 +1439,8 @@
         "historySessionOnly": "Không giữ lại",
         "historyCount": "Số bản ghi cần giữ",
         "historyCountHint": "Các bản ghi khôi phục cũ hơn sẽ bị xóa.",
-        "historyCountPositive": "Nhập một số lớn hơn 0."
+        "historyCountPositive": "Nhập một số lớn hơn 0.",
+        "managedByTaiji": "taiji automatically saves tasks and progress in its own database. Completed task history remains in Motrix."
       },
       "description": "RPC, tiến độ và khôi phục",
       "configFile": {
@@ -1578,7 +1579,8 @@
         "dhtListenPort": "Cổng lắng nghe DHT",
         "dhtListenPortDesc": "Tìm máy ngang hàng qua DHT trên cổng này.",
         "dhtEnabled": "Bật DHT",
-        "dhtEnabledDesc": "Tìm máy ngang hàng mà không phụ thuộc vào máy chủ theo dõi."
+        "dhtEnabledDesc": "Tìm máy ngang hàng mà không phụ thuộc vào máy chủ theo dõi.",
+        "sharedPortDesc": "taiji uses this port for peer connections and DHT."
       },
       "peers": {
         "title": "Máy ngang hàng",
@@ -1683,7 +1685,8 @@
         "diskCache": "Bộ nhớ đệm ổ đĩa ({{unit}})",
         "diskCacheDesc": "Bộ nhớ dùng để đệm dữ liệu tệp trước khi ghi vào ổ đĩa.",
         "sessionSaveInterval": "Khoảng thời gian lưu tiến độ (giây)",
-        "sessionSaveIntervalDesc": "Lưu thường xuyên hơn để giảm lượng tiến độ bị mất khi ứng dụng gặp sự cố."
+        "sessionSaveIntervalDesc": "Lưu thường xuyên hơn để giảm lượng tiến độ bị mất khi ứng dụng gặp sự cố.",
+        "managedByTaiji": "taiji manages disk allocation and cache automatically."
       },
       "magnet": {
         "title": "Magnet",

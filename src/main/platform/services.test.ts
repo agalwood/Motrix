@@ -106,8 +106,8 @@ describe('createElectronPlatformServices', () => {
     expect(svc.userDataDir).toBe('/fake/Motrix-dev')
     expect(svc.isDev).toBe(true)
     expect(
-      svc.aria2BinaryPath.endsWith(
-        process.platform === 'win32' ? 'aria2c.exe' : 'aria2c'
+      svc.engineBinaryPath.endsWith(
+        process.platform === 'win32' ? 'taiji.exe' : 'taiji'
       )
     ).toBe(true)
     expect(svc.extraResourceDir).toMatch(/extra$/)

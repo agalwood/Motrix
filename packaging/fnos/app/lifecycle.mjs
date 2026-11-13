@@ -53,7 +53,7 @@ export function runtimeEnvironment(env) {
     MOTRIX_TEMP_DIR: `${data}/tmp`,
     MOTRIX_PLUGIN_DIR: `${data}/plugins`,
     MOTRIX_EXTRA_DIR: `${server}/extra`,
-    MOTRIX_ARIA2_BIN: `${server}/bin/aria2c`,
+    MOTRIX_TAIJI_BIN: `${server}/bin/taiji`,
     MOTRIX_FINALIZE_FS_BIN: `${server}/bin/motrix-finalize-fs`,
     MOTRIX_RENDERER_DIR: `${server}/dist/renderer-web`,
     MOTRIX_BUILTIN_PLUGIN_DIR: `${server}/builtin-plugins`,

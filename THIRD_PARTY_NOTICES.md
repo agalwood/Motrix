@@ -97,24 +97,20 @@ must obtain permission or replace the font before distributing the build.
 
 ---
 
-## aria2 download engine
+## taiji download engine
 
-Desktop builds bundle an `aria2c` executable pinned by
-`scripts/engine.lock.json`:
+Desktop and Server builds use taiji as their sole download engine.
+`scripts/engine.lock.json` pins the target matrix and version; `scripts/taiji-source.lock.json`
+pins the canonical upstream commit and Cargo lock digest.
 
-- **Version:** 1.37.0-motrix.25
-- **Source:** <https://github.com/motrixapp/aria2/tree/v1.37.0-motrix.25>
+- **Version:** 0.2.0
+- **Upstream source:** <https://github.com/motrixapp/taiji/tree/13cf6b2e409bc0423e35a03c502426d5b09dce01>
 - **License:** GNU General Public License v2.0 or later (`GPL-2.0-or-later`)
-- **Full license text:** `THIRD_PARTY_LICENSES/aria2-COPYING`
-- **OpenSSL exception / notice:**
-  `THIRD_PARTY_LICENSES/aria2-LICENSE.OpenSSL`
+- **Full license text:** `THIRD_PARTY_LICENSES/taiji-COPYING`
+- **Linked dependency notices:** `taiji-licenses.txt`, installed beside the engine.
 
-The source link above identifies the source release corresponding to the
-bundled binaries. Redistributors must continue to meet the GPL source-code and
-notice obligations for the exact binaries they ship, including any additional
-libraries linked into their own builds.
-
----
+The source lock identifies the source corresponding to the bundled engine.
+Build receipts record the source, target, binary, and license-bundle digests.
 
 ## GeoIP database (opt-in, downloaded by the user)
 

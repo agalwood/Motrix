@@ -41,6 +41,12 @@ const HASH_PINNED_TEXT_SOURCES = [
   'scripts/electron-package-size-budgets.json',
   'scripts/electron-package-utils.mjs',
   'scripts/native-binary-target.mjs',
+  'scripts/engine-source.mjs',
+  'scripts/native-engine-digest.mjs',
+  'scripts/verify-engine-artifact.mjs',
+  'scripts/engine.lock.json',
+  'scripts/taiji-source.lock.json',
+
   'scripts/release-signing-input.mjs',
   'scripts/verify-electron-package.mjs',
 ] as const
@@ -99,6 +105,12 @@ const TRUSTED_FIXTURES = [
   ],
   ['scripts/electron-package-utils.mjs', 'scripts/electron-package-utils.mjs'],
   ['scripts/native-binary-target.mjs', 'scripts/native-binary-target.mjs'],
+  ['scripts/engine-source.mjs', 'scripts/engine-source.mjs'],
+  ['scripts/native-engine-digest.mjs', 'scripts/native-engine-digest.mjs'],
+  ['scripts/verify-engine-artifact.mjs', 'scripts/verify-engine-artifact.mjs'],
+  ['scripts/engine.lock.json', 'scripts/engine.lock.json'],
+  ['scripts/taiji-source.lock.json', 'scripts/taiji-source.lock.json'],
+
   [
     'scripts/verify-electron-package.mjs',
     'scripts/verify-electron-package.mjs',
@@ -193,7 +205,7 @@ describe('isolated release signing input', () => {
   it('isolates Windows ARM64 signing inputs and rejects an x64 target claim', async () => {
     const { directory } = await createGeneratedSigningInput(
       [
-        ['extra/win32/arm64/aria2c.exe', 'ARM64 aria2'],
+        ['extra/win32/arm64/taiji.exe', 'ARM64 aria2'],
         [
           'packages/native-host/dist/win32-arm64/motrix-native-host.exe',
           'ARM64 native host',
@@ -220,7 +232,7 @@ describe('isolated release signing input', () => {
     })
     await expect(verify(directory)).rejects.toThrow()
     await expect(
-      readFile(path.join(directory, 'extra/win32/x64/aria2c.exe'))
+      readFile(path.join(directory, 'extra/win32/x64/taiji.exe'))
     ).rejects.toThrow()
   })
 
@@ -229,7 +241,7 @@ describe('isolated release signing input', () => {
     async (arch) => {
       const { directory } = await createGeneratedSigningInput(
         [
-          [`extra/darwin/${arch}/aria2c`, 'aria2'],
+          [`extra/darwin/${arch}/taiji`, 'aria2'],
           [
             `packages/native-host/dist/darwin-${arch}/motrix-native-host`,
             'native host',
@@ -585,7 +597,7 @@ describe('isolated release signing input', () => {
 
   it('writes a deterministic bounded tar with manifest file modes', async () => {
     const directory = await createFixture()
-    const executable = path.join(directory, 'extra/win32/x64/aria2c.exe')
+    const executable = path.join(directory, 'extra/win32/x64/taiji.exe')
     await mkdir(path.dirname(executable), { recursive: true })
     await writeFile(executable, 'binary', { mode: 0o755 })
     await refreshManifest(directory)
@@ -721,7 +733,7 @@ async function createGeneratedSigningInput(
     ['dist/electron-app/package.json', '{"name":"motrix","private":true}'],
     ['extra/aria2.conf', ''],
     ['extra/tray/icon.png', 'tray'],
-    ['extra/win32/x64/aria2c.exe', 'aria2'],
+    ['extra/win32/x64/taiji.exe', 'aria2'],
     [
       'packages/native-host/dist/win32-x64/motrix-native-host.exe',
       'native host',

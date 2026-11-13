@@ -22,6 +22,7 @@ import {
   validateSizeBudgetContract,
 } from './electron-package-utils.mjs'
 import { detectNativeBinaryTarget } from './native-binary-target.mjs'
+import { verifyEngineArtifact } from './verify-engine-artifact.mjs'
 
 const REPOSITORY_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -44,8 +45,7 @@ const FORBIDDEN_OUTPUTS = [
   'dist/server',
 ]
 const LEGAL_RESOURCES = [
-  'THIRD_PARTY_LICENSES/aria2-COPYING',
-  'THIRD_PARTY_LICENSES/aria2-LICENSE.OpenSSL',
+  'THIRD_PARTY_LICENSES/taiji-COPYING',
   'THIRD_PARTY_NOTICES.md',
   'THIRD_PARTY_NOTICES.zh-CN.md',
   'legal/THIRD_PARTY_DEPENDENCIES.md',
@@ -301,7 +301,7 @@ export async function verifyElectronPackage(options) {
   let duplicateResvgWasmFiles = 0
   let unexpectedPackageNames = []
   const externalResources = {
-    aria2: [],
+    taiji: [],
     builtins: [],
     legal: [],
     finalizeFs: [],
@@ -585,14 +585,14 @@ export async function verifyElectronPackage(options) {
       target.platform === 'win32'
         ? 'motrix-native-host.exe'
         : 'motrix-native-host'
-    const engineName = target.platform === 'win32' ? 'aria2c.exe' : 'aria2c'
+    const engineName = target.platform === 'win32' ? 'taiji.exe' : 'taiji'
     const finalizeName =
       target.platform === 'win32'
         ? 'motrix-finalize-fs.exe'
         : 'motrix-finalize-fs'
     const required = [
       {
-        category: 'aria2',
+        category: 'taiji',
         path: `extra/${target.platform}/${target.arch}/${engineName}`,
         executable: true,
       },
@@ -636,6 +636,36 @@ export async function verifyElectronPackage(options) {
         path: resource.path,
         bytes: info.size,
       })
+    }
+    await verifyEngineArtifact(
+      path.join(
+        resources,
+        `extra/${target.platform}/${target.arch}/${engineName}`
+      ),
+      path.join(
+        resources,
+        `extra/${target.platform}/${target.arch}/taiji-build.json`
+      ),
+      path.join(
+        resources,
+        `extra/${target.platform}/${target.arch}/taiji-licenses.txt`
+      ),
+      {
+        ...target,
+        distribution:
+          process.env.MOTRIX_FLATPAK_BUILD === '1' &&
+          target.platform === 'linux'
+            ? 'flatpak'
+            : 'desktop',
+      }
+    )
+    for (const name of ['aria2c', 'aria2c.exe']) {
+      if (
+        await pathInfo(
+          path.join(resources, 'extra', target.platform, target.arch, name)
+        )
+      )
+        throw new Error('Legacy download engines must not be packaged')
     }
     for (const forbidden of [
       'motrix-flatpak-native-host',

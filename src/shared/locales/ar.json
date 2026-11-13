@@ -546,12 +546,12 @@
             "rpc": "منفذ RPC"
           },
           "communication": {
-            "ready": "يمكن لـ Motrix التواصل مع aria2."
+            "ready": "يمكن لـ Motrix التواصل مع taiji."
           },
           "confirmForce": {
             "action": "الإيقاف بالقوة والاستعادة",
-            "description": "تطابق العملية PID {{pid}} الملف التنفيذي المرفق مع Motrix ورمز RPC السري الخاص ومسارات البيانات. ستُنهى فورًا، ثم يُعاد تشغيل aria2 على منفذ RPC الخاص بـ Motrix.",
-            "title": "إيقاف عملية aria2 المتبقية بالقوة؟"
+            "description": "تطابق العملية PID {{pid}} الملف التنفيذي المرفق مع Motrix ورمز RPC السري الخاص ومسارات البيانات. ستُنهى فورًا، ثم يُعاد تشغيل taiji على منفذ RPC الخاص بـ Motrix.",
+            "title": "إيقاف عملية taiji المتبقية بالقوة؟"
           },
           "copied": "نُسخ",
           "copy": "نسخ التشخيص",
@@ -564,14 +564,14 @@
             "blocked": "تستخدم العملية PID {{pid}} ({{name}}) المنفذ الافتراضي {{port}}، لكن Motrix لا يستطيع التحقق من ملكيتها. لن تُنهى العملية.",
             "confirm": {
               "action": "الإيقاف واستعادة المنفذ {{port}}",
-              "description": "تم التحقق من أن PID {{pid}} عملية aria2 متبقية تابعة لـ Motrix. ستُوقَف، وسيُحفظ المنفذ الافتراضي {{port}}، ثم يُعاد تشغيل aria2.",
+              "description": "تم التحقق من أن PID {{pid}} عملية taiji متبقية تابعة لـ Motrix. ستُوقَف، وسيُحفظ المنفذ الافتراضي {{port}}، ثم يُعاد تشغيل taiji.",
               "title": "إيقاف العملية المتبقية واستعادة المنفذ {{port}}؟"
             },
             "restore": "استعادة منفذ Motrix الافتراضي {{port}}",
             "restoredDefault": "استُعيد منفذ RPC الافتراضي لـ Motrix {{port}}.",
             "restoring": "جارٍ استعادة منفذ Motrix الافتراضي {{port}}…",
             "unidentified": "تعذّر تحديد العملية التي تستخدم المنفذ الافتراضي {{port}}. سيستمر Motrix في استخدام المنفذ الحالي.",
-            "verifiedOrphan": "تستخدم عملية aria2 متبقية مؤكدة تابعة لـ Motrix (PID {{pid}}) المنفذ الافتراضي {{port}}. يمكن لـ Motrix إيقافها بأمان قبل استعادة المنفذ."
+            "verifiedOrphan": "تستخدم عملية taiji متبقية مؤكدة تابعة لـ Motrix (PID {{pid}}) المنفذ الافتراضي {{port}}. يمكن لـ Motrix إيقافها بأمان قبل استعادة المنفذ."
           },
           "features": {
             "none": "لم يُبلّغ عنها",
@@ -585,7 +585,7 @@
           },
           "lastChecked": "تم الفحص في {{time}}",
           "loadFailed": "تعذّر إجراء تشخيص المحرّك.",
-          "motrixEngine": "aria2 Motrix",
+          "motrixEngine": "taiji Motrix",
           "open": "تشخيص",
           "port": {
             "available": "{{port}} (متاح)",
@@ -602,22 +602,22 @@
             "verified_orphan": "PID {{pid}} ({{name}})، عملية متبقية مؤكدة تابعة لـ Motrix؛ يمكن إيقافها بأمان"
           },
           "reason": {
-            "binary_unavailable": "ملف aria2 التنفيذي المرفق مفقود أو غير متاح.",
-            "health_check_failed": "توقف aria2 عن الاستجابة لـ Motrix.",
-            "port_in_use": "منفذ RPC الخاص بـ Motrix مشغول، لذلك تعذّر بدء محرّك aria2.",
-            "rpc_unavailable": "بدأ محرّك aria2، لكنه لم يقبل اتصالات RPC من Motrix.",
-            "spawn_failed": "تعذّر إنشاء عملية aria2.",
-            "unexpected_exit": "توقف محرّك aria2 على نحو غير متوقع.",
-            "unknown": "تعذّر بدء محرّك aria2 لسبب غير معروف."
+            "binary_unavailable": "ملف taiji التنفيذي المرفق مفقود أو غير متاح.",
+            "health_check_failed": "توقف taiji عن الاستجابة لـ Motrix.",
+            "port_in_use": "منفذ RPC الخاص بـ Motrix مشغول، لذلك تعذّر بدء محرّك taiji.",
+            "rpc_unavailable": "بدأ محرّك taiji، لكنه لم يقبل اتصالات RPC من Motrix.",
+            "spawn_failed": "تعذّر إنشاء عملية taiji.",
+            "unexpected_exit": "توقف محرّك taiji على نحو غير متوقع.",
+            "unknown": "تعذّر بدء محرّك taiji لسبب غير معروف."
           },
           "recommendation": {
-            "force_terminate": "تم التحقق من أن هذه العملية تابعة لـ Motrix. أوقف PID {{pid}} بالقوة، ثم أعد تشغيل aria2 على منفذ RPC الخاص بـ Motrix {{rpcPort}}.",
-            "retry": "المنفذ متاح. أعد محاولة تشغيل aria2 دون تغيير إعداداتك.",
+            "force_terminate": "تم التحقق من أن هذه العملية تابعة لـ Motrix. أوقف PID {{pid}} بالقوة، ثم أعد تشغيل taiji على منفذ RPC الخاص بـ Motrix {{rpcPort}}.",
+            "retry": "المنفذ متاح. أعد محاولة تشغيل taiji دون تغيير إعداداتك.",
             "switch_port": "لا يمكن إنهاء العملية بأمان. استخدم المنفذ {{port}} كبديل احتياطي فقط، أو أغلق العملية المتعارضة بنفسك.",
             "title": "الاستعادة الموصى بها"
           },
-          "recovered": "أصبح محرّك aria2 متاحًا مجددًا.",
-          "recoveredOnPort": "استُعيد محرّك aria2 على منفذ RPC {{port}}.",
+          "recovered": "أصبح محرّك taiji متاحًا مجددًا.",
+          "recoveredOnPort": "استُعيد محرّك taiji على منفذ RPC {{port}}.",
           "recoveryFailed": "فشلت استعادة المحرّك. أجرِ التشخيص مجددًا لمعرفة أحدث حالة.",
           "refreshFailed": "تعذّر تحديث التشخيص. يظهر أدناه آخر تقرير ناجح.",
           "restart": "إعادة تشغيل المحرّك",
@@ -662,9 +662,9 @@
         },
         "features": "الميزات",
         "listenPort": "منفذ الاستماع",
-        "name": "Aria2",
+        "name": "taiji",
         "rpcPort": "منفذ RPC",
-        "startFailed": "تعذّر بدء محرّك aria2",
+        "startFailed": "تعذّر بدء محرّك taiji",
         "state": {
           "disconnected": "غير متصل",
           "failed": "فشل",
@@ -1947,7 +1947,8 @@
         "historyLimit": "سجلات استعادة المهام المكتملة",
         "historyLimitDesc": "لا تتأثر قائمة التنزيلات ولا الملفات المنزّلة.",
         "historySessionOnly": "عدم الاحتفاظ",
-        "title": "التقدم والاستعادة"
+        "title": "التقدم والاستعادة",
+        "managedByTaiji": "taiji automatically saves tasks and progress in its own database. Completed task history remains in Motrix."
       },
       "rpc": {
         "port": "منفذ RPC",
@@ -2066,7 +2067,8 @@
         "dhtListenPortDesc": "العثور على أقران عبر DHT على هذا المنفذ.",
         "listenPort": "منفذ استماع BT",
         "listenPortDesc": "قبول اتصالات الأقران الواردة على هذا المنفذ.",
-        "title": "الاتصالات الواردة"
+        "title": "الاتصالات الواردة",
+        "sharedPortDesc": "taiji uses this port for peer connections and DHT."
       },
       "newMagnetTasks": "مهام magnet الجديدة",
       "peers": {
@@ -2193,7 +2195,8 @@
         "modifiedTimeServer": "الوقت من الخادم",
         "sessionSaveInterval": "الفاصل بين مرات حفظ التقدم (ث)",
         "sessionSaveIntervalDesc": "احفظ بوتيرة أعلى لتقليل التقدم المفقود بعد التعطل.",
-        "title": "القرص والملفات"
+        "title": "القرص والملفات",
+        "managedByTaiji": "taiji manages disk allocation and cache automatically."
       },
       "fillInLinksWhenOpeningNewTask": "لصق الروابط المنسوخة عند فتح مهمة جديدة.",
       "magnet": {

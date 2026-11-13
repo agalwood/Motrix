@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import { DatabaseSync } from 'node:sqlite'
 import type { Page } from '@playwright/test'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
@@ -73,10 +74,18 @@ test('unlimited BT seeding, inspector metrics and re-seeding survive engine rest
       expect(task.torrentMetaPath).toBe(metadataPath)
       const bytes = Buffer.from(torrent, 'base64')
       expect(await readFile(metadataPath)).toEqual(bytes)
-      const rpcMetadataName = `${createHash('sha1').update(bytes).digest('hex')}.torrent`
-      expect(
-        await readFile(path.join(`${metadataPath}.state`, rpcMetadataName))
-      ).toEqual(bytes)
+      const engineDb = new DatabaseSync(
+        path.join(userDataDir, 'taiji.sqlite3'),
+        { readOnly: true }
+      )
+      try {
+        const row = engineDb
+          .prepare('SELECT metadata FROM torrent WHERE gid = ?')
+          .get(task.engineTaskId)
+        expect(Buffer.from(row?.metadata as Uint8Array)).toEqual(bytes)
+      } finally {
+        engineDb.close()
+      }
       expect(
         (await readdir(task.saveDir)).filter((name) =>
           name.endsWith('.torrent')

@@ -4,6 +4,7 @@ import {
   makeDefaultBtExtension,
   TaskInstancePhase,
   TaskStatus,
+  TaskType,
   TransitionPhase,
 } from '@shared/types/task'
 import { makeRetainedHttpTask } from '@test-utils/direct-retry'
@@ -22,6 +23,23 @@ it('keeps retained HTTP errors visible when the engine restores them paused', ()
   expect(
     mergeEngineTask(task, { ...engine, status: TaskStatus.Downloading }).status
   ).toBe(TaskStatus.Downloading)
+})
+
+it('keeps completed BT history after a delayed stop-seeding removal snapshot', () => {
+  const task = makeDownloadTask({
+    type: TaskType.Bt,
+    status: TaskStatus.Completed,
+    engineTaskId: 'gid-stop',
+  })
+  const removed = makeDownloadTask({
+    type: TaskType.Bt,
+    status: TaskStatus.Removed,
+    engineTaskId: 'gid-stop',
+  })
+  expect(mergeEngineTask(task, removed)).toBe(task)
+  expect(
+    mergeEngineTask({ ...task, status: TaskStatus.Seeding }, removed).status
+  ).toBe(TaskStatus.Removed)
 })
 
 const baseTask = (over: Partial<DownloadTask> = {}): DownloadTask =>

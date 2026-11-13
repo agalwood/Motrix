@@ -17,6 +17,7 @@ import {
   normalizeArchiveEntry,
   verifyElectronPackage,
 } from '../../scripts/verify-electron-package.mjs'
+import { writeEngineReceipt } from './engine-fixture'
 
 type Target = {
   platform: 'darwin' | 'linux' | 'win32'
@@ -48,8 +49,7 @@ const OUTPUTS = [
   'dist/renderer/index.html',
 ]
 const LEGAL = [
-  'THIRD_PARTY_LICENSES/aria2-COPYING',
-  'THIRD_PARTY_LICENSES/aria2-LICENSE.OpenSSL',
+  'THIRD_PARTY_LICENSES/taiji-COPYING',
   'THIRD_PARTY_NOTICES.md',
   'THIRD_PARTY_NOTICES.zh-CN.md',
   'legal/THIRD_PARTY_DEPENDENCIES.md',
@@ -230,7 +230,7 @@ async function createFixture(
     target.platform === 'win32'
       ? 'motrix-native-host.exe'
       : 'motrix-native-host'
-  const engineName = target.platform === 'win32' ? 'aria2c.exe' : 'aria2c'
+  const engineName = target.platform === 'win32' ? 'taiji.exe' : 'taiji'
   const finalizeName =
     target.platform === 'win32'
       ? 'motrix-finalize-fs.exe'
@@ -245,6 +245,7 @@ async function createFixture(
   await chmod(host, 0o755)
   await chmod(finalize, 0o755)
   await chmod(engine, 0o755)
+  await writeEngineReceipt(engine, target.platform, target.arch)
   if (target.platform === 'darwin') {
     for (const relative of [
       'Contents/MacOS/MotrixSafariRegistrar',
@@ -535,7 +536,7 @@ describe('post-package Electron verification', () => {
   })
 
   it.each([
-    'extra/darwin/arm64/aria2c',
+    'extra/darwin/arm64/taiji',
     'bin/motrix-native-host',
     'bin/motrix-finalize-fs',
     'builtin-plugins/motrix.fixture/motrix-plugin.json',

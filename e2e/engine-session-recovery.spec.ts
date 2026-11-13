@@ -1,7 +1,5 @@
-import { createHash } from 'node:crypto'
 import { access, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { DatabaseSync } from 'node:sqlite'
 import type { ElectronApplication, Page } from '@playwright/test'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
@@ -20,7 +18,7 @@ async function readTasks(page: Page): Promise<DownloadTask[]> {
   ) as Promise<DownloadTask[]>
 }
 
-test('a missing magnet directory cannot block startup and its failed task remains removable', async ({
+test('a missing paused magnet directory cannot block startup or be recreated and the task remains removable', async ({
   userDataDir,
   rpcPort,
 }) => {
@@ -48,7 +46,7 @@ test('a missing magnet directory cannot block startup and its failed task remain
         body: JSON.stringify({
           jsonrpc: '2.0',
           id: 'session-recovery',
-          method: `aria2.${method}`,
+          method: `taiji.${method}`,
           params: [`token:${settings.engine.rpcSecret}`, ...params],
         }),
       })
@@ -63,32 +61,14 @@ test('a missing magnet directory cannot block startup and its failed task remain
       ['http://127.0.0.1:1/healthy.bin'],
       { pause: 'true' },
     ])) as string
+    await rpc('addUri', [
+      [`magnet:?xt=urn:btih:${infoHash}`],
+      { gid: childGid, dir: missingDir, pause: 'true' },
+    ])
     await rpc('saveSession')
     await app.close()
     app = undefined
 
-    // Use the real engine's schema and an orphaned metadata ancestor, as can
-    // remain after an earlier cleanup. The child serializes the ancestor GID.
-    const db = new DatabaseSync(path.join(userDataDir, 'aria2.db'))
-    try {
-      const row = db
-        .prepare('SELECT * FROM task WHERE gid = ?')
-        .get(healthyGid)!
-      const serialized = `magnet:?xt=urn:btih:${infoHash}\n gid=1111111111111111\n dir=${missingDir}\n pause=true\n`
-      Object.assign(row, {
-        gid: childGid,
-        state: 'paused',
-        serialized,
-        queue_position: 1,
-        digest: createHash('sha1').update(serialized).update('paused').digest(),
-      })
-      const columns = Object.keys(row)
-      db.prepare(
-        `INSERT INTO task (${columns.join(',')}) VALUES (${columns.map(() => '?').join(',')})`
-      ).run(...Object.values(row))
-    } finally {
-      db.close()
-    }
     await mkdir(missingDir)
     await rm(missingDir, { recursive: true })
 
@@ -103,20 +83,19 @@ test('a missing magnet directory cannot block startup and its failed task remain
               (task) => task.engineTaskId === childGid
             )?.status
         )
-        .toBe('error')
+        .toBe('paused')
       const tasks = await readTasks(page)
       expect(tasks).toHaveLength(2)
       expect(
         tasks.find((task) => task.engineTaskId === healthyGid)?.status
       ).toBe('paused')
-      const failed = tasks.find((task) => task.engineTaskId === childGid)!
-      expect(failed.errorDetailKey).toBe('task.error.detail.filesMissing')
+      const paused = tasks.find((task) => task.engineTaskId === childGid)!
       await expect(access(missingDir)).rejects.toMatchObject({ code: 'ENOENT' })
       if (boot === 1) {
         await page.evaluate(
           ({ channel, taskId }) =>
             window.motrix.invoke(channel, { taskId, deleteWithFiles: true }),
-          { channel: Commands.RemoveTask, taskId: failed.id }
+          { channel: Commands.RemoveTask, taskId: paused.id }
         )
         await expect
           .poll(async () =>

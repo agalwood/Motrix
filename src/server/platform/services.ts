@@ -1,7 +1,8 @@
+import { existsSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { aria2BinaryName } from '@shared/platform/aria2'
+import { engineBinaryName } from '@shared/platform/engine'
 import type { PlatformServices } from '@shared/platform/services'
 import { RunHost } from '@shared/platform/services'
 
@@ -29,27 +30,28 @@ function defaultUserDataDir(
   return '/var/lib/motrix'
 }
 
-function defaultExtraResourceDir(
-  platform: NodeJS.Platform,
-  moduleUrl: string
-): string {
-  if (platform !== 'darwin' && platform !== 'win32') {
-    return '/usr/share/motrix/extra'
-  }
+function defaultExtraResourceDir(moduleUrl: string): string {
   // Resolve relative to the executing module (dist/server/index.mjs in prod).
   const here = path.dirname(fileURLToPath(moduleUrl))
   return path.resolve(here, '..', '..', 'extra')
 }
 
-function defaultAria2Path(
+function defaultEnginePath(
   platform: NodeJS.Platform,
   arch: string,
-  extraResourceDir: string
+  extraResourceDir: string,
+  moduleUrl: string
 ): string {
-  if (platform !== 'darwin' && platform !== 'win32') {
-    return '/usr/bin/aria2c'
-  }
-  return path.join(extraResourceDir, platform, arch, aria2BinaryName(platform))
+  const packaged = path.resolve(
+    path.dirname(fileURLToPath(moduleUrl)),
+    '..',
+    '..',
+    'bin',
+    engineBinaryName(platform)
+  )
+  return existsSync(packaged)
+    ? packaged
+    : path.join(extraResourceDir, platform, arch, engineBinaryName(platform))
 }
 
 export function createNodePlatformServices(
@@ -65,16 +67,17 @@ export function createNodePlatformServices(
   const userDataDir =
     env.MOTRIX_DATA_DIR ?? defaultUserDataDir(platform, env, home)
   const extraResourceDir =
-    env.MOTRIX_EXTRA_DIR ?? defaultExtraResourceDir(platform, moduleUrl)
-  const aria2BinaryPath =
-    env.MOTRIX_ARIA2_BIN ?? defaultAria2Path(platform, arch, extraResourceDir)
+    env.MOTRIX_EXTRA_DIR ?? defaultExtraResourceDir(moduleUrl)
+  const engineBinaryPath =
+    env.MOTRIX_TAIJI_BIN ??
+    defaultEnginePath(platform, arch, extraResourceDir, moduleUrl)
   const isDev = env.NODE_ENV === 'development'
 
   return {
     host: RunHost.Node,
     userDataDir,
     extraResourceDir,
-    aria2BinaryPath,
+    engineBinaryPath,
     isDev,
   }
 }

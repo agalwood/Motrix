@@ -5,17 +5,17 @@
 //   Stage A — `@electron/rebuild` (rebuilds native modules such as
 //             better-sqlite3), skipped only by
 //             MOTRIX_SKIP_ELECTRON_REBUILD=1.
-//   Stage B — fetch the bundled aria2 binary for the host
+//   Stage B — fetch the bundled taiji binary for the host
 //             (fetch-engine.mjs, default host mode), skipped only by
 //             MOTRIX_SKIP_ENGINE_FETCH=1.
 //
 // The two SKIP guards are independent: skipping the electron rebuild does NOT
-// skip the aria2 fetch, and vice-versa — so a CI install that sets
-// MOTRIX_SKIP_ELECTRON_REBUILD=1 still populates the aria2 binary that the
+// skip the taiji fetch, and vice-versa — so a CI install that sets
+// MOTRIX_SKIP_ELECTRON_REBUILD=1 still populates the taiji binary that the
 // bundledAria2Exists()-gated integration tests need. FAILURE, however, is not
 // independent: if Stage A actually runs and fails, we short-circuit with its
 // real exit code and never start the (network) Stage B — a broken native
-// rebuild should surface immediately, not be masked by a later aria2 fetch. An
+// rebuild should surface immediately, not be masked by a later taiji fetch. An
 // unsupported host in Stage B (fetch-engine EXIT_UNSUPPORTED_HOST) is soft.
 
 import { spawnSync } from 'node:child_process'
@@ -83,23 +83,23 @@ export async function main(env, deps = defaultDeps) {
       // network-bound Stage B.
       deps.logError(
         `[postinstall] Stage A (electron rebuild) failed (${code}) — ` +
-          'aborting before aria2 fetch'
+          'aborting before taiji fetch'
       )
       return code
     }
   }
 
-  // Stage B — aria2 host fetch. Reached only when Stage A was skipped or
+  // Stage B — taiji host fetch. Reached only when Stage A was skipped or
   // succeeded (its own independent SKIP guard still applies).
   if (env.MOTRIX_SKIP_ENGINE_FETCH === '1') {
     deps.log(
-      '[postinstall] Stage B: skipping aria2 fetch (MOTRIX_SKIP_ENGINE_FETCH=1)'
+      '[postinstall] Stage B: skipping taiji fetch (MOTRIX_SKIP_ENGINE_FETCH=1)'
     )
     return 0
   }
   const code = await deps.runEngineFetch()
   if (code !== 0 && code !== EXIT_UNSUPPORTED_HOST) {
-    deps.logError(`[postinstall] Stage B (aria2 fetch) failed (${code})`)
+    deps.logError(`[postinstall] Stage B (taiji fetch) failed (${code})`)
     return code
   }
   return 0

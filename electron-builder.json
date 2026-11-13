@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
   "appId": "app.motrix.native",
   "productName": "Motrix",
-  "copyright": "Copyright © 2026 Dr_rOot",
+  "copyright": "Copyright \u00a9 2026 Dr_rOot",
   "toolsets": {
     "appimage": "1.0.3"
   },
@@ -128,9 +128,15 @@
     ],
     "target": ["dmg", "zip"],
     "extraResources": [
-      { "from": "./extra/aria2.conf", "to": "./extra/aria2.conf" },
-      { "from": "./dist/builtin-plugins", "to": "./builtin-plugins" },
-      { "from": "./extra/darwin/${arch}/", "to": "./extra/darwin/${arch}/" },
+      {
+        "from": "./dist/builtin-plugins",
+        "to": "./builtin-plugins"
+      },
+      {
+        "from": "./extra/darwin/${arch}/",
+        "to": "./extra/darwin/${arch}/",
+        "filter": ["taiji", "taiji-build.json", "taiji-licenses.txt"]
+      },
       {
         "from": "./packages/native-host/dist/darwin-${arch}/motrix-native-host",
         "to": "bin/motrix-native-host"
@@ -153,18 +159,36 @@
     ]
   },
   "dmg": {
-    "window": { "width": 540, "height": 380 },
+    "window": {
+      "width": 540,
+      "height": 380
+    },
     "contents": [
-      { "x": 410, "y": 230, "type": "link", "path": "/Applications" },
-      { "x": 130, "y": 230, "type": "file" }
+      {
+        "x": 410,
+        "y": 230,
+        "type": "link",
+        "path": "/Applications"
+      },
+      {
+        "x": 130,
+        "y": 230,
+        "type": "file"
+      }
     ]
   },
   "win": {
     "target": ["nsis", "zip"],
     "extraResources": [
-      { "from": "./extra/aria2.conf", "to": "./extra/aria2.conf" },
-      { "from": "./dist/builtin-plugins", "to": "./builtin-plugins" },
-      { "from": "./extra/win32/${arch}/", "to": "./extra/win32/${arch}/" },
+      {
+        "from": "./dist/builtin-plugins",
+        "to": "./builtin-plugins"
+      },
+      {
+        "from": "./extra/win32/${arch}/",
+        "to": "./extra/win32/${arch}/",
+        "filter": ["taiji.exe", "taiji-build.json", "taiji-licenses.txt"]
+      },
       {
         "from": "./packages/native-host/dist/win32-${arch}/motrix-native-host.exe",
         "to": "bin/motrix-native-host.exe"
@@ -218,19 +242,37 @@
       }
     },
     "target": [
-      { "target": "AppImage", "arch": ["x64", "arm64"] },
-      { "target": "deb", "arch": ["x64", "arm64"] },
-      { "target": "rpm", "arch": ["x64", "arm64"] },
-      { "target": "pacman", "arch": ["x64", "arm64"] }
+      {
+        "target": "AppImage",
+        "arch": ["x64", "arm64"]
+      },
+      {
+        "target": "deb",
+        "arch": ["x64", "arm64"]
+      },
+      {
+        "target": "rpm",
+        "arch": ["x64", "arm64"]
+      },
+      {
+        "target": "pacman",
+        "arch": ["x64", "arm64"]
+      }
     ],
     "extraResources": [
-      { "from": "./extra/aria2.conf", "to": "./extra/aria2.conf" },
-      { "from": "./dist/builtin-plugins", "to": "./builtin-plugins" },
+      {
+        "from": "./dist/builtin-plugins",
+        "to": "./builtin-plugins"
+      },
       {
         "from": "./build/256x256.png",
         "to": "./icons/motrix-appimage-256.png"
       },
-      { "from": "./extra/linux/${arch}/", "to": "./extra/linux/${arch}/" },
+      {
+        "from": "./extra/linux/${arch}/",
+        "to": "./extra/linux/${arch}/",
+        "filter": ["taiji", "taiji-build.json", "taiji-licenses.txt"]
+      },
       {
         "from": "./packages/native-host/dist/linux-${arch}/motrix-native-host",
         "to": "bin/motrix-native-host"

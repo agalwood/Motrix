@@ -1,6 +1,6 @@
 import { mkdirSync } from 'node:fs'
 import path from 'node:path'
-import { aria2BinaryName } from '@shared/platform/aria2'
+import { engineBinaryName } from '@shared/platform/engine'
 import { type PlatformServices, RunHost } from '@shared/platform/services'
 import { app } from 'electron'
 import {
@@ -104,11 +104,11 @@ export function createElectronPlatformServices(
     host: RunHost.Electron,
     userDataDir,
     extraResourceDir: extraDir,
-    aria2BinaryPath: path.join(
+    engineBinaryPath: path.join(
       extraDir,
       process.platform,
       process.arch,
-      aria2BinaryName(process.platform)
+      engineBinaryName(process.platform)
     ),
     isDev,
   }

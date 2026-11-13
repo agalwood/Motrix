@@ -184,7 +184,7 @@ export async function prepareFnosProject({
         .replaceAll('@FNOS_NODE_SIZE@', String(nodeBinary.length))
     )
 
-    for (const binary of ['aria2c', 'motrix-finalize-fs'])
+    for (const binary of ['taiji', 'motrix-finalize-fs'])
       await verifyFnosBinary(
         path.join(temporary, 'app/server/bin', binary),
         arch

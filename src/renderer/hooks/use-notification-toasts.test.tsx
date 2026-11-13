@@ -386,9 +386,9 @@ describe('useNotificationToasts', () => {
     expect(toastAddMock).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 'engine-start-failed',
-        title: 'aria2 engine could not start',
+        title: 'taiji engine could not start',
         description:
-          'Motrix’s RPC port is occupied, so aria2 engine could not start.',
+          'Motrix’s RPC port is occupied, so taiji engine could not start.',
         type: 'error',
         timeout: 0,
       })

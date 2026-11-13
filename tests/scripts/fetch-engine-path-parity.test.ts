@@ -1,5 +1,5 @@
 import path from 'node:path'
-import { aria2BinaryName } from '@shared/platform/aria2'
+import { engineBinaryName } from '@shared/platform/engine'
 import { describe, expect, it } from 'vitest'
 // @ts-expect-error — .mjs without types
 import { bundledPath } from '../../scripts/fetch-engine.mjs'
@@ -25,7 +25,7 @@ describe('fetch-engine inline bundledPath parity with host layout', () => {
   for (const [platform, arch] of MATRIX) {
     it(`matches the host layout for ${platform}/${arch}`, () => {
       expect(bundledPath(extra, platform, arch)).toBe(
-        path.join(extra, platform, arch, aria2BinaryName(platform))
+        path.join(extra, platform, arch, engineBinaryName(platform))
       )
     })
   }

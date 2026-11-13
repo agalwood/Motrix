@@ -83,22 +83,18 @@ Safari 图标是从 macOS 27.0（26A428）自带的 Safari 27.0 中 `Safari.app/
 
 ---
 
-## aria2 下载引擎
+## taiji 下载引擎
 
-桌面版随应用打包 `aria2c` 可执行文件，版本由 `scripts/engine.lock.json` 固定：
+桌面版与 Server 版统一使用 taiji 下载引擎。`scripts/engine.lock.json` 固定版本和目标平台，
+`scripts/taiji-source.lock.json` 固定上游提交和 Cargo 锁文件摘要。
 
-- **版本：** 1.37.0-motrix.25
-- **对应源码：** <https://github.com/motrixapp/aria2/tree/v1.37.0-motrix.25>
-- **许可证：** GNU General Public License v2.0 or later（`GPL-2.0-or-later`）
-- **完整许可证文本：** `THIRD_PARTY_LICENSES/aria2-COPYING`
-- **OpenSSL 例外条款 / 声明：**
-  `THIRD_PARTY_LICENSES/aria2-LICENSE.OpenSSL`
+- **版本：** 0.2.0
+- **上游源码：** <https://github.com/motrixapp/taiji/tree/13cf6b2e409bc0423e35a03c502426d5b09dce01>
+- **许可证：** GNU General Public License v2.0 或后续版本（`GPL-2.0-or-later`）
+- **完整许可证文本：** `THIRD_PARTY_LICENSES/taiji-COPYING`
+- **链接依赖声明：** 引擎旁的 `taiji-licenses.txt`。
 
-上述链接指向与内置二进制文件对应的源码版本。再次分发时，分发者仍须针对实际
-发布的二进制文件履行 GPL 的源码提供和声明保留义务；如果自行构建，还应核对构建
-产物所链接的其他库及其许可要求。
-
----
+源码锁文件标识随应用分发的引擎源码；构建记录包含源码、目标平台、二进制和许可证包的摘要。
 
 ## GeoIP 数据库（用户自行启用、自行下载）
 

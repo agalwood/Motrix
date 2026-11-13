@@ -69,7 +69,7 @@ The release workflow calls the same native x86_64/aarch64 Flatpak workflow used
 by PR CI. It archives the release event's commit, verifies its package version
 against release preflight and AppStream metadata, and pins the source archive
 checksum. Each bundle is installed and checked for application ID, architecture,
-branch, version, aria2 features, and the private broker protocol. x86_64 also
+branch, version, taiji engine identity, and the private broker protocol. x86_64 also
 checks the host-side companion's framed Native Messaging exchange.
 
 Both bundles must succeed before release assembly and publication. They are

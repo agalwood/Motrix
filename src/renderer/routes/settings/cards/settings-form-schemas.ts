@@ -38,9 +38,6 @@ export const advancedFormSchema = engineSettingsInputSchema.pick({
   sessionSaveInterval: true,
   rpcPort: true,
   rpcSecret: true,
-  sqlite3Persistence: true,
-  sqlite3DbPath: true,
-  sqlite3HistoryLimit: true,
 })
 
 export const networkFormSchema = z.object({

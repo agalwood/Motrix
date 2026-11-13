@@ -543,12 +543,12 @@
             "rpc": "Port RPC"
           },
           "communication": {
-            "ready": "Motrix peut communiquer avec aria2."
+            "ready": "Motrix peut communiquer avec taiji."
           },
           "confirmForce": {
             "action": "Forcer l’arrêt et rétablir",
-            "description": "Le PID {{pid}} correspond à l’exécutable fourni avec Motrix, à son secret RPC privé et à ses chemins de données. Il sera arrêté immédiatement, puis aria2 redémarrera sur le port RPC de Motrix.",
-            "title": "Forcer l’arrêt de l’ancien processus aria2 ?"
+            "description": "Le PID {{pid}} correspond à l’exécutable fourni avec Motrix, à son secret RPC privé et à ses chemins de données. Il sera arrêté immédiatement, puis taiji redémarrera sur le port RPC de Motrix.",
+            "title": "Forcer l’arrêt de l’ancien processus taiji ?"
           },
           "copied": "Copié",
           "copy": "Copier le diagnostic",
@@ -561,14 +561,14 @@
             "blocked": "Le port par défaut {{port}} est utilisé par le PID {{pid}} ({{name}}), mais Motrix ne peut pas vérifier son origine. Ce processus ne sera pas arrêté.",
             "confirm": {
               "action": "Arrêter et rétablir le port {{port}}",
-              "description": "Le PID {{pid}} a été identifié comme un ancien processus aria2 de Motrix. Il sera arrêté, le port par défaut {{port}} sera enregistré et aria2 redémarrera.",
+              "description": "Le PID {{pid}} a été identifié comme un ancien processus taiji de Motrix. Il sera arrêté, le port par défaut {{port}} sera enregistré et taiji redémarrera.",
               "title": "Arrêter l’ancien processus et rétablir le port {{port}} ?"
             },
             "restore": "Rétablir le port par défaut {{port}} de Motrix",
             "restoredDefault": "Le port RPC par défaut {{port}} de Motrix a été rétabli.",
             "restoring": "Rétablissement du port par défaut {{port}} de Motrix…",
             "unidentified": "Impossible d’identifier le processus utilisant le port par défaut {{port}}. Motrix continuera d’utiliser le port actuel.",
-            "verifiedOrphan": "Un ancien processus aria2 de Motrix a été identifié (PID {{pid}}) sur le port par défaut {{port}}. Motrix peut l’arrêter en toute sécurité avant de rétablir ce port."
+            "verifiedOrphan": "Un ancien processus taiji de Motrix a été identifié (PID {{pid}}) sur le port par défaut {{port}}. Motrix peut l’arrêter en toute sécurité avant de rétablir ce port."
           },
           "features": {
             "none": "Non indiqué",
@@ -582,7 +582,7 @@
           },
           "lastChecked": "Vérifié à {{time}}",
           "loadFailed": "Impossible d’exécuter le diagnostic du moteur.",
-          "motrixEngine": "aria2 Motrix",
+          "motrixEngine": "taiji Motrix",
           "open": "Diagnostiquer",
           "port": {
             "available": "{{port}} (disponible)",
@@ -599,22 +599,22 @@
             "verified_orphan": "PID {{pid}} ({{name}}), ancien processus Motrix identifié ; arrêt sans risque"
           },
           "reason": {
-            "binary_unavailable": "L’exécutable aria2 fourni est absent ou indisponible.",
-            "health_check_failed": "aria2 ne répond plus à Motrix.",
-            "port_in_use": "Le port RPC de Motrix est occupé, ce qui empêche le démarrage du moteur aria2.",
-            "rpc_unavailable": "Le moteur aria2 a démarré, mais n’accepte pas les connexions RPC de Motrix.",
-            "spawn_failed": "Impossible de créer le processus aria2.",
-            "unexpected_exit": "Le moteur aria2 s’est arrêté de manière inattendue.",
-            "unknown": "Le moteur aria2 n’a pas pu démarrer pour une raison inconnue."
+            "binary_unavailable": "L’exécutable taiji fourni est absent ou indisponible.",
+            "health_check_failed": "taiji ne répond plus à Motrix.",
+            "port_in_use": "Le port RPC de Motrix est occupé, ce qui empêche le démarrage du moteur taiji.",
+            "rpc_unavailable": "Le moteur taiji a démarré, mais n’accepte pas les connexions RPC de Motrix.",
+            "spawn_failed": "Impossible de créer le processus taiji.",
+            "unexpected_exit": "Le moteur taiji s’est arrêté de manière inattendue.",
+            "unknown": "Le moteur taiji n’a pas pu démarrer pour une raison inconnue."
           },
           "recommendation": {
-            "force_terminate": "Ce processus a été identifié comme appartenant à Motrix. Forcez l’arrêt du PID {{pid}}, puis redémarrez aria2 sur le port RPC {{rpcPort}} de Motrix.",
-            "retry": "Le port est libre. Relancez aria2 sans modifier vos paramètres.",
+            "force_terminate": "Ce processus a été identifié comme appartenant à Motrix. Forcez l’arrêt du PID {{pid}}, puis redémarrez taiji sur le port RPC {{rpcPort}} de Motrix.",
+            "retry": "Le port est libre. Relancez taiji sans modifier vos paramètres.",
             "switch_port": "Ce processus ne peut pas être arrêté en toute sécurité. Utilisez le port {{port}} uniquement en solution de secours, ou fermez vous-même le processus en conflit.",
             "title": "Rétablissement recommandé"
           },
-          "recovered": "Le moteur aria2 est de nouveau disponible.",
-          "recoveredOnPort": "Le moteur aria2 fonctionne de nouveau sur le port RPC {{port}}.",
+          "recovered": "Le moteur taiji est de nouveau disponible.",
+          "recoveredOnPort": "Le moteur taiji fonctionne de nouveau sur le port RPC {{port}}.",
           "recoveryFailed": "Le rétablissement du moteur a échoué. Relancez le diagnostic pour connaître son état actuel.",
           "refreshFailed": "Impossible d’actualiser le diagnostic. Le dernier rapport obtenu est affiché ci-dessous.",
           "restart": "Redémarrer le moteur",
@@ -659,9 +659,9 @@
         },
         "features": "Fonctionnalités",
         "listenPort": "Port d’écoute",
-        "name": "Aria2",
+        "name": "taiji",
         "rpcPort": "Port RPC",
-        "startFailed": "Le moteur aria2 n’a pas pu démarrer",
+        "startFailed": "Le moteur taiji n’a pas pu démarrer",
         "state": {
           "disconnected": "Déconnecté",
           "failed": "Échec",
@@ -1890,7 +1890,8 @@
         "historyLimit": "Enregistrements de récupération des tâches terminées",
         "historyLimitDesc": "La liste des téléchargements et les fichiers téléchargés ne sont pas affectés.",
         "historySessionOnly": "Ne pas conserver",
-        "title": "Progression et récupération"
+        "title": "Progression et récupération",
+        "managedByTaiji": "taiji automatically saves tasks and progress in its own database. Completed task history remains in Motrix."
       },
       "rpc": {
         "port": "Port RPC",
@@ -2009,7 +2010,8 @@
         "dhtListenPortDesc": "Rechercher des pairs via DHT sur ce port.",
         "listenPort": "Port d’écoute BT",
         "listenPortDesc": "Accepter les connexions entrantes des pairs sur ce port.",
-        "title": "Connexions entrantes"
+        "title": "Connexions entrantes",
+        "sharedPortDesc": "taiji uses this port for peer connections and DHT."
       },
       "newMagnetTasks": "Nouvelles tâches magnet",
       "peers": {
@@ -2136,7 +2138,8 @@
         "modifiedTimeServer": "Date du serveur",
         "sessionSaveInterval": "Intervalle d’enregistrement de la progression (s)",
         "sessionSaveIntervalDesc": "Enregistrer plus souvent pour limiter la progression perdue en cas de plantage.",
-        "title": "Disque et fichiers"
+        "title": "Disque et fichiers",
+        "managedByTaiji": "taiji manages disk allocation and cache automatically."
       },
       "fillInLinksWhenOpeningNewTask": "Coller les liens copiés à l’ouverture d’une nouvelle tâche.",
       "magnet": {

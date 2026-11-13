@@ -54,7 +54,7 @@ def verify(app_dir, sdk_dir, arch, platform):
         files.append({'file': str(file.relative_to(app)), 'sha256': hashlib.sha256(file.read_bytes()).hexdigest(),
                       'needed': needed, 'versions': sorted(required)})
     by_name = {item['file']: item for item in files}
-    entries = ['runtime/bin/node', 'server/bin/aria2c', 'server/bin/motrix-finalize-fs']
+    entries = ['runtime/bin/node', 'server/bin/taiji', 'server/bin/motrix-finalize-fs']
     if not all(name in by_name for name in entries) or not any(name.endswith('.node') for name in by_name):
         raise ValueError('Missing required runtime ELF or SQLite addon')
 
@@ -71,12 +71,12 @@ glibc:process.report.getReport().header.glibcVersionRuntime,sqlite:'read-write-o
     loaded = json.loads(execute(entries[0], '-e', code))
     if loaded['glibc'] != lock['glibc'] or loaded['arch'] != arch:
         raise ValueError('Node did not load the target DSM libc and SQLite')
-    aria = execute(entries[1], '--version').splitlines()[0]
+    engine = execute(entries[1], '--version').splitlines()[0]
     execute(entries[2])
     return {'schemaVersion': 2, 'scope': f"DSM {lock['dsmVersion']} {platform} userspace on Linux host kernel",
             'platform': platform, 'toolchainSha256': profile['toolchain']['sha256'],
             'architecture': arch, 'cpuEmulation': target.get('cpu'), 'deviceAcceptance': 'not-run',
-            'hostKernel': os.uname().release, 'loaded': loaded, 'aria2': aria, 'elf': files}
+            'hostKernel': os.uname().release, 'loaded': loaded, 'taiji': engine, 'elf': files}
 
 
 if __name__ == '__main__':

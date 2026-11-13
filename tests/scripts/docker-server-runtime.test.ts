@@ -90,7 +90,7 @@ describe('Docker Server runtime staging contract', () => {
     expect(runtime).toContain('apk add --no-cache ca-certificates')
     expect(runtime).not.toContain('apk add --no-cache aria2')
     expect(runtime).toContain(`PATH=/app/bin:${PATH_REFERENCE}`)
-    expect(runtime).toContain('MOTRIX_ARIA2_BIN=/app/bin/aria2c')
+    expect(runtime).toContain('MOTRIX_TAIJI_BIN=/app/bin/taiji')
     expect(runtime).toContain('motrix-finalize-fs')
     expect(runtime).toContain(
       'SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt'

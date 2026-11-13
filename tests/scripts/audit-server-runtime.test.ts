@@ -300,8 +300,9 @@ describe('Server package contracts', () => {
       'build/legal/server/THIRD_PARTY_LICENSES.txt',
       'build/legal/server/sbom.spdx.json',
       'dist/builtin-plugins',
-      'extra/aria2.conf',
-      'extra/{platform}/{arch}/{aria2Binary}',
+      'extra/{platform}/{arch}/taiji-build.json',
+      'extra/{platform}/{arch}/taiji-licenses.txt',
+      'extra/{platform}/{arch}/{engineBinary}',
       'packages/finalize-fs/dist/{platform}-{arch}/{finalizeBinary}',
     ])
     expect(contract.runtimeRoots).toEqual([
@@ -309,6 +310,7 @@ describe('Server package contracts', () => {
       '@fastify/websocket',
       '@jitl/quickjs-wasmfile-release-sync',
       '@motrix/mdxp',
+      '@motrix/nat',
       '@motrix/plugin-manifest-schema',
       '@noble/curves',
       '@noble/hashes',
@@ -333,7 +335,6 @@ describe('Server package contracts', () => {
       'zod',
     ])
     expect(contract.runtimeRoots).not.toContain('electron-updater')
-    expect(contract.runtimeRoots).not.toContain('@motrix/nat')
   })
 })
 

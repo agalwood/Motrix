@@ -14,6 +14,7 @@
     "@fastify/websocket",
     "@jitl/quickjs-wasmfile-release-sync",
     "@motrix/mdxp",
+    "@motrix/nat",
     "@motrix/plugin-manifest-schema",
     "@noble/curves",
     "@noble/hashes",
@@ -102,13 +103,18 @@
       "type": "directory"
     },
     {
-      "source": "extra/aria2.conf",
-      "destination": "extra/aria2.conf",
+      "source": "extra/{platform}/{arch}/taiji-build.json",
+      "destination": "bin/taiji-build.json",
       "type": "file"
     },
     {
-      "source": "extra/{platform}/{arch}/{aria2Binary}",
-      "destination": "bin/{aria2Binary}",
+      "source": "extra/{platform}/{arch}/taiji-licenses.txt",
+      "destination": "bin/taiji-licenses.txt",
+      "type": "file"
+    },
+    {
+      "source": "extra/{platform}/{arch}/{engineBinary}",
+      "destination": "bin/{engineBinary}",
       "type": "file"
     },
     {

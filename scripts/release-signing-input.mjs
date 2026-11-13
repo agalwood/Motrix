@@ -34,6 +34,17 @@ export const SIGNING_ARCHIVE_LIMITS = Object.freeze({
 })
 
 const TRUSTED_INPUT_SHA256 = Object.freeze({
+  'scripts/native-engine-digest.mjs':
+    '30fa040736f525a25d7c930f6d24e2b79d376add2b22aa145ffe26ffff058f43',
+  'scripts/engine-source.mjs':
+    '31a9cc2e5006bff18c5532f339f507fc43cadbb5420039cba6ad553214cd95c9',
+  'scripts/verify-engine-artifact.mjs':
+    'b19e1de3c247cfb6f41d57fbea32bf2c05dc84420808c5858daeb854fcc41ded',
+  'scripts/engine.lock.json':
+    'f4daafdbf2f0a809fc4b8c5db4c70a37ac2c65990967c9352a205fd08f607eb9',
+  'scripts/taiji-source.lock.json':
+    'a4d534e1e1f69600ace7584120bc9d8136338118376573e064f790be49dd2553',
+
   'signing-build-resources/Motrix.icon/icon.json':
     'd50dd058b74140104544837c4da56e501f6a4c3b948cd99e4f33f8d9ca95e095',
   'signing-build-resources/Motrix.icon/Assets/Glass-WhiteRim-1024.png':
@@ -81,7 +92,7 @@ const TRUSTED_INPUT_SHA256 = Object.freeze({
   'scripts/native-binary-target.mjs':
     '6f0a42eecf729eb6de2df28b5d7449993590e494deb4e309b99c367094045797',
   'scripts/verify-electron-package.mjs':
-    '83e7a924c43b70def9440dc8561d9c0aa5dd15dc6044b24f3436215eb92e345c',
+    '3706692e37a8fb7fda7f3df1ee84ebf4f5d3f91363e962f1747a42860610c30b',
 })
 
 // Use electron-builder's default resource names so the restricted config can
@@ -124,7 +135,6 @@ const SOURCE_MAPPINGS = [
   ['dist/builtin-plugins', 'dist/builtin-plugins'],
   ['dist/electron-app', 'dist/electron-app'],
   ['electron-builder.signing.json', 'electron-builder.signing.json'],
-  ['extra/aria2.conf', 'extra/aria2.conf'],
   ['extra/tray', 'extra/tray'],
   ['scripts/release-signing-tool/package.json', 'signing-tool/package.json'],
   [
@@ -141,6 +151,12 @@ const SOURCE_MAPPINGS = [
     'scripts/before-build-use-staged-dependencies.mjs',
   ],
   ['scripts/native-binary-target.mjs', 'scripts/native-binary-target.mjs'],
+  ['scripts/engine-source.mjs', 'scripts/engine-source.mjs'],
+  ['scripts/native-engine-digest.mjs', 'scripts/native-engine-digest.mjs'],
+  ['scripts/verify-engine-artifact.mjs', 'scripts/verify-engine-artifact.mjs'],
+  ['scripts/engine.lock.json', 'scripts/engine.lock.json'],
+  ['scripts/taiji-source.lock.json', 'scripts/taiji-source.lock.json'],
+
   [
     'scripts/verify-electron-package.mjs',
     'scripts/verify-electron-package.mjs',
@@ -188,6 +204,12 @@ function isAllowedSigningDataPath(relativePath) {
       'scripts/electron-package-size-budgets.json',
       'scripts/electron-package-utils.mjs',
       'scripts/native-binary-target.mjs',
+      'scripts/engine-source.mjs',
+      'scripts/native-engine-digest.mjs',
+      'scripts/verify-engine-artifact.mjs',
+      'scripts/engine.lock.json',
+      'scripts/taiji-source.lock.json',
+
       'scripts/release-signing-input.mjs',
       'scripts/verify-electron-package.mjs',
     ].includes(relativePath) ||
@@ -370,7 +392,7 @@ async function assertSafeTree(root) {
 }
 
 function targetResource(platform, arch) {
-  const executable = platform === 'win32' ? 'aria2c.exe' : 'aria2c'
+  const executable = platform === 'win32' ? 'taiji.exe' : 'taiji'
   return `extra/${platform}/${arch}/${executable}`
 }
 

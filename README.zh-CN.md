@@ -204,15 +204,17 @@ Docker Hub/GHCR 镜像与 tag 选择、群晖
 DSM 7 和飞牛 fnOS 安装、目录所有权、端口、诊断与备份/升级说明见
 [Docker Server 部署指南](./docs/docker-server.zh-CN.md)。
 
+源码构建和自动升级行为见 [taiji 引擎与迁移](./docs/taiji-engine.zh-CN.md)。
+
 ## 🛠 开发与构建
 
-开发前请先安装 Node.js 22+ 和 pnpm。pnpm 版本以 `package.json` 中的 `packageManager` 字段为准。
+开发前请先安装 Node.js 24+、pnpm、Git 和 Rust 1.94.1+。Linux 源码构建还需要 `musl-tools`。pnpm 版本以 `package.json` 中的 `packageManager` 字段为准。
 
 ```bash
 git clone https://github.com/agalwood/Motrix.git
 cd Motrix
 
-pnpm install     # 安装依赖（postinstall 自动下载适用于本机系统的 aria2，并重建原生模块）
+pnpm install     # 安装依赖（postinstall 从锁定源码构建适用于本机的 taiji，并重建原生模块）
 pnpm start       # 启动 Electron 开发模式（renderer 使用 Vite HMR）
 
 pnpm test        # Vitest 单元测试
@@ -253,7 +255,7 @@ macOS、Windows 和 Linux 的打包命令（`pack:*` / `dist:*`）可以在 `pac
 | 语言 | TypeScript（strict mode） |
 | 构建 | Vite 8（main / preload / worker / renderer，4 个 target） |
 | 数据校验 | Zod 4（在运行时校验 settings、IPC payload 和 wire schema） |
-| 下载引擎 | 使用 Motrix 维护的 [aria2 fork](https://github.com/motrixapp/aria2)，随应用分发 |
+| 下载引擎 | 使用 [taiji](https://github.com/motrixapp/taiji)，从锁定的 Rust 源码构建并随应用分发 |
 | 持久化 | better-sqlite3（保存并恢复任务会话） |
 | 插件沙箱 | quickjs-emscripten |
 | 服务端 shell | Node.js + Fastify + WebSocket |
@@ -267,7 +269,7 @@ renderer（React 界面）
    │  IPC（window.motrix）
 core（与下载引擎无关的应用内核，包括任务、设置、插件和 bridge）
    │  engine adapter
-aria2（下载引擎）
+taiji（下载引擎）
 ```
 
 Electron 桌面应用和 Node headless 服务端共用同一个 core。通知、secret 存储等功能在两种环境中各有对应实现，但使用方式保持一致。

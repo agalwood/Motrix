@@ -124,7 +124,7 @@ function makeFakeCtx() {
       setEnabled: vi.fn().mockResolvedValue(undefined),
       restart: vi.fn().mockResolvedValue(undefined),
     },
-    aria2BinaryPath: '/usr/bin/aria2c',
+    engineBinaryPath: '/usr/bin/aria2c',
     finalNamePicker: {} as FinalNamePicker,
     mediaMetaStore: makeMediaMetaStoreStub(),
     torrentMetaStore: {} as TorrentMetaStore,

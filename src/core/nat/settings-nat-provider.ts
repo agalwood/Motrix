@@ -8,7 +8,9 @@ export class SettingsNatProvider implements NatSettingsProvider {
     const e = this.settings.getEngine()
     return {
       listenPort: e.listenPort,
-      dhtListenPort: e.dhtListenPort,
+      // The taiji listener multiplexes DHT and uTP on the BT port.
+      // A migrated legacy DHT port must not map a socket that is unused.
+      dhtListenPort: e.listenPort,
     }
   }
 

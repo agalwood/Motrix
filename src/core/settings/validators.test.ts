@@ -454,10 +454,11 @@ describe('engineSettingsSchema — dhtListenPort', () => {
     expect(DEFAULT_ENGINE_SETTINGS.dhtListenPort).toBe(6881)
   })
 
-  it('accepts valid dhtListenPort', () => {
+  it('uses the shared listen port even for a different legacy DHT port', () => {
     const parsed = engineSettingsSchema.parse({
       ...DEFAULT_ENGINE_SETTINGS,
-      dhtListenPort: 51413,
+      listenPort: 51413,
+      dhtListenPort: 51414,
     })
     expect(parsed.dhtListenPort).toBe(51413)
   })

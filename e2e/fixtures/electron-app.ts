@@ -50,11 +50,35 @@ export const test = base.extend<MotrixFixtures>({
     await use(port)
   },
 
-  electronApp: async ({ userDataDir, rpcPort }, use) => {
+  electronApp: async ({ userDataDir, rpcPort }, use, testInfo) => {
     const app = await launchMotrix({ userDataDir, rpcPort })
+    let logs = ''
+    const collect = (chunk: Buffer) => {
+      logs = (logs + chunk.toString()).slice(-64000)
+    }
+    app.process().stdout?.on('data', collect)
+    app.process().stderr?.on('data', collect)
     try {
       await use(app)
     } finally {
+      if (testInfo.status !== testInfo.expectedStatus) {
+        await testInfo.attach('desktop-log', {
+          body: logs,
+          contentType: 'text/plain',
+        })
+        const page = app.windows().find((page) => page.url().includes('w=main'))
+        const tasks = await page
+          ?.evaluate(
+            (channel) => window.motrix.invoke(channel),
+            Queries.ListTasks
+          )
+          .catch(() => null)
+        if (tasks)
+          await testInfo.attach('desktop-tasks', {
+            body: JSON.stringify(tasks),
+            contentType: 'application/json',
+          })
+      }
       await app.close().catch(() => {})
     }
   },
@@ -211,7 +235,11 @@ export async function launchMotrix(
     JSON.stringify({
       version: CURRENT_SETTINGS_VERSION,
       // Isolated test windows must not import the user's real clipboard.
-      app: { autofillClipboardLinks: false, language: 'en-US' },
+      app: {
+        autofillClipboardLinks: false,
+        language: 'en-US',
+        warnBeforeQuit: false,
+      },
       tracker: { autoSync: false },
       onboarding: {
         disclaimerAccepted: opts.disclaimerAccepted ?? true,

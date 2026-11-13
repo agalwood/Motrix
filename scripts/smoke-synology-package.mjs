@@ -384,7 +384,7 @@ const seeder = spawn(
     '-u',
     'motrix',
     '--',
-    `${target}/server/bin/aria2c`,
+    `${target}/server/bin/taiji`,
     '--no-conf=true',
     '--enable-dht=false',
     '--enable-dht6=false',
@@ -913,6 +913,9 @@ try {
   const durableFiles = [
     'motrix.db',
     'motrix.db-wal',
+    'taiji.sqlite3',
+    'taiji.sqlite3-wal',
+    'taiji.sqlite3.migration.json',
     'aria2.session',
     'aria2.db',
     'aria2.db-wal',

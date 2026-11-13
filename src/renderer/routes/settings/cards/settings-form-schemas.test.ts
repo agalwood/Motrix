@@ -93,8 +93,6 @@ describe('Settings form schemas', () => {
     ['advanced', 'rpcPort', NaN],
     ['advanced', 'rpcPort', 1234.5],
     ['advanced', 'rpcSecret', 'secret\nline'],
-    ['advanced', 'sqlite3DbPath', '/tmp/\0file'],
-    ['advanced', 'sqlite3HistoryLimit', 1000001],
     ['network', 'proxy.port', 1e100],
     ['network', 'proxy.scopes.download', 'yes'],
     ['network', 'proxy.bypass', ['a'.repeat(254)]],

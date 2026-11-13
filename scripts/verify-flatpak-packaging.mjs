@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { readEngineSource, sha256Hex } from './engine-source.mjs'
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url)
 const REPO_ROOT = path.resolve(path.dirname(SCRIPT_PATH), '..')
@@ -12,16 +13,6 @@ const yaml = require('js-yaml')
 
 export const FLATPAK_BUILDER_TOOLS_COMMIT =
   '1fc32195e3e60fe5c97f0af646dec7a99df5962b'
-// The aria2 tag is NOT pinned here: it derives from scripts/engine.lock.json
-// at check time, so the Flatpak build and the desktop bundle cannot ship
-// different engines without failing check:flatpak. Only the git commit each
-// tag resolves to is pinned by hand (and cross-checked against the manifest).
-export const ARIA2_SOURCE = Object.freeze({
-  url: 'https://github.com/motrixapp/aria2.git',
-  // v1.37.0-motrix.25 — current Motrix aria2 fork release
-  commit: '83add2f972b6797b0a66ca0e3e3470e4618d84e1',
-})
-
 const PNPM_SOURCE = Object.freeze({
   url: 'https://registry.npmjs.org/pnpm/-/pnpm-12.21.0.tgz',
   sha256: '0791469382b579869c51827759876616bc3eae5296d8fa880bbc3c9c1e8cf6f7',
@@ -146,7 +137,7 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
     'engine.lock.json must carry tag and version'
   )
 
-  // Every aria2 version literal in the packaging inputs must equal the
+  // Every taiji version literal in the packaging inputs must equal the
   // engine lock's version: the manifest builds the engine from source and
   // the workflow smoke-asserts its --version output, so any spot left
   // behind after a lock bump ships (or green-lights) the previous engine.
@@ -157,7 +148,7 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
     for (const token of text.match(/\d+\.\d+\.\d+-motrix\.\d+/g) ?? []) {
       invariant(
         token === engineLock.version,
-        `${label} pins aria2 ${token} but engine.lock.json ships ` +
+        `${label} pins taiji ${token} but engine.lock.json ships ` +
           `${engineLock.version} — bump every packaging target together`
       )
     }
@@ -167,8 +158,8 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
   const modules = array(manifest.modules, 'modules')
   invariant(
     JSON.stringify(modules.map((module) => module.name)) ===
-      JSON.stringify(['c-ares', 'libssh2', 'aria2', 'motrix']),
-    'module order must be c-ares -> libssh2 -> aria2 -> motrix'
+      JSON.stringify(['motrix']),
+    'Flatpak must build only the Motrix module and its pinned taiji source'
   )
   invariant(
     array(manifest['sdk-extensions'], 'sdk-extensions').includes(
@@ -203,47 +194,29 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
     'native messaging must not add host escape, broad bus, or proxy permissions'
   )
 
-  const aria2 = moduleByName(manifest, 'aria2')
-  const aria2Sources = objectSources(aria2)
-  const aria2Git = sourceByUrl(
-    aria2Sources,
-    ARIA2_SOURCE.url,
-    'aria2 git source'
-  )
-  invariant(aria2Git.type === 'git', 'aria2 must build from git source')
-  invariant(
-    aria2Git.tag === engineLock.tag,
-    `aria2 manifest tag ${aria2Git.tag} must match engine.lock.json ` +
-      `${engineLock.tag} — the Flatpak and the desktop bundle ship ONE engine`
-  )
-  invariant(aria2Git.commit === ARIA2_SOURCE.commit, 'aria2 commit drifted')
-  const aria2SourceText = JSON.stringify(aria2Sources)
-  invariant(
-    aria2SourceText.includes('autoreconf -fi'),
-    'aria2 source must provide an autotools bootstrap'
-  )
-  const aria2Commands = commandText(aria2, 'post-install')
-  for (const feature of [
-    'Async DNS',
-    'BitTorrent',
-    'HTTPS',
-    'Metalink',
-    'SFTP',
-    'SQLite3-Persistence',
-    'WebSocket',
-  ]) {
-    invariant(
-      aria2Commands.includes(feature),
-      `aria2 feature gate is missing ${feature}`
-    )
-  }
-  invariant(
-    aria2Commands.includes('/libexec/motrix-build/aria2c'),
-    'aria2 must install into the build staging path'
-  )
-
   const motrix = moduleByName(manifest, 'motrix')
   const motrixSources = array(motrix.sources, 'motrix sources')
+  const { source: taijiSource } = await readEngineSource(root)
+  const taijiGit = sourceByUrl(
+    objectSources(motrix),
+    taijiSource.repository,
+    'taiji git source'
+  )
+  invariant(
+    taijiGit.type === 'git' &&
+      taijiGit.commit === taijiSource.revision &&
+      taijiGit.dest === 'taiji-source',
+    'taiji must use the locked upstream source in an isolated directory'
+  )
+  const taijiCargoLock = await readFile(
+    path.join(root, 'flatpak/taiji-Cargo.lock'),
+    'utf8'
+  )
+  invariant(
+    sha256Hex(taijiCargoLock) === taijiSource.cargoLockSha256,
+    'Flatpak taiji Cargo lock drifted'
+  )
+
   invariant(
     motrixSources.includes('generated-sources.json') &&
       motrixSources.includes('cargo-sources.json'),
@@ -299,8 +272,8 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
       !motrixBuildOptions.includes('/usr/lib/sdk/rust-stable'),
     'Rust must install from the pinned archive into a writable build prefix'
   )
-  const aria2Copy = motrixCommands.indexOf(
-    'extra/linux/$npm_config_target_arch/aria2c'
+  const engineBuild = motrixCommands.indexOf(
+    'node scripts/build-taiji.mjs --distribution flatpak --prepared-source taiji-source'
   )
   const nativeHostCopy = motrixCommands.indexOf(
     'packages/native-host/dist/linux-$npm_config_target_arch/motrix-native-host'
@@ -318,8 +291,8 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
     'verify-electron-package.mjs'
   )
   invariant(
-    aria2Copy >= 0 && aria2Copy < electronBuilder,
-    'aria2 must be staged before electron-builder'
+    engineBuild >= 0 && engineBuild < electronBuilder,
+    'taiji must be built before electron-builder'
   )
   invariant(
     nativeHostCopy >= 0 && nativeHostCopy < electronBuilder,
@@ -508,6 +481,7 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
   const lockedCargoPackages = new Set([
     ...registryPackages(nativeHostCargoLock),
     ...registryPackages(finalizeFsCargoLock),
+    ...registryPackages(taijiCargoLock),
   ])
   for (const packageName of [...lockedCargoPackages].sort()) {
     invariant(

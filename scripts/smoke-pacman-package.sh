@@ -28,7 +28,7 @@ docker run --rm --platform linux/amd64 \
       echo "Packaged Electron has unresolved runtime dependencies" >&2
       exit 1
     fi
-    /opt/Motrix/resources/extra/linux/x64/aria2c --version
+    /opt/Motrix/resources/extra/linux/x64/taiji --version
     # Reinstallation exercises post_upgrade as well as post_install.
     pacman -U --noconfirm "$MOTRIX_PACKAGE"
     test -x /usr/bin/motrix

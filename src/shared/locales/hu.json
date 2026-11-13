@@ -159,7 +159,7 @@
       "engine": {
         "title": "Motor",
         "features": "Funkciók",
-        "startFailed": "Az aria2 motor nem indítható el",
+        "startFailed": "Az taiji motor nem indítható el",
         "state": {
           "ready": "Kész",
           "starting": "Indítás…",
@@ -168,7 +168,7 @@
           "disconnected": "Nincs kapcsolat",
           "stopped": "Leállítva"
         },
-        "name": "Aria2",
+        "name": "taiji",
         "version": "Verzió",
         "rpcPort": "RPC-port",
         "listenPort": "Figyelési port",
@@ -211,21 +211,21 @@
             "unknown": "PID {{pid}}, nem azonosítható; nem lesz leállítva"
           },
           "communication": {
-            "ready": "A Motrix képes kommunikálni az aria2-vel."
+            "ready": "A Motrix képes kommunikálni az taiji-vel."
           },
           "reason": {
-            "port_in_use": "A Motrix RPC-portja foglalt, ezért az aria2 motor nem indítható el.",
-            "binary_unavailable": "A beépített aria2 futtatható állománya hiányzik vagy nem érhető el.",
-            "spawn_failed": "Az aria2 folyamatot nem sikerült létrehozni.",
-            "rpc_unavailable": "Az aria2 motor elindult, de nem fogadja a Motrix RPC-kapcsolatait.",
-            "unexpected_exit": "Az aria2 motor váratlanul leállt.",
-            "health_check_failed": "Az aria2 nem válaszol a Motrixnak.",
-            "unknown": "Az aria2 motor ismeretlen okból nem indítható el."
+            "port_in_use": "A Motrix RPC-portja foglalt, ezért az taiji motor nem indítható el.",
+            "binary_unavailable": "A beépített taiji futtatható állománya hiányzik vagy nem érhető el.",
+            "spawn_failed": "Az taiji folyamatot nem sikerült létrehozni.",
+            "rpc_unavailable": "Az taiji motor elindult, de nem fogadja a Motrix RPC-kapcsolatait.",
+            "unexpected_exit": "Az taiji motor váratlanul leállt.",
+            "health_check_failed": "Az taiji nem válaszol a Motrixnak.",
+            "unknown": "Az taiji motor ismeretlen okból nem indítható el."
           },
           "recommendation": {
             "title": "Javasolt helyreállítás",
-            "retry": "A port szabad. Próbáld újra elindítani az aria2-t a beállítások módosítása nélkül.",
-            "force_terminate": "Ez a folyamat igazoltan a Motrixhoz tartozik. Állítsd le kényszerítve a(z) {{pid}} PID-ű folyamatot, majd indítsd újra az aria2-t a Motrix {{rpcPort}} RPC-portján.",
+            "retry": "A port szabad. Próbáld újra elindítani az taiji-t a beállítások módosítása nélkül.",
+            "force_terminate": "Ez a folyamat igazoltan a Motrixhoz tartozik. Állítsd le kényszerítve a(z) {{pid}} PID-ű folyamatot, majd indítsd újra az taiji-t a Motrix {{rpcPort}} RPC-portján.",
             "switch_port": "A folyamat nem állítható le biztonságosan. A(z) {{port}} portot csak tartalék megoldásként használd, vagy zárd be kézzel az ütközést okozó folyamatot."
           },
           "technicalDetails": "Technikai részletek",
@@ -233,12 +233,12 @@
           "restart": "Motor újraindítása",
           "switchPort": "{{port}} port használata",
           "forceRecover": "Kényszerített leállítás és helyreállítás",
-          "recovered": "Az aria2 motor ismét elérhető.",
-          "recoveredOnPort": "Az aria2 motor helyreállt a(z) {{port}} RPC-porton.",
+          "recovered": "Az taiji motor ismét elérhető.",
+          "recoveredOnPort": "Az taiji motor helyreállt a(z) {{port}} RPC-porton.",
           "recoveryFailed": "A motor helyreállítása sikertelen. Futtasd újra a diagnosztikát a legfrissebb állapot megtekintéséhez.",
           "fallback": {
             "available": "A Motrix alapértelmezett {{port}} portja elérhető, és most visszaállítható.",
-            "verifiedOrphan": "Egy ellenőrzött, hátramaradt Motrix aria2-folyamat (PID: {{pid}}) használja az alapértelmezett {{port}} portot. A Motrix biztonságosan leállíthatja a port visszaállítása előtt.",
+            "verifiedOrphan": "Egy ellenőrzött, hátramaradt Motrix taiji-folyamat (PID: {{pid}}) használja az alapértelmezett {{port}} portot. A Motrix biztonságosan leállíthatja a port visszaállítása előtt.",
             "blocked": "Az alapértelmezett {{port}} portot a(z) {{pid}} PID-ű ({{name}}) folyamat használja, de a Motrix nem tudja ellenőrizni, hogy hozzá tartozik-e. A folyamat nem lesz leállítva.",
             "unidentified": "Az alapértelmezett {{port}} portot használó folyamat nem azonosítható. A Motrix továbbra is a jelenlegi portot fogja használni.",
             "restore": "A Motrix alapértelmezett {{port}} portjának visszaállítása",
@@ -246,13 +246,13 @@
             "restoredDefault": "A Motrix alapértelmezett {{port}} RPC-portja visszaállítva.",
             "confirm": {
               "title": "Leállítod a hátramaradt folyamatot, és visszaállítod a(z) {{port}} portot?",
-              "description": "A(z) {{pid}} PID-ű folyamat igazoltan egy hátramaradt Motrix aria2-folyamat. A rendszer leállítja, menti az alapértelmezett {{port}} portot, majd újraindítja az aria2-t.",
+              "description": "A(z) {{pid}} PID-ű folyamat igazoltan egy hátramaradt Motrix taiji-folyamat. A rendszer leállítja, menti az alapértelmezett {{port}} portot, majd újraindítja az taiji-t.",
               "action": "Leállítás és a(z) {{port}} port visszaállítása"
             }
           },
           "confirmForce": {
-            "title": "Kényszerítve leállítod a hátramaradt aria2-folyamatot?",
-            "description": "A(z) {{pid}} PID-ű folyamat megfelel a Motrix beépített binárisának, privát RPC-titkának és adatútvonalainak. A rendszer azonnal leállítja, majd újraindítja az aria2-t a Motrix RPC-portján.",
+            "title": "Kényszerítve leállítod a hátramaradt taiji-folyamatot?",
+            "description": "A(z) {{pid}} PID-ű folyamat megfelel a Motrix beépített binárisának, privát RPC-titkának és adatútvonalainak. A rendszer azonnal leállítja, majd újraindítja az taiji-t a Motrix RPC-portján.",
             "action": "Kényszerített leállítás és helyreállítás"
           },
           "details": "Diagnosztikai részletek",
@@ -295,7 +295,7 @@
             "listening": "{{port}} (Figyel)",
             "occupied": "{{port}} (Foglalt)"
           },
-          "motrixEngine": "aria2 Motrix",
+          "motrixEngine": "taiji Motrix",
           "transport": {
             "websocket": "WebSocket"
           }
@@ -1453,7 +1453,8 @@
         "historySessionOnly": "Ne őrizze meg",
         "historyCount": "Megőrzendő bejegyzések száma",
         "historyCountHint": "A régebbi helyreállítási bejegyzések törlődnek.",
-        "historyCountPositive": "Adj meg 0-nál nagyobb számot."
+        "historyCountPositive": "Adj meg 0-nál nagyobb számot.",
+        "managedByTaiji": "taiji automatically saves tasks and progress in its own database. Completed task history remains in Motrix."
       },
       "description": "RPC, előrehaladás és helyreállítás",
       "configFile": {
@@ -1592,7 +1593,8 @@
         "dhtListenPort": "DHT figyelési port",
         "dhtListenPortDesc": "Partnerek keresése DHT-n keresztül ezen a porton.",
         "dhtEnabled": "DHT engedélyezése",
-        "dhtEnabledDesc": "Partnerek keresése tracker nélkül."
+        "dhtEnabledDesc": "Partnerek keresése tracker nélkül.",
+        "sharedPortDesc": "taiji uses this port for peer connections and DHT."
       },
       "peers": {
         "title": "Partnerek",
@@ -1697,7 +1699,8 @@
         "diskCache": "Lemezgyorsítótár ({{unit}})",
         "diskCacheDesc": "A fájladatok átmeneti tárolására használt memória a lemezre írás előtt.",
         "sessionSaveInterval": "Előrehaladás mentési időköze (mp)",
-        "sessionSaveIntervalDesc": "Gyakoribb mentéssel csökkenthető az összeomláskor elvesző előrehaladás."
+        "sessionSaveIntervalDesc": "Gyakoribb mentéssel csökkenthető az összeomláskor elvesző előrehaladás.",
+        "managedByTaiji": "taiji manages disk allocation and cache automatically."
       },
       "magnet": {
         "title": "Magnet",

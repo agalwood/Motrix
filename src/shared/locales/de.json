@@ -159,7 +159,7 @@
       "engine": {
         "title": "Engine",
         "features": "Funktionen",
-        "startFailed": "aria2-Engine konnte nicht gestartet werden",
+        "startFailed": "taiji-Engine konnte nicht gestartet werden",
         "state": {
           "ready": "Bereit",
           "starting": "Wird gestartet…",
@@ -168,7 +168,7 @@
           "disconnected": "Getrennt",
           "stopped": "Gestoppt"
         },
-        "name": "Aria2",
+        "name": "taiji",
         "version": "Version",
         "rpcPort": "RPC-Port",
         "listenPort": "Empfangsport",
@@ -211,21 +211,21 @@
             "unknown": "PID {{pid}}, nicht identifiziert; wird nicht beendet"
           },
           "communication": {
-            "ready": "Motrix kann mit aria2 kommunizieren."
+            "ready": "Motrix kann mit taiji kommunizieren."
           },
           "reason": {
-            "port_in_use": "Der RPC-Port von Motrix ist belegt. Daher konnte die aria2-Engine nicht gestartet werden.",
-            "binary_unavailable": "Die mitgelieferte aria2-Programmdatei fehlt oder ist nicht verfügbar.",
-            "spawn_failed": "Der aria2-Prozess konnte nicht erstellt werden.",
-            "rpc_unavailable": "Die aria2-Engine wurde gestartet, hat aber keine RPC-Verbindungen von Motrix angenommen.",
-            "unexpected_exit": "Die aria2-Engine wurde unerwartet beendet.",
-            "health_check_failed": "aria2 antwortet nicht mehr auf Motrix.",
-            "unknown": "Die aria2-Engine konnte aus einem unbekannten Grund nicht gestartet werden."
+            "port_in_use": "Der RPC-Port von Motrix ist belegt. Daher konnte die taiji-Engine nicht gestartet werden.",
+            "binary_unavailable": "Die mitgelieferte taiji-Programmdatei fehlt oder ist nicht verfügbar.",
+            "spawn_failed": "Der taiji-Prozess konnte nicht erstellt werden.",
+            "rpc_unavailable": "Die taiji-Engine wurde gestartet, hat aber keine RPC-Verbindungen von Motrix angenommen.",
+            "unexpected_exit": "Die taiji-Engine wurde unerwartet beendet.",
+            "health_check_failed": "taiji antwortet nicht mehr auf Motrix.",
+            "unknown": "Die taiji-Engine konnte aus einem unbekannten Grund nicht gestartet werden."
           },
           "recommendation": {
             "title": "Empfohlene Wiederherstellung",
-            "retry": "Der Port ist frei. Starten Sie aria2 erneut, ohne Ihre Einstellungen zu ändern.",
-            "force_terminate": "Die Zugehörigkeit dieses Prozesses zu Motrix wurde bestätigt. Erzwingen Sie das Beenden von PID {{pid}} und starten Sie aria2 anschließend am Motrix-RPC-Port {{rpcPort}} neu.",
+            "retry": "Der Port ist frei. Starten Sie taiji erneut, ohne Ihre Einstellungen zu ändern.",
+            "force_terminate": "Die Zugehörigkeit dieses Prozesses zu Motrix wurde bestätigt. Erzwingen Sie das Beenden von PID {{pid}} und starten Sie taiji anschließend am Motrix-RPC-Port {{rpcPort}} neu.",
             "switch_port": "Der Prozess kann nicht sicher beendet werden. Verwenden Sie Port {{port}} nur als Ausweichlösung oder beenden Sie den Prozess, der den Konflikt verursacht, selbst."
           },
           "technicalDetails": "Technische Details",
@@ -233,12 +233,12 @@
           "restart": "Engine neu starten",
           "switchPort": "Port {{port}} verwenden",
           "forceRecover": "Beenden erzwingen und wiederherstellen",
-          "recovered": "Die aria2-Engine ist wieder verfügbar.",
-          "recoveredOnPort": "Die aria2-Engine ist am RPC-Port {{port}} wieder verfügbar.",
+          "recovered": "Die taiji-Engine ist wieder verfügbar.",
+          "recoveredOnPort": "Die taiji-Engine ist am RPC-Port {{port}} wieder verfügbar.",
           "recoveryFailed": "Die Engine konnte nicht wieder in Betrieb genommen werden. Führen Sie die Diagnose erneut aus, um den aktuellen Status abzurufen.",
           "fallback": {
             "available": "Der Standardport {{port}} von Motrix ist verfügbar und kann jetzt wiederhergestellt werden.",
-            "verifiedOrphan": "Ein bestätigter verwaister aria2-Prozess von Motrix (PID {{pid}}) verwendet den Standardport {{port}}. Motrix kann ihn sicher beenden, bevor der Port wiederhergestellt wird.",
+            "verifiedOrphan": "Ein bestätigter verwaister taiji-Prozess von Motrix (PID {{pid}}) verwendet den Standardport {{port}}. Motrix kann ihn sicher beenden, bevor der Port wiederhergestellt wird.",
             "blocked": "Der Standardport {{port}} wird von PID {{pid}} ({{name}}) verwendet, aber Motrix kann dessen Zugehörigkeit nicht bestätigen. Der Prozess wird nicht beendet.",
             "unidentified": "Der Prozess am Standardport {{port}} konnte nicht identifiziert werden. Motrix verwendet weiterhin den aktuellen Port.",
             "restore": "Motrix-Standardport {{port}} wiederherstellen",
@@ -246,13 +246,13 @@
             "restoredDefault": "Der Standard-RPC-Port {{port}} von Motrix wurde wiederhergestellt.",
             "confirm": {
               "title": "Verwaisten Prozess beenden und Port {{port}} wiederherstellen?",
-              "description": "PID {{pid}} wurde als verwaister aria2-Prozess von Motrix bestätigt. Er wird beendet, der Standardport {{port}} wird gespeichert und aria2 wird neu gestartet.",
+              "description": "PID {{pid}} wurde als verwaister taiji-Prozess von Motrix bestätigt. Er wird beendet, der Standardport {{port}} wird gespeichert und taiji wird neu gestartet.",
               "action": "Beenden und Port {{port}} wiederherstellen"
             }
           },
           "confirmForce": {
-            "title": "Beenden des verwaisten aria2-Prozesses erzwingen?",
-            "description": "PID {{pid}} stimmt mit der mitgelieferten Programmdatei, dem privaten RPC-Schlüssel und den Datenpfaden von Motrix überein. Der Prozess wird sofort beendet. Anschließend wird aria2 am RPC-Port von Motrix neu gestartet.",
+            "title": "Beenden des verwaisten taiji-Prozesses erzwingen?",
+            "description": "PID {{pid}} stimmt mit der mitgelieferten Programmdatei, dem privaten RPC-Schlüssel und den Datenpfaden von Motrix überein. Der Prozess wird sofort beendet. Anschließend wird taiji am RPC-Port von Motrix neu gestartet.",
             "action": "Beenden erzwingen und wiederherstellen"
           },
           "details": "Diagnosedetails",
@@ -295,7 +295,7 @@
             "listening": "{{port}} (Lauscht)",
             "occupied": "{{port}} (Belegt)"
           },
-          "motrixEngine": "aria2 Motrix",
+          "motrixEngine": "taiji Motrix",
           "transport": {
             "websocket": "WebSocket"
           }
@@ -1453,7 +1453,8 @@
         "historySessionOnly": "Nicht aufbewahren",
         "historyCount": "Anzahl aufzubewahrender Datensätze",
         "historyCountHint": "Ältere Wiederherstellungsdatensätze werden entfernt.",
-        "historyCountPositive": "Geben Sie eine Zahl größer als 0 ein."
+        "historyCountPositive": "Geben Sie eine Zahl größer als 0 ein.",
+        "managedByTaiji": "taiji automatically saves tasks and progress in its own database. Completed task history remains in Motrix."
       },
       "description": "RPC, Fortschritt und Wiederherstellung",
       "configFile": {
@@ -1592,7 +1593,8 @@
         "dhtListenPort": "DHT-Empfangsport",
         "dhtListenPortDesc": "Über DHT an diesem Port Peers finden.",
         "dhtEnabled": "DHT aktivieren",
-        "dhtEnabledDesc": "Peers finden, ohne auf einen Tracker angewiesen zu sein."
+        "dhtEnabledDesc": "Peers finden, ohne auf einen Tracker angewiesen zu sein.",
+        "sharedPortDesc": "taiji uses this port for peer connections and DHT."
       },
       "peers": {
         "title": "Peers",
@@ -1697,7 +1699,8 @@
         "diskCache": "Datenträger-Cache ({{unit}})",
         "diskCacheDesc": "Arbeitsspeicher zum Puffern von Dateien vor dem Schreiben auf den Datenträger.",
         "sessionSaveInterval": "Intervall zum Speichern des Fortschritts (s)",
-        "sessionSaveIntervalDesc": "Häufiger speichern, um den Fortschrittsverlust bei einem Absturz zu verringern."
+        "sessionSaveIntervalDesc": "Häufiger speichern, um den Fortschrittsverlust bei einem Absturz zu verringern.",
+        "managedByTaiji": "taiji manages disk allocation and cache automatically."
       },
       "magnet": {
         "title": "Magnet",

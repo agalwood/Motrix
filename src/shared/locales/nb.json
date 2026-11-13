@@ -542,12 +542,12 @@
             "rpc": "RPC-port"
           },
           "communication": {
-            "ready": "Motrix kan kommunisere med aria2."
+            "ready": "Motrix kan kommunisere med taiji."
           },
           "confirmForce": {
             "action": "Tvangsstopp og gjenopprett",
-            "description": "PID {{pid}} samsvarer med Motrix sin medfølgende programfil, private RPC-hemmelighet og datastier. Prosessen avsluttes umiddelbart, og aria2 startes deretter på nytt på Motrix sin RPC-port.",
-            "title": "Tvangsstoppe den gjenværende aria2-prosessen?"
+            "description": "PID {{pid}} samsvarer med Motrix sin medfølgende programfil, private RPC-hemmelighet og datastier. Prosessen avsluttes umiddelbart, og taiji startes deretter på nytt på Motrix sin RPC-port.",
+            "title": "Tvangsstoppe den gjenværende taiji-prosessen?"
           },
           "copied": "Kopiert",
           "copy": "Kopier diagnostikk",
@@ -560,14 +560,14 @@
             "blocked": "Standardport {{port}} brukes av PID {{pid}} ({{name}}), men Motrix kan ikke bekrefte eierskapet. Prosessen vil ikke bli avsluttet.",
             "confirm": {
               "action": "Stopp og gjenopprett port {{port}}",
-              "description": "PID {{pid}} er bekreftet som en gjenværende aria2-prosess fra Motrix. Den stoppes, standardport {{port}} lagres, og aria2 startes på nytt.",
+              "description": "PID {{pid}} er bekreftet som en gjenværende taiji-prosess fra Motrix. Den stoppes, standardport {{port}} lagres, og taiji startes på nytt.",
               "title": "Stoppe restprosessen og gjenopprette port {{port}}?"
             },
             "restore": "Gjenopprett Motrix sin standardport {{port}}",
             "restoredDefault": "Motrix sin standard-RPC-port {{port}} er gjenopprettet.",
             "restoring": "Gjenoppretter Motrix sin standardport {{port}}…",
             "unidentified": "Prosessen som bruker standardport {{port}}, kunne ikke identifiseres. Motrix fortsetter å bruke gjeldende port.",
-            "verifiedOrphan": "En bekreftet gjenværende aria2-prosess fra Motrix (PID {{pid}}) bruker standardport {{port}}. Motrix kan stoppe den trygt før porten gjenopprettes."
+            "verifiedOrphan": "En bekreftet gjenværende taiji-prosess fra Motrix (PID {{pid}}) bruker standardport {{port}}. Motrix kan stoppe den trygt før porten gjenopprettes."
           },
           "features": {
             "none": "Ikke rapportert",
@@ -581,7 +581,7 @@
           },
           "lastChecked": "Kontrollert {{time}}",
           "loadFailed": "Kunne ikke kjøre motordiagnostikk.",
-          "motrixEngine": "aria2 Motrix",
+          "motrixEngine": "taiji Motrix",
           "open": "Diagnostiser",
           "port": {
             "available": "{{port}} (ledig)",
@@ -598,22 +598,22 @@
             "verified_orphan": "PID {{pid}} ({{name}}), bekreftet restprosess fra Motrix; trygg å stoppe"
           },
           "reason": {
-            "binary_unavailable": "Den medfølgende aria2-programfilen mangler eller er utilgjengelig.",
-            "health_check_failed": "aria2 sluttet å svare Motrix.",
-            "port_in_use": "Motrix sin RPC-port er opptatt, så aria2-motoren kunne ikke starte.",
-            "rpc_unavailable": "aria2-motoren startet, men godtok ikke RPC-tilkoblinger fra Motrix.",
-            "spawn_failed": "aria2-prosessen kunne ikke opprettes.",
-            "unexpected_exit": "aria2-motoren avsluttet uventet.",
-            "unknown": "aria2-motoren kunne ikke starte av en ukjent årsak."
+            "binary_unavailable": "Den medfølgende taiji-programfilen mangler eller er utilgjengelig.",
+            "health_check_failed": "taiji sluttet å svare Motrix.",
+            "port_in_use": "Motrix sin RPC-port er opptatt, så taiji-motoren kunne ikke starte.",
+            "rpc_unavailable": "taiji-motoren startet, men godtok ikke RPC-tilkoblinger fra Motrix.",
+            "spawn_failed": "taiji-prosessen kunne ikke opprettes.",
+            "unexpected_exit": "taiji-motoren avsluttet uventet.",
+            "unknown": "taiji-motoren kunne ikke starte av en ukjent årsak."
           },
           "recommendation": {
-            "force_terminate": "Det er bekreftet at denne prosessen tilhører Motrix. Tvangsstopp PID {{pid}}, og start deretter aria2 på nytt på Motrix sin RPC-port {{rpcPort}}.",
-            "retry": "Porten er ledig. Prøv aria2 igjen uten å endre innstillingene.",
+            "force_terminate": "Det er bekreftet at denne prosessen tilhører Motrix. Tvangsstopp PID {{pid}}, og start deretter taiji på nytt på Motrix sin RPC-port {{rpcPort}}.",
+            "retry": "Porten er ledig. Prøv taiji igjen uten å endre innstillingene.",
             "switch_port": "Prosessen kan ikke avsluttes trygt. Bruk port {{port}} bare som reserve, eller avslutt den motstridende prosessen selv.",
             "title": "Anbefalt gjenoppretting"
           },
-          "recovered": "aria2-motoren er tilgjengelig igjen.",
-          "recoveredOnPort": "aria2-motoren ble gjenopprettet på RPC-port {{port}}.",
+          "recovered": "taiji-motoren er tilgjengelig igjen.",
+          "recoveredOnPort": "taiji-motoren ble gjenopprettet på RPC-port {{port}}.",
           "recoveryFailed": "Gjenoppretting av motoren mislyktes. Kjør diagnostikken på nytt for oppdatert status.",
           "refreshFailed": "Kunne ikke oppdatere diagnostikken. Den siste vellykkede rapporten vises nedenfor.",
           "restart": "Start motoren på nytt",
@@ -658,9 +658,9 @@
         },
         "features": "Funksjoner",
         "listenPort": "Lytteport",
-        "name": "Aria2",
+        "name": "taiji",
         "rpcPort": "RPC-port",
-        "startFailed": "aria2-motoren kunne ikke starte",
+        "startFailed": "taiji-motoren kunne ikke starte",
         "state": {
           "disconnected": "Frakoblet",
           "failed": "Mislyktes",
@@ -1871,7 +1871,8 @@
         "historyLimit": "Gjenopprettingsregistreringer for fullførte oppgaver",
         "historyLimitDesc": "Nedlastingslisten og nedlastede filer påvirkes ikke.",
         "historySessionOnly": "Ikke behold",
-        "title": "Fremdrift og gjenoppretting"
+        "title": "Fremdrift og gjenoppretting",
+        "managedByTaiji": "taiji automatically saves tasks and progress in its own database. Completed task history remains in Motrix."
       },
       "rpc": {
         "port": "RPC-port",
@@ -1990,7 +1991,8 @@
         "dhtListenPortDesc": "Finn noder gjennom DHT på denne porten.",
         "listenPort": "BT-lytteport",
         "listenPortDesc": "Godta innkommende nodetilkoblinger på denne porten.",
-        "title": "Innkommende tilkoblinger"
+        "title": "Innkommende tilkoblinger",
+        "sharedPortDesc": "taiji uses this port for peer connections and DHT."
       },
       "newMagnetTasks": "Nye magnetoppgaver",
       "peers": {
@@ -2117,7 +2119,8 @@
         "modifiedTimeServer": "Tidspunkt fra server",
         "sessionSaveInterval": "Intervall for lagring av fremdrift (s)",
         "sessionSaveIntervalDesc": "Lagre oftere for å redusere tapt fremdrift etter et krasj.",
-        "title": "Disk og filer"
+        "title": "Disk og filer",
+        "managedByTaiji": "taiji manages disk allocation and cache automatically."
       },
       "fillInLinksWhenOpeningNewTask": "Lim inn kopierte lenker når en ny oppgave åpnes.",
       "magnet": {

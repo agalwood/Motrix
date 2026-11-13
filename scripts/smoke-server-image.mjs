@@ -49,7 +49,7 @@ const SEEDER_STATUS_PROBE = [
   "const response = await fetch('http://127.0.0.1:' + process.env.MOTRIX_SEEDER_RPC_PORT + '/jsonrpc', {",
   "method: 'POST',",
   "headers: {'content-type': 'application/json'},",
-  "body: JSON.stringify({jsonrpc: '2.0', id: 'seed-status', method: 'aria2.tellActive', params: ['token:' + process.env.MOTRIX_SEEDER_RPC_SECRET, ['gid', 'status', 'totalLength', 'completedLength', 'bittorrent']]})",
+  "body: JSON.stringify({jsonrpc: '2.0', id: 'seed-status', method: 'taiji.tellActive', params: ['token:' + process.env.MOTRIX_SEEDER_RPC_SECRET, ['gid', 'status', 'totalLength', 'completedLength', 'bittorrent']]})",
   '})',
   "if (!response.ok) throw new Error('Seeder RPC returned ' + response.status)",
   'console.log(await response.text())',
@@ -219,7 +219,7 @@ async function waitForSeeder(name, rpcSecret, timeoutMs) {
           totalLength: download.totalLength,
         })
         if (
-          download.status === 'active' &&
+          download.status === 'seeding' &&
           download.bittorrent &&
           /^[1-9][0-9]*$/.test(download.totalLength) &&
           download.completedLength === download.totalLength
@@ -694,18 +694,16 @@ async function assertRuntimeContract(name, url, token, identity, timeoutMs) {
       'test -s /app/LICENSE',
       'test -s /app/THIRD_PARTY_NOTICES.md',
       'test -s /data/motrix.db',
-      'test "$MOTRIX_ARIA2_BIN" = "/app/bin/aria2c"',
+      'test "$MOTRIX_TAIJI_BIN" = "/app/bin/taiji"',
       'test "$SSL_CERT_FILE" = "/etc/ssl/certs/ca-certificates.crt"',
       'test -s "$SSL_CERT_FILE"',
-      'test ! -e /usr/bin/aria2c',
-      "aria2c --version | grep -F -- 'SQLite3-Persistence'",
-      'pidof aria2c',
-      "aria2_pid=$(for pid in $(pidof aria2c); do tr '\\0' '\\n' </proc/$pid/cmdline | grep -Fxq -- '--conf-path=/data/aria2.conf' && { echo $pid; break; }; done)",
-      'test -n "$aria2_pid"',
-      'test "$(readlink /proc/$aria2_pid/exe)" = "/app/bin/aria2c"',
-      "tr '\\0' '\\n' </proc/$aria2_pid/cmdline | grep -Fx -- '--rpc-listen-all=false'",
-      "tr '\\0' '\\n' </proc/$aria2_pid/cmdline | grep -Fx -- '--dht-file-path=/data/dht.dat'",
-      "tr '\\0' '\\n' </proc/$aria2_pid/cmdline | grep -Fx -- '--dht-file-path6=/data/dht6.dat'",
+      'test ! -e /usr/bin/taiji',
+      "taiji --version | grep -F -- 'taiji taiji/'",
+      'pidof taiji',
+      "taiji_pid=$(for pid in $(pidof taiji); do tr '\\0' '\\n' </proc/$pid/cmdline | grep -Fxq -- '--sqlite3-db-path=/data/taiji.sqlite3' && { echo $pid; break; }; done)",
+      'test -n "$taiji_pid"',
+      'test "$(readlink /proc/$taiji_pid/exe)" = "/app/bin/taiji"',
+      "tr '\\0' '\\n' </proc/$taiji_pid/cmdline | grep -Fx -- '--rpc-listen-all=false'",
     ].join('; '),
   ])
   const hostConfig = JSON.parse(
@@ -917,7 +915,7 @@ function imageSmokeSummary(metadata, diagnostics, identity, startedAt) {
     operatorAuth: true,
     diagnostics: true,
     sqlite: true,
-    motrixAria2Fork: true,
+    taiji: true,
     defaultSaveDir: '/downloads',
     remoteExtensionDirectLan: true,
     shutdown: 'SIGTERM',
@@ -1000,21 +998,20 @@ export async function smokeServerImage(options) {
       '--tmpfs',
       '/tmp:rw,noexec,nosuid,size=64m',
       '--mount',
-      `type=bind,source=${seedRoot},target=/seed,readonly`,
+      `type=bind,source=${seedRoot},target=/seed`,
       image,
-      'aria2c',
-      '--no-conf=true',
+      'taiji',
       '--enable-dht=false',
       '--enable-dht6=false',
       '--bt-enable-lpd=false',
       '--enable-peer-exchange=false',
       '--enable-rpc=true',
+      '--rpc-aria2-compat=false',
+      '--sqlite3-db-path=/tmp/seeder.sqlite3',
       '--rpc-listen-all=false',
       `--rpc-listen-port=${SEEDER_RPC_PORT}`,
       `--rpc-secret=${seederRpcSecret}`,
       '--allow-overwrite=true',
-      '--check-integrity=true',
-      '--file-allocation=none',
       `--bt-tracker=${trackerUrl}`,
       '--listen-port=6881',
       '--seed-time=120',
@@ -1199,8 +1196,7 @@ export async function smokeServerImage(options) {
       'motrix.db',
       'settings.json',
       'secrets.lockbox',
-      'aria2.session',
-      'aria2.conf',
+      'taiji.sqlite3',
     ]) {
       if (!(await pathExists(path.join(volumes.dataDir, durable)))) {
         throw new Error(

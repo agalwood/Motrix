@@ -113,6 +113,10 @@ release/
 # scripts/fetch-engine.mjs (pinned in scripts/engine.lock.json). Never committed.
 extra/*/*/aria2c
 extra/*/*/aria2c.exe
+extra/*/*/taiji
+extra/*/*/taiji.exe
+extra/*/*/taiji-build.json
+extra/*/*/taiji-licenses.txt
 
 # Plugin fixture bundles are pre-built and tracked — they are the "compiled"
 # artifact the e2e test loads as if from a real installed plugin.
@@ -160,6 +164,9 @@ graphify-out/*
 !/.playwright/cli.config.json
 /output/playwright/
 /output/ci/
+/output/taiji-build/
+/output/taiji-source/
+/output/taiji-nat-lab/
 # Legacy artifact locations (keep old local evidence ignored)
 /e2e/test-results
 /e2e/playwright-report

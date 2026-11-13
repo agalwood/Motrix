@@ -3,6 +3,8 @@ import { readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
+import engineLock from '../scripts/engine.lock.json'
+import sourceLock from '../scripts/taiji-source.lock.json'
 import noticeTestConfig from '../vitest.notices.config'
 
 const ROOT = process.cwd()
@@ -454,19 +456,18 @@ describe('third-party graph dependency notices', () => {
   )
 
   it.each(['THIRD_PARTY_NOTICES.md', 'THIRD_PARTY_NOTICES.zh-CN.md'])(
-    '%s records aria2 and the retained Apple tray font',
+    '%s records taiji and the retained Apple tray font',
     async (noticeFile) => {
       const notice = await readFile(path.join(ROOT, noticeFile), 'utf8')
 
       expect(notice).toContain('SFNS-Regular.ttf')
       expect(notice).toContain('https://developer.apple.com/fonts/')
-      expect(notice).toContain('1.37.0-motrix.25')
+      expect(notice).toContain(engineLock.version)
       expect(notice).toContain(
-        'https://github.com/motrixapp/aria2/tree/v1.37.0-motrix.25'
+        `https://github.com/motrixapp/taiji/tree/${sourceLock.revision}`
       )
       expect(notice).toContain('GPL-2.0-or-later')
-      expect(notice).toContain('THIRD_PARTY_LICENSES/aria2-COPYING')
-      expect(notice).toContain('THIRD_PARTY_LICENSES/aria2-LICENSE.OpenSSL')
+      expect(notice).toContain('THIRD_PARTY_LICENSES/taiji-COPYING')
     }
   )
 
@@ -700,9 +701,11 @@ describe('third-party graph dependency notices', () => {
     ) as { scripts?: Record<string, string> }
     const scripts = manifest.scripts ?? {}
 
-    expect(scripts['build:electron']).toMatch(/^pnpm run build:legal && /)
+    expect(scripts['build:electron']).toMatch(
+      /^pnpm run fetch:engine && pnpm run build:legal && /
+    )
     expect(scripts['build:server']).toMatch(
-      /^pnpm run build:builtin && pnpm run build:legal && /
+      /^pnpm run fetch:engine && pnpm run build:builtin && pnpm run build:legal && /
     )
     expect(scripts['check:third-party-notices']).toContain(
       'node scripts/generate-third-party-notices.mjs --check'
@@ -762,7 +765,9 @@ describe('third-party graph dependency notices', () => {
         const gateIndex = workflow.indexOf(
           '      - name: Third-party notice contract'
         )
-        expect(gateIndex).toBeLessThan(workflow.indexOf('      - name: Build'))
+        expect(gateIndex).toBeLessThan(
+          workflow.indexOf('      - name: Build\n')
+        )
         expect(gateIndex).toBeLessThan(
           workflow.indexOf('      - name: Electron Builder')
         )

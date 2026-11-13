@@ -275,7 +275,7 @@ export function parseServerTarget(options = {}) {
 export function resolveServerInput(input, target) {
   const replacements = {
     arch: target.arch,
-    aria2Binary: target.platform === 'win32' ? 'aria2c.exe' : 'aria2c',
+    engineBinary: target.platform === 'win32' ? 'taiji.exe' : 'taiji',
     finalizeBinary:
       target.platform === 'win32'
         ? 'motrix-finalize-fs.exe'

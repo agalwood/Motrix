@@ -156,8 +156,8 @@ it('requires a system download share and keeps private state outside the replace
   }
   const runtime = runtimeEnvironment(env)
   expect(runtime.MOTRIX_DATA_DIR).toBe('/vol1/@appdata/motrix/motrix')
-  expect(runtime.MOTRIX_ARIA2_BIN).toBe(
-    '/vol1/@apps/motrix/target/server/bin/aria2c'
+  expect(runtime.MOTRIX_TAIJI_BIN).toBe(
+    '/vol1/@apps/motrix/target/server/bin/taiji'
   )
   expect(runtime.MOTRIX_DEFAULT_SAVE_DIR).toBe('/vol2/downloads')
   expect(() =>

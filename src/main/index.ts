@@ -4,12 +4,7 @@ import path from 'node:path'
 import { TaskActivityService, TaskActivityStore } from '@core/activity'
 import { createDownloadDirectories } from '@core/bridge-receiver/download-directories'
 import { Aria2SegmentClient } from '@core/download/aria2-segment-client'
-import { Aria2Adapter } from '@core/engine/aria2/aria2-adapter'
-import { Aria2ConfigBuilder } from '@core/engine/aria2/aria2-config-builder'
-import { Aria2ProcessManager } from '@core/engine/aria2/aria2-process-manager'
-import { Aria2RpcClient } from '@core/engine/aria2/aria2-rpc-client'
 import { Aria2TrustStore } from '@core/engine/aria2/aria2-trust-store'
-import { CompletedTaskStartupGuard } from '@core/engine/aria2/completed-task-startup-guard'
 import type { DnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
 import { createDnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
 import { JsonRpcProtocol } from '@core/engine/aria2/json-rpc-protocol'
@@ -24,6 +19,12 @@ import {
   ENGINE_READY_TIMEOUT_MS,
   EngineSupervisor,
 } from '@core/engine/engine-supervisor'
+import { TaijiAdapter } from '@core/engine/taiji/taiji-adapter'
+import { TaijiConfigBuilder } from '@core/engine/taiji/taiji-config-builder'
+import { TaijiNatBridge } from '@core/engine/taiji/taiji-nat-bridge'
+import { TaijiProcessManager } from '@core/engine/taiji/taiji-process-manager'
+import { TaijiRpcClient } from '@core/engine/taiji/taiji-rpc-client'
+import { TaijiStartupGuard } from '@core/engine/taiji/taiji-startup-guard'
 import { EventBus } from '@core/events/event-bus'
 import { locateFfmpeg } from '@core/ffmpeg/ffmpeg-locator'
 import { pathExists } from '@core/fs/path-exists'
@@ -512,22 +513,18 @@ const appliedDownloadProxyPolicy = new AppliedDownloadProxyPolicy()
 
 const transport = new WebSocketTransport()
 const protocol = new JsonRpcProtocol(transport)
-const processManager = new Aria2ProcessManager({
-  ownershipFilePath: path.join(platform.userDataDir, 'aria2-owner.json'),
+const processManager = new TaijiProcessManager({
+  ownershipFilePath: path.join(platform.userDataDir, 'taiji-owner.json'),
 })
 
 log.info({ extraDir: platform.extraResourceDir }, 'resolved extra directory')
 
-const configBuilder = new Aria2ConfigBuilder(
-  path.join(platform.extraResourceDir, 'aria2.conf'),
-  platform.userDataDir,
-  {
-    supervisorPid: process.pid,
-    ...(portableProfile
-      ? { persistenceDirectory: portableEngineStateDirectory(portableProfile) }
-      : {}),
-  }
-)
+const configBuilder = new TaijiConfigBuilder(platform.userDataDir, {
+  supervisorPid: process.pid,
+  ...(portableProfile
+    ? { persistenceDirectory: portableEngineStateDirectory(portableProfile) }
+    : {}),
+})
 const trustStore = new Aria2TrustStore(platform.userDataDir)
 
 // ─── Database ───────────────────────────────────────────
@@ -567,7 +564,7 @@ const fileCleanupService = new FileCleanupServiceImpl({
 
 // ─── Late-Initialized (assigned in app.on('ready')) ─────
 
-let rpcClient: Aria2RpcClient
+let rpcClient: TaijiRpcClient
 let supervisor: EngineSupervisor
 let pluginHttpClient: PluginHttpClient | undefined
 let proxyBridge: ProxyBridgeManager
@@ -576,7 +573,7 @@ let handoffJournal: DownloadHandoffJournal | undefined
 let sessionManager: SessionManager
 let completedEngineTaskCleanup: CompletedEngineTaskCleanup
 let pollingScheduler: PollingScheduler
-let aria2Adapter: Aria2Adapter
+let aria2Adapter: TaijiAdapter
 // Constructed in Phase 2 below (F4); see that construction site's comment
 // for the full must-reach registration/drain ordering rationale.
 let notificationCenter: NotificationCenter
@@ -587,6 +584,7 @@ let recoveryService: TaskRecoveryServiceImpl | undefined
 let dnsFallbackRetry: ((taskId: string) => Promise<unknown>) | undefined
 let trayHandle: ReturnType<typeof setupTray> | null = null
 let natManager: NatManager | null = null
+let taijiNatBridge: TaijiNatBridge | null = null
 let stopNatDiagnostics: (() => Promise<void>) | null = null
 let trackerManager: TrackerManager | null = null
 let menuManager: MenuManager | null = null
@@ -704,8 +702,15 @@ function performCleanup(): Promise<void> {
       safely('speed-limit', () => speedLimitController?.stop()),
       safely('geoip', () => geoipManager?.stop()),
       safely('nat', async () => {
-        await stopNatDiagnostics?.()
-        await natManager?.stop()
+        try {
+          await taijiNatBridge?.stop()
+        } finally {
+          try {
+            await stopNatDiagnostics?.()
+          } finally {
+            await natManager?.stop()
+          }
+        }
       }),
     ])
     // Tracker edits pause active tasks while changing bt-tracker. Drain their
@@ -1256,7 +1261,7 @@ function getFinalizeSettings(): {
   }
 }
 
-function buildFinalizeDeps(adapter: Aria2Adapter) {
+function buildFinalizeDeps(adapter: TaijiAdapter) {
   const activityRecorder = requireTaskActivityService()
   if (!hookAuditLog || !hookOrchestrator) {
     throw new Error('plugin hook orchestrator is unavailable')
@@ -1339,9 +1344,9 @@ function buildFinalizeDeps(adapter: Aria2Adapter) {
 // already acked to the extension points at a task that no longer exists.
 async function startEngineAndRestore(
   sessionSaveInterval: number,
-  adapter: Aria2Adapter
+  adapter: TaijiAdapter
 ) {
-  log.info({ binaryPath: platform.aria2BinaryPath }, 'resolved aria2 binary')
+  log.info({ binaryPath: platform.engineBinaryPath }, 'resolved taiji binary')
 
   // Engine-incident notifications (Task 13): wired BEFORE supervisor.start()
   // — same must-reach ordering as the occurrence consumers registered
@@ -1409,7 +1414,7 @@ async function startEngineAndRestore(
   })
 
   try {
-    await supervisor.start(platform.aria2BinaryPath)
+    await supervisor.start(platform.engineBinaryPath)
   } catch (err) {
     log.error({ err }, 'engine start failed')
     // F5: must-reach drain — see the notificationCenter construction
@@ -2100,10 +2105,8 @@ async function initializeMainProcess(): Promise<void> {
   // The renderer needs time to load JS bundles and render React.
   // Use that window to set up IPC handlers and core services.
 
-  rpcClient = new Aria2RpcClient(transport, protocol, engineSettings.rpcSecret)
-  aria2Adapter = new Aria2Adapter(rpcClient, undefined, () =>
-    settingsManager.getEngine()
-  )
+  rpcClient = new TaijiRpcClient(transport, protocol, engineSettings.rpcSecret)
+  aria2Adapter = new TaijiAdapter(rpcClient, () => settingsManager.getEngine())
   const adapter = aria2Adapter
   proxyBridge = new ProxyBridgeManager()
   supervisor = new EngineSupervisor(
@@ -2414,7 +2417,7 @@ async function initializeMainProcess(): Promise<void> {
     sessionManager.getEngineSessionRecoveryStore()
   )
   supervisor.setStartupGuard(
-    new CompletedTaskStartupGuard({
+    new TaijiStartupGuard({
       completedGids: () => sessionManager.getCompletedDirectEngineTaskIds(),
       heldGids: () =>
         new Set(
@@ -2489,6 +2492,14 @@ async function initializeMainProcess(): Promise<void> {
   natManager = natStack.manager
   stopNatDiagnostics = natStack.stopDiagnostics
   natStack.startDiagnostics()
+  taijiNatBridge = new TaijiNatBridge({
+    rpc: rpcClient,
+    eventBus,
+    settingsManager,
+    primary: natManager,
+    isEngineReady: () => supervisor.getState() === EngineState.Ready,
+  })
+  taijiNatBridge.start()
   log.info('NatManager constructed')
 
   const startupGeoipManager = new GeoIPManager({

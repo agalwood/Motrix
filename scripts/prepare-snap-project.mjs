@@ -198,9 +198,9 @@ export async function prepareSnapProject({
         'extra',
         'linux',
         architecture.electronArch,
-        'aria2c'
+        'taiji'
       ),
-      label: 'aria2 executable',
+      label: 'taiji executable',
     },
   ]
   for (const binary of binaries) {

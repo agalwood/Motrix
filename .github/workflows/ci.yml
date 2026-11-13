@@ -421,7 +421,11 @@ jobs:
       - name: Ensure Electron runtime payload
         run: node scripts/ensure-electron-runtime.mjs --retry-download
 
-      - name: Fetch target aria2
+      - name: Install taiji C build tools
+        if: matrix.platform == 'linux'
+        run: sudo apt-get update && sudo apt-get install --yes musl-tools
+
+      - name: Build target taiji
         env:
           MOTRIX_ENGINE_FETCH_TIMEOUT_MS: '90000'
         run: >-
@@ -437,17 +441,11 @@ jobs:
 
       - name: Native runtime integration
         env:
-          MOTRIX_ARIA2_TEST_BIN: ${{ github.workspace }}/extra/${{ matrix.platform }}/${{ matrix.arch }}/${{ matrix.platform == 'win32' && 'aria2c.exe' || 'aria2c' }}
-          MOTRIX_REQUIRE_HTTP_RETRY_TEST: '1'
-          MOTRIX_LEGACY_CHECKPOINT_ENGINE: ${{ github.workspace }}/extra/${{ matrix.platform }}/${{ matrix.arch }}/${{ matrix.platform == 'win32' && 'aria2c.exe' || 'aria2c' }}
+          MOTRIX_TAIJI_BIN: ${{ github.workspace }}/extra/${{ matrix.platform }}/${{ matrix.arch }}/${{ matrix.platform == 'win32' && 'taiji.exe' || 'taiji' }}
           MOTRIX_FINALIZE_FS_TEST_BIN: packages/finalize-fs/dist/${{ matrix.platform }}-${{ matrix.arch }}/${{ matrix.platform == 'win32' && 'motrix-finalize-fs.exe' || 'motrix-finalize-fs' }}
         run: >-
           pnpm exec vitest run
-          src/core/task/direct-task-retry.integration.test.ts
-          src/core/task/http-finalize.integration.test.ts
-          src/core/engine/aria2/aria2-session-identity-recovery.integration.test.ts
-          src/core/engine/aria2/aria2-parent-lifecycle.integration.test.ts
-          src/core/legacy-import/http-activation.integration.test.ts
+          src/core/engine/taiji/
           src/core/plugin/finalize/native-artifact-operations.integration.test.ts
           src/core/plugin/finalize/finalize-adversarial.integration.test.ts
           src/core/plugin/finalize/finalize-smb-recovery.integration.test.ts
@@ -567,7 +565,7 @@ jobs:
               ? 'motrix-native-host.exe'
               : 'motrix-native-host'
           const engine =
-            process.env.TARGET_PLATFORM === 'win32' ? 'aria2c.exe' : 'aria2c'
+            process.env.TARGET_PLATFORM === 'win32' ? 'taiji.exe' : 'taiji'
           const finalize =
             process.env.TARGET_PLATFORM === 'win32'
               ? 'motrix-finalize-fs.exe'
@@ -577,7 +575,7 @@ jobs:
             'app.asar',
             'THIRD_PARTY_NOTICES.md',
             'THIRD_PARTY_NOTICES.zh-CN.md',
-            path.join('THIRD_PARTY_LICENSES', 'aria2-COPYING'),
+            path.join('THIRD_PARTY_LICENSES', 'taiji-COPYING'),
             path.join('legal', 'THIRD_PARTY_DEPENDENCIES.md'),
             path.join('legal', 'THIRD_PARTY_LICENSES.txt'),
             path.join('legal', 'sbom.spdx.json'),
@@ -625,13 +623,13 @@ jobs:
           --arch ${{ matrix.arch }}
           --report "release/size-reports/${{ matrix.target }}-runtime.json"
 
-      - name: Verify staged Windows aria2 WebSocket contract
+      - name: Verify staged Windows taiji RPC contract
         if: matrix.platform == 'win32'
         env:
-          MOTRIX_ARIA2_TEST_BIN: ${{ matrix.resources_dir }}/extra/win32/${{ matrix.arch }}/aria2c.exe
+          MOTRIX_TAIJI_BIN: ${{ matrix.resources_dir }}/extra/win32/${{ matrix.arch }}/taiji.exe
         run: >-
           pnpm exec vitest run
-          src/core/engine/aria2/engine-websocket-contract.integration.test.ts
+          src/core/engine/taiji/taiji-adapter.integration.test.ts
           src/core/bridge-receiver/task-cookies.integration.test.ts
           --reporter=verbose
 

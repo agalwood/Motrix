@@ -1,11 +1,10 @@
 # Docker Server deployment
 
-Motrix Server packages the Web UI and the checksum-verified
-[`motrixapp/aria2`](https://github.com/motrixapp/aria2) fork in a non-root,
-multi-architecture container image for NAS and home-server deployments. The
-fork provides Motrix's SQLite persistence contract; the image does not install
-the distribution's generic aria2 package. Tagged releases publish the same
-image to both registries:
+Motrix Server packages the Web UI and its sole download engine,
+[taiji](https://github.com/motrixapp/taiji), in a non-root, multi-architecture
+container image. The engine is built from locked sources and integration patches;
+its build receipt verifies the binary and dependency notices. Tagged releases
+publish the same image to both registries:
 
 - Docker Hub: `docker.io/motrixapp/motrix-server`
 - GitHub Container Registry: `ghcr.io/agalwood/motrix-server`
@@ -74,7 +73,7 @@ filesystem can and should remain read-only.
 
 | Container path | Purpose | Back up? |
 | --- | --- | --- |
-| `/data` | SQLite database, settings, aria2 session and DHT state, torrent metadata, operator token, plugin packages/state/logs, and plugin secret lockbox | Yes |
+| `/data` | SQLite database, settings, taiji session and DHT state, torrent metadata, operator token, plugin packages/state/logs, and plugin secret lockbox | Yes |
 | `/downloads` | Completed and in-progress HTTP, BT, and magnet resources | According to your data policy |
 
 Do not combine these paths with the container layer. Recreating a container
@@ -160,11 +159,11 @@ Web UI on a LAN address while keeping MDXP on host loopback. Do not change the
 container's `MOTRIX_MDXP_HOST` to `127.0.0.1`: that loopback belongs to the
 container, so Docker port forwarding and other containers cannot reach it.
 
-### Raw aria2 RPC opt-in
+### Raw taiji RPC opt-in
 
-The aria2 engine RPC endpoint is separate from the Motrix Web/API and MDXP
+The taiji engine RPC endpoint is separate from the Motrix Web/API and MDXP
 services. It stays on loopback (`127.0.0.1`) by default. Set
-`MOTRIX_ARIA2_RPC_LISTEN_ALL=true` only when an external aria2 RPC client must
+`MOTRIX_TAIJI_RPC_LISTEN_ALL=true` only when an external taiji RPC client must
 reach the engine. The Server refuses this mode when the RPC secret is empty;
 verify the RPC port and secret in **Settings > Advanced** before restarting.
 Browser integrations should prefer the Motrix extension and MDXP.
@@ -172,7 +171,7 @@ Browser integrations should prefer the Motrix extension and MDXP.
 The included Compose files pass this opt-in to the container but intentionally
 do not publish port 16800. A client in the same Compose network can connect to
 `http://server:16800/jsonrpc` after the opt-in is enabled. For a client on the
-Docker host, save this explicit override as `compose.aria2-rpc.yaml`:
+Docker host, save this explicit override as `compose.taiji-rpc.yaml`:
 
 ```yaml
 services:
@@ -184,15 +183,15 @@ services:
 Then recreate the service with both the listener and publication enabled:
 
 ```bash
-export MOTRIX_ARIA2_RPC_LISTEN_ALL=true
-docker compose -f compose.yaml -f compose.aria2-rpc.yaml up -d --wait
+export MOTRIX_TAIJI_RPC_LISTEN_ALL=true
+docker compose -f compose.yaml -f compose.taiji-rpc.yaml up -d --wait
 ```
 
 To reach it from a trusted LAN, replace the host-side `127.0.0.1` in the
 override with the NAS's specific LAN address and permit that port in the host
 firewall. If the RPC port was changed in Motrix settings, update both sides of
-the mapping. Configure the external client with the same RPC secret; aria2
-expects it as a `token:<secret>` authentication parameter. Raw aria2 RPC is
+the mapping. Configure the external client with the same RPC secret; taiji
+expects it as a `token:<secret>` authentication parameter. Raw taiji RPC is
 not governed by Motrix's operator authentication or download-path policy;
 possession of the RPC secret effectively grants control of the download
 engine. It is also not TLS-protected, so never publish it directly to the
@@ -219,7 +218,7 @@ Other RPC requests retain their 2 MiB limit. Oversized requests return HTTP 413.
 At most two large or unknown-length torrent requests are admitted concurrently;
 additional requests return HTTP 429. Request reception has a 120-second timeout.
 
-Motrix starts its managed aria2 with the same `--rpc-max-request-size` budget.
+Motrix starts its managed taiji with the same `--rpc-max-request-size` budget.
 An independently managed engine or reverse proxy needs a matching limit; for
 Nginx, set [`client_max_body_size 16m;`](https://nginx.org/en/docs/http/ngx_http_core_module.html#client_max_body_size)
 in the `server` or `location` block serving the Web API when using the example
@@ -730,7 +729,7 @@ open its release notes and update the deployment manually. The Server does not
 download installers, replace application files, or restart to install an update.
 
 Before an upgrade, record the current image digest and back up `/data`. Stop the
-service for a filesystem-level backup so SQLite and the aria2 session are
+service for a filesystem-level backup so SQLite and the taiji session are
 consistent:
 
 ```bash
@@ -747,7 +746,7 @@ docker compose up -d --wait
 docker compose ps
 ```
 
-The two mounts, generated operator token, downloads, aria2 state, and installed
+The two mounts, generated operator token, downloads, taiji state, and installed
 plugins remain. For controlled upgrades, set `MOTRIX_IMAGE` to an immutable
 SemVer tag or digest before pulling. Treat a new major version as a compatibility
 boundary and read its release notes.
@@ -761,7 +760,7 @@ your download backup policy requires it. Keep the database, operator token, and
 
 ## Health, diagnostics, and troubleshooting
 
-`GET /healthz` is public and succeeds only after the HTTP service and aria2 are
+`GET /healthz` is public and succeeds only after the HTTP service and taiji are
 ready. Detailed diagnostics require the operator token:
 
 ```bash
@@ -784,7 +783,7 @@ detection.
 | Startup reports `EACCES`, read-only, or a path failure | Compare `docker inspect ... .Config.User` with numeric ownership of both mounts. Correct ownership/ACLs; do not run privileged or as root. |
 | Port is already allocated | Change `MOTRIX_HTTP_PORT` or `MOTRIX_MDXP_PUBLIC_PORT`, and update `MOTRIX_PUBLIC_URL` if the Web port changes. |
 | Web UI is healthy but port 16801 refuses connections | Look for `bridge data ownership unavailable` and inspect its `stage` and `reason` fields. If ownership is ready, verify the MDXP publish address and all four remote Extension variables. |
-| External aria2 RPC client cannot connect | Confirm `MOTRIX_ARIA2_RPC_LISTEN_ALL=true`, a non-empty matching RPC secret, the correct 16800 mapping (or configured RPC port), and the host firewall. The standard Compose files do not publish this port. |
+| External taiji RPC client cannot connect | Confirm `MOTRIX_TAIJI_RPC_LISTEN_ALL=true`, a non-empty matching RPC secret, the correct 16800 mapping (or configured RPC port), and the host firewall. The standard Compose files do not publish this port. |
 | Web UI opens but unlock fails | Read the current persistent `/data/operator-token`; do not use a token copied from another deployment. Verify the file is regular, contains a nonblank single-line token, and has mode `0600`; environment configuration takes precedence. Wait a minute after too many attempts. |
 | Download directory is rejected or files are missing from the NAS share | Use an absolute container path below `MOTRIX_ALLOWED_SAVE_DIRS`; verify the intended host directory is mounted at that exact path and writable by the runtime UID/GID. |
 | Plugin install fails | Inspect `/api/diagnostics` and logs, retain `/data`, confirm package/source trust and network/TLS access, and mount any `MOTRIX_PLUGIN_IMPORT_DIRS` explicitly. Do not enable unmanaged plugins for a normal `.moext`, URL, or registry install. |
@@ -840,8 +839,8 @@ uses this ownership record and the already-bound Web listener as one proof.
 | `MOTRIX_ALLOW_UNMANAGED_PLUGINS` | `false` | Allow plugin directories without install provenance |
 | `MOTRIX_OPERATOR_TOKEN` | generated file | Operator control-plane credential |
 | `MOTRIX_SECRETS_SEED` | generated lockbox | 64-hex-character plugin secret key |
-| `MOTRIX_ARIA2_RPC_LISTEN_ALL` | `false` | Opt in to an authenticated all-interface aria2 RPC listener; Docker port publication is still separate |
-| `MOTRIX_TORRENT_BODY_LIMIT_MIB` | `8` | Torrent JSON request limit in MiB; integer 2–64, also applied to managed aria2 RPC; restart required |
+| `MOTRIX_TAIJI_RPC_LISTEN_ALL` | `false` | Opt in to an authenticated all-interface taiji RPC listener; Docker port publication is still separate |
+| `MOTRIX_TORRENT_BODY_LIMIT_MIB` | `8` | Torrent JSON request limit in MiB; integer 2–64, also applied to managed taiji RPC; restart required |
 | `MOTRIX_WEB_BIND_IP` | Compose: `0.0.0.0` | Host address publishing Web port 8080; falls back through `MOTRIX_BIND_IP` |
 | `MOTRIX_MDXP_BIND_IP` | Compose: `0.0.0.0` | Host address publishing MDXP port 16801; falls back through `MOTRIX_BIND_IP` |
 | `MOTRIX_BIND_IP` | Compose: `0.0.0.0` | Backward-compatible shared host-publish fallback |
@@ -855,6 +854,6 @@ uses this ownership record and the already-bound Web listener as one proof.
 | `MOTRIX_HOST_LANGUAGE` | system setting | Server/plugin locale override |
 | `LOG_LEVEL` | `info` | Pino log level written to container stdout |
 
-`MOTRIX_ARIA2_BIN` (`/app/bin/aria2c`), `MOTRIX_EXTRA_DIR`, and
+`MOTRIX_TAIJI_BIN` (`/app/bin/taiji`), `MOTRIX_EXTRA_DIR`, and
 `MOTRIX_RENDERER_DIR` are fixed by the official image. Override them only in a
 custom image that provides the corresponding artifacts.

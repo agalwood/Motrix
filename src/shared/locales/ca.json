@@ -543,12 +543,12 @@
             "rpc": "Port RPC"
           },
           "communication": {
-            "ready": "El Motrix es pot comunicar amb l'aria2."
+            "ready": "El Motrix es pot comunicar amb l'taiji."
           },
           "confirmForce": {
             "action": "Forçar l'aturada i recuperar",
-            "description": "El PID {{pid}} coincideix amb l'executable inclòs, el secret RPC privat i els camins de dades del Motrix. Es finalitzarà immediatament i l'aria2 es reiniciarà al port RPC del Motrix.",
-            "title": "Voleu forçar l'aturada del procés aria2 residual?"
+            "description": "El PID {{pid}} coincideix amb l'executable inclòs, el secret RPC privat i els camins de dades del Motrix. Es finalitzarà immediatament i l'taiji es reiniciarà al port RPC del Motrix.",
+            "title": "Voleu forçar l'aturada del procés taiji residual?"
           },
           "copied": "Copiat",
           "copy": "Copiar el diagnòstic",
@@ -561,14 +561,14 @@
             "blocked": "El PID {{pid}} ({{name}}) utilitza el port predeterminat {{port}}, però el Motrix no pot verificar a qui pertany. No es finalitzarà el procés.",
             "confirm": {
               "action": "Aturar i restaurar el port {{port}}",
-              "description": "S'ha verificat que el PID {{pid}} és un procés aria2 residual del Motrix. S'aturarà, es desarà el port predeterminat {{port}} i es reiniciarà l'aria2.",
+              "description": "S'ha verificat que el PID {{pid}} és un procés taiji residual del Motrix. S'aturarà, es desarà el port predeterminat {{port}} i es reiniciarà l'taiji.",
               "title": "Voleu aturar el procés residual i restaurar el port {{port}}?"
             },
             "restore": "Restaurar el port predeterminat {{port}} del Motrix",
             "restoredDefault": "S'ha restaurat el port RPC predeterminat {{port}} del Motrix.",
             "restoring": "S'està restaurant el port predeterminat {{port}} del Motrix…",
             "unidentified": "No s'ha pogut identificar el procés que utilitza el port predeterminat {{port}}. El Motrix continuarà utilitzant el port actual.",
-            "verifiedOrphan": "Un procés aria2 residual del Motrix verificat (PID {{pid}}) utilitza el port predeterminat {{port}}. El Motrix el pot aturar de manera segura abans de restaurar el port."
+            "verifiedOrphan": "Un procés taiji residual del Motrix verificat (PID {{pid}}) utilitza el port predeterminat {{port}}. El Motrix el pot aturar de manera segura abans de restaurar el port."
           },
           "features": {
             "none": "No s'ha informat",
@@ -582,7 +582,7 @@
           },
           "lastChecked": "Hora de comprovació: {{time}}",
           "loadFailed": "No s'ha pogut executar el diagnòstic del motor.",
-          "motrixEngine": "aria2 Motrix",
+          "motrixEngine": "taiji Motrix",
           "open": "Diagnosticar",
           "port": {
             "available": "{{port}} (Disponible)",
@@ -599,22 +599,22 @@
             "verified_orphan": "PID {{pid}} ({{name}}), procés residual del Motrix verificat; es pot aturar de manera segura"
           },
           "reason": {
-            "binary_unavailable": "L'executable aria2 inclòs no hi és o no està disponible.",
-            "health_check_failed": "L'aria2 ha deixat de respondre al Motrix.",
-            "port_in_use": "El port RPC del Motrix està ocupat i el motor aria2 no s'ha pogut iniciar.",
-            "rpc_unavailable": "El motor aria2 s'ha iniciat, però no ha acceptat les connexions RPC del Motrix.",
-            "spawn_failed": "No s'ha pogut crear el procés aria2.",
-            "unexpected_exit": "El motor aria2 s'ha tancat inesperadament.",
-            "unknown": "El motor aria2 no s'ha pogut iniciar per un motiu desconegut."
+            "binary_unavailable": "L'executable taiji inclòs no hi és o no està disponible.",
+            "health_check_failed": "L'taiji ha deixat de respondre al Motrix.",
+            "port_in_use": "El port RPC del Motrix està ocupat i el motor taiji no s'ha pogut iniciar.",
+            "rpc_unavailable": "El motor taiji s'ha iniciat, però no ha acceptat les connexions RPC del Motrix.",
+            "spawn_failed": "No s'ha pogut crear el procés taiji.",
+            "unexpected_exit": "El motor taiji s'ha tancat inesperadament.",
+            "unknown": "El motor taiji no s'ha pogut iniciar per un motiu desconegut."
           },
           "recommendation": {
-            "force_terminate": "S'ha verificat que aquest procés pertany al Motrix. Forceu l'aturada del PID {{pid}} i reinicieu l'aria2 al port RPC {{rpcPort}} del Motrix.",
-            "retry": "El port és lliure. Torneu a iniciar l'aria2 sense canviar la configuració.",
+            "force_terminate": "S'ha verificat que aquest procés pertany al Motrix. Forceu l'aturada del PID {{pid}} i reinicieu l'taiji al port RPC {{rpcPort}} del Motrix.",
+            "retry": "El port és lliure. Torneu a iniciar l'taiji sense canviar la configuració.",
             "switch_port": "No es pot finalitzar el procés de manera segura. Utilitzeu el port {{port}} només com a alternativa o tanqueu el procés en conflicte manualment.",
             "title": "Recuperació recomanada"
           },
-          "recovered": "El motor aria2 torna a estar disponible.",
-          "recoveredOnPort": "S'ha recuperat el motor aria2 al port RPC {{port}}.",
+          "recovered": "El motor taiji torna a estar disponible.",
+          "recoveredOnPort": "S'ha recuperat el motor taiji al port RPC {{port}}.",
           "recoveryFailed": "La recuperació del motor ha fallat. Torneu a executar el diagnòstic per consultar l'estat actual.",
           "refreshFailed": "No s'ha pogut actualitzar el diagnòstic. A continuació es mostra l'últim informe obtingut correctament.",
           "restart": "Reiniciar el motor",
@@ -659,9 +659,9 @@
         },
         "features": "Funcions",
         "listenPort": "Port d'escolta",
-        "name": "Aria2",
+        "name": "taiji",
         "rpcPort": "Port RPC",
-        "startFailed": "No s'ha pogut iniciar el motor aria2",
+        "startFailed": "No s'ha pogut iniciar el motor taiji",
         "state": {
           "disconnected": "Desconnectat",
           "failed": "Ha fallat",
@@ -1890,7 +1890,8 @@
         "historyLimit": "Registres de recuperació de tasques completades",
         "historyLimitDesc": "No afecta la llista de baixades ni els fitxers baixats.",
         "historySessionOnly": "No conservar",
-        "title": "Progrés i recuperació"
+        "title": "Progrés i recuperació",
+        "managedByTaiji": "taiji automatically saves tasks and progress in its own database. Completed task history remains in Motrix."
       },
       "rpc": {
         "port": "Port RPC",
@@ -2009,7 +2010,8 @@
         "dhtListenPortDesc": "Troba parells mitjançant DHT en aquest port.",
         "listenPort": "Port d'escolta de BT",
         "listenPortDesc": "Accepta connexions entrants de parells en aquest port.",
-        "title": "Connexions entrants"
+        "title": "Connexions entrants",
+        "sharedPortDesc": "taiji uses this port for peer connections and DHT."
       },
       "newMagnetTasks": "Tasques magnet noves",
       "peers": {
@@ -2136,7 +2138,8 @@
         "modifiedTimeServer": "Data del servidor",
         "sessionSaveInterval": "Interval per desar el progrés (s)",
         "sessionSaveIntervalDesc": "Desar més sovint redueix el progrés perdut després d'un error inesperat.",
-        "title": "Disc i fitxers"
+        "title": "Disc i fitxers",
+        "managedByTaiji": "taiji manages disk allocation and cache automatically."
       },
       "fillInLinksWhenOpeningNewTask": "Enganxa els enllaços copiats en obrir una tasca nova.",
       "magnet": {

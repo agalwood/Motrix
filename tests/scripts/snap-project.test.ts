@@ -60,7 +60,7 @@ describe('prepare-snap-project', () => {
       'amd64'
     )
     await writeElf(
-      path.join(appDir, 'resources', 'extra', 'linux', 'x64', 'aria2c'),
+      path.join(appDir, 'resources', 'extra', 'linux', 'x64', 'taiji'),
       'amd64'
     )
     await writeFile(
@@ -169,7 +169,7 @@ describe('prepare-snap-project', () => {
       'arm64'
     )
     await writeElf(
-      path.join(appDir, 'resources', 'extra', 'linux', 'arm64', 'aria2c'),
+      path.join(appDir, 'resources', 'extra', 'linux', 'arm64', 'taiji'),
       'arm64'
     )
 
@@ -265,7 +265,7 @@ describe('prepare-snap-project', () => {
 
   it('rejects a non-executable bundled binary', async () => {
     await chmod(
-      path.join(appDir, 'resources', 'extra', 'linux', 'x64', 'aria2c'),
+      path.join(appDir, 'resources', 'extra', 'linux', 'x64', 'taiji'),
       0o644
     )
 
@@ -277,7 +277,7 @@ describe('prepare-snap-project', () => {
         arch: 'amd64',
         version: '2.0.0',
       })
-    ).rejects.toThrow(/aria2 executable is not executable/)
+    ).rejects.toThrow(/taiji executable is not executable/)
   })
 
   it.skipIf(process.platform === 'win32')(

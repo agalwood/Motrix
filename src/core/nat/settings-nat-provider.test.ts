@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { SettingsNatProvider } from './settings-nat-provider'
 
 describe('SettingsNatProvider', () => {
-  it('projects engine settings to the NatManager shape', () => {
+  it('maps the unified taiji listener even with a migrated separate DHT port', () => {
     const settings = {
       getEngine: vi.fn(
         () =>
@@ -24,7 +24,7 @@ describe('SettingsNatProvider', () => {
     } as unknown as SettingsManager
 
     const p = new SettingsNatProvider(settings)
-    expect(p.getEngine()).toEqual({ listenPort: 6881, dhtListenPort: 6882 })
+    expect(p.getEngine()).toEqual({ listenPort: 6881, dhtListenPort: 6881 })
   })
 
   it('projects nat settings', () => {

@@ -26,3 +26,15 @@ build/app.motrix.safari.bootstrap.plist text eol=lf
 # URI lines; retain that serialized syntax and prevent checkout conversion.
 tests/fixtures/legacy-v1/generated/** -text
 tests/fixtures/legacy-v1/generated/profile/download.session whitespace=-blank-at-eol
+
+scripts/engine-source.mjs text eol=lf
+scripts/verify-engine-artifact.mjs text eol=lf
+scripts/engine.lock.json text eol=lf
+scripts/taiji-source.lock.json text eol=lf
+
+# Keep the original engine serialization syntax in the migration fixture.
+tests/fixtures/taiji/*.sql -text whitespace=-blank-at-eol
+
+flatpak/taiji-Cargo.lock text eol=lf
+
+scripts/native-engine-digest.mjs text eol=lf

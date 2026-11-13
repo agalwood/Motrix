@@ -166,9 +166,8 @@ export interface EngineFeatureReport {
   hasBtSaveMetadata: boolean
   hasMoveStorage: boolean
   /**
-   * Whether the binary has the aria2_motrix fork's SQLite3 persistence
-   * feature compiled in. Detected by `enabledFeatures` containing
-   * `FEATURE_SQLITE3_PERSISTENCE`.
+   * Whether the engine persists its session in SQLite. Schema-specific
+   * recovery must use the adapter identity, never this capability alone.
    */
   hasSqlitePersistence: boolean
 }
