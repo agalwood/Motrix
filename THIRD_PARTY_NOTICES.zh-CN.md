@@ -89,7 +89,7 @@ Safari 图标是从 macOS 27.0（26A428）自带的 Safari 27.0 中 `Safari.app/
 `scripts/taiji-source.lock.json` 固定上游提交和 Cargo 锁文件摘要。
 
 - **版本：** 0.2.0
-- **上游源码：** <https://github.com/motrixapp/taiji/tree/13cf6b2e409bc0423e35a03c502426d5b09dce01>
+- **上游源码：** <https://github.com/motrixapp/taiji/tree/bf2920e5b8e7f64e52f71111b4bfbb27f9f7f72e>
 - **许可证：** GNU General Public License v2.0 或后续版本（`GPL-2.0-or-later`）
 - **完整许可证文本：** `THIRD_PARTY_LICENSES/taiji-COPYING`
 - **链接依赖声明：** 引擎旁的 `taiji-licenses.txt`。
