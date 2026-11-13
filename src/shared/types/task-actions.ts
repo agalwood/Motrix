@@ -166,7 +166,13 @@ export function canRetry(t: DownloadTask): boolean {
 }
 
 export function canRemove(t: DownloadTask): boolean {
-  return t.status !== TaskStatus.Finalizing
+  return (
+    t.status !== TaskStatus.Finalizing ||
+    (!hasLegacyImport(t) &&
+      !isMediaKind(t.kind) &&
+      Boolean(t.engineTaskId) &&
+      (t.type === TaskType.Http || t.type === TaskType.Ftp))
+  )
 }
 
 export function isFinalizing(t: DownloadTask): boolean {

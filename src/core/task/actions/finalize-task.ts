@@ -108,6 +108,8 @@ export interface FinalizeTaskDeps {
   publishTaskUpdate: () => void
   publishTaskUpdateNow: () => void
   adapter: {
+    getHttpOutput?: EngineAdapter['getHttpOutput']
+    finalizeHttpOutput?: EngineAdapter['finalizeHttpOutput']
     verifyLegacyBtBinding?: EngineAdapter['verifyLegacyBtBinding']
     verifyLegacyHttpBinding?: EngineAdapter['verifyLegacyHttpBinding']
     removeDownloadResult(engineTaskId: string): Promise<void>
@@ -179,6 +181,8 @@ export interface FinalizeTaskDeps {
 }
 
 export interface FinalizeArtifactCommitRequest {
+  /** Engine already published the file. Only commit the logical transaction. */
+  enginePublished?: boolean
   task: DownloadTask
   occurrence: TaskOccurrence | null
   sourcePath: string
@@ -338,7 +342,23 @@ async function finalizeHttp(
   task: DownloadTask,
   deps: FinalizeTaskDeps
 ): Promise<void> {
+  const output = await deps.adapter.getHttpOutput?.(task.engineTaskId)
+  if (
+    output?.state === 'downloading' ||
+    output?.state === 'publishing' ||
+    output?.paused
+  )
+    return
   const statusBeforeFinalize = task.status
+  if (output?.sourcePath) task.diskPath = output.sourcePath
+  if (output?.finalPath) task.finalPath = output.finalPath
+  if (output?.length !== undefined) {
+    task.totalBytes = output.length
+    task.downloadedBytes = output.length
+    task.sizeWhenDone = output.length
+    task.progress = 1
+    task.fileCount = 1
+  }
   Object.assign(task, applyTerminalTransition(task, TaskStatus.Finalizing))
   setTaskTransitionPhase(task, TransitionPhase.Renaming)
   syncCompletionMetrics(task)
@@ -350,6 +370,28 @@ async function finalizeHttp(
   // a different final filePath (e.g. ffmpeg-transcode plugin) and stage
   // metadata that will be committed alongside the rename. Aborted chains
   // skip the rename entirely and mark the task Error.
+  if (output?.state === 'published') {
+    try {
+      await commitHttpArtifactDurably(
+        task,
+        task.diskPath,
+        task.finalPath,
+        NOOP_COMMIT_OUTCOME,
+        deps,
+        true
+      )
+    } catch (error) {
+      // The native receipt already owns the file. Retain Finalizing and retry
+      // only the logical transaction on the next poll, without rerunning hooks.
+      deps.log.warn(
+        { error, taskId: task.id },
+        'published_http_database_commit_deferred'
+      )
+      return
+    }
+    await retirePublishedHttp(task, deps)
+    return
+  }
   const finalizeOutcome = await runBeforeFinalize(task, deps)
   if (finalizeOutcome.aborted) {
     const cause = finalizeOutcome.reason
@@ -370,6 +412,32 @@ async function finalizeHttp(
     deps.finalNamePicker
   )
   const renameSource = task.diskPath
+  if (
+    output?.state === 'ready' &&
+    deps.adapter.finalizeHttpOutput &&
+    !finalizeOutcome.replacement &&
+    finalizeOutcome.metadataOps.length === 0 &&
+    path.dirname(renameSource) === path.dirname(desiredFinalPath)
+  ) {
+    finalizeOutcome.beforeCommit?.()
+    try {
+      await deps.adapter.finalizeHttpOutput(
+        task.engineTaskId,
+        'publish',
+        desiredFinalPath
+      )
+    } catch (error) {
+      // A missing reply does not prove rejection. The next receipt read
+      // decides whether to accept again or commit an already published file.
+      deps.log.warn(
+        { error, taskId: task.id },
+        'http_publication_acceptance_unconfirmed'
+      )
+    }
+    // Completion arrives through the native event. Returning releases the
+    // task mutation lane while the engine retries a temporarily busy volume.
+    return
+  }
   if (!deps.commitFinalizedArtifact) {
     await persistDesiredFinalPath(task, desiredFinalPath, deps)
   }
@@ -387,7 +455,7 @@ async function finalizeHttp(
 
   // removeDownloadResult before rename so aria2 releases the file
   // handle — on Windows an open handle causes a sharing violation.
-  await deps.adapter.removeDownloadResult(task.engineTaskId)
+  if (!output) await deps.adapter.removeDownloadResult(task.engineTaskId)
 
   if (deps.commitFinalizedArtifact) {
     try {
@@ -398,7 +466,6 @@ async function finalizeHttp(
         finalizeOutcome,
         deps
       )
-      return
     } catch (e) {
       const cause = (e as Error).message
       const errorMessage = `Failed to commit finalized file: ${cause}`
@@ -413,6 +480,22 @@ async function finalizeHttp(
       })
       throw new AppError(ErrorCode.TaskFinalizeRenameFailed, errorMessage, e)
     }
+    if (output) {
+      try {
+        await deps.adapter.finalizeHttpOutput?.(
+          task.engineTaskId,
+          'external',
+          desiredFinalPath
+        )
+      } catch (error) {
+        deps.log.warn(
+          { error, taskId: task.id },
+          'http_external_acknowledgement_deferred'
+        )
+      }
+      await retirePublishedHttp(task, deps)
+    }
+    return
   }
 
   try {
@@ -473,17 +556,34 @@ async function finalizeHttp(
   fireAfterComplete(deps, task, 'finalize')
 }
 
+async function retirePublishedHttp(
+  task: DownloadTask,
+  deps: FinalizeTaskDeps
+): Promise<void> {
+  try {
+    await deps.adapter.removeDownloadResult(task.engineTaskId)
+  } catch (error) {
+    deps.log.warn(
+      { error, taskId: task.id },
+      'published_http_result_retirement_deferred'
+    )
+  }
+}
+
 async function commitHttpArtifactDurably(
   task: DownloadTask,
   renameSource: string,
   desiredFinalPath: string,
   finalizeOutcome: BeforeFinalizeOutcomeCommit,
-  deps: FinalizeTaskDeps
+  deps: FinalizeTaskDeps,
+  enginePublished = false
 ): Promise<void> {
   const completedAt = Date.now()
   const previousStatus = task.status
   const completedTask = structuredClone(task)
   completedTask.finalPath = desiredFinalPath
+  completedTask.finalName = path.basename(desiredFinalPath)
+  completedTask.name = completedTask.finalName
   applyCompletedTaskAfterRename(completedTask, desiredFinalPath, completedAt)
   syncCompletionMetrics(completedTask)
   normalizeTerminalRuntimeMetrics(completedTask)
@@ -498,6 +598,7 @@ async function commitHttpArtifactDurably(
   await deps.commitFinalizedArtifact?.({
     task: completedTask,
     occurrence,
+    enginePublished,
     sourcePath: renameSource,
     targetPath: desiredFinalPath,
     ...(deps.recoverySha256 ? { recoverySha256: deps.recoverySha256 } : {}),
@@ -510,18 +611,27 @@ async function commitHttpArtifactDurably(
       targetRoot: desiredFinalPath,
     },
   })
-  deps.activityRecorder.recordDownloadCompleted({
-    taskId: completedTask.id,
-    occurredAt: completedAt,
-  })
   deps.taskManager.set(completedTask.id, structuredClone(completedTask))
-  await recordTaskTransitionOrWarn(completedTask, previousStatus, deps, {
-    occurredAt: completedAt,
-    accuracy: TaskActivityAccuracy.Exact,
-    occurrenceId: occurrence.occurrenceId,
-    failureMessage: FINALIZE_RECORD_FAILURE_MESSAGE,
-  })
-  await deps.occurrenceDispatcher?.dispatch(occurrence)
+  try {
+    deps.activityRecorder.recordDownloadCompleted({
+      taskId: completedTask.id,
+      occurredAt: completedAt,
+    })
+    await recordTaskTransitionOrWarn(completedTask, previousStatus, deps, {
+      occurredAt: completedAt,
+      accuracy: TaskActivityAccuracy.Exact,
+      occurrenceId: occurrence.occurrenceId,
+      failureMessage: FINALIZE_RECORD_FAILURE_MESSAGE,
+    })
+    await deps.occurrenceDispatcher?.dispatch(occurrence)
+  } catch (error) {
+    // The terminal transaction and outbox are already durable. Secondary
+    // observers must not turn a published download back into a rename failure.
+    deps.log.warn(
+      { error, taskId: completedTask.id },
+      'http_completion_observers_deferred'
+    )
+  }
   deps.eventBus.emit(Events.TaskFilesUpdated, { taskId: completedTask.id })
   deps.publishTaskUpdateNow()
   deps.log.info({ taskId: completedTask.id }, 'finalize_http_completed')

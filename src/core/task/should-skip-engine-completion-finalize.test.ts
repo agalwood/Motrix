@@ -78,7 +78,7 @@ describe('shouldSkipEngineCompletionFinalize', () => {
       phase: TransitionPhase.Renaming,
       diskPath: '/downloads/file.motrix',
     },
-  ])('skips $label', ({ status, phase, diskPath }) => {
+  ])('guards $label', ({ status, phase, diskPath }) => {
     expect(
       shouldSkipEngineCompletionFinalize(
         makeDownloadTask({
@@ -88,7 +88,7 @@ describe('shouldSkipEngineCompletionFinalize', () => {
           finalPath: '/downloads/file',
         })
       )
-    ).toBe(true)
+    ).toBe(status !== TaskStatus.Finalizing)
   })
 
   // An already-terminal, already-renamed task is skipped via diskPath === finalPath.

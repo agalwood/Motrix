@@ -325,7 +325,11 @@ async function buildDirectReAddParams(
       ? { retainRequestContext: true }
       : {}),
     saveDir: plan.saveDir,
-    filename: plan.filename,
+    filename:
+      plan.kind === 'checkpoint'
+        ? plan.filename
+        : path.basename(task.finalPath),
+    deferFilePublication: true,
     connections: recipe.connections,
     ...(plan.kind !== 'checkpoint' || metadataProfile === null
       ? {}

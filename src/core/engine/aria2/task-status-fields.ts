@@ -5,6 +5,7 @@ import type { Aria2RawStatus } from './types'
 export const TASK_STATUS_FIELDS = [
   'gid',
   'status',
+  'http',
   'totalLength',
   'completedLength',
   'uploadLength',

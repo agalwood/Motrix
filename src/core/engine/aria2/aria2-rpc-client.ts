@@ -540,7 +540,7 @@ export class Aria2RpcClient {
 
   // ─── Internal ────────────────────────────────────────────────
 
-  private addHandler(method: string, handler: EventHandler): Unsubscribe {
+  protected addHandler(method: string, handler: EventHandler): Unsubscribe {
     if (!this.notificationHandlers.has(method)) {
       this.notificationHandlers.set(method, new Set())
     }

@@ -121,7 +121,7 @@ for (const restart of [false, true]) {
         'Requires an engine with native HTTP retry support'
       )
       expect(recipe?.engineContextVersion).toBe(1)
-      const partial = (await readFile(`${original.diskPath}.part`)).subarray(
+      const partial = (await readFile(original.diskPath)).subarray(
         0,
         original.downloadedBytes
       )

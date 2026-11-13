@@ -9,7 +9,7 @@
 //   - operator login (cookie) + Bearer
 //   - device-code pairing approved through the OPERATOR-GATED bridge:resolvePair
 //     (incl. the self-approval-bypass negative probe)
-//   - real download via aria2 (queued→completed + on-disk bytes) + watch SSE
+//   - real download via taiji (queued→completed + on-disk bytes) + watch SSE
 //   - wrong-token → exit 4
 //
 // ─── Prerequisite: a NODE-ABI build of the server ──────────────────────
@@ -34,14 +34,14 @@
 //   MOTRIX_SERVER_DIR   node-ABI build dir   (default: ../motrix-turbo-srv)
 //   MOTRIX_E2E_WEB_PORT  web/operator port   (default: 8090)
 //   MOTRIX_E2E_MDXP_PORT MDXP bridge port    (default: 16801)
-//   MOTRIX_ARIA2_BIN     aria2 binary        (default: bundled extra/<platform>)
+//   MOTRIX_TAIJI_BIN     taiji binary        (default: bundled extra/<platform>)
 //
 // Exit 0 = all checks passed; 1 = a check failed; 2 = prerequisite missing.
 
 import { spawn } from 'node:child_process'
 import crypto from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { mkdir, mkdtemp, readFile, stat } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, stat, writeFile } from 'node:fs/promises'
 import http from 'node:http'
 import { createRequire } from 'node:module'
 import os from 'node:os'
@@ -60,9 +60,9 @@ const RENDERER_DIR = path.join(WT, 'dist', 'renderer-web')
 const CLI = createRequire(import.meta.url).resolve(
   '@motrix/cli/dist/bin/motrix.js'
 )
-const ARIA2 =
-  process.env.MOTRIX_ARIA2_BIN ??
-  path.join(MAIN, 'extra', process.platform, process.arch, 'aria2c')
+const TAIJI =
+  process.env.MOTRIX_TAIJI_BIN ??
+  path.join(MAIN, 'extra', process.platform, process.arch, 'taiji')
 const WEB = Number(process.env.MOTRIX_E2E_WEB_PORT ?? 8090)
 const MDXP = Number(process.env.MOTRIX_E2E_MDXP_PORT ?? 16801)
 const WEB_BASE = `http://127.0.0.1:${WEB}`
@@ -114,6 +114,7 @@ function startFixture(size, bps) {
       resolve({
         url: `http://127.0.0.1:${port}/srv.bin`,
         size,
+        sha256: crypto.createHash('sha256').update(payload).digest('hex'),
         close: () => new Promise((r) => server.close(() => r())),
       })
     })
@@ -211,6 +212,18 @@ async function main() {
   await mkdir(SAVE, { recursive: true })
   await mkdir(path.join(credHome, '.config'), { recursive: true })
   console.log(`DATA=${DATA}`)
+  const portProbe = http.createServer()
+  await new Promise((resolve) => portProbe.listen(0, '127.0.0.1', resolve))
+  const enginePort = portProbe.address().port
+  await new Promise((resolve) => portProbe.close(resolve))
+  await writeFile(
+    path.join(DATA, 'settings.json'),
+    JSON.stringify({
+      version: 13,
+      engine: { rpcPort: enginePort, dhtEnabled: false, btEnableLpd: false },
+      tracker: { autoSync: false },
+    })
+  )
 
   const fx = await startFixture(2 * 1024 * 1024, 256 * 1024)
   console.log(`fixture: ${fx.url}`)
@@ -227,8 +240,10 @@ async function main() {
       // owns MBP1 routes; inherited host settings must not open them here.
       MOTRIX_REMOTE_EXTENSION_ENABLED: 'false',
       MOTRIX_DATA_DIR: DATA,
+      MOTRIX_DEFAULT_SAVE_DIR: SAVE,
+      MOTRIX_ALLOWED_SAVE_DIRS: SAVE,
       MOTRIX_OPERATOR_TOKEN: OPTOK,
-      MOTRIX_ARIA2_BIN: ARIA2,
+      MOTRIX_TAIJI_BIN: TAIJI,
       MOTRIX_PUBLIC_URL: WEB_BASE,
       MOTRIX_RENDERER_DIR: RENDERER_DIR,
       MOTRIX_SKIP_ELECTRON_REBUILD: '1',
@@ -346,7 +361,7 @@ async function main() {
     } catch {
       /* download poll below will surface a genuinely-down engine */
     }
-    check('aria2 engine reached ready', engineReady)
+    check('taiji engine reached ready', engineReady)
 
     // ── 5. INVOCATION — real download + watch SSE (localToken) ──────────
     console.log('\n[5] Invocation: download/add + watch SSE')
@@ -405,6 +420,16 @@ async function main() {
       onDisk && size === fx.size,
       `exists=${onDisk} size=${size} want=${fx.size}`
     )
+
+    check(
+      'published file hash matches the complete payload',
+      onDisk &&
+        crypto
+          .createHash('sha256')
+          .update(await readFile(filePath))
+          .digest('hex') === fx.sha256
+    )
+    check('native incomplete suffix is gone', !existsSync(`${filePath}.motrix`))
 
     watch.proc.kill('SIGINT')
     const watched = await watch.result

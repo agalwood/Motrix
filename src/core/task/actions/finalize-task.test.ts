@@ -2759,3 +2759,194 @@ describe('finalize pre-commit failure recovery', () => {
     }
   )
 })
+
+describe('engine-owned HTTP publication', () => {
+  it('uses the actual closed source and commits only after native publication, without hashing or a second rename', async () => {
+    const task = makeTask()
+    const deps = makeDeps({ commitFinalizedArtifact: vi.fn(async () => {}) })
+    vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+    const getOutput = vi.fn().mockResolvedValue({
+      state: 'ready',
+      hostControlled: true,
+      paused: false,
+      sourcePath: '/d/actual.mp4.motrix',
+      finalPath: '/d/actual.mp4',
+      length: 42,
+    })
+    deps.adapter.getHttpOutput = getOutput
+    deps.adapter.finalizeHttpOutput = vi.fn(async () => {})
+    await finalizeTask(task.id, deps)
+    expect(task.status).toBe(TaskStatus.Finalizing)
+    expect(task.diskPath).toBe('/d/actual.mp4.motrix')
+    expect(deps.adapter.finalizeHttpOutput).toHaveBeenCalledWith(
+      task.engineTaskId,
+      'publish',
+      '/d/actual.mp4'
+    )
+    expect(deps.commitFinalizedArtifact).not.toHaveBeenCalled()
+    expect(deps.fs.renameAtomic).not.toHaveBeenCalled()
+    expect(deps.adapter.removeDownloadResult).not.toHaveBeenCalled()
+
+    getOutput.mockResolvedValue({
+      state: 'published',
+      hostControlled: true,
+      paused: false,
+      sourcePath: '/d/actual.mp4.motrix',
+      finalPath: '/d/actual (1).mp4',
+      length: 42,
+    })
+    await finalizeTask(task.id, deps)
+    expect(deps.commitFinalizedArtifact).toHaveBeenCalledWith(
+      expect.objectContaining({
+        enginePublished: true,
+        sourcePath: '/d/actual.mp4.motrix',
+        targetPath: '/d/actual (1).mp4',
+        metadataOps: [],
+      })
+    )
+    expect(task.status).toBe(TaskStatus.Completed)
+    expect(task.diskPath).toBe('/d/actual (1).mp4')
+    expect(task.downloadedBytes).toBe(42)
+    expect(deps.fs.renameAtomic).not.toHaveBeenCalled()
+    expect(deps.adapter.removeDownloadResult).toHaveBeenCalledTimes(1)
+    await finalizeTask(task.id, deps)
+    expect(deps.commitFinalizedArtifact).toHaveBeenCalledTimes(1)
+  })
+
+  it('retains a published receipt through a failed logical commit and retries only the DB transaction', async () => {
+    const task = makeTask()
+    const commit = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('database busy'))
+      .mockResolvedValue(undefined)
+    const deps = makeDeps({ commitFinalizedArtifact: commit })
+    vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+    deps.adapter.getHttpOutput = vi.fn().mockResolvedValue({
+      state: 'published',
+      hostControlled: true,
+      paused: false,
+      sourcePath: task.diskPath,
+      finalPath: task.finalPath,
+      length: 17,
+    })
+    deps.adapter.finalizeHttpOutput = vi.fn(async () => {})
+    await finalizeTask(task.id, deps)
+    expect(task.status).toBe(TaskStatus.Finalizing)
+    expect(deps.adapter.removeDownloadResult).not.toHaveBeenCalled()
+    await finalizeTask(task.id, deps)
+    expect(task.status).toBe(TaskStatus.Completed)
+    expect(commit).toHaveBeenCalledTimes(2)
+    expect(deps.adapter.finalizeHttpOutput).not.toHaveBeenCalled()
+    expect(deps.fs.renameAtomic).not.toHaveBeenCalled()
+  })
+})
+
+it('completes an empty native HTTP output at 100 percent', async () => {
+  const task = makeTask({ totalBytes: 0, downloadedBytes: 0, progress: 0 })
+  const deps = makeDeps({ commitFinalizedArtifact: vi.fn(async () => {}) })
+  vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+  deps.adapter.getHttpOutput = vi.fn().mockResolvedValue({
+    state: 'published',
+    hostControlled: true,
+    paused: false,
+    sourcePath: task.diskPath,
+    finalPath: task.finalPath,
+    length: 0,
+  })
+  await finalizeTask(task.id, deps)
+  expect(task.status).toBe(TaskStatus.Completed)
+  expect(task.progress).toBe(1)
+  expect(task.totalBytes).toBe(0)
+})
+
+it('keeps Finalizing after a lost native publish reply and commits the receipt on retry', async () => {
+  const task = makeTask()
+  const commit = vi.fn(async () => {})
+  const deps = makeDeps({ commitFinalizedArtifact: commit })
+  vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+  const record = {
+    hostControlled: true,
+    paused: false,
+    sourcePath: task.diskPath,
+    finalPath: task.finalPath,
+    length: 3,
+  }
+  deps.adapter.getHttpOutput = vi
+    .fn()
+    .mockResolvedValueOnce({ ...record, state: 'ready' })
+    .mockResolvedValue({ ...record, state: 'published' })
+  deps.adapter.finalizeHttpOutput = vi
+    .fn()
+    .mockRejectedValue(new Error('reply lost'))
+  await finalizeTask(task.id, deps)
+  expect(task.status).toBe(TaskStatus.Finalizing)
+  expect(commit).not.toHaveBeenCalled()
+  await finalizeTask(task.id, deps)
+  expect(task.status).toBe(TaskStatus.Completed)
+  expect(deps.adapter.finalizeHttpOutput).toHaveBeenCalledTimes(1)
+  expect(commit).toHaveBeenCalledTimes(1)
+})
+
+it('preserves a committed plugin output when native acknowledgement is temporarily unavailable', async () => {
+  const task = makeTask()
+  const staged = new StagedEffectStore()
+  staged.appendMeta({
+    pluginId: 'metadata',
+    op: 'set',
+    key: 'title',
+    value: 'output',
+  })
+  const deps = makeDeps({
+    commitFinalizedArtifact: vi.fn(async () => {}),
+    orchestrator: {
+      runBeforeFinalize: vi
+        .fn()
+        .mockResolvedValue({ final: { filePath: task.finalPath }, staged }),
+      runParallel: vi.fn(async () => {}),
+    } as unknown as FinalizeTaskDeps['orchestrator'],
+  })
+  vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+  deps.adapter.getHttpOutput = vi.fn().mockResolvedValue({
+    state: 'ready',
+    hostControlled: true,
+    paused: false,
+    sourcePath: task.diskPath,
+    finalPath: task.finalPath,
+    length: 3,
+  })
+  deps.adapter.finalizeHttpOutput = vi
+    .fn()
+    .mockRejectedValue(new Error('disconnected'))
+  await finalizeTask(task.id, deps)
+  expect(task.status).toBe(TaskStatus.Completed)
+  expect(deps.adapter.finalizeHttpOutput).toHaveBeenCalledWith(
+    task.engineTaskId,
+    'external',
+    task.finalPath
+  )
+  expect(deps.commitFinalizedArtifact).toHaveBeenCalledTimes(1)
+})
+
+it('keeps completion durable when an activity observer fails after commit', async () => {
+  const task = makeTask()
+  const deps = makeDeps({ commitFinalizedArtifact: vi.fn(async () => {}) })
+  vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+  deps.adapter.getHttpOutput = vi.fn().mockResolvedValue({
+    state: 'published',
+    hostControlled: true,
+    paused: false,
+    sourcePath: task.diskPath,
+    finalPath: task.finalPath,
+    length: 3,
+  })
+  vi.mocked(deps.activityRecorder.recordDownloadCompleted).mockImplementation(
+    () => {
+      throw new Error('activity database busy')
+    }
+  )
+  await finalizeTask(task.id, deps)
+  expect(task.status).toBe(TaskStatus.Completed)
+  expect(deps.adapter.removeDownloadResult).toHaveBeenCalledTimes(1)
+  await finalizeTask(task.id, deps)
+  expect(deps.commitFinalizedArtifact).toHaveBeenCalledTimes(1)
+})

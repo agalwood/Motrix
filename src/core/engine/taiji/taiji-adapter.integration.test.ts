@@ -491,9 +491,9 @@ describe.skipIf(!process.env.MOTRIX_TAIJI_BIN && !existsSync(bundled))(
         expect(
           await handle.adapter.canRetryDirectTask({
             ...input,
-            outputPath: path.join(directory, 'other.bin'),
+            outputPath: path.join(directory, 'stale-host-name.bin'),
           })
-        ).toBe(false)
+        ).toBe(true)
         expect(await handle.adapter.canRetryDirectTask(input)).toBe(true)
         failing = false
         await handle.adapter.retryDirectTask(input)

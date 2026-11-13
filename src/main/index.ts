@@ -7,6 +7,7 @@ import { Aria2SegmentClient } from '@core/download/aria2-segment-client'
 import { Aria2TrustStore } from '@core/engine/aria2/aria2-trust-store'
 import type { DnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
 import { createDnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
+import { isNotFoundError } from '@core/engine/aria2/error-utils'
 import { JsonRpcProtocol } from '@core/engine/aria2/json-rpc-protocol'
 import {
   PollingScheduler,
@@ -114,6 +115,7 @@ import {
 } from '@core/task/merge-engine-task'
 import { createFailureLogConsumer } from '@core/task/occurrences/log-consumer'
 import { OccurrenceDispatcher } from '@core/task/occurrences/occurrence-dispatcher'
+import { reconcileHttpOutputs } from '@core/task/reconcile-http-outputs'
 import { shouldEvictFromEngine } from '@core/task/should-evict-from-engine'
 import { shouldSkipEngineCompletionFinalize } from '@core/task/should-skip-engine-completion-finalize'
 import { shouldTriggerTransitionSave } from '@core/task/should-trigger-transition-save'
@@ -1140,6 +1142,14 @@ async function handlePolledTasks(
     )
   }
   taskInspectorActivityRuntime?.recordSamples(tasks)
+  if (source === 'authoritative-poll') {
+    await reconcileHttpOutputs(
+      tasks.filter((task) => task.status === TaskStatus.Finalizing),
+      aria2Adapter,
+      (id) => finalizeTask(id, buildFinalizeDeps(aria2Adapter)),
+      log
+    )
+  }
   if (dirty) publishTaskUpdate()
 }
 
@@ -1319,6 +1329,28 @@ function buildFinalizeDeps(adapter: TaijiAdapter) {
               input.occurrence
             )
           : { postDeliveries: [], beforeCommit: () => undefined }
+      if (input.enginePublished && input.occurrence) {
+        input.beforeCommit?.()
+        post.beforeCommit()
+        await sessionManager.persistTerminalHookBoundary(
+          input.task,
+          input.occurrence,
+          {
+            metadataOps: input.metadataOps,
+            postDeliveries: post.postDeliveries,
+            files: [
+              {
+                fileIndex: 0,
+                path: input.targetPath,
+                size: input.task.totalBytes,
+                selected: true,
+              },
+            ],
+            fileRebase: input.fileRebase,
+          }
+        )
+        return
+      }
       await durableFinalizeRuntime.commit({
         ...input,
         postDeliveries: post.postDeliveries,
@@ -1509,6 +1541,7 @@ async function startEngineAndRestore(
       db: motrixDb,
       adapter: {
         listActiveAndWaiting: () => adapter.listActiveAndWaiting(),
+        getHttpOutput: (gid) => adapter.getHttpOutput(gid),
       },
       fs: defaultRecoveryFs,
       finalizeTask: (taskId, recoverySha256) =>
@@ -1660,6 +1693,14 @@ async function startEngineAndRestore(
         })
       })
 
+      runShellAsyncWork('HTTP output recovery', () =>
+        reconcileHttpOutputs(
+          taskManager.getAll(),
+          adapter,
+          (id) => finalizeTask(id, finalizeDepsFactory()),
+          log
+        )
+      )
       sessionManager.startAutoSave(sessionSaveInterval * 1000)
       // Gate the periodic save on engine activity. The scheduler derives
       // active/idle from aria2 getGlobalStat.numActive and broadcasts it here;
@@ -2458,6 +2499,15 @@ async function initializeMainProcess(): Promise<void> {
     assertEngineQuiesced: async (taskId) => {
       const task = taskManager.getById(taskId)
       if (!task) return
+      if (task.type === TaskType.Http || task.type === TaskType.Ftp) {
+        const output = await adapter
+          .getHttpOutput(task.engineTaskId)
+          .catch((error) => {
+            if (isNotFoundError(error)) return undefined
+            throw error
+          })
+        if (output?.state === 'ready' || output?.state === 'published') return
+      }
       const active = await adapter.listActiveAndWaiting()
       if (active.some((entry) => entry.gid === task.engineTaskId)) {
         throw new Error(`engine writer is still active for task ${taskId}`)

@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { isNotFoundError } from '@core/engine/aria2/error-utils'
 import {
   getLegacyQuarantinedGids,
   hasLegacyImport,
@@ -1202,6 +1203,28 @@ export class SessionManager {
         continue
       }
 
+      if (
+        primary?.gid &&
+        this.adapter.getHttpOutput &&
+        primary.phase === TaskInstancePhase.HttpDownload
+      ) {
+        try {
+          const output = await this.adapter.getHttpOutput(primary.gid)
+          if (output.state !== 'downloading') {
+            const task = taskRowToDownloadTask(pair.task, pair.instances)
+            task.diskPath = output.sourcePath ?? task.diskPath
+            task.finalPath = output.finalPath ?? task.finalPath
+            task.status = output.paused
+              ? TaskStatus.Paused
+              : TaskStatus.Finalizing
+            task.transitionPhase = TransitionPhase.Renaming
+            this.taskManager.set(task.id, task)
+            continue
+          }
+        } catch (error) {
+          if (!isNotFoundError(error)) throw error
+        }
+      }
       const hasDurableTransitionIntent =
         pair.task.aggStatus === TaskStatus.Finalizing ||
         pair.instances.some(
@@ -1997,7 +2020,11 @@ export class SessionManager {
           ...(retainRequestContext ? { retainRequestContext: true } : {}),
           gid,
           saveDir: plan.saveDir as string,
-          filename: plan.filename as string,
+          filename:
+            plan.kind === 'checkpoint'
+              ? (plan.filename as string)
+              : path.basename(taskPart.finalPath),
+          deferFilePublication: true,
           connections: recipe?.connections,
           ...(plan.kind !== 'checkpoint' || metadataProfile === null
             ? {}

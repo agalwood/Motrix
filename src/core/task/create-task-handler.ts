@@ -29,7 +29,6 @@ import {
   normalizeProxyUrl,
 } from '@core/proxy/aria2-proxy-routing'
 import type { SettingsManager } from '@core/settings/settings-manager'
-import { INCOMPLETE_SUFFIX } from '@shared/constants/incomplete'
 import { AppError, ErrorCode } from '@shared/errors'
 import { formatFileSelection } from '@shared/lib/file-selection-ranges'
 import type {
@@ -733,7 +732,8 @@ async function handleCreateTaskUnderAdmission(
     dispatchEngine = dispatchCreateDownload({
       uris: canonicalUris,
       saveDir: effectiveSaveDir,
-      filename: `${finalName}${INCOMPLETE_SUFFIX}`,
+      filename: finalName,
+      deferFilePublication: true,
       performanceProfile: engineSettings.performanceProfile,
       connections: req.connections,
       proxy: req.proxy,
@@ -752,7 +752,8 @@ async function handleCreateTaskUnderAdmission(
       uris: [...req.uris],
       // applyPathOverrides HTTP equivalent: dir = saveDir, out = <name>.motrix
       saveDir: effectiveSaveDir,
-      filename: `${finalName}${INCOMPLETE_SUFFIX}`,
+      filename: finalName,
+      deferFilePublication: true,
       performanceProfile: engineSettings.performanceProfile,
       userAgent: engineSettings.userAgent,
       connections: clampedConnections,
@@ -770,7 +771,7 @@ async function handleCreateTaskUnderAdmission(
       currentHttpDesiredName = nextDesiredName
       finalPath = path.join(effectiveSaveDir, finalName)
       diskPath = toTempPath(finalPath)
-      params.filename = `${finalName}${INCOMPLETE_SUFFIX}`
+      params.filename = finalName
     }
 
     // 3.4. Mux pre-resolve seam (desktop Add-Task path).

@@ -50,6 +50,8 @@ test('application icon progress is opt-in, handles renderer release, and clears 
   const latest = async () => (await calls()).at(-1)?.progress
   const server = await startHttpFixture({
     size: 2 * 1024 * 1024,
+    // Keep one throttled response alive throughout the settings interactions.
+    rangeSupport: false,
     throttleBytesPerSecond: 64 * 1024,
   })
   try {

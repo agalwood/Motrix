@@ -3,7 +3,7 @@ import { transport } from '@renderer/lib/transport'
 import { useDownloadsSelection } from '@renderer/routes/downloads/store'
 import { CommandIds } from '@shared/commands-catalog'
 import { Events } from '@shared/protocol/events'
-import { TaskStatus } from '@shared/types/task'
+import { TaskStatus, TaskType } from '@shared/types/task'
 import { makeDownloadTask } from '@test-utils/task'
 import { act, renderHook } from '@testing-library/react'
 import { useSyncExternalStore } from 'react'
@@ -111,9 +111,13 @@ it('freezes only committed selection and cancels when selection changes', () => 
   expect(validTaskMenuIntent(intent)).toBe(false)
   expect(menuActionEnabled(CommandIds.TaskResume, intent)).toBe(false)
 })
-it('selects all filtered tasks including virtual offscreen items and excludes Finalizing from remove', () => {
+it('selects all filtered tasks including virtual offscreen items and excludes BT finalization from remove', () => {
   const tasks = Array.from({ length: 10_000 }, (_, index) =>
-    makeDownloadTask({ id: String(index), status: TaskStatus.Finalizing })
+    makeDownloadTask({
+      id: String(index),
+      type: TaskType.Bt,
+      status: TaskStatus.Finalizing,
+    })
   )
   mocks.snapshot.tasks = tasks
   useDownloadsSelection.getState().setItems(tasks.slice(0, 500))

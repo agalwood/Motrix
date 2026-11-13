@@ -197,6 +197,19 @@
   {
     "type": "archive",
     "archive-type": "tar-gzip",
+    "url": "https://static.crates.io/crates/atomicwrites/atomicwrites-0.4.4.crate",
+    "sha256": "3ef1bb8d1b645fe38d51dfc331d720fb5fc2c94b440c76cc79c80ff265ca33e3",
+    "dest": "cargo/vendor/atomicwrites-0.4.4"
+  },
+  {
+    "type": "inline",
+    "contents": "{\"package\": \"3ef1bb8d1b645fe38d51dfc331d720fb5fc2c94b440c76cc79c80ff265ca33e3\", \"files\": {}}",
+    "dest": "cargo/vendor/atomicwrites-0.4.4",
+    "dest-filename": ".cargo-checksum.json"
+  },
+  {
+    "type": "archive",
+    "archive-type": "tar-gzip",
     "url": "https://static.crates.io/crates/autocfg/autocfg-1.5.1.crate",
     "sha256": "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53",
     "dest": "cargo/vendor/autocfg-1.5.1"
@@ -1822,6 +1835,19 @@
   {
     "type": "archive",
     "archive-type": "tar-gzip",
+    "url": "https://static.crates.io/crates/linux-raw-sys/linux-raw-sys-0.4.15.crate",
+    "sha256": "d26c52dbd32dccf2d10cac7725f8eae5296885fb5703b261f7d0a0739ec807ab",
+    "dest": "cargo/vendor/linux-raw-sys-0.4.15"
+  },
+  {
+    "type": "inline",
+    "contents": "{\"package\": \"d26c52dbd32dccf2d10cac7725f8eae5296885fb5703b261f7d0a0739ec807ab\", \"files\": {}}",
+    "dest": "cargo/vendor/linux-raw-sys-0.4.15",
+    "dest-filename": ".cargo-checksum.json"
+  },
+  {
+    "type": "archive",
+    "archive-type": "tar-gzip",
     "url": "https://static.crates.io/crates/litemap/litemap-0.8.3.crate",
     "sha256": "47d9d19d1d6efa0109d2f65ff4c85cddd50bd572e5a00127ab10987290bcefae",
     "dest": "cargo/vendor/litemap-0.8.3"
@@ -2480,6 +2506,19 @@
     "type": "inline",
     "contents": "{\"package\": \"cfcb3a22ef46e85b45de6ee7e79d063319ebb6594faafcf1c225ea92ab6e9b92\", \"files\": {}}",
     "dest": "cargo/vendor/rustc_version-0.4.1",
+    "dest-filename": ".cargo-checksum.json"
+  },
+  {
+    "type": "archive",
+    "archive-type": "tar-gzip",
+    "url": "https://static.crates.io/crates/rustix/rustix-0.38.44.crate",
+    "sha256": "fdb5bc1ae2baa591800df16c9ca78619bf65c0488b41b96ccec5d11220d8c154",
+    "dest": "cargo/vendor/rustix-0.38.44"
+  },
+  {
+    "type": "inline",
+    "contents": "{\"package\": \"fdb5bc1ae2baa591800df16c9ca78619bf65c0488b41b96ccec5d11220d8c154\", \"files\": {}}",
+    "dest": "cargo/vendor/rustix-0.38.44",
     "dest-filename": ".cargo-checksum.json"
   },
   {

@@ -18,6 +18,7 @@ export interface Aria2RawStatus {
   numPieces: string
   dir: string
   files: Aria2RawFile[]
+  http?: { renamePending?: string; hostControlled?: string }
   bittorrent?: Aria2RawBtInfo
   infoHash?: string
   errorCode?: string

@@ -1,11 +1,12 @@
 import { access, rename, rm } from 'node:fs/promises'
+import { isNotFoundError } from '@core/engine/aria2/error-utils'
 import type { EngineAdapter } from '@core/engine/engine-adapter'
 import { hasLegacyImport } from '@core/legacy-import/legacy-task-policy'
 import type { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
 import type { MotrixDatabase } from '@core/session/motrix-database'
 import { DownloadErrorCode, ErrorCode } from '@shared/errors'
 import type { DownloadTask } from '@shared/types/task'
-import { TaskStatus, type TaskType, TransitionPhase } from '@shared/types/task'
+import { TaskStatus, TaskType, TransitionPhase } from '@shared/types/task'
 import { isMediaKind, isTorrentLikeType } from '@shared/types/task-actions'
 import {
   TaskActivityAccuracy,
@@ -128,7 +129,7 @@ export interface RecoveryDeps {
     set?(id: string, task: DownloadTask): void
     persist(task: DownloadTask): Promise<void>
   }
-  adapter: Pick<EngineAdapter, 'listActiveAndWaiting'>
+  adapter: Pick<EngineAdapter, 'listActiveAndWaiting' | 'getHttpOutput'>
   fs: RecoveryFs
   activityRecorder: TaskActivityRecorder
   finalizeTask: (taskId: string, sha256?: string) => Promise<void>
@@ -363,6 +364,25 @@ export class TaskRecoveryServiceImpl implements TaskRecoveryService {
         action: RecoveryAction.ResumeFromRename,
       })
       return
+    }
+    if (
+      this.deps.adapter.getHttpOutput &&
+      (task.type === TaskType.Http || task.type === TaskType.Ftp)
+    ) {
+      try {
+        const output = await this.deps.adapter.getHttpOutput(task.engineTaskId)
+        if (output.state !== 'downloading') {
+          if (!output.paused && output.state !== 'publishing')
+            await this.deps.finalizeTask(task.id)
+          report.recovered.push({
+            taskId: task.id,
+            action: RecoveryAction.ResumeFromRename,
+          })
+          return
+        }
+      } catch (error) {
+        if (!isNotFoundError(error)) throw error
+      }
     }
     if (sha256)
       throw new Error('no pending finalize journal for checksum verification')

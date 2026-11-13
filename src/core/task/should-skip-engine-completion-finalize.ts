@@ -3,7 +3,7 @@ import {
   isInactiveLegacyTask,
 } from '@core/legacy-import/legacy-task-policy'
 import type { DownloadTask } from '@shared/types/task'
-import { TaskStatus, TransitionPhase } from '@shared/types/task'
+import { TaskStatus, TaskType, TransitionPhase } from '@shared/types/task'
 import { getBtDirectStorageLayout } from './bt-storage-layout'
 
 /**
@@ -22,6 +22,12 @@ export function shouldSkipEngineCompletionFinalize(
 ): boolean {
   if (hasLegacyImport(task))
     return isInactiveLegacyTask(task) || task.status === TaskStatus.Completed
+  if (
+    (task.type === TaskType.Http || task.type === TaskType.Ftp) &&
+    task.status === TaskStatus.Finalizing &&
+    task.transitionPhase === TransitionPhase.Renaming
+  )
+    return false
   return (
     (task.diskPath === task.finalPath &&
       getBtDirectStorageLayout(task)?.finalized !== false) ||

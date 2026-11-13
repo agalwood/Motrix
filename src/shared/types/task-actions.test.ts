@@ -338,8 +338,15 @@ describe('canRetry', () => {
 })
 
 describe('canRemove', () => {
-  it('returns false only for Finalizing', () => {
-    expect(canRemove(makeTask({ status: TaskStatus.Finalizing }))).toBe(false)
+  it('keeps BT finalization locked and lets native HTTP publication be cancelled', () => {
+    expect(
+      canRemove(makeTask({ type: TaskType.Bt, status: TaskStatus.Finalizing }))
+    ).toBe(false)
+    expect(
+      canRemove(
+        makeTask({ type: TaskType.Http, status: TaskStatus.Finalizing })
+      )
+    ).toBe(true)
     for (const status of [
       TaskStatus.Queued,
       TaskStatus.Downloading,

@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { Aria2RpcClient } from '../aria2/aria2-rpc-client'
 import type { JsonRpcProtocol } from '../aria2/json-rpc-protocol'
 import type { WebSocketTransport } from '../aria2/web-socket-transport'
+import type { HttpOutput } from '../engine-adapter'
 
 const versionSchema = z.object({
   version: z.string().regex(/^taiji\/\d+\.\d+\.\d+(?:[-+].*)?$/),
@@ -152,6 +153,47 @@ export class TaijiRpcClient extends Aria2RpcClient {
       )
     }
     return result.data
+  }
+
+  override onDownloadComplete(
+    handler: (event: { gid: string }) => void
+  ): () => void {
+    const complete = super.onDownloadComplete(handler)
+    const ready = this.addHandler('aria2.onHttpOutputReady', handler)
+    return () => {
+      complete()
+      ready()
+    }
+  }
+
+  async getHttpOutput(gid: string): Promise<HttpOutput> {
+    const raw = await this.call('taiji.getHttpOutput', [gid])
+    return z
+      .object({
+        state: z.enum(['downloading', 'ready', 'publishing', 'published']),
+        hostControlled: z
+          .enum(['true', 'false'])
+          .transform((value) => value === 'true'),
+        paused: z
+          .enum(['true', 'false'])
+          .transform((value) => value === 'true'),
+        sourcePath: z.string().optional(),
+        finalPath: z.string().optional(),
+        length: z.coerce.number().int().nonnegative().optional(),
+        error: z.string().optional(),
+      })
+      .parse(raw)
+  }
+
+  async finalizeHttpOutput(
+    gid: string,
+    action: 'publish' | 'external' | 'hold',
+    path?: string
+  ): Promise<void> {
+    await this.call('taiji.finalizeHttp', [
+      gid,
+      { action, ...(path ? { path } : {}) },
+    ])
   }
 
   forceRecheck(gid: string): Promise<string> {

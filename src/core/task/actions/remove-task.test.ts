@@ -1070,3 +1070,41 @@ describe('direct BT output ownership during removal', () => {
     }
   })
 })
+
+it('holds native HTTP publication and persists its actual owned path before deleting files', async () => {
+  const task = makeDownloadTask({
+    id: 'native-output',
+    type: TaskType.Http,
+    status: TaskStatus.Finalizing,
+    transitionPhase: TransitionPhase.Renaming,
+    engineTaskId: '1a2b3c4d5e6f7890',
+    saveDir: '/downloads',
+    diskPath: '/downloads/file.motrix',
+    finalPath: '/downloads/file',
+  })
+  const deps = makeDeps({ persistTask: vi.fn(async () => {}) })
+  vi.mocked(deps.taskManager.getById).mockReturnValue(task)
+  deps.taskManager.set = vi.fn()
+  deps.adapter.holdHttpOutput = vi.fn(async () => ({
+    state: 'published' as const,
+    hostControlled: true,
+    paused: false,
+    sourcePath: '/downloads/file.motrix',
+    finalPath: '/downloads/file (1)',
+    length: 9,
+  }))
+  await removeTask(task.id, { deleteWithFiles: true }, deps)
+  expect(deps.persistTask).toHaveBeenCalledWith(
+    expect.objectContaining({ diskPath: '/downloads/file (1)' })
+  )
+  expect(deps.fileCleanupService.cleanup).toHaveBeenCalledWith(
+    '/downloads/file (1)',
+    TaskType.Http
+  )
+  expect(deps.adapter.holdHttpOutput).toHaveBeenCalledBefore(
+    vi.mocked(deps.adapter.forceRemoveTask)
+  )
+  expect(deps.persistTask).toHaveBeenCalledBefore(
+    vi.mocked(deps.adapter.forceRemoveTask)
+  )
+})

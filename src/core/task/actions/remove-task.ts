@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { isNotFoundError } from '@core/engine/aria2/error-utils'
 import {
   getLegacyHttpBindingInput,
   hasLegacyImport,
@@ -12,7 +13,7 @@ import {
   TaskStatus,
   TaskType,
 } from '@shared/types/task'
-import { isStoppedTaskStatus } from '@shared/types/task-actions'
+import { isMediaKind, isStoppedTaskStatus } from '@shared/types/task-actions'
 import type {
   TaskInstanceRow,
   TaskRow,
@@ -102,10 +103,17 @@ async function removeTaskUnderMutation(
   options: RemoveTaskOptions,
   deps: RemoveTaskDeps
 ): Promise<void> {
-  const task = getTaskOrWarn(deps, taskId, 'removeTask')
+  let task = getTaskOrWarn(deps, taskId, 'removeTask')
   if (!task) return
 
-  if (task.status === TaskStatus.Finalizing) {
+  const nativeHttpFinalize =
+    !hasLegacyImport(task) &&
+    !isMediaKind(task.kind) &&
+    Boolean(task.engineTaskId) &&
+    task.status === TaskStatus.Finalizing &&
+    (task.type === TaskType.Http || task.type === TaskType.Ftp) &&
+    deps.adapter.holdHttpOutput
+  if (task.status === TaskStatus.Finalizing && !nativeHttpFinalize) {
     throw new AppError(
       ErrorCode.TaskRemoveNotAvailableDuringFinalize,
       'Cannot remove task while it is being finalized'
@@ -115,6 +123,29 @@ async function removeTaskUnderMutation(
     await deps.authorizeTaskRemoval?.(task)
     if (deps.fileCleanupForTask)
       deps = { ...deps, fileCleanupService: deps.fileCleanupForTask(task) }
+  }
+
+  if (nativeHttpFinalize && deps.adapter.holdHttpOutput) {
+    const output = await deps.adapter
+      .holdHttpOutput(task.engineTaskId)
+      .catch((error) => {
+        if (isNotFoundError(error)) return undefined
+        throw error
+      })
+    const ownedPath =
+      output?.state === 'published' ? output.finalPath : output?.sourcePath
+    if (ownedPath && ownedPath !== task.diskPath) {
+      const candidate = structuredClone(task)
+      candidate.diskPath = ownedPath
+      if (output?.state === 'published') candidate.finalPath = ownedPath
+      for (const instance of candidate.instances) instance.diskPath = ownedPath
+      if (options.deleteWithFiles) await deps.authorizeTaskRemoval?.(candidate)
+      if (!deps.persistTask)
+        throw new Error('HTTP removal requires durable path persistence')
+      await deps.persistTask(candidate)
+      deps.taskManager.set(candidate.id, candidate)
+      task = candidate
+    }
   }
 
   // Both removal paths delete the durable parent row under one

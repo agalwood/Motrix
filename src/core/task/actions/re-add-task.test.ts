@@ -567,7 +567,8 @@ describe('reAddTask (HTTP path)', () => {
       uris: ['https://example.com/file.zip'],
       gid: RESERVED_GID,
       saveDir: '/tmp',
-      filename: 'file.zip.motrix',
+      filename: 'file.zip',
+      deferFilePublication: true,
       connections: 6,
       pause: false,
       resumePolicy: 'none',
@@ -639,6 +640,7 @@ describe('reAddTask (HTTP path)', () => {
       expect(deps.adapter.createDownload).toHaveBeenCalledWith(
         expect.objectContaining({
           filename: 'file.zip.motrix',
+          deferFilePublication: true,
           resumePolicy: 'checkpoint',
         })
       )
@@ -706,6 +708,7 @@ describe('reAddTask (HTTP path)', () => {
         expect.objectContaining({
           saveDir: tempDir,
           filename: 'file.zip.motrix',
+          deferFilePublication: true,
           headers: { 'If-Range': '"release-v1"' },
           userAgent: 'Motrix/Verified',
           resumePolicy: 'checkpoint',

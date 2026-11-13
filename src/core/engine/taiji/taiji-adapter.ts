@@ -98,6 +98,23 @@ export class TaijiAdapter extends Aria2Adapter {
     await super.disconnect()
   }
 
+  async holdHttpOutput(gid: string) {
+    await this.taijiRpc.finalizeHttpOutput(gid, 'hold')
+    return this.taijiRpc.getHttpOutput(gid)
+  }
+
+  getHttpOutput(gid: string) {
+    return this.taijiRpc.getHttpOutput(gid)
+  }
+
+  finalizeHttpOutput(
+    gid: string,
+    action: 'publish' | 'external',
+    path?: string
+  ) {
+    return this.taijiRpc.finalizeHttpOutput(gid, action, path)
+  }
+
   override async createDownload(params: CreateDownloadParams): Promise<string> {
     if (
       params.legacyCheckpointActivation ||
@@ -108,7 +125,18 @@ export class TaijiAdapter extends Aria2Adapter {
         'Legacy file adoption is unavailable in taiji'
       )
     }
-    return super.createDownload(params)
+    return super.createDownload(
+      params.deferFilePublication
+        ? {
+            ...params,
+            extraEngineOptions: {
+              ...params.extraEngineOptions,
+              'http-incomplete-suffix': '.motrix',
+              'http-host-finalize': 'true',
+            },
+          }
+        : params
+    )
   }
 
   override async addTorrent(params: AddTorrentParams): Promise<string> {
@@ -195,20 +223,19 @@ export class TaijiAdapter extends Aria2Adapter {
     outputPath: string
   }): Promise<boolean> {
     if (!(await this.supportsDirectTaskRetry())) return false
+    // The GID's retained request owns its physical paths and validators.
+    // A stale host filename must not prevent native resume.
     try {
       const state = z
         .object({
           'motrix-retry-available': z.literal('true'),
           'motrix-retry-uri-hash': z.string().regex(/^[a-f0-9]{64}$/),
-          'motrix-retry-output': z.string().min(1),
         })
         .safeParse(await this.taijiRpc.getOption(input.engineTaskId))
       return (
         state.success &&
         state.data['motrix-retry-uri-hash'] ===
-          createHash('sha256').update(input.uri).digest('hex') &&
-        path.normalize(state.data['motrix-retry-output']) ===
-          path.normalize(input.outputPath)
+          createHash('sha256').update(input.uri).digest('hex')
       )
     } catch (error) {
       if (isNotFoundError(error)) return false

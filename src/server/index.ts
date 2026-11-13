@@ -15,6 +15,7 @@ import { BridgeReceiver } from '@core/bridge-receiver/bridge-receiver'
 import { createDownloadDirectories } from '@core/bridge-receiver/download-directories'
 import { Aria2TrustStore } from '@core/engine/aria2/aria2-trust-store'
 import { createDnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
+import { isNotFoundError } from '@core/engine/aria2/error-utils'
 import { JsonRpcProtocol } from '@core/engine/aria2/json-rpc-protocol'
 import {
   PollingScheduler,
@@ -109,6 +110,7 @@ import {
 } from '@core/task/merge-engine-task'
 import { createFailureLogConsumer } from '@core/task/occurrences/log-consumer'
 import { OccurrenceDispatcher } from '@core/task/occurrences/occurrence-dispatcher'
+import { reconcileHttpOutputs } from '@core/task/reconcile-http-outputs'
 import { shouldSkipEngineCompletionFinalize } from '@core/task/should-skip-engine-completion-finalize'
 import { slimTasksForBroadcast } from '@core/task/slim-task-for-broadcast'
 import { TaskManager } from '@core/task/task-manager'
@@ -140,7 +142,7 @@ import { EngineState } from '@shared/types/engine'
 import { getHiddenNotificationKinds } from '@shared/types/notification'
 import type { AppSettings } from '@shared/types/settings'
 import type { DownloadTask } from '@shared/types/task'
-import { TaskType } from '@shared/types/task'
+import { TaskStatus, TaskType } from '@shared/types/task'
 import pino from 'pino'
 import packageJson from '../../package.json' with { type: 'json' }
 import { ServerUpdateService } from './app-update-service'
@@ -978,6 +980,15 @@ async function main() {
       if (supervisor.getState() !== EngineState.Ready) return
       const task = taskManager.getById(taskId)
       if (!task) return
+      if (task.type === TaskType.Http || task.type === TaskType.Ftp) {
+        const output = await adapter
+          .getHttpOutput(task.engineTaskId)
+          .catch((error) => {
+            if (isNotFoundError(error)) return undefined
+            throw error
+          })
+        if (output?.state === 'ready' || output?.state === 'published') return
+      }
       const active = await adapter.listActiveAndWaiting()
       if (active.some((entry) => entry.gid === task.engineTaskId)) {
         throw new Error(`engine writer is still active for task ${taskId}`)
@@ -1120,6 +1131,7 @@ async function main() {
   })
 
   // ─── Polling ──────────────────────────────────────────────────
+  let reconcilePendingHttpOutputs: (() => Promise<void>) | undefined
   async function handlePolledTasks(
     rawTasks: Aria2TaskStatus[],
     source: PollingTaskUpdateSource
@@ -1216,6 +1228,9 @@ async function main() {
       )
     }
     taskInspectorActivityRuntime.recordSamples(tasks)
+    if (source === 'authoritative-poll') {
+      await reconcilePendingHttpOutputs?.()
+    }
     if (dirty) publishTaskUpdate()
   }
 
@@ -1848,6 +1863,28 @@ async function main() {
                 input.occurrence
               )
             : { postDeliveries: [], beforeCommit: () => undefined }
+        if (input.enginePublished && input.occurrence) {
+          input.beforeCommit?.()
+          post.beforeCommit()
+          await sessionManager.persistTerminalHookBoundary(
+            input.task,
+            input.occurrence,
+            {
+              metadataOps: input.metadataOps,
+              postDeliveries: post.postDeliveries,
+              files: [
+                {
+                  fileIndex: 0,
+                  path: input.targetPath,
+                  size: input.task.totalBytes,
+                  selected: true,
+                },
+              ],
+              fileRebase: input.fileRebase,
+            }
+          )
+          return
+        }
         await durableFinalizeRuntime.commit({
           ...input,
           postDeliveries: post.postDeliveries,
@@ -1860,6 +1897,15 @@ async function main() {
     })
 
     const pluginStartup = new PluginRuntimeStartupCoordinator()
+    reconcilePendingHttpOutputs = () =>
+      reconcileHttpOutputs(
+        taskManager
+          .getAll()
+          .filter((task) => task.status === TaskStatus.Finalizing),
+        adapter,
+        (id) => finalizeTask(id, buildFinalizeDeps()),
+        log
+      )
     try {
       // ─── occurrence consumer registration ─────────────────
       // Runs BEFORE restore()/recoverOnStartup(): both of those commit
@@ -1928,6 +1974,7 @@ async function main() {
         db,
         adapter: {
           listActiveAndWaiting: () => adapter.listActiveAndWaiting(),
+          getHttpOutput: (gid) => adapter.getHttpOutput(gid),
         },
         fs: defaultRecoveryFs,
         finalizeTask: (taskId, recoverySha256) =>
@@ -2016,6 +2063,14 @@ async function main() {
           })
         })
 
+        runShellAsyncWork('HTTP output recovery', () =>
+          reconcileHttpOutputs(
+            taskManager.getAll(),
+            adapter,
+            (id) => finalizeTask(id, buildFinalizeDeps()),
+            log
+          )
+        )
         sessionManager.startAutoSave(engineSettings.sessionSaveInterval * 1000)
 
         pollingNotificationUnsubscribers.push(

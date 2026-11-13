@@ -478,7 +478,7 @@ describe('browser direct download filenames', () => {
         [url],
         [],
         expect.objectContaining({
-          out: `${filename}.motrix`,
+          out: `${filename}`,
           header: expect.arrayContaining([
             'Referer: https://origin.example/page',
           ]),
@@ -543,7 +543,7 @@ describe('browser direct download filenames', () => {
     expect(deps.addUriWithCookies).toHaveBeenCalledWith(
       [requestUrl],
       [],
-      expect.objectContaining({ out: `${remoteName}.motrix` })
+      expect.objectContaining({ out: `${remoteName}` })
     )
   })
 
@@ -860,7 +860,7 @@ describe('handleCreateTask', () => {
       method: 'createDownload',
       uriCount: 1,
       saveDir: '/d',
-      filename: 'file.zip.motrix',
+      filename: 'file.zip',
       connections: 8,
     })
     const dispatchFields = dispatch?.[0] as
@@ -1451,7 +1451,7 @@ describe('handleCreateTask download paths', () => {
     expect(task.torrentMetaPath).toBeNull()
   })
 
-  it('HTTP task: overrides aria2 `out` to <finalName>.motrix inside the saveDir', async () => {
+  it('HTTP task: passes the final name to the engine inside the saveDir', async () => {
     const deps = makeDeps()
     await handleCreateTask(
       {
@@ -1465,7 +1465,7 @@ describe('handleCreateTask download paths', () => {
     )
     const [, options] = deps.addUri.mock.calls[0]
     expect(options.dir).toBe('/d')
-    expect(options.out).toBe('foo.mp4.motrix')
+    expect(options.out).toBe('foo.mp4')
   })
 
   it('validated BT task: persists the final directory without a temporary output', async () => {
@@ -1612,7 +1612,7 @@ describe('handleCreateTask download paths', () => {
       ['https://update.code.visualstudio.com/latest/win32-x64-user/stable'],
       expect.objectContaining({
         dir: '/d',
-        out: 'VSCodeUserSetup-x64-1.103.2.exe.motrix',
+        out: 'VSCodeUserSetup-x64-1.103.2.exe',
       })
     )
     expect(lastAddedTask(deps).finalName).toBe(
@@ -2150,7 +2150,7 @@ describe('handleCreateTask mkdir target by task type', () => {
     )
     expect(deps.addUri).toHaveBeenCalledWith(
       ['https://a/b'],
-      expect.objectContaining({ dir: saveDir, out: 'archive.zip.motrix' })
+      expect.objectContaining({ dir: saveDir, out: 'archive.zip' })
     )
     expect(deps.add).toHaveBeenCalledOnce()
     expect(logWarn).not.toHaveBeenCalled()
@@ -2551,7 +2551,7 @@ describe('handleCreateTask plugin-hook chain (Plan C / T15)', () => {
     expect(deps.pick).toHaveBeenLastCalledWith('/d', 'release.zip')
     expect(deps.addUri).toHaveBeenCalledWith(
       ['https://cdn.example/release.zip'],
-      expect.objectContaining({ out: 'release.zip.motrix' })
+      expect.objectContaining({ out: 'release.zip' })
     )
     expect(lastAddedTask(deps)).toMatchObject({
       finalName: 'release.zip',
@@ -2607,7 +2607,7 @@ describe('handleCreateTask plugin-hook chain (Plan C / T15)', () => {
       'Accept: */*',
     ])
     expect(options['all-proxy']).toBe('http://proxy.example:1080')
-    expect(options.out).toBe('rewritten-release.exe.motrix')
+    expect(options.out).toBe('rewritten-release.exe')
     expect(probe).toHaveBeenCalledWith('https://cdn.example/b', {
       headers: { 'X-Plugin': 'on', 'User-Agent': 'rewritten' },
       proxy: 'http://proxy.example:1080',

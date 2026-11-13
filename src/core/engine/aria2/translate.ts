@@ -33,6 +33,11 @@ import type {
 // ─── Status Translation ───────────────────────────────────────
 
 export function translateStatus(raw: Aria2TaskStatus): TaskStatus {
+  if (
+    (raw.status === 'active' && raw.http?.renamePending === 'true') ||
+    (raw.status === 'complete' && raw.http?.hostControlled === 'true')
+  )
+    return TaskStatus.Finalizing
   // BT seeding detection: active + seeder === 'true'
   if (raw.status === 'active' && raw.seeder === 'true' && raw.bittorrent) {
     return TaskStatus.Seeding

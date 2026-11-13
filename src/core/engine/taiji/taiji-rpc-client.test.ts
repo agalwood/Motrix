@@ -163,9 +163,11 @@ describe('native taiji RPC boundary', () => {
     const unsubscribe = rpc.onDownloadComplete(callback)
     notify('aria2.onDownloadComplete')
     notify('taiji.onDownloadComplete')
+    notify('taiji.onHttpOutputReady')
     unsubscribe()
     notify('taiji.onDownloadComplete')
-    expect(callback).toHaveBeenCalledExactlyOnceWith({ gid: 'gid' })
+    expect(callback).toHaveBeenCalledTimes(2)
+    expect(callback).toHaveBeenLastCalledWith({ gid: 'gid' })
   })
 
   it('rejects foreign identity and does not hide a failed native probe', async () => {

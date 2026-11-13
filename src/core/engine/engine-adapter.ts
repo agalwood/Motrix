@@ -113,7 +113,19 @@ export interface PreparedDownloadCookies {
   discarded: TaskCookieDiagnostic[]
 }
 
+export interface HttpOutput {
+  state: 'downloading' | 'ready' | 'publishing' | 'published'
+  hostControlled: boolean
+  paused: boolean
+  sourcePath?: string
+  finalPath?: string
+  length?: number
+  error?: string
+}
+
 export interface CreateDownloadParams {
+  /** Hold closed HTTP output for host hooks, then let the engine publish it. */
+  deferFilePublication?: boolean
   /** Require durable native request retention; fail if the engine changed. */
   retainRequestContext?: boolean
   /** Explicit in-place legacy HTTP activation after content verification. */
@@ -200,6 +212,13 @@ export interface LegacyHttpBindingProof {
 }
 
 export interface EngineAdapter {
+  holdHttpOutput?(engineTaskId: string): Promise<HttpOutput>
+  getHttpOutput?(engineTaskId: string): Promise<HttpOutput>
+  finalizeHttpOutput?(
+    engineTaskId: string,
+    action: 'publish' | 'external',
+    path?: string
+  ): Promise<void>
   /** Prove the original output, source and version-pinned HTTP request belong to this GID. */
   verifyLegacyHttpBinding?(input: LegacyHttpBindingProof): Promise<boolean>
   /** Prove exact native BT ownership, selection and safe restoration options. */
