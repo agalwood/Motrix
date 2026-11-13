@@ -204,7 +204,7 @@ describe('reAddTask (BT path)', () => {
         saveDir: '/tmp/sample',
         checkIntegrity: true,
         pause: false,
-        selectedFiles: [1],
+        selectedFiles: [0],
       })
     )
   })
@@ -1431,7 +1431,7 @@ describe('reAddTask reserved GID ownership', () => {
 })
 
 describe('characterization: reAddTask adapter call params', () => {
-  it('reAddBt converts 0-based task selection to native 1-based indices', async () => {
+  it('reAddBt preserves domain file indices at the engine boundary', async () => {
     // Uses a non-trivial multi-index value so an accidental pass-through is
     // visible: the task aggregate is engine-neutral, AddTorrentParams is not.
     const task = makeBtTask({
@@ -1441,7 +1441,7 @@ describe('characterization: reAddTask adapter call params', () => {
     await reAddTask('t1', deps)
     const arg = (deps.adapter.addTorrent as ReturnType<typeof vi.fn>).mock
       .calls[0][0]
-    expect(arg.selectedFiles).toEqual([1, 3])
+    expect(arg.selectedFiles).toEqual([0, 2])
     expect(arg.checkIntegrity).toBe(true)
     expect(arg.pause).toBe(false)
     expect(arg.isPrivate).toBe(task.bt!.isPrivate)
@@ -1510,8 +1510,7 @@ it('settles retired BT upload and re-seeds with current defaults instead of stal
   const task = makeBtTask({ uploadedBytesBaseline: 100, uploadedBytes: 250 })
   const deps = makeDeps(task)
   vi.mocked(deps.adapter.getEngineTaskOptions).mockResolvedValue({
-    'seed-time': '0',
-    'seed-ratio': '0.5',
+    headers: [],
   })
   await reAddTask(task.id, deps)
   expect(deps.adapter.getEngineTaskOptions).not.toHaveBeenCalled()

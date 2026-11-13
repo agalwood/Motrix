@@ -590,7 +590,7 @@
           },
           "process": {
             "current_app": "PID {{pid}} ({{name}})، تحت مدیریت Motrix",
-            "external_aria2": "PID {{pid}} ({{name}})، مالکیت تأیید نشده؛ متوقف نخواهد شد",
+            "external_engine": "PID {{pid}} ({{name}})، مالکیت تأیید نشده؛ متوقف نخواهد شد",
             "none": "تداخلی در درگاه وجود ندارد",
             "other": "PID {{pid}} ({{name}})، مالکیت تأیید نشده؛ متوقف نخواهد شد",
             "unidentified": "شناسایی نشده؛ متوقف نخواهد شد",

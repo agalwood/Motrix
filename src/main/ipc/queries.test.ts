@@ -5,8 +5,10 @@ import { TaskActivityService, type TaskActivityStore } from '@core/activity'
 import { createTaskInspectorActivityQuery } from '@core/inspector-activity'
 import { FfmpegCapabilityHost } from '@core/plugin/capabilities/ffmpeg'
 import { ErrorCode } from '@shared/errors'
+import { publicSettings } from '@shared/lib/public-settings'
 import { PROTOCOL_ENVELOPE_VERSION } from '@shared/protocol/errors'
 import { Queries } from '@shared/protocol/queries'
+import { DEFAULT_ENGINE_SETTINGS } from '@shared/schemas/engine-settings'
 import {
   type EngineDiagnosticReport,
   EngineFailureReason,
@@ -331,22 +333,25 @@ describe('buildQueryHandlers', () => {
   })
 
   it('returns the committed locale separately from a saved system preference', async () => {
-    const settings = { app: { language: 'system' } }
+    const settings = {
+      app: { language: 'system' },
+      engine: DEFAULT_ENGINE_SETTINGS,
+    }
     let resolved = 'fr'
     const handlers = buildQueryHandlers({
       settingsManager: { get: () => settings },
       getResolvedLanguage: () => resolved,
     } as unknown as QueryContext)
     await expect(handlers[Queries.GetSettings]?.()).resolves.toEqual({
-      ...settings,
+      ...publicSettings(settings as never),
       resolvedLanguage: 'fr',
     })
     resolved = 'zh-CN'
     await expect(handlers[Queries.GetSettings]?.()).resolves.toEqual({
-      ...settings,
+      ...publicSettings(settings as never),
       resolvedLanguage: 'zh-CN',
     })
-    expect(settings).toEqual({ app: { language: 'system' } })
+    expect(settings.app.language).toBe('system')
   })
 
   it('returns task speed history with the requested limit', async () => {

@@ -1,6 +1,5 @@
 import { EndpointList } from '@renderer/components/settings-kit/endpoint-list'
 import { SettingsFormRow } from '@renderer/components/settings-kit/settings-form-row'
-import { SettingsSelectTrigger } from '@renderer/components/settings-kit/settings-select-trigger'
 import {
   useSettingsForm,
   useSettingsSubmit,
@@ -47,20 +46,12 @@ import { Switch } from '@renderer/components/ui/switch'
 import { pickDirty } from '@renderer/lib/form-utils'
 import { saveSettings } from '@renderer/lib/settings-save'
 import { transport } from '@renderer/lib/transport'
-import {
-  DEFAULT_ENGINE_SETTINGS,
-  DEFAULT_NAT_SETTINGS,
-  DEFAULT_PROXY_SETTINGS,
-} from '@shared/schemas'
+import { DEFAULT_NAT_SETTINGS, DEFAULT_PROXY_SETTINGS } from '@shared/schemas'
 import {
   portCheckerInputSchema,
   stunServerInputSchema,
 } from '@shared/schemas/nat-settings'
-import type {
-  DnsResolutionMode,
-  NatSettings,
-  ProxySettings,
-} from '@shared/types/settings'
+import type { NatSettings, ProxySettings } from '@shared/types/settings'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SettingsCardDialogProps } from './card-types'
@@ -70,9 +61,6 @@ import { networkFormSchema } from './settings-form-schemas'
 export interface NetworkFields {
   proxy: ProxySettings
   nat: NatSettings
-  // Only the DNS slice of EngineSettings is edited here; the rest of the
-  // engine namespace stays with the Downloads dialog.
-  engine: { dnsMode: DnsResolutionMode }
 }
 
 // Source of truth: src/shared/schemas/{proxy,nat,engine}-settings.ts.
@@ -80,7 +68,6 @@ export interface NetworkFields {
 const DEFAULTS: NetworkFields = {
   proxy: { ...DEFAULT_PROXY_SETTINGS },
   nat: { ...DEFAULT_NAT_SETTINGS },
-  engine: { dnsMode: DEFAULT_ENGINE_SETTINGS.dnsMode },
 }
 
 const NAT_PROTOCOL_OPTIONS = [
@@ -126,21 +113,12 @@ export function NetworkDialog({
     }
   }, [stunFieldsInvalid, portFieldsInvalid, intervalInvalid])
 
-  const dnsModeOptions = [
-    { value: 'auto', label: t('settings.network.dns.modeAuto') },
-    { value: 'system', label: t('settings.network.dns.modeSystem') },
-    { value: 'engine', label: t('settings.network.dns.modeEngine') },
-  ] as const
-
   const load = useSettingsLoad((all) => {
     if (!all?.proxy || !all.nat) throw new Error('Missing settings baseline')
     if (all?.proxy && all?.nat) {
       form.reset({
         proxy: all.proxy,
         nat: all.nat,
-        engine: {
-          dnsMode: all.engine?.dnsMode ?? DEFAULT_ENGINE_SETTINGS.dnsMode,
-        },
       })
     }
   })
@@ -196,51 +174,6 @@ export function NetworkDialog({
                     className="min-w-0 space-y-4"
                   >
                     <ProxySection form={form} />
-
-                    <Separator className="my-4" />
-
-                    {/* DNS resolution */}
-                    <h3 className="text-sm font-semibold text-foreground">
-                      {t('settings.network.dns.title')}
-                    </h3>
-                    <FormField
-                      control={form.control}
-                      name="engine.dnsMode"
-                      render={({ field }) => (
-                        <SettingsFormRow className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-                          <div className="min-w-0 flex-1 space-y-1">
-                            <FormLabel>
-                              {t('settings.network.dns.mode')}
-                            </FormLabel>
-                            <FormDescription className="text-xs">
-                              {t('settings.network.dns.modeDesc')}
-                            </FormDescription>
-                          </div>
-                          <FormControl>
-                            <Select
-                              items={dnsModeOptions}
-                              value={field.value}
-                              onValueChange={(value) => {
-                                if (value !== null) field.onChange(value)
-                              }}
-                            >
-                              <SettingsSelectTrigger>
-                                <SelectValue />
-                              </SettingsSelectTrigger>
-                              <SelectContent>
-                                <SelectGroup>
-                                  {dnsModeOptions.map(({ label, value }) => (
-                                    <SelectItem key={value} value={value}>
-                                      {label}
-                                    </SelectItem>
-                                  ))}
-                                </SelectGroup>
-                              </SelectContent>
-                            </Select>
-                          </FormControl>
-                        </SettingsFormRow>
-                      )}
-                    />
 
                     <Separator className="my-4" />
 

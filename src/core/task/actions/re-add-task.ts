@@ -196,7 +196,7 @@ async function reAddBt(
       : undefined,
     gid: reservedGid,
     // AddTorrentParams is engine-native; the task aggregate stays 0-based.
-    selectedFiles: selectedFiles?.map((index) => index + 1),
+    selectedFiles: selectedFiles,
     checkIntegrity: true,
     preserveExistingFiles: true,
     pause: false,

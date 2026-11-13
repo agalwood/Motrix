@@ -14,7 +14,6 @@ import { TrustedExtensionRegistry } from '@core/bridge/trusted-extension-registr
 import { BridgeReceiver } from '@core/bridge-receiver/bridge-receiver'
 import { createDownloadDirectories } from '@core/bridge-receiver/download-directories'
 import { Aria2TrustStore } from '@core/engine/aria2/aria2-trust-store'
-import { createDnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
 import { isNotFoundError } from '@core/engine/aria2/error-utils'
 import { JsonRpcProtocol } from '@core/engine/aria2/json-rpc-protocol'
 import {
@@ -885,9 +884,7 @@ async function main() {
         : null
     }
   )
-  supervisor.setSessionRecoveryStore(
-    sessionManager.getEngineSessionRecoveryStore()
-  )
+
   const nasRecoveryAccess = nasTaskAccess
     ? new NasRecoveryAccess({
         access: nasTaskAccess,
@@ -1139,8 +1136,9 @@ async function main() {
     if (supervisor.getState() !== EngineState.Ready) return
     let dirty = false
     for (const raw of rawTasks) {
+      const translated = translateRawToTask(raw)
       if (mediaRuntime.isSegmentTask(raw)) continue
-      if (shouldSkipForPendingMagnetMetadata(raw, magnetTracker)) {
+      if (shouldSkipForPendingMagnetMetadata(translated, magnetTracker)) {
         continue
       }
       // A remove/GID swap can complete after this poll's RPC captured the old
@@ -1150,7 +1148,6 @@ async function main() {
         continue
       }
 
-      const translated = translateRawToTask(raw)
       if (await completedEngineTaskCleanup.observe(translated)) {
         dirty = true
         continue
@@ -1293,7 +1290,7 @@ async function main() {
       : undefined
   const torrentParser = new TorrentParser()
   const magnetTracker = new MagnetTracker(
-    rpcClient,
+    adapter,
     eventBus,
     settingsManager,
     db,
@@ -1337,19 +1334,6 @@ async function main() {
   // the other consumers. The retry fn is late-bound by
   // buildServerCommandHandlers to the ReAddTasks deps bundle.
   let recoveryService: TaskRecoveryServiceImpl | undefined
-  let dnsFallbackRetry: ((taskId: string) => Promise<unknown>) | undefined
-  const dnsFallbackConsumer = createDnsFallbackConsumer({
-    getDnsMode: () => settingsManager.get().engine.dnsMode,
-    getTaskStatus: (id) => taskManager.getById(id)?.status ?? null,
-    getTaskName: (id) => taskManager.getById(id)?.name ?? null,
-    applyAsyncDns: (asyncDns) => supervisor.applyAsyncDns(asyncDns),
-    reAddTask: (id) =>
-      dnsFallbackRetry
-        ? dnsFallbackRetry(id)
-        : Promise.reject(new Error('dns fallback task retry not bound')),
-    notify: (input) => notificationCenter.notify(input),
-    log: getLogger('dns-fallback'),
-  })
 
   const bridgeDataDir = path.join(platform.userDataDir, 'bridge')
   const bridgeIdentityResolver = createExtensionIdentityResolver({
@@ -1411,10 +1395,6 @@ async function main() {
     settingsManager,
     applyLocale: enqueueLocaleUpdate,
     geoipManager: activeGeoipManager,
-    dnsFallback: dnsFallbackConsumer,
-    bindTaskRetry: (fn) => {
-      dnsFallbackRetry = fn
-    },
     recoverFinalization: async (taskId, sha256) => {
       if (!recoveryService) throw new Error('Task recovery is not ready')
       try {
@@ -1928,10 +1908,6 @@ async function main() {
       occurrenceDispatcher.register(
         notificationConsumer.name,
         notificationConsumer.consume
-      )
-      occurrenceDispatcher.register(
-        dnsFallbackConsumer.name,
-        dnsFallbackConsumer.consume
       )
 
       await pluginStartup.recoverFinalize(() =>

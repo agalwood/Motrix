@@ -35,7 +35,7 @@ export function engineFailureReasonKey(
 export enum EngineProcessOwnership {
   CurrentApp = 'current_app',
   VerifiedOrphan = 'verified_orphan',
-  ExternalAria2 = 'external_aria2',
+  ExternalEngine = 'external_engine',
   Other = 'other',
   Unknown = 'unknown',
 }

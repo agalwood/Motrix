@@ -1,7 +1,7 @@
 import { Button } from '@renderer/components/ui/button'
 import { transport } from '@renderer/lib/transport'
+import type { PublicSettings as AppSettings } from '@shared/lib/public-settings'
 import { Queries } from '@shared/protocol/queries'
-import type { AppSettings } from '@shared/types/settings'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 

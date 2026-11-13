@@ -93,6 +93,19 @@ describe('pauseTask', () => {
     expect(deps.adapter.pauseTask).not.toHaveBeenCalled()
   })
 
+  it('keeps the selection dialog recoverable when an already parked metadata task is paused', async () => {
+    const deps = makeDeps({
+      task: {
+        id: 't1',
+        engineTaskId: 'gid-1',
+        status: TaskStatus.MetadataReady,
+      },
+    })
+    await pauseTask('t1', deps)
+    expect(deps.adapter.pauseTask).not.toHaveBeenCalled()
+    expect(deps.taskManager.set).not.toHaveBeenCalled()
+  })
+
   it('looks up engineTaskId and calls adapter.pauseTask with gid', async () => {
     const deps = makeDeps()
     await pauseTask('t1', deps)

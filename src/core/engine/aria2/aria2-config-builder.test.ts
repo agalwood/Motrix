@@ -34,7 +34,7 @@ vi.mock('node:fs/promises', () => ({
 }))
 vi.mock('write-file-atomic', () => ({ default: mockWriteFileAtomic }))
 
-import type { Aria2ProxyOptions } from '@core/proxy/serializers'
+import type { DownloadProxyOptions } from '@core/proxy/serializers'
 import { DEFAULT_ENGINE_SETTINGS } from '@core/settings/validators'
 import type { EngineSettings } from '@shared/types/settings'
 import { Aria2ConfigBuilder } from './aria2-config-builder'
@@ -64,7 +64,7 @@ describe('Aria2ConfigBuilder', () => {
   function buildArgs(
     settings: EngineSettings,
     hasSqlitePersistence: boolean,
-    proxy: Aria2ProxyOptions | null | undefined,
+    proxy: DownloadProxyOptions | null | undefined,
     effective: { download: number; upload: number },
     loadTextSession = false
   ): string[] {

@@ -106,11 +106,6 @@ export function EngineTuningSection({
         'settings.downloads.reliability.retryWait',
         'settings.downloads.reliability.retryWaitDesc'
       )}
-      {numericRow(
-        'lowestSpeedLimit',
-        'settings.downloads.reliability.lowestSpeedLimit',
-        'settings.downloads.reliability.lowestSpeedLimitDesc'
-      )}
 
       <Separator className="my-4" />
 

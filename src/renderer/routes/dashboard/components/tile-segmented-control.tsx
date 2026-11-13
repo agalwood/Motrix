@@ -68,7 +68,7 @@ const ForwardedTileSegmentedControl = forwardRef<
     const currentIndex = options.findIndex(
       (option) => option.value === currentValue
     )
-    const startIndex = currentIndex >= 0 ? currentIndex : 0
+    const startIndex = Math.max(currentIndex, 0)
 
     for (let offset = 1; offset <= options.length; offset += 1) {
       const index =

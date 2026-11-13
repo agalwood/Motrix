@@ -108,62 +108,6 @@ describe('<NetworkDialog>', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
-  it('changing dns resolution submits an engine dnsMode patch', async () => {
-    const onClose = vi.fn()
-    render(
-      <NetworkDialog
-        open
-        onClose={onClose}
-        labelKey="settings.cards.network.title"
-        descKey="settings.cards.network.desc"
-      />
-    )
-    await waitFor(() =>
-      expect(
-        screen.getByRole('heading', { name: /^dns$/i })
-      ).toBeInTheDocument()
-    )
-    const user = userEvent.setup()
-    const dnsMode = screen.getByRole('combobox', { name: /dns lookup/i })
-    expect(dnsMode).toHaveClass('min-w-30', 'max-w-64')
-    expect(dnsMode).not.toHaveClass('w-35')
-    await user.click(dnsMode)
-    await user.click(await screen.findByRole('option', { name: /system dns/i }))
-    await user.click(screen.getByRole('button', { name: /save/i }))
-    await waitFor(() => {
-      expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
-        engine: { dnsMode: 'system' },
-      })
-    })
-    expect(onClose).toHaveBeenCalled()
-  })
-
-  it('allows the longest localized DNS value to size intrinsically', async () => {
-    await i18n.changeLanguage('zh-CN')
-    vi.mocked(transport.invoke).mockImplementation(async (channel: string) => {
-      if (channel === Queries.GetSettings) {
-        return { ...FIXTURE, engine: { dnsMode: 'engine' } }
-      }
-      return { saved: true, requiresRestart: false, changedRestartKeys: [] }
-    })
-
-    render(
-      <NetworkDialog
-        open
-        onClose={vi.fn()}
-        labelKey="settings.cards.network.title"
-        descKey="settings.cards.network.desc"
-      />
-    )
-
-    const dnsMode = await screen.findByRole('combobox', {
-      name: 'DNS 解析方式',
-    })
-    expect(dnsMode).toHaveTextContent('内置 DNS')
-    expect(dnsMode).toHaveClass('min-w-30', 'max-w-64')
-    expect(dnsMode).not.toHaveClass('w-35')
-  })
-
   it('Import from system populates host/port/protocol', async () => {
     render(
       <NetworkDialog

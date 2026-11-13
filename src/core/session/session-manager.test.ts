@@ -4380,15 +4380,52 @@ describe('restore() with task_instances (Plan A Task 7)', () => {
     }
   )
 
+  it('does not replay a leftover selection acknowledgement on a completed task', async () => {
+    const tasks = new TaskManager(),
+      db = createMockDb(),
+      rpc = createMockRpc({ activeTasks: [] }),
+      adapter = createMockAdapter()
+    adapter.confirmTorrentSelection = vi
+      .fn()
+      .mockRejectedValue(new Error('completed engine task was already retired'))
+    db.saveTaskWithInstances({
+      task: {
+        ...makeTaskRow('selected-complete', TaskKind.Bt),
+        aggStatus: TaskStatus.Completed,
+      },
+      instances: [
+        {
+          ...makeInstanceRow(
+            'bt-complete',
+            'selected-complete',
+            'gid-complete',
+            TaskInstancePhase.BtDownload
+          ),
+          status: TaskStatus.Completed,
+          payload: {
+            pendingTorrentSelection: {
+              saveDir: '/Downloads',
+              selectedFiles: [0],
+              outputFilePaths: [],
+            },
+          },
+        },
+      ],
+    })
+    await new SessionManager(tasks, rpc, db, adapter).restore()
+    expect(adapter.confirmTorrentSelection).not.toHaveBeenCalled()
+    expect(adapter.addTorrent).not.toHaveBeenCalled()
+    expect(tasks.getById('selected-complete')?.status).toBe(
+      TaskStatus.Completed
+    )
+  })
+
   it('restore() re-issues metadata-only fetch for magnet_metadata_resolution instances', async () => {
     const taskManager = new TaskManager()
     const db = createMockDb()
     const rpc = createMockRpc({ activeTasks: [] })
     const adapter = createMockAdapter()
-    // The metadata re-issue calls rpc.addUri directly (not adapter).
-    ;(rpc as unknown as { addUri: ReturnType<typeof vi.fn> }).addUri = vi
-      .fn()
-      .mockResolvedValue('g-meta-new')
+    adapter.fetchMagnetMetadata = vi.fn().mockResolvedValue('g-meta-new')
     const sm = new SessionManager(taskManager, rpc, db, adapter)
 
     db.saveTaskWithInstances({
@@ -4416,18 +4453,11 @@ describe('restore() with task_instances (Plan A Task 7)', () => {
 
     await sm.restore()
 
-    const addUri = (rpc as unknown as { addUri: ReturnType<typeof vi.fn> })
-      .addUri
-    expect(addUri).toHaveBeenCalledWith(
-      ['magnet:?xt=urn:btih:a9993e364706816aba3e25717850c26c9cd0d89d'],
-      expect.objectContaining({
-        'bt-load-saved-metadata': 'false',
-        'bt-metadata-only': 'true',
-        dir: '/tmp/motrix-magnet-metadata-xyz',
-        'follow-torrent': 'false',
-        'max-file-not-found': '0',
-      })
-    )
+    expect(adapter.fetchMagnetMetadata).toHaveBeenCalledWith({
+      uri: 'magnet:?xt=urn:btih:a9993e364706816aba3e25717850c26c9cd0d89d',
+      saveDir: '/tmp/motrix-magnet-metadata-xyz',
+      engineTaskId: 'g-meta-old',
+    })
 
     const restored = db.getTask('m-mag')
     expect(restored?.instances[0].gid).toBe('g-meta-new')

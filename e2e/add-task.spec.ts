@@ -416,7 +416,7 @@ test.describe('add task', () => {
     })
   }
 
-  test('magnet fetching reaches file selection using the configured tracker', async ({
+  test('magnet selection and payload completion keep the same engine task', async ({
     electronApp,
     mainWindow,
     userDataDir,
@@ -430,7 +430,8 @@ test.describe('add task', () => {
         pieces: createHash('sha1').update(Buffer.alloc(16384)).digest(),
       })
     )
-    const peer = await startMetadataPeer(info)
+    const payload = Buffer.alloc(16384)
+    const peer = await startMetadataPeer(info, payload)
     const compact = Buffer.from([127, 0, 0, 1, 0, 0])
     compact.writeUInt16BE(peer.port, 4)
     const tracker = createServer((_request, response) =>
@@ -482,6 +483,36 @@ test.describe('add task', () => {
       await expect(
         selection.getByText('metadata-fixture.bin', { exact: true }).first()
       ).toBeVisible()
+      const before = (
+        (await mainWindow.evaluate(
+          (channel) => window.motrix.invoke(channel),
+          Queries.ListTasks
+        )) as DownloadTask[]
+      ).find((task) => task.infoHash === peer.hash)!
+      expect(peer.payloadRequests()).toEqual([])
+      await selection
+        .getByRole('button', { name: 'Download', exact: true })
+        .click()
+      await expect
+        .poll(
+          async () => {
+            const tasks = (await mainWindow.evaluate(
+              (channel) => window.motrix.invoke(channel),
+              Queries.ListTasks
+            )) as DownloadTask[]
+            return tasks.find((task) => task.id === before.id)?.downloadedBytes
+          },
+          { timeout: 15000 }
+        )
+        .toBe(16384)
+      const after = (
+        (await mainWindow.evaluate(
+          (channel) => window.motrix.invoke(channel),
+          Queries.ListTasks
+        )) as DownloadTask[]
+      ).find((task) => task.id === before.id)!
+      expect(after.engineTaskId).toBe(before.engineTaskId)
+      expect(await readFile(after.finalPath)).toEqual(payload)
     } finally {
       await removeAllTasks(mainWindow).catch(() => {})
       tracker.closeAllConnections()

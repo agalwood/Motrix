@@ -5,7 +5,7 @@ import {
   extractAria2ProxyCredentials,
   stripAria2ProxyCredentials,
 } from '@core/proxy/aria2-proxy-routing'
-import type { Aria2ProxyOptions } from '@core/proxy/serializers'
+import type { DownloadProxyOptions } from '@core/proxy/serializers'
 import { MAX_TORRENT_RPC_BODY_LIMIT_BYTES } from '@shared/lib/torrent-meta'
 import { torrentRpcBodyLimitSchema } from '@shared/schemas/torrent-request-limits'
 import type { EngineSettings } from '@shared/types/settings'
@@ -177,7 +177,7 @@ export class Aria2ConfigBuilder {
   buildArgs(
     settings: EngineSettings,
     hasSqlitePersistence = true,
-    proxy: Aria2ProxyOptions | null | undefined,
+    proxy: DownloadProxyOptions | null | undefined,
     effective: { download: number; upload: number },
     defaultSaveDir: string,
     loadTextSession = false

@@ -72,7 +72,7 @@ const persistedEngineSettingsSchema = z.object({
     .int()
     .min(0)
     .max(134217728)
-    .catch(AUTO_PERFORMANCE.diskCache),
+    .catch(32 * 1024 * 1024),
   sessionSaveInterval: z.number().int().min(10).max(3600).catch(15),
 
   // SQLite3 persistence

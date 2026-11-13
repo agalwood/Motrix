@@ -118,7 +118,7 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
           metadata: metadata(false),
           saveDir: root,
           pause: true,
-          extraEngineOptions: { 'bt-tracker': manual },
+          wireOptions: { 'bt-tracker': manual },
         })
         expect(await wired.adapter.getTaskBtTracker(task.engineTaskId)).toEqual(
           [manual, old]
@@ -165,7 +165,7 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
           saveDir: root,
           pause: true,
           isPrivate: false,
-          extraEngineOptions: {
+          wireOptions: {
             'bt-tracker': fresh,
             'bt-exclude-tracker': native,
             'enable-peer-exchange': 'true',

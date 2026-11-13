@@ -325,7 +325,7 @@ export class Aria2ProcessManager {
       recordMatches || (expectedUsesRpcSecret && executableMatches)
 
     if (
-      this.isAria2(inspected) &&
+      this.isEngineProcess(inspected) &&
       identityMatches &&
       launchFingerprintMatches
     ) {
@@ -336,10 +336,10 @@ export class Aria2ProcessManager {
       )
     }
 
-    if (this.isAria2(inspected)) {
+    if (this.isEngineProcess(inspected)) {
       return this.toProcessInfo(
         inspected,
-        EngineProcessOwnership.ExternalAria2,
+        EngineProcessOwnership.ExternalEngine,
         false
       )
     }
@@ -406,7 +406,7 @@ export class Aria2ProcessManager {
     }
   }
 
-  private isAria2(inspected: InspectedProcess): boolean {
+  private isEngineProcess(inspected: InspectedProcess): boolean {
     return [inspected.name, inspected.executablePath ?? ''].some((value) =>
       /(^|[/\\])(?:aria2c|taiji)(?:\.exe)?$/i.test(value)
     )

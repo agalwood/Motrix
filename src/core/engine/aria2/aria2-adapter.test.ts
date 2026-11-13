@@ -729,7 +729,7 @@ describe('Aria2Adapter', () => {
         saveDir: '/d',
         headers: { Cookie: 'session=user', authorization: 'Bearer user' },
         directResourceMetadataProfile: DIRECT_RESOURCE_METADATA_PROFILE,
-        extraEngineOptions: {
+        wireOptions: {
           referer: 'https://user.example/',
           'use-head': 'true',
         },
@@ -842,7 +842,7 @@ describe('Aria2Adapter', () => {
         uris: ['http://example.com/f.zip'],
         saveDir: '/tmp',
         resumePolicy: 'checkpoint',
-        extraEngineOptions: { continue: 'true' },
+        wireOptions: { continue: 'true' },
       })
 
       expect(rpc.addUri).toHaveBeenCalledWith(
@@ -883,7 +883,7 @@ describe('Aria2Adapter', () => {
         uris: ['http://example.com/f.zip'],
         saveDir: '/tmp',
         resumePolicy: 'sequential-prefix',
-        extraEngineOptions: {
+        wireOptions: {
           'always-resume': 'false',
           continue: 'false',
         },
@@ -907,7 +907,7 @@ describe('Aria2Adapter', () => {
         uris: ['http://example.com/f.zip'],
         saveDir: '/tmp',
         resumePolicy: 'none',
-        extraEngineOptions: { continue: 'true' },
+        wireOptions: { continue: 'true' },
       })
 
       const options = vi.mocked(rpc.addUri).mock.calls[0][1]
@@ -1010,7 +1010,7 @@ describe('Aria2Adapter', () => {
         await adapter.createDownload({
           uris: [uri],
           saveDir: '/d',
-          extraEngineOptions: { 'max-file-not-found': '10' },
+          wireOptions: { 'max-file-not-found': '10' },
         })
 
         expect(rpc.addUri).toHaveBeenCalledWith(
@@ -1221,7 +1221,7 @@ describe('Aria2Adapter', () => {
       )
     })
 
-    it('createDownload maps proxy to all-proxy and merges extraEngineOptions', async () => {
+    it('createDownload maps proxy to all-proxy and merges wireOptions', async () => {
       const rpc = createMockRpc()
       vi.mocked(rpc.addUri).mockResolvedValue('gidXYZ')
       const adapter = new Aria2Adapter(rpc)
@@ -1230,7 +1230,7 @@ describe('Aria2Adapter', () => {
         uris: ['https://example.com/file'],
         saveDir: '/d',
         proxy: 'http://a%40b:p%3As@p:1080',
-        extraEngineOptions: { referer: 'https://r', 'load-cookies': '/c' },
+        wireOptions: { referer: 'https://r', 'load-cookies': '/c' },
       })
 
       expect(rpc.addUri).toHaveBeenCalledWith(
@@ -1397,7 +1397,7 @@ describe('Aria2Adapter', () => {
         adapter.createDownload({
           uris: ['https://example.com/file'],
           saveDir: '/d',
-          extraEngineOptions: { 'http-proxy': 'http://other:8080' },
+          wireOptions: { 'http-proxy': 'http://other:8080' },
         })
       ).rejects.toThrow('Reserved aria2 proxy option')
       expect(rpc.addUri).not.toHaveBeenCalled()
@@ -1843,7 +1843,7 @@ describe('Aria2Adapter', () => {
       const gid = await adapter.addTorrent({
         metadata: bytes,
         saveDir: '/d',
-        selectedFiles: [1, 3],
+        selectedFiles: [0, 2],
         seedTime: 60,
         seedRatio: 1.0,
         btSeedUnverified: true,
@@ -1988,7 +1988,7 @@ describe('Aria2Adapter', () => {
       ).rejects.toThrow('rpc down')
     })
 
-    it('addTorrent maps byte-per-second limits without suffixes and merges extraEngineOptions', async () => {
+    it('addTorrent maps byte-per-second limits without suffixes and merges wireOptions', async () => {
       const rpc = createMockRpc()
       vi.mocked(rpc.addTorrent).mockResolvedValue('gid')
       const adapter = new Aria2Adapter(rpc)
@@ -1997,7 +1997,7 @@ describe('Aria2Adapter', () => {
         saveDir: '/d',
         dlLimit: 100,
         ulLimit: 50,
-        extraEngineOptions: { 'bt-max-peers': '60' },
+        wireOptions: { 'bt-max-peers': '60' },
       })
       expect(rpc.addTorrent).toHaveBeenCalledWith(
         expect.any(String),
@@ -2018,13 +2018,13 @@ describe('Aria2Adapter', () => {
         adapter.addTorrent({
           metadata: new Uint8Array(),
           saveDir: '/d',
-          extraEngineOptions: { 'no-proxy': 'attacker.example' },
+          wireOptions: { 'no-proxy': 'attacker.example' },
         })
       ).rejects.toThrow('Reserved aria2 proxy option')
       expect(rpc.addTorrent).not.toHaveBeenCalled()
     })
 
-    it('passes selectedFiles through as-is (index-neutral raw join)', async () => {
+    it('converts domain indices only at the wire boundary', async () => {
       const rpc = createMockRpc()
       vi.mocked(rpc.addTorrent).mockResolvedValue('gid')
       const adapter = new Aria2Adapter(rpc)
@@ -2038,7 +2038,7 @@ describe('Aria2Adapter', () => {
         string[],
         Record<string, string>,
       ]
-      expect(opts['select-file']).toBe('2,5')
+      expect(opts['select-file']).toBe('3,6')
     })
   })
 
@@ -2709,7 +2709,7 @@ describe('Aria2Adapter', () => {
         metadata: new Uint8Array([1, 2, 3]),
         saveDir: '/tmp',
         isPrivate: true,
-        extraEngineOptions: {
+        wireOptions: {
           'bt-tracker': 'udp://public:80',
           'bt-exclude-tracker': '*',
           'enable-peer-exchange': 'true',
@@ -2850,7 +2850,7 @@ describe('Aria2Adapter', () => {
 })
 
 describe('getEngineTaskOptions', () => {
-  it('returns options as-is from rpc.getOption', async () => {
+  it('decodes only product-facing request fields from rpc.getOption', async () => {
     const rpc = createMockRpc()
     vi.mocked(rpc.getOption).mockResolvedValue({
       dir: '/tmp',
@@ -2861,9 +2861,8 @@ describe('getEngineTaskOptions', () => {
     const result = await adapter.getEngineTaskOptions('gid-1')
     expect(rpc.getOption).toHaveBeenCalledWith('gid-1')
     expect(result).toEqual({
-      dir: '/tmp',
-      header: ['User-Agent: Foo'],
-      split: '5',
+      headers: [{ name: 'User-Agent', value: 'Foo' }],
+      connections: 5,
     })
   })
 

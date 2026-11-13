@@ -838,14 +838,7 @@ describe('handleCreateTask', () => {
         ],
         proxy: `http://user:${secrets.proxy}@proxy.example:8080`,
       },
-      deps,
-      {
-        extraEngineOptions: {
-          referer: `https://origin.example/watch?token=${secrets.referer}`,
-          'load-cookies': `/tmp/${secrets.cookieJar}.txt`,
-          'unknown-option': secrets.unknownOption,
-        },
-      }
+      deps
     )
 
     const serializedLogs = JSON.stringify(logInfo.mock.calls)
@@ -880,7 +873,7 @@ describe('handleCreateTask', () => {
       directReplay: {
         version: 1,
         connections: 8,
-        requestModifiers: ['headers', 'proxy', 'extraEngineOptions'],
+        requestModifiers: ['headers', 'proxy'],
         replayability: 'requires-credentials',
       },
     })
@@ -1081,28 +1074,6 @@ describe('handleCreateTask', () => {
     const options = deps.addUri.mock.calls[0]?.[1]
     expect(options?.header).toEqual(['Accept: */*'])
     expect(options).not.toHaveProperty('no-netrc')
-  })
-
-  it('skips metadata when passthrough engine options change HTTP semantics', async () => {
-    const deps = makeDeps()
-    const probe = vi.fn()
-    const capture = vi.fn()
-    deps.directResourceValidator = { capture, probe }
-
-    await handleCreateTask(
-      {
-        type: 'http',
-        uris: ['https://example.com/stable'],
-        saveDir: '/d',
-        headers: [],
-      },
-      deps,
-      { extraEngineOptions: { referer: 'https://origin.example/' } }
-    )
-
-    expect(probe).not.toHaveBeenCalled()
-    expect(capture).not.toHaveBeenCalled()
-    expect(deps.addUri).toHaveBeenCalledOnce()
   })
 
   it('skips metadata when a task header cannot be represented by Fetch', async () => {
@@ -2360,40 +2331,6 @@ describe('handleCreateTask CreateTaskOptions', () => {
     const task = lastAddedTask(deps)
     expect(task.source).toBe('bridge')
     expect(task.sourceMeta?.kind).toBe('direct')
-  })
-
-  it('merges extraEngineOptions into aria2.addUri options', async () => {
-    const deps = makeDeps({ addUriGid: 'gid-x' })
-    const req = {
-      type: 'http',
-      uris: ['http://example.com/y.mp4'],
-      saveDir: '/tmp/save',
-      filename: 'y.mp4',
-      connections: 1,
-      headers: [],
-    }
-    await handleCreateTask(req, deps, {
-      extraEngineOptions: {
-        header: ['X-A: 1', 'X-B: 2'],
-        'load-cookies': '/tmp/jar.txt',
-        referer: 'http://page',
-      },
-    })
-    const [, options] = deps.addUri.mock.calls[0] as [
-      unknown,
-      Record<string, unknown>,
-    ]
-    expect(options.header).toEqual(['X-A: 1', 'X-B: 2'])
-    expect(options['load-cookies']).toBe('/tmp/jar.txt')
-    expect(options.referer).toBe('http://page')
-    expect(lastAddedTask(deps).instances[0]?.payload).toEqual({
-      directReplay: {
-        version: 1,
-        connections: 1,
-        requestModifiers: ['extraEngineOptions'],
-        replayability: 'requires-credentials',
-      },
-    })
   })
 })
 

@@ -2,10 +2,7 @@ import { AppError } from '@shared/errors'
 import { Events } from '@shared/protocol/events'
 import { TaskStatus, TaskType, TransitionPhase } from '@shared/types/task'
 import { describe, expect, it, vi } from 'vitest'
-import {
-  createSetSelectedFilesHandler,
-  formatRange,
-} from './set-selected-files'
+import { createSetSelectedFilesHandler } from './set-selected-files'
 
 const mkTask = () => ({
   id: 't1',
@@ -63,20 +60,20 @@ describe('setSelectedFiles handler', () => {
   it('rejects empty selection', async () => {
     const handler = createSetSelectedFilesHandler({
       taskManager: { getById: vi.fn(), set: vi.fn() },
-      engine: { changeOption: vi.fn(), getTaskFiles: vi.fn() },
+      engine: { setSelectedFiles: vi.fn(), getTaskFiles: vi.fn() },
     } as unknown as Parameters<typeof createSetSelectedFilesHandler>[0])
     await expect(handler({ taskId: 't1', indices: [] })).rejects.toThrow(
       AppError
     )
   })
 
-  it('happy path: changeOption -> getTaskFiles -> replaceTaskFiles -> set -> emit', async () => {
+  it('happy path: setSelectedFiles -> getTaskFiles -> replaceTaskFiles -> set -> emit', async () => {
     const taskManager = {
       getById: vi.fn(() => mkTask()),
       set: vi.fn(),
     }
     const engine = {
-      changeOption: vi.fn(async () => undefined),
+      setSelectedFiles: vi.fn(async () => undefined),
       getTaskFiles: vi.fn(async () => [
         { index: 0, path: 'a', size: 1, completedBytes: 0, selected: true },
         { index: 1, path: 'b', size: 2, completedBytes: 0, selected: true },
@@ -98,9 +95,7 @@ describe('setSelectedFiles handler', () => {
     await handler({ taskId: 't1', indices: [0, 1] })
 
     expect(runTaskMutation).toHaveBeenCalledWith(['t1'], expect.any(Function))
-    expect(engine.changeOption).toHaveBeenCalledWith('gid1', {
-      'select-file': '1,2',
-    })
+    expect(engine.setSelectedFiles).toHaveBeenCalledWith('gid1', [0, 1])
     expect(engine.getTaskFiles).toHaveBeenCalledWith('gid1')
     expect(db.replaceTaskFiles).toHaveBeenCalledWith('t1', [
       { fileIndex: 0, path: 'a', size: 1, selected: true },
@@ -121,7 +116,7 @@ describe('setSelectedFiles handler', () => {
     const runTaskMutation = vi.fn()
     const handler = createSetSelectedFilesHandler({
       taskManager: { getById: vi.fn(), set: vi.fn() },
-      engine: { changeOption: vi.fn(), getTaskFiles: vi.fn() },
+      engine: { setSelectedFiles: vi.fn(), getTaskFiles: vi.fn() },
       db: { replaceTaskFiles: vi.fn() },
       eventBus: { emit: vi.fn() },
       runTaskMutation,
@@ -136,10 +131,10 @@ describe('setSelectedFiles handler', () => {
     expect(runTaskMutation).not.toHaveBeenCalled()
   })
 
-  it('changeOption failure: no db write, no emit, error rethrown', async () => {
+  it('setSelectedFiles failure: no db write, no emit, error rethrown', async () => {
     const taskManager = { getById: vi.fn(() => mkTask()), set: vi.fn() }
     const engine = {
-      changeOption: vi.fn(async () => {
+      setSelectedFiles: vi.fn(async () => {
         throw new Error('rpc fail')
       }),
       getTaskFiles: vi.fn(),
@@ -159,18 +154,5 @@ describe('setSelectedFiles handler', () => {
     await expect(handler({ taskId: 't1', indices: [0] })).rejects.toThrow()
     expect(db.replaceTaskFiles).not.toHaveBeenCalled()
     expect(eventBus.emit).not.toHaveBeenCalled()
-  })
-})
-
-describe('formatRange', () => {
-  it('formats consecutive indices into ranges', () => {
-    expect(formatRange([0, 1])).toBe('1,2')
-    expect(formatRange([0, 2, 3, 4, 7])).toBe('1,3-5,8')
-    expect(formatRange([5])).toBe('6')
-    expect(formatRange([])).toBe('')
-  })
-
-  it('sorts unsorted input before formatting', () => {
-    expect(formatRange([7, 0, 4, 3, 2])).toBe('1,3-5,8')
   })
 })

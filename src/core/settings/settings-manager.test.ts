@@ -1076,12 +1076,24 @@ describe('SettingsManager', () => {
       expect(mockedFs.writeFile).toHaveBeenCalled()
     })
 
-    it('persists explicit split and disk tuning values unchanged', async () => {
+    it.each([
+      'dnsMode',
+      'diskCache',
+      'fileAllocation',
+      'lowestSpeedLimit',
+      'sqlite3Persistence',
+    ])('rejects unsupported live setting %s without mutation', async (key) => {
+      const before = manager.get()
+      await expect(manager.update({ engine: { [key]: true } })).rejects.toThrow(
+        'Unsupported or invalid engine setting'
+      )
+      expect(manager.get()).toEqual(before)
+    })
+
+    it('persists explicit connection tuning values unchanged', async () => {
       await manager.update({
         engine: {
           split: 32,
-          fileAllocation: 'prealloc',
-          diskCache: 32 * 1024 * 1024,
         },
       })
 
@@ -1089,8 +1101,6 @@ describe('SettingsManager', () => {
         expect.objectContaining({
           performanceProfile: 'custom',
           split: 32,
-          fileAllocation: 'prealloc',
-          diskCache: 32 * 1024 * 1024,
         })
       )
       const persisted = JSON.parse(
@@ -1100,8 +1110,6 @@ describe('SettingsManager', () => {
         expect.objectContaining({
           performanceProfile: 'custom',
           split: 32,
-          fileAllocation: 'prealloc',
-          diskCache: 32 * 1024 * 1024,
         })
       )
     })
@@ -1117,11 +1125,10 @@ describe('SettingsManager', () => {
           maxConnectionPerServer: 32,
           split: 32,
           minSplitSize: 4 * 1024 * 1024,
-          diskCache: 64 * 1024 * 1024,
         })
       )
-      expect(result.requiresRestart).toBe(true)
-      expect(result.changedRestartKeys).toContain('diskCache')
+      expect(result.requiresRestart).toBe(false)
+      expect(result.changedRestartKeys).toEqual([])
     })
 
     it('updates app settings and persists', async () => {
@@ -1346,9 +1353,7 @@ describe('SettingsManager', () => {
               rpcSecret: invalidSecret as unknown as string,
             },
           })
-        ).rejects.toThrow(
-          'settings.engine.rpcSecret must be a string when provided'
-        )
+        ).rejects.toThrow('Unsupported or invalid engine setting')
 
         expect(manager.getEngine().rpcSecret).toBe(currentRpcSecret)
         expect(mockedFs.writeFile).not.toHaveBeenCalled()
@@ -1376,11 +1381,13 @@ describe('SettingsManager', () => {
     })
 
     it('validates updated engine settings', async () => {
-      await manager.update({
-        engine: { rpcPort: 80 },
-      })
+      await expect(
+        manager.update({
+          engine: { rpcPort: 80 },
+        })
+      ).rejects.toThrow('Unsupported or invalid engine setting')
 
-      // Invalid port reverts to default
+      // Invalid live updates never mutate the last accepted settings.
       expect(manager.getEngine().rpcPort).toBe(DEFAULT_ENGINE_SETTINGS.rpcPort)
     })
 

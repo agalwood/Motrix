@@ -83,6 +83,10 @@ export class Aria2RpcClient {
     }
   }
 
+  async healthCheck(): Promise<void> {
+    await this.getVersion()
+  }
+
   disconnect(): void {
     this.pauseState.clear()
     this.invalidateTaskMetadata()

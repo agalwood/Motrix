@@ -2,10 +2,10 @@
 import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
-import type { AddTorrentParams } from '@core/engine/engine-adapter'
 import { describe, expect, it, vi } from 'vitest'
 import { Aria2Adapter } from './aria2-adapter'
 import type { Aria2RpcClient } from './aria2-rpc-client'
+import type { RpcTorrentParams } from './task-options'
 
 const gid = '1234567890abcdef'
 const saveDir = '/confirmed/legacy/downloads'
@@ -36,7 +36,7 @@ async function fixture() {
     isPrivate: false,
   })
   adapter.configureBtTrackerPolicy(policy)
-  const params: AddTorrentParams = {
+  const params: RpcTorrentParams = {
     metadata: await readFile(
       path.resolve(
         'tests/fixtures/legacy-v1/generated/downloads/a16dc78c94ce589ed4666ab32285f2d188edf26f.torrent'
@@ -49,9 +49,9 @@ async function fixture() {
     gid,
     saveDir,
     pause: true,
-    selectedFiles: [1],
+    selectedFiles: [0],
     isPrivate: true,
-    extraEngineOptions: { 'bt-tracker': tracker },
+    wireOptions: { 'bt-tracker': tracker },
   }
   params.durableMetadata = {
     path: '/authorized/backup/source.torrent',
@@ -83,8 +83,8 @@ describe('legacy BT activation dispatch safety', () => {
 
   it('cannot let extra options unpause, redirect or destructively restart old files', async () => {
     const f = await fixture()
-    f.params.extraEngineOptions = {
-      ...f.params.extraEngineOptions,
+    f.params.wireOptions = {
+      ...f.params.wireOptions,
       pause: 'false',
       dir: '/unconfirmed/destination',
       'select-file': '2',
@@ -141,7 +141,7 @@ describe('legacy BT activation dispatch safety', () => {
     expect(f.ordinaryAddTorrent).not.toHaveBeenCalled()
   })
 
-  it.each<Partial<AddTorrentParams>>([
+  it.each<Partial<RpcTorrentParams>>([
     { pause: false },
     { gid: undefined },
     { selectedFiles: [] },

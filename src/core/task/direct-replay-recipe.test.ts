@@ -30,11 +30,10 @@ describe('direct replay recipe', () => {
         headers: { X: 'value' },
         cookies: [],
         proxy: 'http://example.com',
-        extraEngineOptions: { referer: 'https://example.com' },
       },
       true
     )
-    expect(recipe.requestModifiers).toHaveLength(5)
+    expect(recipe.requestModifiers).toHaveLength(4)
     expect(parseDirectReplayRecipe({ directReplay: recipe })).toEqual(recipe)
   })
 
@@ -71,12 +70,11 @@ describe('direct replay recipe', () => {
         Cookie: secrets[1] ?? '',
       },
       proxy: secrets[2],
-      extraEngineOptions: { 'load-cookies': secrets[3] ?? '' },
     })
 
     expect(recipe).toEqual({
       version: 1,
-      requestModifiers: ['headers', 'proxy', 'extraEngineOptions'],
+      requestModifiers: ['headers', 'proxy'],
       replayability: 'requires-credentials',
     })
     const serialized = JSON.stringify(recipe)

@@ -1,21 +1,15 @@
 import type { EngineSettings, MotrixAppSettings } from '@shared/types/settings'
 
-// Keys whose change requires an aria2 process restart. All other
-// EngineSettings keys are hot-applied via SpeedLimitController /
-// proxy / tracker changeGlobalOption.
+// Settings consumed while starting the download engine. Runtime defaults
+// are applied by its adapter; legacy storage preferences are not runtime controls.
 export const ENGINE_RESTART_REQUIRED_KEYS: ReadonlySet<keyof EngineSettings> =
   new Set([
-    'performanceProfile',
     'rpcPort',
     'rpcSecret',
     'listenPort',
     'dhtListenPort',
     'dhtEnabled',
-    'fileAllocation',
-    'diskCache',
-    'sqlite3Persistence',
     'sqlite3DbPath',
-    'sqlite3HistoryLimit',
     'sessionSaveInterval',
   ])
 

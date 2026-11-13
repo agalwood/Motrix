@@ -1037,11 +1037,8 @@ export class LegacyHttpActivationService {
       noProxy: context.noProxy,
       pause: true,
       resumePolicy: 'checkpoint',
-      fileAllocation: 'none',
       totalSizeBytes: intent.expected.totalBytes,
-      extraEngineOptions: {
-        'piece-length': String(intent.expected.pieceBytes),
-      },
+      pieceLength: intent.expected.pieceBytes,
       legacyCheckpointActivation: {
         token: intent.token,
         targetPath: intent.targetPath,

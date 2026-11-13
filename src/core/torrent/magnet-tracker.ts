@@ -1,9 +1,8 @@
 import { randomBytes } from 'node:crypto'
-import { mkdtemp, readdir, readFile, rm, stat } from 'node:fs/promises'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, isAbsolute, join, parse, resolve } from 'node:path'
-import type { Aria2RpcClient } from '@core/engine/aria2/aria2-rpc-client'
-import type { Aria2TaskStatus } from '@core/engine/aria2/types'
+import type { EngineAdapter } from '@core/engine/engine-adapter'
 import type { EventBus } from '@core/events/event-bus'
 import { AsyncWorkTracker } from '@core/inspector-activity/async-work-tracker'
 import { newTaskId } from '@core/lib/ids'
@@ -207,7 +206,7 @@ export class MagnetTracker {
   private stopPromise: Promise<void> | null = null
 
   constructor(
-    private rpcClient: Aria2RpcClient,
+    private engine: EngineAdapter,
     private eventBus: EventBus,
     private settingsManager: SettingsManager,
     private db: MotrixDatabase,
@@ -217,18 +216,18 @@ export class MagnetTracker {
     private lifecycle: MagnetTrackerLifecycle
   ) {
     this.storeUnsubscribe(
-      this.rpcClient.onDownloadComplete((event) =>
-        this.trackCallback(() => this.onComplete(event.gid))
+      this.engine.onDownloadComplete((gid) =>
+        this.trackCallback(() => this.onComplete(gid))
       )
     )
     this.storeUnsubscribe(
-      this.rpcClient.onBtDownloadComplete((event) =>
-        this.trackCallback(() => this.onComplete(event.gid))
+      this.engine.onBtDownloadComplete((gid) =>
+        this.trackCallback(() => this.onComplete(gid))
       )
     )
     this.storeUnsubscribe(
-      this.rpcClient.onDownloadError((event) =>
-        this.trackCallback(() => this.onError(event.gid))
+      this.engine.onDownloadError((gid) =>
+        this.trackCallback(() => this.onError(gid))
       )
     )
   }
@@ -245,18 +244,6 @@ export class MagnetTracker {
       )
       if (!metaInst?.gid) continue
       const isHiddenTombstone = isMagnetCleanupTombstoneHidden(metaInst)
-      // MetadataReady rows have no live aria2 GID (removeMetadataResult
-      // ran in onComplete before the user dialog opened). Polling won't
-      // see the gid, so the cache shield is unnecessary. Re-emitting
-      // MagnetFileSelection on restart is a separate UX (the dialog
-      // can be re-triggered from the Downloads row's context menu);
-      // here we just skip the prime so we don't arm a phantom timer.
-      if (
-        pair.task.aggStatus === TaskStatus.MetadataReady &&
-        !isHiddenTombstone
-      ) {
-        continue
-      }
       const metadataDir =
         typeof metaInst.payload.metadataDir === 'string'
           ? metaInst.payload.metadataDir
@@ -315,7 +302,10 @@ export class MagnetTracker {
           () => void this.trackCallback(() => this.cleanupCacheEntry(entry)),
           RETRY_DELAY_MS
         )
-      } else if (!isTerminalError) {
+      } else if (
+        !isTerminalError &&
+        pair.task.aggStatus !== TaskStatus.MetadataReady
+      ) {
         entry.timer = this.armTimeout(metaInst.gid, entry.timeoutMultiplier)
       }
     }
@@ -446,11 +436,7 @@ export class MagnetTracker {
     const { magnetFileSelection } = this.settingsManager.getApp()
 
     if (!magnetFileSelection) {
-      const gid = await this.rpcClient.addUri([uri], {
-        dir: saveDir,
-        // The automatically followed BT payload inherits these options.
-        'max-file-not-found': '0',
-      })
+      const gid = await this.engine.createDownload({ uris: [uri], saveDir })
       if (this.stopped) return ''
       log.info({ gid }, 'magnet added (file selection disabled)')
       return ''
@@ -647,13 +633,10 @@ export class MagnetTracker {
           this.cache.set(reservedGid, entry)
 
           engineDispatchStarted = true
-          const returnedGid = await this.rpcClient.addUri([uri], {
-            'max-file-not-found': '0',
-            'bt-load-saved-metadata': 'false',
-            'bt-metadata-only': 'true',
-            dir: metadataDir,
-            'follow-torrent': 'false',
-            gid: reservedGid,
+          const returnedGid = await this.engine.fetchMagnetMetadata({
+            uri: uri,
+            saveDir: metadataDir,
+            engineTaskId: reservedGid,
           })
           if (returnedGid !== entry.gid) {
             activeInstance = await this.rebindSubmittedMetadataGid(
@@ -878,13 +861,10 @@ export class MagnetTracker {
       this.cache.set(reservedGid, entry)
 
       engineDispatchStarted = true
-      const returnedGid = await this.rpcClient.addUri([magnetUri], {
-        'max-file-not-found': '0',
-        'bt-load-saved-metadata': 'false',
-        'bt-metadata-only': 'true',
-        dir: metadataDir,
-        'follow-torrent': 'false',
-        gid: reservedGid,
+      const returnedGid = await this.engine.fetchMagnetMetadata({
+        uri: magnetUri,
+        saveDir: metadataDir,
+        engineTaskId: reservedGid,
       })
       if (returnedGid !== entry.gid) {
         activeInstance = await this.rebindSubmittedMetadataGid(
@@ -942,24 +922,21 @@ export class MagnetTracker {
     }
   }
 
-  observe(raw: Aria2TaskStatus): boolean {
-    // Source of truth for "this gid is metadata-only, polling should
-    // skip it" is the cache Map. Returning true here makes the
-    // PollingScheduler's shouldSkipForPendingMagnetMetadata helper
-    // bypass adoption — the metadata fetch row is owned by
-    // MagnetTracker, not the generic task list. No fields read from
-    // `raw` because onComplete sources its meta from the parsed
-    // .torrent file (see Bug 2 regression test).
-    const entry = this.cache.get(raw.gid)
+  observe(
+    task: Pick<DownloadTask, 'engineTaskId' | 'status' | 'type'>
+  ): boolean {
+    // Metadata ownership remains shielded through selection. A paused magnet
+    // has no file list yet; only its upgrade to a torrent signals readiness.
+    const entry = this.cache.get(task.engineTaskId)
     if (!entry) return false
 
     if (entry.failedSwapCleanup) {
-      const owner = this.taskManager.getByEngineTaskId(raw.gid)
+      const owner = this.taskManager.getByEngineTaskId(task.engineTaskId)
       const ownsCommittedBtInstance =
         owner?.id === entry.taskId &&
         owner.instances.some(
           (instance) =>
-            instance.gid === raw.gid &&
+            instance.gid === task.engineTaskId &&
             instance.phase === TaskInstancePhase.BtDownload
         )
       if (ownsCommittedBtInstance) {
@@ -968,12 +945,29 @@ export class MagnetTracker {
         // failed, the next poll heals the stale cache instead of suppressing
         // legitimate BT updates forever.
         clearTimeout(entry.timer)
-        this.cache.delete(raw.gid)
+        this.cache.delete(task.engineTaskId)
         return false
       }
     }
 
+    if (
+      task.status === TaskStatus.Paused &&
+      task.type === TaskType.Bt &&
+      this.db.getTask(entry.taskId)?.task.aggStatus ===
+        TaskStatus.FetchingMetadata
+    ) {
+      void this.trackCallback(() => this.onComplete(entry.gid))
+    }
+
     return true
+  }
+
+  releaseSelection(taskId: string): void {
+    const entry = this.findCacheEntryByTaskId(taskId)
+    if (!entry) return
+    clearTimeout(entry.timer)
+    this.cache.delete(entry.gid)
+    void this.cleanupMetadataDir(entry.metadataDir)
   }
 
   /** Cancels the metadata fetch for a task. Returns 'removed' when
@@ -991,7 +985,7 @@ export class MagnetTracker {
    *  user-initiated removal deletes the row, and a retry that
    *  succeeds after a 'quarantined' cancel still drops the Error
    *  tombstone. Set to **false** when the caller is
-   *  `swapMagnetMetadataForBt` — swap reuses cancel only to drop the
+   *  `confirmMagnetSelection` — swap reuses cancel only to drop the
    *  cache entry + tear down the aria2 metadata GID, and immediately
    *  writes a new bt_download instance under the same motrixId.
    *  Deleting the row mid-swap trips the FK constraint after
@@ -1072,20 +1066,15 @@ export class MagnetTracker {
       (i) => i.phase === TaskInstancePhase.MagnetMetadataResolution
     )
     const cached = this.findCacheEntryByTaskId(taskId)
-    const metadataDir =
-      cached?.metadataDir ??
-      (typeof metaInst?.payload.metadataDir === 'string'
-        ? metaInst.payload.metadataDir
-        : '')
     const magnetUri = cached?.magnetUri ?? metaInst?.uris[0] ?? ''
     const saveDir = cached?.saveDir ?? pair.task.finalPath
 
     let torrentBase64: string | undefined
     let sourceError: unknown
-    if (metadataDir) {
+    if (metaInst?.gid) {
       try {
-        torrentBase64 = await this.readSavedTorrentBase64(metadataDir)
-        if (this.stopped) return
+        torrentBase64 = (await this.engine.getTorrentMetadata(metaInst.gid))
+          .data
       } catch (err) {
         sourceError = err
       }
@@ -1449,27 +1438,27 @@ export class MagnetTracker {
     if (!this.getCurrentFetchingMetadataPair(gid, entry)) return
 
     let torrentBase64: string
+    try {
+      const metadata = await this.engine.getTorrentMetadata(gid)
+      if (!metadata.awaitingSelection || this.stopped) return
+      torrentBase64 = metadata.data
+    } catch (err) {
+      // A reconnect/read failure does not invalidate verified engine data.
+      // Polling retries the read; the existing metadata deadline still applies.
+      log.warn(
+        { err, gid },
+        'metadata read deferred until the next observation'
+      )
+      return
+    }
     let meta: Awaited<ReturnType<TorrentParser['parse']>>
     try {
-      // The file list MUST come from parsing the saved .torrent
-      // bencode, not from aria2's `tellStatus.files`. For a
-      // bt-metadata-only=true task, aria2 reports `files` as the
-      // single .torrent file it was downloading (1 entry) — not the
-      // torrent's contained files. Trusting raw.files emitted a
-      // truncated meta and the add-task dialog showed only 1 file
-      // even for multi-file torrents (the user could then only
-      // download that one file). Parsing the actual .torrent bytes
-      // is the canonical source of truth.
-      torrentBase64 = await this.readSavedTorrentBase64(entry.metadataDir)
-      if (this.stopped) return
       meta = await this.torrentParser.parse(torrentBase64)
       if (this.stopped) return
     } catch (err) {
       log.error({ err, gid }, 'failed to process magnet metadata')
-      // aria2 completed the metadata transfer, but the saved .torrent could
-      // not be read or parsed. This is still a terminal, user-visible metadata
-      // failure: commit DB → TaskManager → TaskUpdated before cleanup so the
-      // current session can never remain stuck on FetchingMetadata.
+      // Unsupported or invalid metadata is a product-level failure, unlike
+      // the transient transport error handled above.
       const marked = await this.markMetadataFailure(
         entry,
         'Magnet metadata processing failed',
@@ -1479,27 +1468,6 @@ export class MagnetTracker {
       return
     }
 
-    // Parsing succeeded. Everything below belongs to the MetadataReady success
-    // path and intentionally sits outside the processing-failure catch.
-    // EventBus follows synchronous propagation semantics; if a listener throws,
-    // the callback rejects without reversing durable state or running cleanup.
-    const metadataResultRemoved = await this.removeMetadataResult(gid)
-    if (!metadataResultRemoved) {
-      // Never publish MetadataReady while aria2 may still retain the metadata
-      // GID. primeFromDatabase intentionally skips ordinary Ready rows, so a
-      // restart would otherwise lose the adoption shield and let polling
-      // merge the surviving engine row over the resolved selection. Surface a
-      // recoverable Error/quarantine owner instead; cleanup retries retain the
-      // cache now and primeFromDatabase restores it after restart.
-      const marked = await this.markMetadataFailure(
-        entry,
-        'Magnet metadata result cleanup could not be confirmed',
-        DownloadErrorCode.BtMetadataFailed,
-        true
-      )
-      if (marked) await this.cleanupCacheEntry(entry)
-      return
-    }
     if (this.stopped) return
     const pair = this.getCurrentFetchingMetadataPair(gid, entry)
     if (!pair) return
@@ -2007,7 +1975,7 @@ export class MagnetTracker {
   private async tryRemoveFromAria2(gid: string): Promise<boolean> {
     let forceRemoveError: unknown
     try {
-      await this.rpcClient.forceRemove(gid)
+      await this.engine.forceRemoveTask(gid)
     } catch (err) {
       if (!isAria2NotFoundError(err, gid)) {
         forceRemoveError = err
@@ -2017,7 +1985,7 @@ export class MagnetTracker {
     }
 
     try {
-      await this.rpcClient.removeDownloadResult(gid)
+      await this.engine.removeDownloadResult(gid)
     } catch (err) {
       if (!isAria2NotFoundError(err, gid)) {
         log.warn(
@@ -2061,38 +2029,6 @@ export class MagnetTracker {
     return removed
   }
 
-  private async removeMetadataResult(gid: string): Promise<boolean> {
-    let firstResultError: unknown
-    try {
-      await this.rpcClient.removeDownloadResult(gid)
-      return true
-    } catch (err) {
-      if (isAria2NotFoundError(err, gid)) return true
-      firstResultError = err
-      // Complete notifications can still arrive before aria2 moves the row
-      // to history. Ask it to stop the row, then retry the authoritative
-      // result purge below.
-    }
-
-    let removeError: unknown
-    try {
-      await this.rpcClient.remove(gid)
-    } catch (err) {
-      if (!isAria2NotFoundError(err, gid)) removeError = err
-    }
-    try {
-      await this.rpcClient.removeDownloadResult(gid)
-      return true
-    } catch (err) {
-      if (isAria2NotFoundError(err, gid)) return true
-      log.warn(
-        { err, gid, firstResultError, removeError },
-        'metadata result cleanup could not confirm aria2 absence'
-      )
-      return false
-    }
-  }
-
   private async cleanupMetadataDir(metadataDir: string): Promise<void> {
     if (!metadataDir) return
     try {
@@ -2100,36 +2036,6 @@ export class MagnetTracker {
     } catch {
       /* Temporary metadata directory cleanup is best-effort. */
     }
-  }
-
-  private async readSavedTorrentBase64(metadataDir: string): Promise<string> {
-    const entries = await readdir(metadataDir)
-    const torrentFiles = await Promise.all(
-      entries
-        .filter((name) => name.toLowerCase().endsWith('.torrent'))
-        .map(async (name) => {
-          const filePath = join(metadataDir, name)
-          const fileStat = await stat(filePath)
-          return fileStat.isFile()
-            ? { filePath, mtimeMs: fileStat.mtimeMs }
-            : null
-        })
-    )
-
-    const newest = torrentFiles
-      .filter((file): file is { filePath: string; mtimeMs: number } =>
-        Boolean(file)
-      )
-      .sort((a, b) => b.mtimeMs - a.mtimeMs)[0]
-
-    if (!newest) {
-      throw new Error(
-        `resolved magnet torrent metadata file not found in ${metadataDir}`
-      )
-    }
-
-    const bytes = await readFile(newest.filePath)
-    return Buffer.from(bytes).toString('base64')
   }
 }
 

@@ -205,7 +205,7 @@
             "unidentified": "Tidak teridentifikasi, tidak akan dihentikan",
             "current_app": "PID {{pid}} ({{name}}), dikelola oleh Motrix",
             "verified_orphan": "PID {{pid}} ({{name}}), terverifikasi sebagai proses sisa Motrix; aman untuk dihentikan",
-            "external_aria2": "PID {{pid}} ({{name}}), kepemilikan belum terverifikasi; tidak akan dihentikan",
+            "external_engine": "PID {{pid}} ({{name}}), kepemilikan belum terverifikasi; tidak akan dihentikan",
             "other": "PID {{pid}} ({{name}}), kepemilikan belum terverifikasi; tidak akan dihentikan",
             "unknown": "PID {{pid}}, tidak teridentifikasi; tidak akan dihentikan"
           },

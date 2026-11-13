@@ -15,14 +15,12 @@ export interface EnginePerformanceTuningValues {
   maxConnectionPerServer: number
   split: number
   minSplitSize: number
-  diskCache: number
 }
 
 export const ENGINE_PERFORMANCE_TUNING_KEYS = [
   'maxConnectionPerServer',
   'split',
   'minSplitSize',
-  'diskCache',
 ] as const satisfies readonly (keyof EnginePerformanceTuningValues)[]
 
 const MB = 1024 * 1024
@@ -32,25 +30,21 @@ export const ENGINE_PERFORMANCE_PROFILES = {
     maxConnectionPerServer: MAX_CONNECTIONS_PER_SERVER,
     split: 16,
     minSplitSize: 4 * MB,
-    diskCache: 32 * MB,
   },
   balanced: {
     maxConnectionPerServer: 16,
     split: 16,
     minSplitSize: 10 * MB,
-    diskCache: 32 * MB,
   },
   high: {
     maxConnectionPerServer: 32,
     split: 32,
     minSplitSize: 4 * MB,
-    diskCache: 64 * MB,
   },
   maximum: {
     maxConnectionPerServer: MAX_CONNECTIONS_PER_SERVER,
     split: 64,
     minSplitSize: 1 * MB,
-    diskCache: 64 * MB,
   },
 } as const satisfies Record<
   Exclude<EnginePerformanceProfile, 'custom'>,

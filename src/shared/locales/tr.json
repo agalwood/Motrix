@@ -206,7 +206,7 @@
             "unidentified": "Tanımlanamadı, durdurulmayacak",
             "current_app": "PID {{pid}} ({{name}}), Motrix tarafından yönetiliyor",
             "verified_orphan": "PID {{pid}} ({{name}}), Motrix’ten kalan işlem olduğu doğrulandı; güvenle durdurulabilir",
-            "external_aria2": "PID {{pid}} ({{name}}), hangi uygulamaya ait olduğu doğrulanamadı; durdurulmayacak",
+            "external_engine": "PID {{pid}} ({{name}}), hangi uygulamaya ait olduğu doğrulanamadı; durdurulmayacak",
             "other": "PID {{pid}} ({{name}}), hangi uygulamaya ait olduğu doğrulanamadı; durdurulmayacak",
             "unknown": "PID {{pid}}, tanımlanamadı; durdurulmayacak"
           },

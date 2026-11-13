@@ -30,7 +30,6 @@ import {
 } from '@core/proxy/aria2-proxy-routing'
 import type { SettingsManager } from '@core/settings/settings-manager'
 import { AppError, ErrorCode } from '@shared/errors'
-import { formatFileSelection } from '@shared/lib/file-selection-ranges'
 import type {
   TaskCreateRequest,
   TaskCreateSuccessResult,
@@ -239,11 +238,6 @@ export interface CreateTaskOptions {
   sourceMeta?: SourceMeta // default null
   /** Ephemeral credentials; kept out of persisted task records and plugins. */
   cookies?: CreateDownloadParams['cookies']
-  /** Engine option dictionary merged into the engine call: header
-   *  (repeated), referer. createTaskHandler forwards these
-   *  via CreateDownloadParams.extraEngineOptions; the adapter honors the
-   *  keys it understands. */
-  extraEngineOptions?: Record<string, string | string[]>
 }
 
 type AdmittedCreateOptions = CreateTaskOptions & {
@@ -278,8 +272,7 @@ export async function handleCreateTask(
   if (request.type === 'http' && request.uris[0].startsWith('ftp:')) {
     const reason = !deps.adapter.getCapabilities().ftp
       ? 'unsupportedProtocol'
-      : opts.cookies?.length ||
-          Object.keys(opts.extraEngineOptions ?? {}).length
+      : opts.cookies?.length || 0
         ? 'unsupportedRequestOptions'
         : null
     if (reason)
@@ -760,9 +753,6 @@ async function handleCreateTaskUnderAdmission(
       headers: headersRecord,
       cookies: opts.cookies,
       proxy: req.proxy,
-      // Bridge referer; createDownload merges these raw AFTER
-      // dir/out so a shell-supplied option can override (matches old order).
-      extraEngineOptions: opts.extraEngineOptions,
     }
     let currentHttpDesiredName = desiredName
     const pickHttpName = async (nextDesiredName: string): Promise<void> => {
@@ -1072,9 +1062,7 @@ async function handleCreateTaskUnderAdmission(
         ? { checkIntegrity: true, preserveExistingFiles: true }
         : {}),
       saveDir: btStoragePlan?.saveDir ?? diskPath,
-      // CREATE-PATH +1: req indices are 0-based; aria2 select-file is
-      // 1-based. The adapter compacts consecutive indices into ranges.
-      selectedFiles: req.selectedFiles.map((i) => i + 1),
+      selectedFiles: req.selectedFiles,
       outputFilePaths: btStoragePlan?.outputFilePaths,
       outputRoot: btStoragePlan?.outputRoot,
       dlLimit: req.dlLimit,
@@ -1103,38 +1091,13 @@ async function handleCreateTaskUnderAdmission(
       return deps.adapter.addTorrent(params)
     }
   } else {
-    // Magnet: BT-typed but no metadata bytes, so it CANNOT use addTorrent.
-    // Reproduce the old `toBt` magnet wire (addUri with a BT-ish option map +
-    // dir=diskPath, no out) through createDownload + extraEngineOptions.
-    const magnetEngineOpts: Record<string, string> = {}
-    if (req.selectedFiles.length > 0) {
-      magnetEngineOpts['select-file'] = formatFileSelection(
-        req.selectedFiles,
-        0
-      )
-    }
-    if (req.dlLimit !== undefined) {
-      magnetEngineOpts['max-download-limit'] = String(req.dlLimit)
-    }
-    if (req.ulLimit !== undefined) {
-      magnetEngineOpts['max-upload-limit'] = String(req.ulLimit)
-    }
-    if (req.seedRatio !== undefined) {
-      magnetEngineOpts['seed-ratio'] = String(req.seedRatio)
-    }
     const params: CreateDownloadParams = {
       uris: [req.payload.uri],
-      // dir = diskPath; NO filename → createDownload emits no `out`.
       saveDir: diskPath,
-      // Spread order: magnet opts first, then shell-supplied opts (which
-      // merged LAST in the old code and could override). createDownload then
-      // merges extraEngineOptions after `dir`, so the final aria2 map is
-      // { dir: diskPath, ...magnetEngineOpts, ...opts.extraEngineOptions } —
-      // explicit shell overrides keep their existing precedence.
-      extraEngineOptions: {
-        ...magnetEngineOpts,
-        ...(opts.extraEngineOptions ?? {}),
-      },
+      selectedFiles: req.selectedFiles,
+      dlLimit: req.dlLimit,
+      ulLimit: req.ulLimit,
+      seedRatio: req.seedRatio,
     }
     dispatchEngine = dispatchCreateDownload(params)
   }
@@ -1442,7 +1405,6 @@ function directResourceRequestContext(
     | 'headers'
     | 'cookies'
     | 'proxy'
-    | 'extraEngineOptions'
     | 'userAgent'
     | 'directResourceMetadataProfile'
   >,
@@ -1454,8 +1416,6 @@ function directResourceRequestContext(
   // dispatching to the engine, while refusing probes for populated jars.
   if (
     (params.cookies?.length ?? 0) > 0 ||
-    (params.extraEngineOptions &&
-      Object.keys(params.extraEngineOptions).length > 0) ||
     params.directResourceMetadataProfile !== DIRECT_RESOURCE_METADATA_PROFILE ||
     !canRepresentDirectResourceHeaders(params.headers)
   ) {
@@ -1503,14 +1463,12 @@ function resolveDirectResourceMetadataProfile(
 }
 
 function canApplyDirectResourceMetadataProfile(
-  params: Pick<CreateDownloadParams, 'uris' | 'cookies' | 'extraEngineOptions'>,
+  params: Pick<CreateDownloadParams, 'uris' | 'cookies'>,
   profile: DirectResourceMetadataProfile | null
 ): DirectResourceMetadataProfile | null {
   if (
     profile === null ||
     (params.cookies?.length ?? 0) > 0 ||
-    (params.extraEngineOptions &&
-      Object.keys(params.extraEngineOptions).length > 0) ||
     !params.uris.every(isCredentialFreeHttpUri)
   ) {
     return null

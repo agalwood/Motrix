@@ -72,7 +72,7 @@ async function fixture() {
       expect(params).toMatchObject({
         saveDir: f.downloads,
         pause: true,
-        selectedFiles: [1],
+        selectedFiles: [0],
         checkIntegrity: true,
         btSeedUnverified: false,
         legacyCheckpointActivation: expect.objectContaining({

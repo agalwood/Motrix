@@ -206,7 +206,7 @@
             "unidentified": "Nicht identifiziert; wird nicht beendet",
             "current_app": "PID {{pid}} ({{name}}), von Motrix verwaltet",
             "verified_orphan": "PID {{pid}} ({{name}}), bestätigter verwaister Motrix-Prozess; kann sicher beendet werden",
-            "external_aria2": "PID {{pid}} ({{name}}), Zugehörigkeit nicht bestätigt; wird nicht beendet",
+            "external_engine": "PID {{pid}} ({{name}}), Zugehörigkeit nicht bestätigt; wird nicht beendet",
             "other": "PID {{pid}} ({{name}}), Zugehörigkeit nicht bestätigt; wird nicht beendet",
             "unknown": "PID {{pid}}, nicht identifiziert; wird nicht beendet"
           },

@@ -111,7 +111,6 @@ async function fixture(
         filename: 'partial.bin',
         pause: true,
         resumePolicy: 'checkpoint',
-        fileAllocation: 'none',
         headers: { 'If-Match': '"fixture"', 'Accept-Encoding': 'identity' },
       })
       expect(f.taskManager.isEngineTaskIdRetired(params.gid)).toBe(true)

@@ -1054,7 +1054,7 @@ async function finalizeBtAfterRename(
   )
 
   const selectedFiles = task.bt?.selectedFiles?.length
-    ? task.bt.selectedFiles.map((index) => index + 1)
+    ? task.bt.selectedFiles
     : undefined
   try {
     const storageLayout = getBtStorageLayout(task)

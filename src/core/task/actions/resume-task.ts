@@ -1,4 +1,9 @@
 import { assertLegacyTaskNotActivated } from '@core/legacy-import/legacy-task-policy'
+import {
+  confirmPendingTorrentSelection,
+  hasPendingTorrentSelection,
+} from '@core/torrent/pending-torrent-selection'
+import { AppError, ErrorCode } from '@shared/errors'
 import { TaskStatus } from '@shared/types/task'
 import {
   commitTaskUpdate,
@@ -27,6 +32,12 @@ export async function resumeTask(
   if (!task) return
   assertLegacyTaskNotActivated(task)
   await deps.authorizeTaskWrite?.(task)
+  if (task.status === TaskStatus.MetadataReady) {
+    throw new AppError(
+      ErrorCode.InvalidSelection,
+      'Select torrent files before resuming'
+    )
+  }
   deps.onResumeRequested?.(taskId)
   const optimistic = {
     ...task,
@@ -50,6 +61,18 @@ export async function resumeTask(
     }
     await Promise.all(gids.map((gid) => deps.adapter.resumeTask(gid)))
     await commitTaskUpdate(task, optimistic, deps)
+    return
+  }
+
+  if (hasPendingTorrentSelection(task)) {
+    const confirmed = await confirmPendingTorrentSelection(task, deps.adapter)
+    if (
+      (await deps.adapter.getTaskStatus(task.engineTaskId))?.status ===
+      TaskStatus.Paused
+    ) {
+      await deps.adapter.resumeTask(task.engineTaskId)
+    }
+    await commitTaskUpdate(task, confirmed, deps)
     return
   }
 

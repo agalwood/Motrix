@@ -1,8 +1,16 @@
 import { createHash } from 'node:crypto'
+import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
+import { TaskCookieError } from '@core/engine/task-cookie-error'
+import type { DownloadProxyOptions } from '@core/proxy/serializers'
+import { admitDownloadSources } from '@core/task/source-admission'
 import { parseTorrent } from '@motrix/torrent'
 import { AppError, ErrorCode } from '@shared/errors'
 import { MAX_TORRENT_FILE_SIZE } from '@shared/lib/torrent-meta'
+import {
+  type TorrentSelection,
+  torrentSelectionSchema,
+} from '@shared/schemas/torrent-selection'
 import type {
   EngineCapability,
   EngineFeatureReport,
@@ -11,9 +19,13 @@ import type { EngineSettings } from '@shared/types/settings'
 import { z } from 'zod'
 import { Aria2Adapter } from '../aria2/aria2-adapter'
 import { isNotFoundError } from '../aria2/error-utils'
-import type { AddTorrentParams, CreateDownloadParams } from '../engine-adapter'
+import type { RpcDownloadParams, RpcTorrentParams } from '../aria2/task-options'
+import { encodeFileSelection } from '../aria2/task-options'
+import type { AddTorrentParams, BtTrackerPolicy } from '../engine-adapter'
 import { taijiFilePadding, toTaijiSelection } from './taiji-file-selection'
+import { taijiDownloadOptions } from './taiji-request-options'
 import type { TaijiRpcClient } from './taiji-rpc-client'
+import { taijiProxyOptions, taijiRuntimeSettings } from './taiji-settings'
 
 /**
  * Reuses the compatible task/status translation, with native identity and
@@ -31,11 +43,72 @@ export class TaijiAdapter extends Aria2Adapter {
 
   constructor(
     private readonly taijiRpc: TaijiRpcClient,
-    getSeedingDefaults: () =>
+    private readonly nativeSeedingDefaults: () =>
       | Pick<EngineSettings, 'seedTime' | 'seedRatio'>
       | undefined = () => undefined
   ) {
-    super(taijiRpc, undefined, getSeedingDefaults)
+    super(taijiRpc, undefined, nativeSeedingDefaults)
+  }
+
+  private nativeTrackerPolicy?: BtTrackerPolicy
+  override configureBtTrackerPolicy(policy: BtTrackerPolicy): void {
+    this.nativeTrackerPolicy = policy
+  }
+  private async applyTrackerPolicy(
+    options: Record<string, string | string[]>,
+    gid?: string,
+    metadata?: Uint8Array,
+    isPrivate?: boolean
+  ): Promise<void> {
+    const raw = options['bt-tracker']
+    const manual = (Array.isArray(raw) ? raw : (raw ?? '').split(',')).filter(
+      Boolean
+    )
+    const policy = this.nativeTrackerPolicy
+      ? await this.nativeTrackerPolicy({
+          engineGid: gid,
+          metadata,
+          isPrivate,
+          manual,
+        })
+      : { isPrivate, trackers: isPrivate ? [] : manual }
+    options['bt-tracker'] = policy.trackers.join(',')
+    if (policy.isPrivate) options['enable-peer-exchange'] = 'false'
+  }
+  private seedOptions(
+    overrides: Pick<AddTorrentParams, 'seedTime' | 'seedRatio'> = {}
+  ): Record<string, string> {
+    const defaults = this.nativeSeedingDefaults()
+    const time = overrides.seedTime ?? defaults?.seedTime
+    const ratio = overrides.seedRatio ?? defaults?.seedRatio
+    return {
+      ...(time !== undefined ? { 'seed-time': String(time) } : {}),
+      ...(ratio !== undefined ? { 'seed-ratio': String(ratio) } : {}),
+    }
+  }
+
+  async applySettings(
+    settings: EngineSettings,
+    previous?: EngineSettings
+  ): Promise<void> {
+    const options = taijiRuntimeSettings(settings, previous)
+    if (Object.keys(options).length)
+      await this.taijiRpc.changeGlobalOption(options)
+  }
+  async setSpeedLimits(limits: {
+    download: number
+    upload: number
+  }): Promise<void> {
+    await this.taijiRpc.changeGlobalOption({
+      'max-overall-download-limit': String(limits.download),
+      'max-overall-upload-limit': String(limits.upload),
+    })
+  }
+  async setDefaultSaveDirectory(directory: string): Promise<void> {
+    await this.taijiRpc.changeGlobalOption({ dir: directory })
+  }
+  async setDownloadProxy(proxy: DownloadProxyOptions | null): Promise<void> {
+    await this.taijiRpc.changeGlobalOption(taijiProxyOptions(proxy))
   }
 
   override async connect(): Promise<void> {
@@ -98,6 +171,57 @@ export class TaijiAdapter extends Aria2Adapter {
     await super.disconnect()
   }
 
+  override fetchMagnetMetadata(params: {
+    uri: string
+    saveDir: string
+    engineTaskId?: string
+  }): Promise<string> {
+    return this.createDownload({
+      uris: [params.uri],
+      saveDir: params.saveDir,
+      gid: params.engineTaskId,
+      wireOptions: {
+        'motrix-await-selection': 'true',
+        'bt-save-metadata': 'false',
+      },
+    })
+  }
+
+  override getTorrentMetadata(engineTaskId: string) {
+    return this.taijiRpc.getTorrentMetadata(engineTaskId)
+  }
+
+  override async confirmTorrentSelection(
+    engineTaskId: string,
+    input: TorrentSelection
+  ): Promise<void> {
+    const selection = torrentSelectionSchema.parse(input)
+    const padding = taijiFilePadding(await this.taijiRpc.getFiles(engineTaskId))
+    if (!path.isAbsolute(selection.saveDir))
+      throw new TypeError('Torrent output root must be absolute')
+    const paths = Object.fromEntries(
+      selection.outputFilePaths.map((file) => [
+        file.fileIndex,
+        file.relativePath,
+      ])
+    )
+    if (Object.keys(paths).length !== selection.outputFilePaths.length)
+      throw new TypeError('Duplicate torrent output mapping')
+    const gid = await this.taijiRpc.confirmTorrentSelection(engineTaskId, {
+      dir: selection.saveDir,
+      'select-file': toTaijiSelection(
+        encodeFileSelection(selection.selectedFiles),
+        padding
+      ),
+      'motrix-output-paths': JSON.stringify(paths),
+    })
+    if (gid !== engineTaskId)
+      throw new AppError(
+        ErrorCode.EngineProtocolError,
+        'Engine changed the task identity'
+      )
+  }
+
   async holdHttpOutput(gid: string) {
     await this.taijiRpc.finalizeHttpOutput(gid, 'hold')
     return this.taijiRpc.getHttpOutput(gid)
@@ -115,7 +239,7 @@ export class TaijiAdapter extends Aria2Adapter {
     return this.taijiRpc.finalizeHttpOutput(gid, action, path)
   }
 
-  override async createDownload(params: CreateDownloadParams): Promise<string> {
+  override async createDownload(params: RpcDownloadParams): Promise<string> {
     if (
       params.legacyCheckpointActivation ||
       (params.resumePolicy && params.resumePolicy !== 'none')
@@ -125,21 +249,38 @@ export class TaijiAdapter extends Aria2Adapter {
         'Legacy file adoption is unavailable in taiji'
       )
     }
-    return super.createDownload(
-      params.deferFilePublication
-        ? {
-            ...params,
-            extraEngineOptions: {
-              ...params.extraEngineOptions,
-              'http-incomplete-suffix': '.motrix',
-              'http-host-finalize': 'true',
-            },
-          }
-        : params
+    if (params.directResourceMetadataProfile)
+      throw new AppError(
+        ErrorCode.EngineFeatureUnavailable,
+        'Request profile is not supported by taiji'
+      )
+    const uris = admitDownloadSources(params.uris, 'engine').map(
+      (source) => source.requestUrl
     )
+    const options = taijiDownloadOptions(params)
+    if (uris.some((uri) => /^magnet:/i.test(uri))) {
+      Object.assign(options, this.seedOptions({ seedRatio: params.seedRatio }))
+      await this.applyTrackerPolicy(options, params.gid)
+    }
+    let cookies = params.cookies
+    if (cookies !== undefined) {
+      const prepared = this.prepareDownloadCookies(cookies)
+      const invalid = prepared.discarded.find(
+        (item) => item.reason !== 'expired' && item.reason !== 'duplicate'
+      )
+      if (invalid) throw new TaskCookieError(invalid)
+      cookies = prepared.cookies
+    }
+    const gid =
+      cookies === undefined
+        ? await this.taijiRpc.addUri(uris, options)
+        : await this.taijiRpc.addUriWithCookies(uris, cookies, options)
+    if (params.gid && gid.toLowerCase() !== params.gid.toLowerCase())
+      throw new Error('Engine changed the reserved task ID')
+    return gid
   }
 
-  override async addTorrent(params: AddTorrentParams): Promise<string> {
+  override async addTorrent(params: RpcTorrentParams): Promise<string> {
     if (params.legacyCheckpointActivation)
       throw new AppError(
         ErrorCode.EngineFeatureUnavailable,
@@ -162,10 +303,14 @@ export class TaijiAdapter extends Aria2Adapter {
         throw new TypeError('Invalid torrent output mapping')
       mapping[fileIndex] = parts.join('/')
     }
-    const options = { ...params.extraEngineOptions }
+    const options = { ...params.wireOptions }
     if (options['index-out'] !== undefined)
       throw new TypeError('Use the typed torrent output mapping')
-    const selection = options['select-file'] ?? params.selectedFiles?.join(',')
+    const selection =
+      options['select-file'] ??
+      (params.selectedFiles?.length
+        ? encodeFileSelection(params.selectedFiles)
+        : undefined)
     if (selection !== undefined) {
       if (typeof selection !== 'string')
         throw new TypeError('Invalid torrent file selection')
@@ -179,35 +324,53 @@ export class TaijiAdapter extends Aria2Adapter {
         files.map((file) => file.padding)
       )
     }
-    return super.addTorrent({
-      ...params,
-      saveDir: root,
-      outputRoot: undefined,
-      outputFilePaths: undefined,
-      selectedFiles: undefined,
-      btSeedUnverified: false,
-      checkIntegrity: params.checkIntegrity || params.btSeedUnverified,
-      extraEngineOptions: {
-        ...options,
-        ...(Object.keys(mapping).length
-          ? { 'motrix-output-paths': JSON.stringify(mapping) }
-          : {}),
-      },
-    })
+    Object.assign(options, { dir: root, ...this.seedOptions(params) })
+    if (params.gid !== undefined) {
+      if (!/^[a-f0-9]{16}$/i.test(params.gid))
+        throw new TypeError('Invalid engine task ID')
+      options.gid = params.gid
+    }
+    if (params.pause !== undefined) options.pause = String(params.pause)
+    if (
+      params.checkIntegrity ||
+      params.btSeedUnverified ||
+      params.preserveExistingFiles
+    )
+      options['check-integrity'] = 'true'
+    if (params.prioritizePreviewPieces)
+      options['bt-prioritize-piece'] = 'head=10M,tail=10M'
+    if (params.dlLimit !== undefined)
+      options['max-download-limit'] = String(params.dlLimit)
+    if (params.ulLimit !== undefined)
+      options['max-upload-limit'] = String(params.ulLimit)
+    if (params.trackers) options['bt-tracker'] = params.trackers.join(',')
+    if (Object.keys(mapping).length)
+      options['motrix-output-paths'] = JSON.stringify(mapping)
+    await this.applyTrackerPolicy(
+      options,
+      params.gid,
+      params.metadata,
+      params.isPrivate
+    )
+    await mkdir(root, { recursive: true })
+    const gid = await this.taijiRpc.addTorrent(
+      Buffer.from(params.metadata).toString('base64'),
+      [],
+      options
+    )
+    if (params.gid && gid.toLowerCase() !== params.gid.toLowerCase())
+      throw new Error('Engine changed the reserved task ID')
+    return gid
   }
 
-  override async changeOption(
+  override async setSelectedFiles(
     gid: string,
-    options: Record<string, string>
+    indices: readonly number[]
   ): Promise<void> {
-    if (options['select-file'] !== undefined) {
-      const padding = taijiFilePadding(await this.taijiRpc.getFiles(gid))
-      options = {
-        ...options,
-        'select-file': toTaijiSelection(options['select-file'], padding),
-      }
-    }
-    await super.changeOption(gid, options)
+    const padding = taijiFilePadding(await this.taijiRpc.getFiles(gid))
+    await this.taijiRpc.changeOption(gid, {
+      'select-file': toTaijiSelection(encodeFileSelection(indices), padding),
+    })
   }
 
   override async getCheckpointStatus(): Promise<null> {

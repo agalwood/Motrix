@@ -575,7 +575,7 @@ describe('EngineDiagnosticsDialogHost', () => {
               pid: 9000,
               name: 'aria2c',
               executableName: 'aria2c',
-              ownership: EngineProcessOwnership.ExternalAria2,
+              ownership: EngineProcessOwnership.ExternalEngine,
               safeToTerminate: false,
             },
             canRestore: false,

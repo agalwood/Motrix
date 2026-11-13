@@ -62,6 +62,7 @@ export async function pauseTask(
   const task = getTaskOrWarn(deps, taskId, 'pauseTask')
   if (!task) return
   assertLegacyTaskNotActivated(task)
+  if (task.status === TaskStatus.MetadataReady) return
   deps.onPauseRequested?.(taskId)
   if (task.status === TaskStatus.Paused) return
   const optimistic = {

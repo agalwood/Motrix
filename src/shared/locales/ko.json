@@ -205,7 +205,7 @@
             "unidentified": "확인되지 않음, 중지하지 않음",
             "current_app": "PID {{pid}}({{name}}), Motrix에서 관리 중",
             "verified_orphan": "PID {{pid}}({{name}}), 남아 있는 Motrix 프로세스로 확인됨; 안전하게 중지 가능",
-            "external_aria2": "PID {{pid}}({{name}}), 소유 관계가 확인되지 않아 중지하지 않음",
+            "external_engine": "PID {{pid}}({{name}}), 소유 관계가 확인되지 않아 중지하지 않음",
             "other": "PID {{pid}}({{name}}), 소유 관계가 확인되지 않아 중지하지 않음",
             "unknown": "PID {{pid}}, 확인되지 않아 중지하지 않음"
           },

@@ -1,6 +1,4 @@
 import type { Aria2RpcClient } from '@core/engine/aria2/aria2-rpc-client'
-import type { DnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
-import { dnsModeToAsyncDns } from '@core/engine/aria2/dns-fallback'
 import type { EngineAdapter } from '@core/engine/engine-adapter'
 import type { EngineSupervisor } from '@core/engine/engine-supervisor'
 import { ENGINE_READY_TIMEOUT_MS } from '@core/engine/engine-supervisor'
@@ -79,8 +77,8 @@ import {
 import { createTaskDirectoryHistory } from '@core/task/task-directory-history'
 import type { TaskManager } from '@core/task/task-manager'
 import type { TorrentMetaStore } from '@core/task/torrent-meta-store'
+import { confirmMagnetSelection } from '@core/torrent/confirm-magnet-selection'
 import type { MagnetTracker } from '@core/torrent/magnet-tracker'
-import { swapMagnetMetadataForBt } from '@core/torrent/swap-magnet-metadata-for-bt'
 import type { TrackerManager } from '@core/tracker'
 import { AppError, ErrorCode } from '@shared/errors'
 import { Commands } from '@shared/protocol/commands'
@@ -144,13 +142,11 @@ export interface ServerCommandContext {
   applyLocale?: (language: string) => Promise<void>
   geoipManager: Pick<GeoIPManager, 'triggerUpdate'>
   /** Session latch of the auto DNS fallback — reset when dnsMode changes. */
-  dnsFallback?: Pick<DnsFallbackConsumer, 'reset'>
   /**
    * Late-binds the DNS fallback consumer's task retry to the same
    * `reAddTask` deps bundle the ReAddTasks command uses, so the two
    * paths cannot drift. Called synchronously during handler construction.
    */
-  bindTaskRetry?: (fn: (taskId: string) => Promise<unknown>) => void
   recoverFinalization?: (taskId: string, sha256?: string) => Promise<void>
   rpcClient: Aria2RpcClient
   adapter: EngineAdapter
@@ -228,8 +224,6 @@ export function buildServerCommandHandlers(
     supervisor,
     settingsManager,
     geoipManager,
-    dnsFallback,
-    bindTaskRetry,
     adapter,
     trackerManager,
     bridgeControl,
@@ -418,7 +412,6 @@ export function buildServerCommandHandlers(
     }
   // The DNS fallback consumer retries through the same deps bundle as
   // Commands.ReAddTasks so the automatic and user-initiated paths match.
-  bindTaskRetry?.((id) => reAddTask(id, reAddDeps))
   const removeDeps = {
     authorizeTaskRemoval: ctx.authorizeTaskRemoval,
     fileCleanupForTask: ctx.fileCleanupForTask,
@@ -673,7 +666,7 @@ export function buildServerCommandHandlers(
                 }
               }
               try {
-                return await swapMagnetMetadataForBt(
+                return await confirmMagnetSelection(
                   {
                     taskId: req.existingTaskId,
                     base64: req.payload.base64,
@@ -1019,15 +1012,6 @@ export function buildServerCommandHandlers(
           }
 
           await supervisor.applyEngineSettings(oldFull.engine, newFull.engine)
-
-          if (oldFull.engine.dnsMode !== newFull.engine.dnsMode) {
-            await supervisor.applyAsyncDns(
-              dnsModeToAsyncDns(newFull.engine.dnsMode)
-            )
-            // Mode changes re-arm the auto fallback so a later switch back to
-            // 'auto' starts optimistic again.
-            dnsFallback?.reset()
-          }
 
           if (result.requiresRestart) {
             publishEngineRestartRequired(

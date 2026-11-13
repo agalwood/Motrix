@@ -9,7 +9,6 @@ export const directReplayRequestModifierSchema = z.enum([
   'headers',
   'cookies',
   'proxy',
-  'extraEngineOptions',
   'engineGlobalOptions',
 ])
 

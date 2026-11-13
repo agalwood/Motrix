@@ -1,4 +1,4 @@
-import type { Aria2ProxyOptions } from './serializers'
+import type { DownloadProxyOptions } from './serializers'
 
 /**
  * The download route known to be active in aria2.
@@ -19,7 +19,7 @@ export type DownloadProxyApplyResult =
   | Readonly<{
       downloadProxy: 'applied'
       /** Exact endpoint/no-proxy pair passed to aria2; null means direct. */
-      appliedProxy: Aria2ProxyOptions | null
+      appliedProxy: DownloadProxyOptions | null
     }>
   | Readonly<{
       downloadProxy: Exclude<DownloadProxyApplyOutcome, 'applied'>
@@ -91,7 +91,7 @@ export class AppliedDownloadProxyPolicy
   }
 
   /** Called when the engine starts/restarts with its exact resolved route. */
-  commit(resolvedProxy: Aria2ProxyOptions | null): void {
+  commit(resolvedProxy: DownloadProxyOptions | null): void {
     // Startup must be able to publish the route before Ready even when a
     // fail-closed reader is waiting for Ready. Existing readers are fenced by
     // their generation lease and must assert it immediately before dispatch.
@@ -174,7 +174,7 @@ export class AppliedDownloadProxyPolicy
    * settings and no observer can see Ready with a stale route snapshot.
    */
   async publishStartupRoute(
-    resolveRoute: () => Promise<Aria2ProxyOptions | null>,
+    resolveRoute: () => Promise<DownloadProxyOptions | null>,
     publishReady: () => void,
     shouldPublish: () => boolean = () => true
   ): Promise<boolean> {
@@ -250,7 +250,7 @@ export class AppliedDownloadProxyPolicy
 }
 
 function snapshotFromResolvedProxy(
-  resolvedProxy: Aria2ProxyOptions | null
+  resolvedProxy: DownloadProxyOptions | null
 ): Exclude<AppliedDownloadProxySnapshot, null> {
   return Object.freeze(
     resolvedProxy

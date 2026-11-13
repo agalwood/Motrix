@@ -1,17 +1,12 @@
 import path from 'node:path'
 import { getLogger } from '@core/logger'
 import type { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
-import {
-  extractAria2ProxyCredentials,
-  stripAria2ProxyCredentials,
-} from '@core/proxy/aria2-proxy-routing'
 import type { ProxyBridgeResolver } from '@core/proxy/proxy-bridge-manager'
-import type { Aria2ProxyOptions } from '@core/proxy/serializers'
+import type { DownloadProxyOptions } from '@core/proxy/serializers'
 import { ENGINE_RPC_PORT } from '@shared/constants'
 import { AppError, ErrorCode } from '@shared/errors'
 import { Events } from '@shared/protocol/events'
 import {
-  type EngineCompatibilityWarningPayload,
   type EngineDiagnosticReport,
   type EngineFailureInfo,
   type EngineFailurePayload,
@@ -28,28 +23,21 @@ import {
 import type { EngineSettings } from '@shared/types/settings'
 import { generateRpcSecret } from '@shared/utils/rpc-secret'
 import type { EventBus } from '../events/event-bus'
-import { probePrecise } from '../probe/disk-probe'
 import type { SettingsManager } from '../settings/settings-manager'
-import type { Aria2Adapter } from './aria2/aria2-adapter'
-import type { Aria2ConfigBuilder } from './aria2/aria2-config-builder'
-import type { Aria2ProcessManager } from './aria2/aria2-process-manager'
-import type { Aria2RpcClient } from './aria2/aria2-rpc-client'
-import { recoverAria2SessionIdentity } from './aria2/aria2-session-identity-recovery'
-import { isSqliteCorruptionDiagnostic } from './aria2/aria2-sqlite-recovery'
-import type { Aria2TrustStore } from './aria2/aria2-trust-store'
-import { recommend } from './aria2/aria2-tuning'
-import type { EngineStartupGuard } from './aria2/completed-task-startup-guard'
-import {
-  isMotrixFork,
-  STANDARD_ARIA2_CONNECTION_LIMIT,
-} from './aria2/feature-report'
 import type { DirectResourceMetadataProfile } from './engine-adapter'
-import type { EngineSessionRecoveryStore } from './engine-session-recovery'
+import type {
+  EngineConfiguration,
+  EngineConnection,
+  EngineProcess,
+  EngineRuntimeControl,
+  EngineTrust,
+} from './engine-runtime'
+import type { EngineStartupGuard } from './engine-startup-guard'
 import { checkPort, findAvailablePort } from './port-check'
 
 const log = getLogger('engine')
 
-/** How long task creation waits for the aria2 engine to become Ready
+/** How long task creation waits for the engine to become Ready
  *  before failing. Engine cold start = process spawn + RPC connect retry
  *  loop (~5s); 15s is a safe margin that still bounds a stuck engine. */
 export const ENGINE_READY_TIMEOUT_MS = 15_000
@@ -61,29 +49,12 @@ const HEALTH_CHECK_INTERVAL = 30_000
 const MAX_CONSECUTIVE_FAILURES = 3
 
 function sameProxyOptions(
-  left: Aria2ProxyOptions | null,
-  right: Aria2ProxyOptions | null
+  left: DownloadProxyOptions | null,
+  right: DownloadProxyOptions | null
 ): boolean {
   if (left === null || right === null) return left === right
   return left.allProxy === right.allProxy && left.noProxy === right.noProxy
 }
-
-const HOT_ENGINE_OPTIONS = {
-  maxConcurrentDownloads: 'max-concurrent-downloads',
-  maxConnectionPerServer: 'max-connection-per-server',
-  split: 'split',
-  minSplitSize: 'min-split-size',
-  userAgent: 'user-agent',
-  connectTimeout: 'connect-timeout',
-  socketTimeout: 'timeout',
-  maxTries: 'max-tries',
-  retryWait: 'retry-wait',
-  lowestSpeedLimit: 'lowest-speed-limit',
-  btMaxPeers: 'bt-max-peers',
-  btEnableLpd: 'bt-enable-lpd',
-  seedRatio: 'seed-ratio',
-  remoteTime: 'remote-time',
-} as const satisfies Partial<Record<keyof EngineSettings, string>>
 
 function getBackoffDelay(attempt: number): number {
   return Math.min(BACKOFF_BASE * 2 ** attempt, BACKOFF_MAX)
@@ -91,7 +62,6 @@ function getBackoffDelay(attempt: number): number {
 
 export class EngineSupervisor {
   private startAbort: AbortController | null = null
-  private sessionRecoveryStore?: EngineSessionRecoveryStore
   private state: EngineState = EngineState.Stopped
   private featureReport: EngineFeatureReport | null = null
   private getEffectiveLimits:
@@ -111,8 +81,6 @@ export class EngineSupervisor {
   // Resets to 0 on every new EngineSupervisor (i.e. every boot) — it is
   // deliberately NOT persisted or derived from anything durable.
   private failureSeq = 0
-  private sqliteFallbackActive = false
-  private sqliteFallbackAttempted = false
   private restartPromise: Promise<void> | null = null
   private preReadyMaintenance: (() => Promise<void>) | null = null
   private startupGuard: EngineStartupGuard | null = null
@@ -120,25 +88,11 @@ export class EngineSupervisor {
   constructor(
     private eventBus: EventBus,
     private settingsManager: SettingsManager,
-    private processManager: Aria2ProcessManager,
-    private configBuilder: Pick<
-      Aria2ConfigBuilder,
-      | 'ensureUserConfig'
-      | 'buildArgs'
-      | 'hasSavedSession'
-      | 'resolveSqliteDbPath'
-      | 'quarantineSqliteDatabase'
-    > & {
-      migrateSession?: (
-        binaryPath: string,
-        settings: EngineSettings,
-        defaultSaveDir: string,
-        signal?: AbortSignal
-      ) => Promise<void>
-    },
-    private trustStore: Aria2TrustStore,
-    private rpcClient: Aria2RpcClient,
-    private adapter: Aria2Adapter,
+    private processManager: EngineProcess,
+    private configBuilder: EngineConfiguration,
+    private trustStore: EngineTrust,
+    private rpcClient: EngineConnection,
+    private adapter: EngineRuntimeControl,
     private proxyBridge: Pick<ProxyBridgeResolver, 'resolveForDownload'>,
     private appliedDownloadProxyPolicy?: Pick<
       AppliedDownloadProxyPolicy,
@@ -184,8 +138,6 @@ export class EngineSupervisor {
     this.stopping = false
     this.binaryPath = binaryPath
     this.restartAttempts = 0
-    this.sqliteFallbackActive = false
-    this.sqliteFallbackAttempted = false
     await this.doStart()
   }
 
@@ -222,156 +174,45 @@ export class EngineSupervisor {
     this.startupGuard = guard
   }
 
-  setSessionRecoveryStore(store: EngineSessionRecoveryStore): void {
-    this.sessionRecoveryStore = store
-  }
-
   /** Register best-effort engine maintenance that runs after RPC connects but before Ready. */
   setPreReadyMaintenance(maintenance: () => Promise<void>): void {
     this.preReadyMaintenance = maintenance
   }
 
   /**
-   * HOT-update the aria2 speed limits via `aria2.changeGlobalOption`. No-op
-   * when the engine is not Ready (cold start picks up limits via `buildArgs`).
+   * Apply engine speed limits. No-op
+   * when the engine is not Ready (cold start picks up limits via `buildStartupArgs`).
    */
   async applySpeedLimits(limits: {
     download: number
     upload: number
   }): Promise<void> {
     if (this.state !== EngineState.Ready) return
-    await this.rpcClient.changeGlobalOption({
-      'max-overall-download-limit': String(limits.download),
-      'max-overall-upload-limit': String(limits.upload),
-    })
-  }
-
-  /**
-   * HOT-update the aria2 DNS resolver via `aria2.changeGlobalOption`.
-   * No-op when the engine is not Ready (cold start picks up the value via
-   * `buildArgs`). Applies to new and waiting downloads only — active
-   * downloads keep the resolver they started with.
-   */
-  async applyAsyncDns(asyncDns: boolean): Promise<void> {
-    if (this.state !== EngineState.Ready) return
-    await this.rpcClient.changeGlobalOption({
-      'async-dns': String(asyncDns),
-    })
+    await this.adapter.setSpeedLimits(limits)
   }
 
   /**
    * HOT-update the default directory inherited by downloads created directly
-   * through aria2 JSON-RPC. Motrix-owned task creation continues to pass its
+   * through engine JSON-RPC. Motrix-owned task creation continues to pass its
    * selected directory per task.
    */
   async applyDefaultSaveDir(dir: string): Promise<void> {
     if (this.state !== EngineState.Ready) return
-    await this.rpcClient.changeGlobalOption({ dir })
+    await this.adapter.setDefaultSaveDirectory(dir)
   }
 
-  /** HOT-update changed runtime engine settings without restarting aria2. */
+  /** HOT-update changed runtime engine settings without restarting engine. */
   async applyEngineSettings(
     previous: EngineSettings,
     next: EngineSettings
   ): Promise<void> {
-    const persistedNext = await this.persistCompatibilityLimits(next)
-    if (this.state !== EngineState.Ready) return
-
-    const compatiblePrevious = this.applyCompatibilityLimits(previous)
-    const compatibleNext = this.applyCompatibilityLimits(persistedNext)
-    const params: Record<string, string> = {}
-    for (const [key, option] of Object.entries(HOT_ENGINE_OPTIONS) as Array<
-      [keyof typeof HOT_ENGINE_OPTIONS, string]
-    >) {
-      if (compatiblePrevious[key] !== compatibleNext[key]) {
-        params[option] = String(compatibleNext[key])
-      }
-    }
-    if (Object.keys(params).length === 0) return
-    await this.rpcClient.changeGlobalOption(params)
-  }
-
-  private applyCompatibilityLimits(settings: EngineSettings): EngineSettings {
-    const report = this.featureReport
-    if (!report || report.version.startsWith('taiji/') || isMotrixFork(report))
-      return settings
-
-    return {
-      ...settings,
-      maxConnectionPerServer: Math.min(
-        settings.maxConnectionPerServer,
-        STANDARD_ARIA2_CONNECTION_LIMIT
-      ),
-      split: Math.min(settings.split, STANDARD_ARIA2_CONNECTION_LIMIT),
-    }
-  }
-
-  private async persistCompatibilityLimits(
-    settings: EngineSettings
-  ): Promise<EngineSettings> {
-    const compatible = this.applyCompatibilityLimits(settings)
-    if (
-      compatible.maxConnectionPerServer === settings.maxConnectionPerServer &&
-      compatible.split === settings.split
-    ) {
-      return settings
-    }
-
-    const persisted: EngineSettings = {
-      ...compatible,
-      // Named profiles re-apply their fixed values during validation. Move
-      // the adjusted settings to custom so 16 remains the durable truth.
-      performanceProfile: 'custom',
-    }
-    try {
-      await this.settingsManager.update({
-        engine: {
-          performanceProfile: persisted.performanceProfile,
-          maxConnectionPerServer: persisted.maxConnectionPerServer,
-          split: persisted.split,
-        },
-      })
-    } catch (error) {
-      // A settings write failure must not revive the original startup crash.
-      // The in-memory compatibility values still let this engine run safely.
-      log.warn(
-        { err: error },
-        'failed to persist aria2 compatibility limits; using runtime limits'
-      )
-      return compatible
-    }
-    return persisted
-  }
-
-  private async resolveRuntimeEngineSettings(
-    settings: EngineSettings
-  ): Promise<EngineSettings> {
-    if (settings.performanceProfile !== 'auto') return settings
-
-    const downloadPath = this.settingsManager.getApp().defaultSaveDir
-    try {
-      const probe = await probePrecise(downloadPath)
-      const tuning = recommend(probe, null)
-      return {
-        ...settings,
-        diskCache: tuning.diskCache,
-        split: tuning.split,
-        minSplitSize: tuning.minSplitSize,
-      }
-    } catch (error) {
-      log.warn(
-        { err: error, downloadPath },
-        'automatic performance probe failed; using profile defaults'
-      )
-      return settings
-    }
+    if (this.state === EngineState.Ready)
+      await this.adapter.applySettings(next, previous)
   }
 
   /**
-   * HOT-update the aria2 proxy via `aria2.changeGlobalOption`. No-op when
-   * the engine is not Ready (cold start picks up proxy via `buildArgs`).
-   * Pass `null` to clear the proxy (sends empty strings, which aria2
-   * treats as "no proxy" at runtime).
+   * Apply a resolved download proxy while Ready. Startup applies the latest
+   * route before authorizing recovered tasks. Null restores direct access.
    */
   async applyProxyChange(
     opts: { allProxy: string; noProxy: string } | null
@@ -382,32 +223,9 @@ export class EngineSupervisor {
   }
 
   private async writeGlobalProxyOptions(
-    opts: Aria2ProxyOptions | null
+    opts: DownloadProxyOptions | null
   ): Promise<void> {
-    const proxyCredentials = opts
-      ? extractAria2ProxyCredentials(opts.allProxy)
-      : { username: '', password: '' }
-    const proxyEndpoint = opts ? stripAria2ProxyCredentials(opts.allProxy) : ''
-    if (!proxyCredentials || proxyEndpoint === null) {
-      throw new TypeError('Unsupported aria2 proxy credentials')
-    }
-    const params = {
-      'all-proxy': proxyEndpoint,
-      'http-proxy': '',
-      'http-proxy-user': '',
-      'http-proxy-passwd': '',
-      'https-proxy': '',
-      'https-proxy-user': '',
-      'https-proxy-passwd': '',
-      'ftp-proxy': '',
-      'ftp-proxy-user': '',
-      'ftp-proxy-passwd': '',
-      'all-proxy-user': proxyCredentials.username,
-      'all-proxy-passwd': proxyCredentials.password,
-      'no-proxy': opts?.noProxy ?? '',
-      'proxy-method': 'get',
-    }
-    await this.rpcClient.changeGlobalOption(params)
+    await this.adapter.setDownloadProxy(opts)
   }
 
   /**
@@ -427,20 +245,7 @@ export class EngineSupervisor {
     this.prepareForShutdown()
 
     if (this.processManager.isRunning()) {
-      // SIGTERM aria2 directly. Its signal handler sets
-      // globalHaltRequested, afterEachIteration() calls requestHalt(), the
-      // run loop exits, onEndOfRun() flushes piece progress to the SQLite
-      // DB (WAL fsync) and getResult() writes the final session — both the
-      // text backend (--save-session=) and the DB backend
-      // (--enable-sqlite3-persistence=true) when configured.
-      //
-      // We do NOT call aria2.shutdown (adds 3s scheduling delay; SIGTERM
-      // is equivalent and immediate). We do NOT preemptively call
-      // saveSession either — the signal handler covers both backends and
-      // calling it from here would race the run-loop teardown.
-      //
-      // Timeout is 30s, up from 5s, to cover SQLite WAL commit + fsync
-      // for the active task table on large queues.
+      // The process owns checkpoint flushing and its graceful shutdown budget.
       await this.processManager.gracefulStop(30_000)
     }
     this.rpcClient.disconnect()
@@ -468,48 +273,24 @@ export class EngineSupervisor {
       if (cancelled()) return
 
       this.featureReport = featureReport
-      // The adapter's durable-remove trust gate reads its own featureReport,
-      // and nothing calls adapter.connect() in production — inject the report
-      // we just probed so the gate reflects the real engine version.
+      // Validate the probed engine before preparing or mutating its state.
       this.adapter.setFeatureReport(featureReport)
-      if (
-        !featureReport.version.startsWith('taiji/') &&
-        !isMotrixFork(featureReport)
-      ) {
-        const payload: EngineCompatibilityWarningPayload = {
-          version: featureReport.version,
-          connectionLimit: STANDARD_ARIA2_CONNECTION_LIMIT,
-        }
-        this.eventBus.emit(Events.EngineCompatibilityWarning, payload)
-      }
-
       // Step 2: Ensure config and build args
       phase = 'config'
-      await this.configBuilder.ensureUserConfig()
+      await this.configBuilder.prepare()
       if (cancelled()) return
       const processEnv = await this.trustStore.prepareEnvironment()
       if (cancelled()) return
 
-      if (
-        featureReport.version.startsWith('taiji/') &&
-        !this.settingsManager.getEngine().rpcSecret.trim()
-      ) {
+      if (!this.settingsManager.getEngine().rpcSecret.trim()) {
         await this.settingsManager.update({
           engine: { rpcSecret: generateRpcSecret() },
         })
       }
-      const configuredEngineSettings = this.settingsManager.getEngine()
-      const resolvedEngineSettings = this.applyCompatibilityLimits(
-        await this.resolveRuntimeEngineSettings(
-          await this.persistCompatibilityLimits(configuredEngineSettings)
-        )
-      )
-      engineSettings = this.sqliteFallbackActive
-        ? { ...resolvedEngineSettings, sqlite3Persistence: false }
-        : resolvedEngineSettings
-      // Aria2RpcClient is long-lived and caches its credential. Refresh it on
+      engineSettings = this.settingsManager.getEngine()
+      // Engine connection is long-lived and caches its credential. Refresh it on
       // every start so an explicit settings rotation authenticates the first
-      // RPC sent to the newly spawned aria2 process.
+      // RPC sent to the newly spawned engine process.
       this.rpcClient.setSecret(engineSettings.rpcSecret)
       const configuredProxy = structuredClone(this.settingsManager.getProxy())
       const resolvedProxy =
@@ -523,27 +304,18 @@ export class EngineSupervisor {
         download: 0,
         upload: 0,
       }
-      const sqliteActive =
-        !featureReport.version.startsWith('taiji/') &&
-        featureReport.hasSqlitePersistence &&
-        engineSettings.sqlite3Persistence === true
-      const loadTextSession =
-        !sqliteActive && (await this.configBuilder.hasSavedSession())
       if (cancelled()) return
       log.debug(
         {
           rpcPort: engineSettings.rpcPort,
           rpcSecretLength: engineSettings.rpcSecret.length,
         },
-        'preparing aria2 RPC configuration'
+        'preparing engine RPC configuration'
       )
-      const args = this.configBuilder.buildArgs(
+      const args = this.configBuilder.buildStartupArgs(
         engineSettings,
-        featureReport.hasSqlitePersistence,
-        resolvedProxy,
         effective,
-        defaultSaveDir,
-        loadTextSession
+        defaultSaveDir
       )
       this.lastStartArgs = args
 
@@ -574,18 +346,6 @@ export class EngineSupervisor {
       )
       if (cancelled()) return
 
-      // Repair known fork session identities only after the RPC ownership
-      // check, and before the completed-task guard reads persisted run intent.
-      if (sqliteActive) {
-        const recovery = await recoverAria2SessionIdentity(
-          this.configBuilder.resolveSqliteDbPath(engineSettings),
-          () => !cancelled() && !this.processManager.isRunning(),
-          this.sessionRecoveryStore
-        )
-        if (recovery)
-          log.warn(recovery, 'recovered aria2 metadata task identities')
-      }
-
       // Step 4: Spawn process (abort if stop() was called during earlier awaits)
       if (cancelled()) return
       phase = 'spawn'
@@ -607,18 +367,9 @@ export class EngineSupervisor {
         await this.processManager.gracefulStop()
         return
       }
-      if (featureReport.version.startsWith('taiji/')) {
-        await this.adapter.connect()
-        await this.rpcClient.changeGlobalOption({
-          ...Object.fromEntries(
-            Object.entries(HOT_ENGINE_OPTIONS).map(([key, option]) => [
-              option,
-              String(engineSettings?.[key as keyof EngineSettings]),
-            ])
-          ),
-        })
-        await this.writeGlobalProxyOptions(resolvedProxy)
-      }
+      await this.adapter.connect()
+      await this.adapter.applySettings(engineSettings)
+      await this.writeGlobalProxyOptions(resolvedProxy)
       // Unlike best-effort maintenance, failure here must stop the paused
       // process. Otherwise a known completed GID can recreate deleted files.
       await guardedStartup?.reconcile(() => cancelled())
@@ -632,7 +383,7 @@ export class EngineSupervisor {
           await this.preReadyMaintenance()
         } catch (error) {
           // Startup reconciliation also runs after Ready. Maintenance narrows
-          // the visibility/resume window but must not make aria2 unavailable.
+          // the visibility/resume window but must not make engine unavailable.
           log.warn({ err: error }, 'pre-ready engine maintenance failed')
         }
         if (cancelled()) {
@@ -641,11 +392,6 @@ export class EngineSupervisor {
           return
         }
       }
-      // Raw JSON-RPC clients commonly omit per-task options. Seed the global
-      // template so their new HTTP/FTP tasks retain aria2's historical Motrix
-      // resume behavior. Motrix-owned recovery still overrides `continue`
-      // explicitly per task where safety requires it.
-      await this.rpcClient.changeGlobalOption({ continue: 'true' })
       // Inspect only a sanitized compatibility decision. Raw global options
       // can contain passwords, custom headers and cookie paths and must never
       // be cached on the adapter or published to task composition.
@@ -659,7 +405,7 @@ export class EngineSupervisor {
       } catch (error) {
         log.debug(
           { err: error },
-          'aria2 HTTP metadata request profile inspection failed closed'
+          'engine HTTP metadata request profile inspection failed closed'
         )
       }
 
@@ -678,8 +424,8 @@ export class EngineSupervisor {
           await this.appliedDownloadProxyPolicy.publishStartupRoute(
             async () => {
               // A proxy update can be persisted after buildArgs() captured its
-              // startup route but before aria2 connects. Re-resolve under the
-              // policy writer and repair aria2 before publishing Ready.
+              // startup route but before engine connects. Re-resolve under the
+              // policy writer and repair engine before publishing Ready.
               const latestConfiguredProxy = structuredClone(
                 this.settingsManager.getProxy()
               )
@@ -716,7 +462,7 @@ export class EngineSupervisor {
 
       // A process can be alive even though RPC connection failed. Always
       // tear down a process spawned by this supervisor before entering Failed;
-      // otherwise stop() used to skip it and leave aria2 holding the port.
+      // otherwise stop() used to skip it and leave engine holding the port.
       if (this.processManager.isRunning()) {
         this.suppressExitHandling = true
         try {
@@ -728,18 +474,6 @@ export class EngineSupervisor {
         }
       }
       this.rpcClient.disconnect()
-
-      if (
-        engineSettings &&
-        (await this.tryActivateSqliteFallback(
-          engineSettings,
-          `${this.lastError}\n${stderr}`
-        ))
-      ) {
-        this.setState(EngineState.Restarting)
-        await this.doStart()
-        return
-      }
 
       const reason =
         phase === 'probe'
@@ -755,62 +489,13 @@ export class EngineSupervisor {
     }
   }
 
-  private async tryActivateSqliteFallback(
-    settings: EngineSettings,
-    diagnostic: string
-  ): Promise<boolean> {
-    if (
-      this.featureReport?.version.startsWith('taiji/') ||
-      this.sqliteFallbackAttempted ||
-      this.sqliteFallbackActive ||
-      !this.featureReport?.hasSqlitePersistence ||
-      !settings.sqlite3Persistence ||
-      !isSqliteCorruptionDiagnostic(diagnostic)
-    ) {
-      return false
-    }
-
-    this.sqliteFallbackAttempted = true
-    let quarantine: Awaited<
-      ReturnType<Aria2ConfigBuilder['quarantineSqliteDatabase']>
-    > | null = null
-    try {
-      quarantine = await this.configBuilder.quarantineSqliteDatabase(settings)
-    } catch (error) {
-      // Disabling the backend still gives the text session a chance to start.
-      // Keep the original database untouched if the recoverable move failed.
-      log.warn({ err: error }, 'failed to quarantine corrupt aria2 database')
-    }
-
-    this.sqliteFallbackActive = true
-    try {
-      await this.settingsManager.update({
-        engine: { sqlite3Persistence: false },
-      })
-    } catch (error) {
-      log.warn(
-        { err: error },
-        'failed to persist aria2 SQLite fallback setting; using runtime fallback'
-      )
-    }
-    log.warn(
-      {
-        databasePath: quarantine?.databasePath,
-        quarantinePaths: quarantine?.moved,
-        textSessionAvailable: await this.configBuilder.hasSavedSession(),
-      },
-      'corrupt aria2 SQLite persistence quarantined; retrying with text session'
-    )
-    return true
-  }
-
   private handleUnexpectedExit(code: number | null): void {
     this.stopHealthCheck()
     this.recordFailure(
       EngineFailureReason.UnexpectedExit,
       code === null
-        ? 'aria2 exited unexpectedly'
-        : `aria2 exited unexpectedly with code ${code}`
+        ? 'engine exited unexpectedly'
+        : `engine exited unexpectedly with code ${code}`
     )
     this.restartWithBackoff()
   }
@@ -820,7 +505,7 @@ export class EngineSupervisor {
       if (!this.failure) {
         this.recordFailure(
           EngineFailureReason.Unknown,
-          'aria2 restart attempts were exhausted'
+          'engine restart attempts were exhausted'
         )
       }
       this.setState(EngineState.Failed)
@@ -851,7 +536,7 @@ export class EngineSupervisor {
       if (this.state !== EngineState.Ready) return
 
       try {
-        await this.rpcClient.getVersion()
+        await this.rpcClient.healthCheck()
         this.consecutiveFailures = 0
       } catch {
         this.consecutiveFailures++
@@ -859,7 +544,7 @@ export class EngineSupervisor {
           this.stopHealthCheck()
           this.recordFailure(
             EngineFailureReason.HealthCheckFailed,
-            'aria2 stopped responding to health checks'
+            'engine stopped responding to health checks'
           )
           this.restartWithBackoff()
         }
@@ -1038,7 +723,7 @@ export class EngineSupervisor {
       if (!expected || request.expectedPid === undefined) {
         throw new AppError(
           ErrorCode.EngineProcessOwnershipUnverified,
-          'A verified aria2 process is required for force termination'
+          'A verified engine process is required for force termination'
         )
       }
       await this.processManager.forceTerminateVerified(

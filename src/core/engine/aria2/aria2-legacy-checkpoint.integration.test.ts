@@ -248,7 +248,7 @@ describe.skipIf(!binaryPath)(
         gid,
         pause: true,
         resumePolicy: 'checkpoint',
-        extraEngineOptions: {
+        wireOptions: {
           'piece-length': String(input.expected.pieceBytes),
         },
       })

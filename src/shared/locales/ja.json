@@ -205,7 +205,7 @@
             "unidentified": "特定できません。停止しません",
             "current_app": "PID {{pid}}（{{name}}）、Motrix が管理",
             "verified_orphan": "PID {{pid}}（{{name}}）、Motrix の残存プロセスであることを確認済み。安全に停止できます",
-            "external_aria2": "PID {{pid}}（{{name}}）、Motrix のプロセスか確認できません。停止しません",
+            "external_engine": "PID {{pid}}（{{name}}）、Motrix のプロセスか確認できません。停止しません",
             "other": "PID {{pid}}（{{name}}）、Motrix のプロセスか確認できません。停止しません",
             "unknown": "PID {{pid}}、特定できません。停止しません"
           },

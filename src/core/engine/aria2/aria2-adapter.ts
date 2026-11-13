@@ -11,7 +11,6 @@ import {
 } from '@core/proxy/aria2-proxy-routing'
 import { admitDownloadSources } from '@core/task/source-admission'
 import { AppError, ErrorCode } from '@shared/errors'
-import { formatFileSelection } from '@shared/lib/file-selection-ranges'
 import type {
   LegacyCheckpointImport,
   LegacyCheckpointReconcile,
@@ -33,10 +32,10 @@ import type { GlobalStats } from '@shared/types/stats'
 import type { DownloadTask, TaskFile } from '@shared/types/task'
 import type { TuningContext } from '@shared/types/tuning'
 import { probeQuick } from '../../probe/disk-probe'
+import type { RpcDownloadParams, RpcTorrentParams } from '../aria2/task-options'
 import type {
   AddTorrentParams,
   BtTrackerPolicy,
-  CreateDownloadParams,
   DirectResourceMetadataProfile,
   DownloadCookie,
   EngineAdapter,
@@ -54,6 +53,12 @@ import type { Aria2RpcClient } from './aria2-rpc-client'
 import { recommend } from './aria2-tuning'
 import { isConnectionLimitRangeError, isNotFoundError } from './error-utils'
 import { prepareAria2TaskCookies } from './task-cookies'
+import {
+  type Aria2TaskOptions,
+  decodeTaskOptions,
+  encodeFileSelection,
+  parseTaskOptions,
+} from './task-options'
 
 /**
  * Per-multicall cap for removeDownloadResults. One unbounded batch must
@@ -147,6 +152,34 @@ import {
 } from './translate'
 
 export class Aria2Adapter implements EngineAdapter {
+  async fetchMagnetMetadata(_params: {
+    uri: string
+    saveDir: string
+    engineTaskId?: string
+  }): Promise<string> {
+    throw new AppError(
+      ErrorCode.EngineFeatureUnavailable,
+      'Native magnet selection is unavailable'
+    )
+  }
+  async getTorrentMetadata(
+    _engineTaskId: string
+  ): Promise<{ data: string; awaitingSelection: boolean }> {
+    throw new AppError(
+      ErrorCode.EngineFeatureUnavailable,
+      'Native magnet selection is unavailable'
+    )
+  }
+  async confirmTorrentSelection(
+    _engineTaskId: string,
+    _selection: import('@shared/schemas/torrent-selection').TorrentSelection
+  ): Promise<void> {
+    throw new AppError(
+      ErrorCode.EngineFeatureUnavailable,
+      'Native magnet selection is unavailable'
+    )
+  }
+
   private btTrackerPolicy?: BtTrackerPolicy
   configureBtTrackerPolicy(policy: BtTrackerPolicy): void {
     this.btTrackerPolicy = policy
@@ -434,7 +467,7 @@ export class Aria2Adapter implements EngineAdapter {
     }
   }
 
-  async createDownload(params: CreateDownloadParams): Promise<string> {
+  async createDownload(params: RpcDownloadParams): Promise<string> {
     if (params.cookies !== undefined) {
       const prepared = prepareAria2TaskCookies(params.cookies)
       // Only admission may choose a reduced credential set. Later corruption or
@@ -462,7 +495,7 @@ export class Aria2Adapter implements EngineAdapter {
         (source) => source.requestUrl
       ),
     }
-    const extraGid = params.extraEngineOptions?.gid
+    const extraGid = params.wireOptions?.gid
     if (extraGid !== undefined && typeof extraGid !== 'string') {
       throw new TypeError(
         'aria2 addUri gid must contain exactly 16 hexadecimal characters'
@@ -554,8 +587,15 @@ export class Aria2Adapter implements EngineAdapter {
       options['http-accept-gzip'] = 'true'
       options['no-want-digest-header'] = 'false'
     }
-    if (params.extraEngineOptions) {
-      for (const [k, v] of Object.entries(params.extraEngineOptions)) {
+    if (params.selectedFiles?.length)
+      options['select-file'] = encodeFileSelection(params.selectedFiles)
+    if (params.seedRatio !== undefined)
+      options['seed-ratio'] = String(params.seedRatio)
+    if (params.trackers) options['bt-tracker'] = params.trackers.join(',')
+    if (params.pieceLength !== undefined)
+      options['piece-length'] = String(params.pieceLength)
+    if (params.wireOptions) {
+      for (const [k, v] of Object.entries(params.wireOptions)) {
         if (RESERVED_TASK_PROXY_OPTIONS.has(k.toLowerCase())) {
           throw new TypeError(`Reserved aria2 proxy option: ${k}`)
         }
@@ -696,17 +736,31 @@ export class Aria2Adapter implements EngineAdapter {
     engineTaskId: string
   ): Promise<EngineTaskOptions | null> {
     try {
-      // aria2 returns options as a struct of strings, but `header`
-      // may be an array. Cast through unknown — runtime shape is
-      // wider than the rpc client's Record<string, string> hint.
-      const raw = (await this.rpc.getOption(
-        engineTaskId
-      )) as unknown as EngineTaskOptions
-      return raw
+      return decodeTaskOptions(await this.rpc.getOption(engineTaskId))
     } catch (err) {
       if (isNotFoundError(err)) return null
       throw err
     }
+  }
+
+  protected async getRawTaskOptions(
+    engineTaskId: string
+  ): Promise<Aria2TaskOptions | null> {
+    try {
+      return parseTaskOptions(await this.rpc.getOption(engineTaskId))
+    } catch (error) {
+      if (isNotFoundError(error)) return null
+      throw error
+    }
+  }
+
+  async setSelectedFiles(
+    engineTaskId: string,
+    indices: readonly number[]
+  ): Promise<void> {
+    await this.rpc.changeOption(engineTaskId, {
+      'select-file': encodeFileSelection(indices),
+    })
   }
 
   async pauseAll(): Promise<void> {
@@ -826,7 +880,7 @@ export class Aria2Adapter implements EngineAdapter {
       return false
     const [files, options, trackers] = await Promise.all([
       this.getTaskFiles(input.engineTaskId),
-      this.getEngineTaskOptions(input.engineTaskId),
+      this.getRawTaskOptions(input.engineTaskId),
       this.getTaskBtTracker(input.engineTaskId),
     ])
     const selected = new Set(input.selectedFiles)
@@ -881,11 +935,11 @@ export class Aria2Adapter implements EngineAdapter {
     )
   }
 
-  async addTorrent(params: AddTorrentParams): Promise<string> {
+  async addTorrent(params: RpcTorrentParams): Promise<string> {
     const legacyMetadata = params.legacyCheckpointActivation
       ? Buffer.from(params.metadata)
       : null
-    const extraGid = params.extraEngineOptions?.gid
+    const extraGid = params.wireOptions?.gid
     if (extraGid !== undefined && typeof extraGid !== 'string') {
       throw new TypeError(
         'aria2 addTorrent gid must contain exactly 16 hexadecimal characters'
@@ -905,7 +959,7 @@ export class Aria2Adapter implements EngineAdapter {
       }
     }
     if (params.selectedFiles?.length) {
-      opts['select-file'] = formatFileSelection(params.selectedFiles, 1)
+      opts['select-file'] = encodeFileSelection(params.selectedFiles)
     }
     if (params.outputRoot !== undefined && !path.isAbsolute(params.outputRoot))
       throw new TypeError('Torrent output root must be absolute')
@@ -955,8 +1009,9 @@ export class Aria2Adapter implements EngineAdapter {
     if (params.ulLimit !== undefined) {
       opts['max-upload-limit'] = String(params.ulLimit)
     }
-    if (params.extraEngineOptions) {
-      for (const [k, v] of Object.entries(params.extraEngineOptions)) {
+    if (params.trackers) opts['bt-tracker'] = params.trackers.join(',')
+    if (params.wireOptions) {
+      for (const [k, v] of Object.entries(params.wireOptions)) {
         if (RESERVED_TASK_PROXY_OPTIONS.has(k.toLowerCase())) {
           throw new TypeError(`Reserved aria2 proxy option: ${k}`)
         }
@@ -982,16 +1037,14 @@ export class Aria2Adapter implements EngineAdapter {
         throw new TypeError('Invalid legacy torrent activation')
       const allowed = new Set(['bt-tracker'])
       if (
-        Object.keys(params.extraEngineOptions ?? {}).some(
-          (key) => !allowed.has(key)
-        )
+        Object.keys(params.wireOptions ?? {}).some((key) => !allowed.has(key))
       )
         throw new TypeError('Unexpected legacy torrent options')
       // Pin after extras so neither ambient settings nor global tracker policy can override consent.
       Object.assign(opts, {
         dir: params.saveDir,
         pause: 'true',
-        'select-file': formatFileSelection(params.selectedFiles, 1),
+        'select-file': encodeFileSelection(params.selectedFiles),
         'allow-overwrite': 'false',
         'auto-file-renaming': 'false',
         'remove-control-file': 'false',

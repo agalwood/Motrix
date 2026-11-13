@@ -8,7 +8,9 @@ import { NotificationCenter } from '@core/notifications/notification-center'
 import { FfmpegCapabilityHost } from '@core/plugin/capabilities/ffmpeg'
 import { MotrixDatabase } from '@core/session/motrix-database'
 import { ErrorCode } from '@shared/errors'
+import { publicSettings } from '@shared/lib/public-settings'
 import { Queries } from '@shared/protocol/queries'
+import { DEFAULT_ENGINE_SETTINGS } from '@shared/schemas/engine-settings'
 import { generalSettingsSnapshot } from '@test-utils/general-settings'
 import { makeDownloadTask } from '@test-utils/task'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -198,7 +200,10 @@ describe('buildServerQueryHandlers — allowed save directories', () => {
   })
 
   it('returns the same committed system locale for settings and onboarding', async () => {
-    const settings = { app: { language: 'system' } }
+    const settings = {
+      app: { language: 'system' },
+      engine: DEFAULT_ENGINE_SETTINGS,
+    }
     const handlers = buildServerQueryHandlers(
       makeCtx({
         settingsManager: { get: () => settings, getApp: () => settings.app },
@@ -206,7 +211,7 @@ describe('buildServerQueryHandlers — allowed save directories', () => {
       }) as unknown as ServerQueryContext
     )
     await expect(handlers[Queries.GetSettings]?.()).resolves.toEqual({
-      ...settings,
+      ...publicSettings(settings as never),
       resolvedLanguage: 'fr',
     })
     await expect(handlers[Queries.GetDisclaimerState]?.()).resolves.toEqual({

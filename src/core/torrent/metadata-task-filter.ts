@@ -1,12 +1,15 @@
-import type { Aria2TaskStatus } from '@core/engine/aria2/types'
+import type { DownloadTask } from '@shared/types/task'
 
+type MetadataObservation = Pick<
+  DownloadTask,
+  'engineTaskId' | 'status' | 'type'
+>
 export interface PendingMagnetMetadataObserver {
-  observe(raw: Aria2TaskStatus): boolean
+  observe(task: MetadataObservation): boolean
 }
-
 export function shouldSkipForPendingMagnetMetadata(
-  raw: Aria2TaskStatus,
+  task: MetadataObservation,
   tracker: PendingMagnetMetadataObserver | null
 ): boolean {
-  return tracker?.observe(raw) === true
+  return tracker?.observe(task) === true
 }

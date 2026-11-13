@@ -1,5 +1,11 @@
 import { Events } from '@shared/protocol/events'
-import { type DownloadTask, TaskKind, TaskStatus } from '@shared/types/task'
+import {
+  type DownloadTask,
+  TaskInstancePhase,
+  TaskKind,
+  TaskStatus,
+  TransitionPhase,
+} from '@shared/types/task'
 import { makeDownloadTask } from '@test-utils/task'
 import { directTaskUpdatePublication } from '@test-utils/task-update'
 import { describe, expect, it, vi } from 'vitest'
@@ -57,6 +63,58 @@ function makeDeps(
 }
 
 describe('resumeTask', () => {
+  it('keeps metadata ready when Resume is requested before file selection', async () => {
+    const deps = makeDeps({
+      task: {
+        id: 't1',
+        engineTaskId: 'gid-1',
+        status: TaskStatus.MetadataReady,
+      },
+    })
+    await expect(resumeTask('t1', deps)).rejects.toThrow('Select torrent files')
+    expect(deps.adapter.resumeTask).not.toHaveBeenCalled()
+    expect(deps.taskManager.set).not.toHaveBeenCalled()
+  })
+
+  it('resumes a paused task after replaying an already accepted selection', async () => {
+    const deps = makeDeps()
+    const task = deps.taskManager.getById('t1')!
+    task.instances = [
+      {
+        instanceId: 'bt:t1',
+        motrixId: task.id,
+        gid: task.engineTaskId,
+        phase: TaskInstancePhase.BtDownload,
+        status: TaskStatus.Paused,
+        progress: 0,
+        totalBytes: 0,
+        downloadedBytes: 0,
+        uploadedBytes: 0,
+        diskPath: '/downloads/file',
+        transitionPhase: TransitionPhase.Idle,
+        uris: [],
+        uriHash: null,
+        createdAt: 0,
+        updatedAt: 0,
+        payload: {
+          pendingTorrentSelection: {
+            saveDir: '/downloads',
+            selectedFiles: [0],
+            outputFilePaths: [],
+          },
+        },
+      },
+    ]
+    deps.adapter.confirmTorrentSelection = vi.fn().mockResolvedValue(undefined)
+    deps.adapter.getTaskStatus = vi.fn().mockResolvedValue(task)
+    await resumeTask('t1', deps)
+    expect(deps.adapter.confirmTorrentSelection).toHaveBeenCalledOnce()
+    expect(deps.adapter.resumeTask).toHaveBeenCalledWith('gid-1')
+    expect(deps.persistTask).toHaveBeenCalledWith(
+      expect.objectContaining({ status: TaskStatus.Downloading })
+    )
+  })
+
   it('checks host authorization before resuming engine work or publishing state', async () => {
     const deps = makeDeps()
     const onResumeRequested = vi.fn()

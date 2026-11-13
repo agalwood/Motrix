@@ -590,7 +590,7 @@
           },
           "process": {
             "current_app": "PID {{pid}} ({{name}}), beheerd door Motrix",
-            "external_aria2": "PID {{pid}} ({{name}}), eigendom niet bevestigd; wordt niet gestopt",
+            "external_engine": "PID {{pid}} ({{name}}), eigendom niet bevestigd; wordt niet gestopt",
             "none": "Geen poortconflict",
             "other": "PID {{pid}} ({{name}}), eigendom niet bevestigd; wordt niet gestopt",
             "unidentified": "Niet geïdentificeerd; wordt niet gestopt",

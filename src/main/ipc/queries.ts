@@ -2,7 +2,6 @@ import path from 'node:path'
 import type { TaskActivityService } from '@core/activity'
 import type { EngineAdapter } from '@core/engine/engine-adapter'
 import type { EngineSupervisor } from '@core/engine/engine-supervisor'
-import { getTuningRecommendation } from '@core/engine/get-tuning-recommendation'
 import { getFfmpegInstallStatus } from '@core/ffmpeg/verified-install'
 import { pathExists } from '@core/fs/path-exists'
 import type { GeoIPManager } from '@core/geoip/geo-ip-manager'
@@ -40,6 +39,7 @@ import type { TaskManager } from '@core/task/task-manager'
 import type { TrackerManager } from '@core/tracker'
 import type { NatManager } from '@motrix/nat'
 import type { SupportedLocale } from '@shared/constants/locales'
+import { publicSettings } from '@shared/lib/public-settings'
 import {
   assertTaskInspectorActivityArguments,
   makeProtocolFailure,
@@ -188,7 +188,7 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
     }),
     [Queries.GetSettings]: async () => {
       return {
-        ...settingsManager.get(),
+        ...publicSettings(settingsManager.get()),
         resolvedLanguage: ctx.getResolvedLanguage(),
       }
     },
@@ -258,8 +258,6 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
 
     [Queries.GetNatDiagnostic]: async () =>
       natManager.getStatus().lastDiagnostic,
-
-    [Queries.GetTuningRecommendation]: getTuningRecommendation,
 
     [Queries.GetTaskTrackerPlan]: async (raw: unknown) => {
       const { taskId, engineGid } = taskTrackerRequestSchema.parse(raw)

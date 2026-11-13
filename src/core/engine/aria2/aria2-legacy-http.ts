@@ -6,7 +6,6 @@ import {
 } from '@core/proxy/aria2-proxy-routing'
 import { admitDownloadSources } from '@core/task/source-admission'
 import { AppError, ErrorCode } from '@shared/errors'
-import type { EngineTaskOptions } from '@shared/types/engine-task-options'
 import type {
   CreateDownloadParams,
   LegacyHttpBindingProof,
@@ -14,6 +13,7 @@ import type {
 import type { Aria2LegacyCheckpoint } from './aria2-legacy-checkpoint'
 import { legacyWirePath } from './aria2-legacy-path'
 import type { Aria2RpcClient } from './aria2-rpc-client'
+import type { Aria2TaskOptions as EngineTaskOptions } from './task-options'
 
 const fixedOptions = {
   'always-resume': 'true',

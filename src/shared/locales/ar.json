@@ -594,7 +594,7 @@
           },
           "process": {
             "current_app": "PID {{pid}} ({{name}})، يديرها Motrix",
-            "external_aria2": "PID {{pid}} ({{name}})، لم يتم التحقق من ملكيتها؛ لن تُوقَف",
+            "external_engine": "PID {{pid}} ({{name}})، لم يتم التحقق من ملكيتها؛ لن تُوقَف",
             "none": "لا يوجد تعارض في المنفذ",
             "other": "PID {{pid}} ({{name}})، لم يتم التحقق من ملكيتها؛ لن تُوقَف",
             "unidentified": "غير محددة، ولن تُوقَف",

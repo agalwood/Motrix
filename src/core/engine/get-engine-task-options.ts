@@ -1,4 +1,5 @@
 import type { EngineAdapter } from '@core/engine/engine-adapter'
+import { engineTaskOptionsSchema } from '@shared/schemas/engine-task-options'
 import type { EngineTaskOptions } from '@shared/types/engine-task-options'
 
 interface Deps {
@@ -9,6 +10,7 @@ export function createGetEngineTaskOptionsHandler(deps: Deps) {
   return async function getEngineTaskOptions(
     engineTaskId: string
   ): Promise<EngineTaskOptions | null> {
-    return deps.engine.getEngineTaskOptions(engineTaskId)
+    const options = await deps.engine.getEngineTaskOptions(engineTaskId)
+    return options === null ? null : engineTaskOptionsSchema.parse(options)
   }
 }

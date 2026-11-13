@@ -55,7 +55,7 @@ describe('Aria2ProcessManager ownership safety', () => {
     const manager = new Aria2ProcessManager({ inspector })
 
     await expect(manager.inspectPort(16800, EXPECTED)).resolves.toMatchObject({
-      ownership: EngineProcessOwnership.ExternalAria2,
+      ownership: EngineProcessOwnership.ExternalEngine,
       safeToTerminate: false,
     })
   })
@@ -73,7 +73,7 @@ describe('Aria2ProcessManager ownership safety', () => {
     })
 
     await expect(manager.inspectPort(16800, EXPECTED)).resolves.toMatchObject({
-      ownership: EngineProcessOwnership.ExternalAria2,
+      ownership: EngineProcessOwnership.ExternalEngine,
       safeToTerminate: false,
     })
   })
@@ -91,7 +91,7 @@ describe('Aria2ProcessManager ownership safety', () => {
     await expect(
       withoutRecord.inspectPort(16800, expected)
     ).resolves.toMatchObject({
-      ownership: EngineProcessOwnership.ExternalAria2,
+      ownership: EngineProcessOwnership.ExternalEngine,
       safeToTerminate: false,
     })
 
@@ -134,7 +134,7 @@ describe('Aria2ProcessManager ownership safety', () => {
       await expect(
         wrongMode.inspectPort(16800, expected)
       ).resolves.toMatchObject({
-        ownership: EngineProcessOwnership.ExternalAria2,
+        ownership: EngineProcessOwnership.ExternalEngine,
         safeToTerminate: false,
       })
     } finally {

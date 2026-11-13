@@ -1,6 +1,5 @@
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
-import type { Aria2ProxyOptions } from '@core/proxy/serializers'
 import { MAX_TORRENT_RPC_BODY_LIMIT_BYTES } from '@shared/lib/torrent-meta'
 import { torrentRpcBodyLimitSchema } from '@shared/schemas/torrent-request-limits'
 import type { EngineSettings } from '@shared/types/settings'
@@ -73,33 +72,12 @@ export class TaijiConfigBuilder {
       throw new TypeError('taiji options must not contain CR, LF or NUL')
     return args
   }
-  async ensureUserConfig(): Promise<string> {
-    await this.prepare()
-    return this.databasePath
-  }
-  async hasSavedSession(): Promise<boolean> {
-    return false
-  }
-  resolveSqliteDbPath(): string {
-    return this.databasePath
-  }
-  async quarantineSqliteDatabase(): Promise<{
-    databasePath: string
-    quarantineBasePath: string
-    moved: string[]
-  }> {
-    throw new Error(
-      'taiji session errors require recovery; persistence cannot be disabled'
-    )
-  }
-  buildArgs(
+  buildStartupArgs(
     settings: EngineSettings,
-    _hasSqlite: boolean,
-    _proxy: Aria2ProxyOptions | null | undefined,
-    effective: { download: number; upload: number },
-    defaultSaveDir: string
+    limits: { download: number; upload: number },
+    directory: string
   ): string[] {
-    return this.buildNativeArgs(settings, effective, defaultSaveDir)
+    return this.buildNativeArgs(settings, limits, directory)
   }
   async migrateSession(
     binaryPath: string,

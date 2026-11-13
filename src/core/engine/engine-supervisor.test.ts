@@ -18,12 +18,14 @@ import { NotificationKinds } from '@shared/types/notification'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EventBus } from '../events/event-bus'
 import type { SettingsManager } from '../settings/settings-manager'
-import type { Aria2Adapter } from './aria2/aria2-adapter'
-import type { Aria2ConfigBuilder } from './aria2/aria2-config-builder'
 import type { Aria2ProcessManager } from './aria2/aria2-process-manager'
 import type { Aria2RpcClient } from './aria2/aria2-rpc-client'
 import type { Aria2TrustStore } from './aria2/aria2-trust-store'
 import { DIRECT_RESOURCE_METADATA_PROFILE } from './engine-adapter'
+import type {
+  EngineConfiguration,
+  EngineRuntimeControl,
+} from './engine-runtime'
 import { EngineSupervisor } from './engine-supervisor'
 import { checkPort } from './port-check'
 
@@ -51,7 +53,7 @@ vi.mock('./port-check', () => ({
 // ─── Mock factories ─────────────────────────────────────────
 
 const FEATURE_REPORT: EngineFeatureReport = {
-  version: '1.37.0-motrix.10',
+  version: 'taiji/0.3.0',
   features: ['Async DNS', 'BitTorrent', 'SQLite3-Persistence'],
   hasSqlitePersistence: true,
   hasBtSeedUnverified: false,
@@ -118,18 +120,11 @@ function createMockProcessManager(): Aria2ProcessManager {
   } as unknown as Aria2ProcessManager
 }
 
-function createMockConfigBuilder(): Aria2ConfigBuilder {
+function createMockConfigBuilder(): EngineConfiguration {
   return {
-    ensureUserConfig: vi.fn().mockResolvedValue('/tmp/aria2.conf'),
-    hasSavedSession: vi.fn().mockResolvedValue(false),
-    resolveSqliteDbPath: vi.fn().mockReturnValue('/tmp/aria2.db'),
-    quarantineSqliteDatabase: vi.fn().mockResolvedValue({
-      databasePath: '/tmp/aria2.db',
-      quarantineBasePath: '/tmp/aria2.db.corrupt-test',
-      moved: ['/tmp/aria2.db.corrupt-test'],
-    }),
-    buildArgs: vi.fn(() => ['--conf-path=/tmp/aria2.conf']),
-  } as unknown as Aria2ConfigBuilder
+    prepare: vi.fn().mockResolvedValue('/tmp/aria2.conf'),
+    buildStartupArgs: vi.fn(() => ['--conf-path=/tmp/aria2.conf']),
+  } as unknown as EngineConfiguration
 }
 
 function createMockRpcClient(): Aria2RpcClient {
@@ -142,7 +137,7 @@ function createMockRpcClient(): Aria2RpcClient {
       transport: 'websocket',
       connected: true,
     })),
-    getVersion: vi.fn().mockResolvedValue({
+    healthCheck: vi.fn().mockResolvedValue({
       version: '1.37.0',
       enabledFeatures: ['SQLite3-Persistence'],
     }),
@@ -158,15 +153,20 @@ function createMockTrustStore(): Aria2TrustStore {
   } as unknown as Aria2TrustStore
 }
 
-function createMockAdapter(): Aria2Adapter {
+function createMockAdapter(): EngineRuntimeControl {
   return {
+    connect: vi.fn().mockResolvedValue(undefined),
+    applySettings: vi.fn().mockResolvedValue(undefined),
+    setSpeedLimits: vi.fn().mockResolvedValue(undefined),
+    setDefaultSaveDirectory: vi.fn().mockResolvedValue(undefined),
+    setDownloadProxy: vi.fn().mockResolvedValue(undefined),
     setFeatureReport: vi.fn(),
     inspectDirectResourceMetadataProfile: vi
       .fn()
       .mockResolvedValue(DIRECT_RESOURCE_METADATA_PROFILE),
     setDirectResourceMetadataProfile: vi.fn(),
     getDirectResourceMetadataProfile: vi.fn(() => null),
-  } as unknown as Aria2Adapter
+  } as unknown as EngineRuntimeControl
 }
 
 function createMockProxyBridge() {
@@ -181,10 +181,10 @@ describe('EngineSupervisor', () => {
   let eventBus: EventBus
   let settings: SettingsManager
   let processManager: Aria2ProcessManager
-  let configBuilder: Aria2ConfigBuilder
+  let configBuilder: EngineConfiguration
   let trustStore: Aria2TrustStore
   let rpcClient: Aria2RpcClient
-  let adapter: Aria2Adapter
+  let adapter: EngineRuntimeControl
   let proxyBridge: ReturnType<typeof createMockProxyBridge>
   let supervisor: EngineSupervisor
 
@@ -293,7 +293,7 @@ describe('EngineSupervisor', () => {
       )
     })
 
-    it('resolves the download proxy before building aria2 arguments', async () => {
+    it('resolves the download proxy before starting the engine', async () => {
       const resolved = {
         allProxy: 'http://127.0.0.1:43123',
         noProxy: 'localhost',
@@ -305,13 +305,10 @@ describe('EngineSupervisor', () => {
       expect(proxyBridge.resolveForDownload).toHaveBeenCalledWith(
         settings.getProxy()
       )
-      expect(configBuilder.buildArgs).toHaveBeenCalledWith(
+      expect(configBuilder.buildStartupArgs).toHaveBeenCalledWith(
         expect.anything(),
-        expect.any(Boolean),
-        resolved,
-        expect.anything(),
-        expect.any(String),
-        expect.any(Boolean)
+        { download: 0, upload: 0 },
+        expect.any(String)
       )
     })
 
@@ -422,13 +419,10 @@ describe('EngineSupervisor', () => {
         proxy: 'http://after.example:8080',
         noProxy: '',
       })
-      expect(rpcClient.changeGlobalOption).toHaveBeenCalledWith(
-        expect.objectContaining({
-          'all-proxy': 'http://after.example:8080',
-          'no-proxy': '',
-          'proxy-method': 'get',
-        })
-      )
+      expect(adapter.setDownloadProxy).toHaveBeenCalledWith({
+        allProxy: 'http://after.example:8080',
+        noProxy: '',
+      })
     })
 
     it('does not commit an applied route when startup fails', async () => {
@@ -523,28 +517,25 @@ describe('EngineSupervisor', () => {
       expect(rpcClient.setSecret).toHaveBeenNthCalledWith(1, initial.rpcSecret)
       expect(rpcClient.setSecret).toHaveBeenNthCalledWith(2, 'rotated-secret')
       expect(rpcClient.setSecret).toHaveBeenNthCalledWith(3, '')
-      expect(configBuilder.buildArgs).toHaveBeenLastCalledWith(
+      expect(configBuilder.buildStartupArgs).toHaveBeenLastCalledWith(
         expect.objectContaining({ rpcSecret: '' }),
-        expect.any(Boolean),
-        null,
-        expect.anything(),
-        expect.any(String),
-        expect.any(Boolean)
+        { download: 0, upload: 0 },
+        expect.any(String)
       )
       expect(
         vi.mocked(rpcClient.setSecret).mock.invocationCallOrder.at(-1)
       ).toBeLessThan(
-        vi.mocked(rpcClient.changeGlobalOption).mock.invocationCallOrder.at(-1)!
+        vi.mocked(adapter.applySettings).mock.invocationCallOrder.at(-1)!
       )
     })
 
-    it('calls probe → ensureConfig → buildArgs → spawn → connect', async () => {
+    it('calls probe → ensureConfig → buildStartupArgs → spawn → connect', async () => {
       await supervisor.start('/usr/bin/aria2c')
 
       expect(processManager.probe).toHaveBeenCalledWith('/usr/bin/aria2c')
-      expect(configBuilder.ensureUserConfig).toHaveBeenCalled()
+      expect(configBuilder.prepare).toHaveBeenCalled()
       expect(trustStore.prepareEnvironment).toHaveBeenCalled()
-      expect(configBuilder.buildArgs).toHaveBeenCalled()
+      expect(configBuilder.buildStartupArgs).toHaveBeenCalled()
       expect(processManager.spawn).toHaveBeenCalledWith(
         '/usr/bin/aria2c',
         ['--conf-path=/tmp/aria2.conf'],
@@ -575,254 +566,22 @@ describe('EngineSupervisor', () => {
     })
 
     it('injects the probed feature report into the adapter before Ready', async () => {
-      // The adapter's durable-remove trust gate reads its OWN featureReport.
-      // Nothing in production calls adapter.connect(), so the supervisor must
-      // inject the report it already probed — otherwise the adapter keeps its
-      // default (version unknown, no persistence) and the gate silently
-      // degrades to "always trust not-found".
       await supervisor.start('/usr/bin/aria2c')
       expect(adapter.setFeatureReport).toHaveBeenCalledWith(FEATURE_REPORT)
-    })
-
-    it('does not probe or load the text session while SQLite persistence is active', async () => {
-      vi.mocked(configBuilder.hasSavedSession).mockResolvedValue(true)
-
-      await supervisor.start('/usr/bin/aria2c')
-
-      expect(configBuilder.hasSavedSession).not.toHaveBeenCalled()
-      expect(configBuilder.buildArgs).toHaveBeenCalledWith(
-        expect.anything(),
-        true,
-        null,
-        expect.anything(),
-        '/Users/test/Downloads',
-        false
-      )
     })
 
     it('passes the configured default save directory on cold start', async () => {
       await supervisor.start('/usr/bin/aria2c')
 
-      expect(configBuilder.buildArgs).toHaveBeenCalledWith(
+      expect(configBuilder.buildStartupArgs).toHaveBeenCalledWith(
         expect.anything(),
-        true,
-        null,
-        expect.anything(),
-        '/Users/test/Downloads',
-        false
-      )
-    })
-
-    it('initializes continue for raw JSON-RPC tasks before becoming Ready', async () => {
-      vi.mocked(rpcClient.changeGlobalOption).mockImplementation(
-        async (opts) => {
-          expect(opts).toEqual({ continue: 'true' })
-          expect(supervisor.getState()).toBe(EngineState.Starting)
-          return 'OK'
-        }
-      )
-
-      await supervisor.start('/usr/bin/aria2c')
-
-      expect(rpcClient.changeGlobalOption).toHaveBeenCalledOnce()
-      expect(supervisor.getState()).toBe(EngineState.Ready)
-    })
-
-    it('loads an existing text session when SQLite is disabled in settings', async () => {
-      const configured = settings.getEngine()
-      vi.mocked(settings.getEngine).mockReturnValue({
-        ...configured,
-        sqlite3Persistence: false,
-      })
-      vi.mocked(configBuilder.hasSavedSession).mockResolvedValue(true)
-
-      await supervisor.start('/usr/bin/aria2c')
-
-      expect(configBuilder.hasSavedSession).toHaveBeenCalledOnce()
-      expect(configBuilder.buildArgs).toHaveBeenCalledWith(
-        expect.objectContaining({ sqlite3Persistence: false }),
-        true,
-        null,
-        expect.anything(),
-        '/Users/test/Downloads',
-        true
-      )
-    })
-
-    it('loads an existing text session when the binary lacks SQLite support', async () => {
-      vi.mocked(processManager.probe).mockResolvedValue({
-        ...FEATURE_REPORT,
-        version: '1.37.0',
-        features: ['Async DNS', 'BitTorrent'],
-        hasSqlitePersistence: false,
-      })
-      vi.mocked(configBuilder.hasSavedSession).mockResolvedValue(true)
-
-      await supervisor.start('/usr/bin/aria2c')
-
-      expect(configBuilder.hasSavedSession).toHaveBeenCalledOnce()
-      expect(configBuilder.buildArgs).toHaveBeenCalledWith(
-        expect.anything(),
-        false,
-        null,
-        expect.anything(),
-        '/Users/test/Downloads',
-        true
-      )
-    })
-
-    it('starts without input-file when the text session is missing', async () => {
-      const configured = settings.getEngine()
-      vi.mocked(settings.getEngine).mockReturnValue({
-        ...configured,
-        sqlite3Persistence: false,
-      })
-      vi.mocked(configBuilder.hasSavedSession).mockResolvedValue(false)
-
-      await supervisor.start('/usr/bin/aria2c')
-
-      expect(configBuilder.hasSavedSession).toHaveBeenCalledOnce()
-      expect(configBuilder.buildArgs).toHaveBeenCalledWith(
-        expect.objectContaining({ sqlite3Persistence: false }),
-        true,
-        null,
-        expect.anything(),
-        '/Users/test/Downloads',
-        false
-      )
-    })
-
-    it('detects an official binary before spawn and starts with compatibility limits', async () => {
-      const officialReport: EngineFeatureReport = {
-        ...FEATURE_REPORT,
-        version: '1.37.0',
-        features: ['Async DNS', 'BitTorrent'],
-        hasSqlitePersistence: false,
-      }
-      vi.mocked(processManager.probe).mockResolvedValue(officialReport)
-      const configured = settings.getEngine()
-      vi.mocked(settings.getEngine).mockReturnValue({
-        ...configured,
-        performanceProfile: 'custom',
-        maxConnectionPerServer: 64,
-        split: 32,
-      })
-      const warning = vi.fn()
-      eventBus.on(Events.EngineCompatibilityWarning, warning)
-
-      await supervisor.start('/usr/bin/aria2c')
-
-      expect(warning).toHaveBeenCalledWith({
-        version: '1.37.0',
-        connectionLimit: 16,
-      })
-      expect(configBuilder.buildArgs).toHaveBeenCalledWith(
-        expect.objectContaining({
-          maxConnectionPerServer: 16,
-          split: 16,
-        }),
-        false,
-        null,
-        expect.anything(),
-        '/Users/test/Downloads',
-        false
-      )
-      expect(rpcClient.getVersion).not.toHaveBeenCalled()
-      expect(settings.update).toHaveBeenCalledWith({
-        engine: {
-          performanceProfile: 'custom',
-          maxConnectionPerServer: 16,
-          split: 16,
-        },
-      })
-      expect(
-        vi.mocked(processManager.probe).mock.invocationCallOrder[0]
-      ).toBeLessThan(
-        vi.mocked(processManager.spawn).mock.invocationCallOrder[0]
-      )
-    })
-
-    it('keeps starting with runtime limits if persisting compatibility settings fails', async () => {
-      vi.mocked(processManager.probe).mockResolvedValue({
-        ...FEATURE_REPORT,
-        version: '1.37.0',
-        features: ['Async DNS', 'BitTorrent'],
-        hasSqlitePersistence: false,
-      })
-      vi.mocked(settings.update).mockRejectedValue(new Error('disk full'))
-
-      await supervisor.start('/usr/bin/aria2c')
-
-      expect(supervisor.getState()).toBe(EngineState.Ready)
-      expect(configBuilder.buildArgs).toHaveBeenCalledWith(
-        expect.objectContaining({
-          maxConnectionPerServer: 16,
-          split: 16,
-        }),
-        false,
-        null,
-        expect.anything(),
-        '/Users/test/Downloads',
-        false
-      )
-    })
-
-    it('keeps Motrix fork connection settings above the official ceiling', async () => {
-      const configured = settings.getEngine()
-      vi.mocked(settings.getEngine).mockReturnValue({
-        ...configured,
-        performanceProfile: 'custom',
-        maxConnectionPerServer: 64,
-        split: 32,
-      })
-
-      await supervisor.start('/usr/bin/aria2c')
-
-      expect(configBuilder.buildArgs).toHaveBeenCalledWith(
-        expect.objectContaining({
-          maxConnectionPerServer: 64,
-          split: 32,
-        }),
-        true,
-        null,
-        expect.anything(),
-        '/Users/test/Downloads',
-        false
+        { download: 0, upload: 0 },
+        '/Users/test/Downloads'
       )
     })
 
     it('does not overwrite persisted tuning settings during engine start', async () => {
       await supervisor.start('/usr/bin/aria2c')
-      expect(settings.update).not.toHaveBeenCalled()
-    })
-
-    it('applies automatic storage tuning to runtime args', async () => {
-      probePreciseMock.mockResolvedValue({
-        platform: 'linux',
-        mountPoint: '/downloads',
-        fsType: 'ext4',
-        diskType: 'hdd',
-        isInternal: true,
-        isNetworkFs: false,
-        freeBytes: 100 * 1024 * 1024 * 1024,
-        confidence: 'high',
-      })
-
-      await supervisor.start('/usr/bin/aria2c')
-
-      expect(configBuilder.buildArgs).toHaveBeenCalledWith(
-        expect.objectContaining({
-          performanceProfile: 'auto',
-          diskCache: 64 * 1024 * 1024,
-          split: 8,
-          minSplitSize: 20 * 1024 * 1024,
-        }),
-        expect.anything(),
-        null,
-        expect.anything(),
-        '/Users/test/Downloads',
-        false
-      )
       expect(settings.update).not.toHaveBeenCalled()
     })
 
@@ -839,77 +598,17 @@ describe('EngineSupervisor', () => {
       await supervisor.start('/usr/bin/aria2c')
 
       expect(probePreciseMock).not.toHaveBeenCalled()
-      expect(configBuilder.buildArgs).toHaveBeenCalledWith(
+      expect(configBuilder.buildStartupArgs).toHaveBeenCalledWith(
         expect.objectContaining({
           performanceProfile: 'custom',
           diskCache: 48 * 1024 * 1024,
           split: 24,
           minSplitSize: 2 * 1024 * 1024,
         }),
-        expect.anything(),
-        null,
-        expect.anything(),
-        '/Users/test/Downloads',
-        false
+        { download: 0, upload: 0 },
+        '/Users/test/Downloads'
       )
     })
-  })
-
-  it('repairs persisted identities before the completed-task guard and spawn', async () => {
-    const prepare = vi.fn().mockResolvedValue(null)
-    supervisor.setStartupGuard({ prepare })
-    await supervisor.start('/usr/bin/aria2c')
-    expect(recoverSessionMock).toHaveBeenCalledWith(
-      '/tmp/aria2.db',
-      expect.any(Function),
-      undefined
-    )
-    expect(recoverSessionMock.mock.invocationCallOrder.at(-1)).toBeLessThan(
-      prepare.mock.invocationCallOrder[0]!
-    )
-    expect(prepare.mock.invocationCallOrder[0]).toBeLessThan(
-      vi.mocked(processManager.spawn).mock.invocationCallOrder[0]!
-    )
-  })
-
-  it('does not repair or spawn when the RPC port is occupied', async () => {
-    vi.mocked(checkPort).mockResolvedValueOnce(false)
-    const calls = recoverSessionMock.mock.calls.length
-    await supervisor.start('/usr/bin/aria2c')
-    expect(recoverSessionMock).toHaveBeenCalledTimes(calls)
-    expect(processManager.spawn).not.toHaveBeenCalled()
-  })
-
-  it('does not spawn when identity recovery fails', async () => {
-    recoverSessionMock.mockRejectedValueOnce(
-      new Error('saved metadata unavailable')
-    )
-    await supervisor.start('/usr/bin/aria2c')
-    expect(supervisor.getState()).toBe(EngineState.Failed)
-    expect(processManager.spawn).not.toHaveBeenCalled()
-    expect(supervisor.getLastError()).toBe('saved metadata unavailable')
-  })
-
-  it('starts after durable per-task quarantine and passes the application recovery store', async () => {
-    const store = {
-      getContext: vi.fn(() => ({ metadataPaths: [], retired: false })),
-      quarantine: vi.fn().mockResolvedValue(undefined),
-    }
-    supervisor.setSessionRecoveryStore(store)
-    recoverSessionMock.mockResolvedValueOnce({
-      backupPath: '/backup/aria2.db',
-      repairedGids: [],
-      retiredMetadataGids: ['1111111111111111'],
-      quarantinedGids: ['2222222222222222'],
-    })
-    await supervisor.start('/usr/bin/aria2c')
-    expect(recoverSessionMock).toHaveBeenLastCalledWith(
-      '/tmp/aria2.db',
-      expect.any(Function),
-      store
-    )
-    expect(processManager.spawn).toHaveBeenCalledOnce()
-    expect(supervisor.getState()).toBe(EngineState.Ready)
   })
 
   it('preserves only the GID conflict diagnostic when RPC fails', async () => {
@@ -923,7 +622,6 @@ describe('EngineSupervisor', () => {
     expect(supervisor.getLastError()).toBe(
       'GID 283f007637e2399d is not unique.'
     )
-    expect(configBuilder.quarantineSqliteDatabase).not.toHaveBeenCalled()
   })
 
   describe('start — probe failure', () => {
@@ -961,38 +659,6 @@ describe('EngineSupervisor', () => {
       expect(rpcClient.disconnect).toHaveBeenCalled()
     })
 
-    it('quarantines proven aria2 SQLite corruption and retries once with text persistence', async () => {
-      vi.mocked(configBuilder.hasSavedSession).mockResolvedValue(true)
-      vi.mocked(processManager.getRecentStderr).mockReturnValue(
-        'SQLite error: database disk image is malformed'
-      )
-      vi.mocked(rpcClient.connect)
-        .mockRejectedValueOnce(new Error('Connection refused'))
-        .mockResolvedValueOnce(undefined)
-
-      const failures: EngineFailurePayload[] = []
-      eventBus.on(Events.EngineFailureOccurred, (payload) => {
-        failures.push(payload as EngineFailurePayload)
-      })
-      await supervisor.start('/usr/bin/aria2c')
-
-      expect(supervisor.getState()).toBe(EngineState.Ready)
-      expect(configBuilder.quarantineSqliteDatabase).toHaveBeenCalledOnce()
-      expect(settings.update).toHaveBeenCalledWith({
-        engine: { sqlite3Persistence: false },
-      })
-      expect(processManager.spawn).toHaveBeenCalledTimes(2)
-      expect(configBuilder.buildArgs).toHaveBeenLastCalledWith(
-        expect.objectContaining({ sqlite3Persistence: false }),
-        true,
-        null,
-        expect.anything(),
-        '/Users/test/Downloads',
-        true
-      )
-      expect(failures).toHaveLength(0)
-    })
-
     it('does not downgrade SQLite for lock or disk failures', async () => {
       vi.mocked(processManager.getRecentStderr).mockReturnValue(
         'SQLite error: database is locked'
@@ -1004,7 +670,6 @@ describe('EngineSupervisor', () => {
       await supervisor.start('/usr/bin/aria2c')
 
       expect(supervisor.getState()).toBe(EngineState.Failed)
-      expect(configBuilder.quarantineSqliteDatabase).not.toHaveBeenCalled()
       expect(settings.update).not.toHaveBeenCalled()
     })
   })
@@ -1056,19 +721,19 @@ describe('EngineSupervisor', () => {
   describe('health check', () => {
     it('calls getVersion every 30s when Ready', async () => {
       await supervisor.start('/usr/bin/aria2c')
-      vi.mocked(rpcClient.getVersion).mockClear()
+      vi.mocked(rpcClient.healthCheck).mockClear()
 
       // Advance past heartbeat interval
       await vi.advanceTimersByTimeAsync(30_000)
-      expect(rpcClient.getVersion).toHaveBeenCalledTimes(1)
+      expect(rpcClient.healthCheck).toHaveBeenCalledTimes(1)
 
       await vi.advanceTimersByTimeAsync(30_000)
-      expect(rpcClient.getVersion).toHaveBeenCalledTimes(2)
+      expect(rpcClient.healthCheck).toHaveBeenCalledTimes(2)
     })
 
     it('triggers restart after 3 consecutive heartbeat failures', async () => {
       await supervisor.start('/usr/bin/aria2c')
-      vi.mocked(rpcClient.getVersion).mockRejectedValue(new Error('Timeout'))
+      vi.mocked(rpcClient.healthCheck).mockRejectedValue(new Error('Timeout'))
 
       const states: EngineState[] = []
       eventBus.on(Events.EngineStateChanged, (state) => {
@@ -1087,17 +752,14 @@ describe('EngineSupervisor', () => {
       await supervisor.start('/usr/bin/aria2c')
 
       // 2 failures
-      vi.mocked(rpcClient.getVersion).mockRejectedValueOnce(
+      vi.mocked(rpcClient.healthCheck).mockRejectedValueOnce(
         new Error('Timeout')
       )
-      vi.mocked(rpcClient.getVersion).mockRejectedValueOnce(
+      vi.mocked(rpcClient.healthCheck).mockRejectedValueOnce(
         new Error('Timeout')
       )
       // Then success
-      vi.mocked(rpcClient.getVersion).mockResolvedValueOnce({
-        version: '1.37.0',
-        enabledFeatures: [],
-      })
+      vi.mocked(rpcClient.healthCheck).mockResolvedValueOnce(undefined)
 
       await vi.advanceTimersByTimeAsync(30_000) // fail 1
       await vi.advanceTimersByTimeAsync(30_000) // fail 2
@@ -1515,7 +1177,7 @@ describe('EngineSupervisor', () => {
         pid: 4321,
         name: 'aria2c',
         executableName: 'aria2c',
-        ownership: EngineProcessOwnership.ExternalAria2,
+        ownership: EngineProcessOwnership.ExternalEngine,
         safeToTerminate: false,
       })
       await supervisor.start('/usr/bin/aria2c')
@@ -1551,284 +1213,69 @@ describe('EngineSupervisor', () => {
     })
   })
 
-  describe('applyAsyncDns', () => {
-    it('is a no-op unless Ready', async () => {
-      await supervisor.applyAsyncDns(false)
-      expect(rpcClient.changeGlobalOption).not.toHaveBeenCalled()
+  describe('runtime configuration', () => {
+    it('defers updates until the engine is ready', async () => {
+      const current = settings.getEngine()
+      await supervisor.applyDefaultSaveDir('/next')
+      await supervisor.applySpeedLimits({ download: 100, upload: 50 })
+      await supervisor.applyEngineSettings(current, { ...current, split: 32 })
+      expect(await supervisor.applyProxyChange(null)).toBe(false)
+      expect(adapter.setDefaultSaveDirectory).not.toHaveBeenCalled()
+      expect(adapter.setSpeedLimits).not.toHaveBeenCalled()
+      expect(adapter.applySettings).not.toHaveBeenCalled()
+      expect(adapter.setDownloadProxy).not.toHaveBeenCalled()
+    })
+
+    it('delegates typed settings without protocol conversion or changing stored values', async () => {
+      await supervisor.start('/usr/bin/taiji')
+      const previous = settings.getEngine()
+      const next = { ...previous, split: 32, maxConnectionPerServer: 64 }
+      await supervisor.applyEngineSettings(previous, next)
+      await supervisor.applyDefaultSaveDir('/next')
+      await supervisor.applySpeedLimits({ download: 100, upload: 50 })
+      expect(adapter.applySettings).toHaveBeenLastCalledWith(next, previous)
+      expect(adapter.setDefaultSaveDirectory).toHaveBeenCalledWith('/next')
+      expect(adapter.setSpeedLimits).toHaveBeenCalledWith({
+        download: 100,
+        upload: 50,
+      })
+      expect(settings.update).not.toHaveBeenCalled()
     })
 
     it.each([
-      [false, 'false'],
-      [true, 'true'],
-    ] as const)(
-      'calls changeGlobalOption with async-dns=%s when Ready',
-      async (asyncDns, wire) => {
-        await supervisor.start('/usr/bin/aria2c')
-        vi.mocked(rpcClient.changeGlobalOption).mockClear()
-        await supervisor.applyAsyncDns(asyncDns)
-        expect(rpcClient.changeGlobalOption).toHaveBeenCalledWith({
-          'async-dns': wire,
-        })
+      null,
+      { allProxy: 'http://a%40b:p%3As@proxy:80', noProxy: 'localhost' },
+    ])(
+      'commits the exact proxy route accepted by the engine: %j',
+      async (proxy) => {
+        await supervisor.start('/usr/bin/taiji')
+        expect(await supervisor.applyProxyChange(proxy)).toBe(true)
+        expect(adapter.setDownloadProxy).toHaveBeenLastCalledWith(proxy)
       }
     )
-  })
 
-  describe('applyDefaultSaveDir', () => {
-    it('is a no-op unless Ready', async () => {
-      await supervisor.applyDefaultSaveDir('/downloads/next')
-
-      expect(rpcClient.changeGlobalOption).not.toHaveBeenCalled()
-    })
-
-    it('updates the global dir when Ready', async () => {
-      await supervisor.start('/usr/bin/aria2c')
-      vi.mocked(rpcClient.changeGlobalOption).mockClear()
-
-      await supervisor.applyDefaultSaveDir('/downloads/next')
-
-      expect(rpcClient.changeGlobalOption).toHaveBeenCalledExactlyOnceWith({
-        dir: '/downloads/next',
-      })
-    })
-  })
-
-  describe('applySpeedLimits', () => {
-    it('is a no-op unless Ready', async () => {
-      await supervisor.applySpeedLimits({ download: 100, upload: 50 })
-      expect(rpcClient.changeGlobalOption).not.toHaveBeenCalled()
-    })
-
-    it('calls changeGlobalOption with string values when Ready', async () => {
-      await supervisor.start('/usr/bin/aria2c')
-      vi.mocked(rpcClient.changeGlobalOption).mockClear()
-      await supervisor.applySpeedLimits({ download: 100, upload: 50 })
-      expect(rpcClient.changeGlobalOption).toHaveBeenCalledWith({
-        'max-overall-download-limit': '100',
-        'max-overall-upload-limit': '50',
-      })
-    })
-
-    it('passes effective limits from provider to buildArgs', async () => {
-      supervisor.setEffectiveLimitsProvider(() => ({
-        download: 500,
-        upload: 250,
-      }))
-      await supervisor.start('/usr/bin/aria2c')
-      expect(configBuilder.buildArgs).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.anything(),
-        null,
-        { download: 500, upload: 250 },
-        '/Users/test/Downloads',
-        false
+    it('propagates rejected proxy updates', async () => {
+      await supervisor.start('/usr/bin/taiji')
+      vi.mocked(adapter.setDownloadProxy).mockRejectedValue(
+        new Error('connection lost')
+      )
+      await expect(supervisor.applyProxyChange(null)).rejects.toThrow(
+        'connection lost'
       )
     })
 
-    it('passes 0/0 limits to buildArgs when no provider is registered', async () => {
-      // no setEffectiveLimitsProvider call
-      await supervisor.start('/usr/bin/aria2c')
-      expect(configBuilder.buildArgs).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.anything(),
-        null,
-        { download: 0, upload: 0 },
-        '/Users/test/Downloads',
-        false
-      )
-    })
-  })
-
-  describe('applyEngineSettings', () => {
-    it('never installs a global seeding timer during hot updates', async () => {
-      await supervisor.start('/usr/bin/aria2c')
-      vi.mocked(rpcClient.changeGlobalOption).mockClear()
-      const previous = settings.getEngine()
-      await supervisor.applyEngineSettings(previous, {
-        ...previous,
-        seedTime: 0,
-      })
-      await supervisor.applyEngineSettings(
-        { ...previous, seedTime: 0 },
-        { ...previous, seedTime: 90 }
-      )
-      expect(rpcClient.changeGlobalOption).not.toHaveBeenCalled()
-    })
-
-    it('is a no-op unless Ready', async () => {
-      const previous = settings.getEngine()
-      await supervisor.applyEngineSettings(previous, {
-        ...previous,
-        split: 32,
-      })
-      expect(rpcClient.changeGlobalOption).not.toHaveBeenCalled()
-    })
-
-    it('maps changed runtime settings and excludes startup-only settings', async () => {
-      await supervisor.start('/usr/bin/aria2c')
-      vi.mocked(rpcClient.changeGlobalOption).mockClear()
-      const previous = settings.getEngine()
-
-      await supervisor.applyEngineSettings(previous, {
-        ...previous,
-        split: 32,
-        userAgent: 'Motrix/Test',
-        btEnableLpd: false,
-        remoteTime: true,
-        sessionSaveInterval: 30,
-        fileAllocation: 'prealloc',
-        diskCache: 32 * 1024 * 1024,
-      })
-
-      expect(rpcClient.changeGlobalOption).toHaveBeenCalledWith({
-        split: '32',
-        'user-agent': 'Motrix/Test',
-        'bt-enable-lpd': 'false',
-        'remote-time': 'true',
-      })
-    })
-
-    it('caps hot connection changes for a detected official aria2 binary', async () => {
-      vi.mocked(processManager.probe).mockResolvedValue({
-        ...FEATURE_REPORT,
-        version: '1.37.0',
-        features: ['Async DNS', 'BitTorrent'],
-        hasSqlitePersistence: false,
-      })
-      await supervisor.start('/usr/bin/aria2c')
-      vi.mocked(rpcClient.changeGlobalOption).mockClear()
-      vi.mocked(settings.update).mockClear()
-      const settingsValue = settings.getEngine()
-
-      await supervisor.applyEngineSettings(
-        {
-          ...settingsValue,
-          maxConnectionPerServer: 8,
-          split: 8,
-        },
-        {
-          ...settingsValue,
-          maxConnectionPerServer: 64,
-          split: 32,
-        }
-      )
-
-      expect(rpcClient.changeGlobalOption).toHaveBeenCalledWith({
-        'max-connection-per-server': '16',
-        split: '16',
-      })
-      expect(settings.update).toHaveBeenCalledWith({
-        engine: {
-          performanceProfile: 'custom',
-          maxConnectionPerServer: 16,
-          split: 16,
-        },
-      })
-    })
-  })
-
-  describe('applyProxyChange', () => {
-    it('is no-op when state is not Ready', async () => {
-      // supervisor starts in Stopped — never started
-      await supervisor.applyProxyChange({
-        allProxy: 'http://p:80',
-        noProxy: '',
-      })
-      expect(rpcClient.changeGlobalOption).not.toHaveBeenCalled()
-    })
-
-    it('sends all-proxy + no-proxy when ready and opts provided', async () => {
-      await supervisor.start('/usr/bin/aria2c')
-      await supervisor.applyProxyChange({
-        allProxy: 'http://p:80',
-        noProxy: 'localhost',
-      })
-      expect(rpcClient.changeGlobalOption).toHaveBeenCalledWith({
-        'all-proxy': 'http://p:80',
-        'http-proxy': '',
-        'http-proxy-user': '',
-        'http-proxy-passwd': '',
-        'https-proxy': '',
-        'https-proxy-user': '',
-        'https-proxy-passwd': '',
-        'ftp-proxy': '',
-        'ftp-proxy-user': '',
-        'ftp-proxy-passwd': '',
-        'all-proxy-user': '',
-        'all-proxy-passwd': '',
-        'no-proxy': 'localhost',
-        'proxy-method': 'get',
-      })
-    })
-
-    it('clears proxy when opts is null', async () => {
-      await supervisor.start('/usr/bin/aria2c')
-      await supervisor.applyProxyChange(null)
-      expect(rpcClient.changeGlobalOption).toHaveBeenCalledWith({
-        'all-proxy': '',
-        'http-proxy': '',
-        'http-proxy-user': '',
-        'http-proxy-passwd': '',
-        'https-proxy': '',
-        'https-proxy-user': '',
-        'https-proxy-passwd': '',
-        'ftp-proxy': '',
-        'ftp-proxy-user': '',
-        'ftp-proxy-passwd': '',
-        'all-proxy-user': '',
-        'all-proxy-passwd': '',
-        'no-proxy': '',
-        'proxy-method': 'get',
-      })
-    })
-
-    it('pins decoded all-proxy credentials during a hot update', async () => {
-      await supervisor.start('/usr/bin/aria2c')
-      await supervisor.applyProxyChange({
-        allProxy: 'http://a%40b:p%3As@p:80',
-        noProxy: '',
-      })
-
-      expect(rpcClient.changeGlobalOption).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          'all-proxy': 'http://p:80',
-          'all-proxy-user': 'a@b',
-          'all-proxy-passwd': 'p:s',
-          'proxy-method': 'get',
-        })
-      )
-    })
-
-    it('accepts equivalent expanded IPv6 proxy authorities during a hot update', async () => {
-      await supervisor.start('/usr/bin/aria2c')
-      await supervisor.applyProxyChange({
-        allProxy: 'http://user:pass@[0:0:0:0:0:0:0:1]:8080',
-        noProxy: '',
-      })
-
-      expect(rpcClient.changeGlobalOption).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          'all-proxy': 'http://[0:0:0:0:0:0:0:1]:8080',
-          'all-proxy-user': 'user',
-          'all-proxy-passwd': 'pass',
-        })
-      )
-    })
-
-    it('preserves an aria2-compatible legacy IPv4 proxy during a hot update', async () => {
-      await supervisor.start('/usr/bin/aria2c')
-      await supervisor.applyProxyChange({
-        allProxy: 'http://user:pass@127.1:8080',
-        noProxy: '',
-      })
-
-      expect(rpcClient.changeGlobalOption).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          'all-proxy': 'http://127.1:8080',
-          'all-proxy-user': 'user',
-          'all-proxy-passwd': 'pass',
-        })
-      )
-    })
+    it.each([undefined, { download: 500, upload: 250 }])(
+      'passes effective limits into startup: %j',
+      async (limits) => {
+        if (limits) supervisor.setEffectiveLimitsProvider(() => limits)
+        await supervisor.start('/usr/bin/taiji')
+        expect(configBuilder.buildStartupArgs).toHaveBeenCalledWith(
+          settings.getEngine(),
+          limits ?? { download: 0, upload: 0 },
+          '/Users/test/Downloads'
+        )
+      }
+    )
   })
 
   describe('waitUntilReady', () => {

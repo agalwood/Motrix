@@ -14,6 +14,7 @@ import {
   formValuesToTaskCreateRequests,
 } from '@shared/schemas/add-task'
 import { isUriOnlyDirectReplay } from '@shared/schemas/direct-replay-recipe'
+import { engineTaskOptionsSchema } from '@shared/schemas/engine-task-options'
 import {
   type MoveTasksPayload,
   moveTasksResultSchema,
@@ -108,49 +109,19 @@ function buildPrefillFromTask(
   task: DownloadTask,
   opts: EngineTaskOptions | null
 ): Record<string, unknown> {
-  const headers = Array.isArray(opts?.header)
-    ? opts.header
-    : opts?.header
-      ? [opts.header]
-      : []
+  const header = (name: string) =>
+    opts?.headers.find((item) => item.name.toLowerCase() === name)?.value
   return {
     tab: 'links' as const,
     urls: task.uris.join('\n'),
-    saveDir: (opts?.dir as string | undefined) || task.saveDir,
+    saveDir: task.saveDir,
     filename: task.finalName,
-    split:
-      opts?.split && typeof opts.split === 'string'
-        ? Number.parseInt(opts.split, 10) || undefined
-        : undefined,
-    userAgent:
-      headers
-        .find((h) => /^user-agent:/i.test(h))
-        ?.split(':')
-        .slice(1)
-        .join(':')
-        .trim() ?? undefined,
-    referer:
-      headers
-        .find((h) => /^referer:/i.test(h))
-        ?.split(':')
-        .slice(1)
-        .join(':')
-        .trim() ?? undefined,
-    cookie:
-      headers
-        .find((h) => /^cookie:/i.test(h))
-        ?.split(':')
-        .slice(1)
-        .join(':')
-        .trim() ?? undefined,
-    authorization:
-      headers
-        .find((h) => /^authorization:/i.test(h))
-        ?.split(':')
-        .slice(1)
-        .join(':')
-        .trim() ?? undefined,
-    allProxy: (opts?.['all-proxy'] as string | undefined) ?? undefined,
+    split: opts?.connections,
+    userAgent: opts?.userAgent ?? header('user-agent'),
+    referer: opts?.referrer ?? header('referer'),
+    cookie: header('cookie'),
+    authorization: header('authorization'),
+    allProxy: opts?.proxyUrl,
   }
 }
 
@@ -376,10 +347,14 @@ export function useTaskActions(
   const altReAddSingle = useCallback(async (task: DownloadTask) => {
     let opts: EngineTaskOptions | null = null
     try {
-      opts = (await transport.invoke(
-        Queries.GetEngineTaskOptions,
-        task.engineTaskId
-      )) as EngineTaskOptions | null
+      opts = engineTaskOptionsSchema
+        .nullable()
+        .parse(
+          await transport.invoke(
+            Queries.GetEngineTaskOptions,
+            task.engineTaskId
+          )
+        )
     } catch {
       opts = null
     }
@@ -514,10 +489,14 @@ export function useTaskActions(
 
       let opts: EngineTaskOptions | null = null
       try {
-        opts = (await transport.invoke(
-          Queries.GetEngineTaskOptions,
-          task.engineTaskId
-        )) as EngineTaskOptions | null
+        opts = engineTaskOptionsSchema
+          .nullable()
+          .parse(
+            await transport.invoke(
+              Queries.GetEngineTaskOptions,
+              task.engineTaskId
+            )
+          )
       } catch {
         opts = null
       }

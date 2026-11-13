@@ -31,10 +31,7 @@ export const downloadsSettingsSchema = z.object({
     socketTimeout: true,
     maxTries: true,
     retryWait: true,
-    lowestSpeedLimit: true,
-    fileAllocation: true,
     remoteTime: true,
-    diskCache: true,
   }),
   speedLimit: speedLimitSettingsInputSchema,
 })

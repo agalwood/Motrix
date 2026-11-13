@@ -43,7 +43,6 @@ export const advancedFormSchema = engineSettingsInputSchema.pick({
 export const networkFormSchema = z.object({
   proxy: proxySettingsInputSchema,
   nat: natSettingsInputSchema,
-  engine: engineSettingsInputSchema.pick({ dnsMode: true }),
 })
 
 export const bitTorrentFormSchema = z.object({

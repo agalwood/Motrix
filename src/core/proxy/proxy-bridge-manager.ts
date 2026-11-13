@@ -3,8 +3,8 @@ import { getLogger } from '@core/logger'
 import type { ProxySettings } from '@shared/types/settings'
 import { Server } from 'proxy-chain'
 import {
-  type Aria2ProxyOptions,
-  proxyToAria2Options,
+  type DownloadProxyOptions,
+  proxyToDownloadOptions,
   proxyToFetchUrl,
   proxyToUrl,
 } from './serializers'
@@ -30,7 +30,9 @@ export interface LocalProxyCredentials {
 export type LocalProxyCredentialsFactory = () => LocalProxyCredentials
 
 export interface ProxyBridgeResolver {
-  resolveForDownload(settings: ProxySettings): Promise<Aria2ProxyOptions | null>
+  resolveForDownload(
+    settings: ProxySettings
+  ): Promise<DownloadProxyOptions | null>
   resolveForFetch(settings: ProxySettings): Promise<string | null>
   reconcile(settings: ProxySettings): Promise<void>
 }
@@ -71,11 +73,11 @@ export class ProxyBridgeManager implements ProxyBridgeResolver {
 
   async resolveForDownload(
     settings: ProxySettings
-  ): Promise<Aria2ProxyOptions | null> {
+  ): Promise<DownloadProxyOptions | null> {
     return this.runExclusive(async () => {
       await this.reconcileLocked(settings)
       if (settings.protocol !== 'socks5') {
-        return proxyToAria2Options(settings)
+        return proxyToDownloadOptions(settings)
       }
       if (!this.isUsable(settings, 'download')) return null
 

@@ -3,7 +3,6 @@ import type { TaskActivityService } from '@core/activity'
 import type { EngineAdapter } from '@core/engine/engine-adapter'
 import type { EngineSupervisor } from '@core/engine/engine-supervisor'
 import { createGetEngineTaskOptionsHandler } from '@core/engine/get-engine-task-options'
-import { getTuningRecommendation } from '@core/engine/get-tuning-recommendation'
 import { getFfmpegInstallStatus } from '@core/ffmpeg/verified-install'
 import { pathExists } from '@core/fs/path-exists'
 import type { GeoIPManager } from '@core/geoip/geo-ip-manager'
@@ -42,6 +41,7 @@ import { slimTasksForBroadcast } from '@core/task/slim-task-for-broadcast'
 import type { TaskManager } from '@core/task/task-manager'
 import type { TrackerManager } from '@core/tracker'
 import type { SupportedLocale } from '@shared/constants/locales'
+import { publicSettings } from '@shared/lib/public-settings'
 import type { QueryHandlerMap } from '@shared/protocol/handler-types'
 import { Queries } from '@shared/protocol/queries'
 import { checkTaskFileExistsPayloadSchema } from '@shared/schemas/check-task-file'
@@ -266,8 +266,6 @@ export function buildServerQueryHandlers(
 
     [Queries.GetEngineDiagnostics]: async () => supervisor.diagnose(),
 
-    [Queries.GetTuningRecommendation]: getTuningRecommendation,
-
     [Queries.GetNatStatus]: async () => null,
 
     [Queries.GetNatDiagnostic]: async () => null,
@@ -282,7 +280,7 @@ export function buildServerQueryHandlers(
     [Queries.GetPortableMode]: async () => ({ enabled: false }),
 
     [Queries.GetSettings]: async () => ({
-      ...settingsManager.get(),
+      ...publicSettings(settingsManager.get()),
       resolvedLanguage: ctx.getResolvedLanguage(),
     }),
     // A remote server cannot read the browser user's operating-system accent.

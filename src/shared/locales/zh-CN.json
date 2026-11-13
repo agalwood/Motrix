@@ -205,7 +205,7 @@
             "unidentified": "无法识别，不会终止",
             "current_app": "PID {{pid}}（{{name}}），Motrix 管理",
             "verified_orphan": "PID {{pid}}（{{name}}），已验证的 Motrix 残留进程，可安全终止",
-            "external_aria2": "PID {{pid}}（{{name}}），归属未验证，不会终止",
+            "external_engine": "PID {{pid}}（{{name}}），归属未验证，不会终止",
             "other": "PID {{pid}}（{{name}}），归属未验证，不会终止",
             "unknown": "PID {{pid}}，无法识别，不会终止"
           },

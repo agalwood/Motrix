@@ -1,29 +1,17 @@
-import type { Aria2RawStatus } from '@core/engine/aria2/types'
+import { TaskStatus, TaskType } from '@shared/types/task'
 import { describe, expect, it, vi } from 'vitest'
 import { shouldSkipForPendingMagnetMetadata } from './metadata-task-filter'
 
-function raw(gid = 'gid-1'): Aria2RawStatus {
+function raw() {
   return {
-    gid,
-    status: 'active',
-    totalLength: '0',
-    completedLength: '0',
-    uploadLength: '0',
-    downloadSpeed: '0',
-    uploadSpeed: '0',
-    numSeeders: '0',
-    seeder: 'false',
-    connections: '0',
-    errorCode: '',
-    pieceLength: '0',
-    numPieces: '0',
-    dir: '/downloads',
-    files: [],
+    engineTaskId: 'gid-1',
+    status: TaskStatus.FetchingMetadata,
+    type: TaskType.Magnet,
   }
 }
 
 describe('shouldSkipForPendingMagnetMetadata', () => {
-  it('delegates raw status observation and skips pending metadata rows', () => {
+  it('delegates task observation and skips pending metadata rows', () => {
     const status = raw()
     const tracker = { observe: vi.fn(() => true) }
 

@@ -590,7 +590,7 @@
           },
           "process": {
             "current_app": "PID {{pid}} ({{name}}), administreres av Motrix",
-            "external_aria2": "PID {{pid}} ({{name}}), ubekreftet eierskap; vil ikke bli stoppet",
+            "external_engine": "PID {{pid}} ({{name}}), ubekreftet eierskap; vil ikke bli stoppet",
             "none": "Ingen portkonflikt",
             "other": "PID {{pid}} ({{name}}), ubekreftet eierskap; vil ikke bli stoppet",
             "unidentified": "Uidentifisert, vil ikke bli stoppet",

@@ -166,6 +166,21 @@ export class TaijiRpcClient extends Aria2RpcClient {
     }
   }
 
+  async getTorrentMetadata(
+    gid: string
+  ): Promise<{ data: string; awaitingSelection: boolean }> {
+    return z
+      .object({ data: z.string().min(1), awaitingSelection: z.boolean() })
+      .parse(await this.call('taiji.getTorrentMetadata', [gid]))
+  }
+
+  async confirmTorrentSelection(
+    gid: string,
+    options: Record<string, string>
+  ): Promise<string> {
+    return this.call('taiji.confirmTorrentSelection', [gid, options])
+  }
+
   async getHttpOutput(gid: string): Promise<HttpOutput> {
     const raw = await this.call('taiji.getHttpOutput', [gid])
     return z

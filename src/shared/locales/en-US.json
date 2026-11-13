@@ -206,7 +206,7 @@
             "unidentified": "Unidentified, Will not be stopped",
             "current_app": "PID {{pid}} ({{name}}), Managed by Motrix",
             "verified_orphan": "PID {{pid}} ({{name}}), Verified Motrix leftover; safe to stop",
-            "external_aria2": "PID {{pid}} ({{name}}), Unverified ownership; will not be stopped",
+            "external_engine": "PID {{pid}} ({{name}}), Unverified ownership; will not be stopped",
             "other": "PID {{pid}} ({{name}}), Unverified ownership; will not be stopped",
             "unknown": "PID {{pid}}, Unidentified; will not be stopped"
           },

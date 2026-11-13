@@ -462,7 +462,7 @@ describe.skipIf(!process.env.MOTRIX_TAIJI_BIN && !existsSync(bundled))(
               hostOnly: true,
             },
           ],
-          extraEngineOptions: { 'max-tries': '1', 'retry-wait': '0' },
+          wireOptions: { 'max-tries': '1', 'retry-wait': '0' },
         })
         for (let i = 0; i < 200; i++) {
           if (
@@ -545,7 +545,7 @@ describe.skipIf(!process.env.MOTRIX_TAIJI_BIN && !existsSync(bundled))(
         const gid = await handle.adapter.addTorrent({
           metadata,
           saveDir: directory,
-          selectedFiles: [3],
+          selectedFiles: [2],
           pause: true,
         })
         expect(
@@ -558,7 +558,7 @@ describe.skipIf(!process.env.MOTRIX_TAIJI_BIN && !existsSync(bundled))(
           [1, false],
           [2, true],
         ])
-        await handle.adapter.changeOption(gid, { 'select-file': '1' })
+        await handle.adapter.setSelectedFiles(gid, [0])
         expect(
           (await handle.adapter.getTaskFiles(gid)).map((file) => file.selected)
         ).toEqual([true, false, false])

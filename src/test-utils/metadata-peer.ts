@@ -3,10 +3,11 @@ import { once } from 'node:events'
 import { createServer, type Socket } from 'node:net'
 import { BDictionary, decode, encode } from '@motrix/torrent'
 
-export async function startMetadataPeer(info: Buffer) {
+export async function startMetadataPeer(info: Buffer, payload?: Buffer) {
   const hash = createHash('sha1').update(info).digest()
   const sockets = new Set<Socket>()
   let requests = 0
+  const payloadRequests: number[] = []
   const server = createServer((socket) => {
     sockets.add(socket)
     socket.on('close', () => sockets.delete(socket))
@@ -40,6 +41,20 @@ export async function startMetadataPeer(info: Buffer) {
         socket.write(response)
         // Deliberately use a different extension ID from taiji's local ID.
         send(0, encode({ m: { ut_metadata: 7 }, metadata_size: info.length }))
+        if (payload) {
+          // Test payloads use 16 KiB pieces. Advertise and unchoke only when
+          // explicitly serving data; discovery tests remain metadata-only.
+          const count = Math.ceil(payload.length / 16384)
+          const bits = Buffer.alloc(Math.ceil(count / 8))
+          for (let index = 0; index < count; index++)
+            bits[index >> 3] |= 0x80 >> (index % 8)
+          const frame = Buffer.alloc(5 + bits.length)
+          frame.writeUInt32BE(1 + bits.length)
+          frame[4] = 5
+          frame.set(bits, 5)
+          socket.write(frame)
+          socket.write(Buffer.from([0, 0, 0, 1, 1]))
+        }
         handshaken = true
       }
       while (buffer.length >= 4) {
@@ -48,6 +63,26 @@ export async function startMetadataPeer(info: Buffer) {
         if (buffer.length < 4 + length) return
         const message = buffer.subarray(4, 4 + length)
         buffer = buffer.subarray(4 + length)
+        if (payload && message[0] === 6 && message.length === 13) {
+          const piece = message.readUInt32BE(1),
+            begin = message.readUInt32BE(5),
+            size = message.readUInt32BE(9)
+          if (size > 16384 || begin + size > 16384) return socket.destroy()
+          const block = payload.subarray(
+            piece * 16384 + begin,
+            piece * 16384 + begin + size
+          )
+          if (block.length !== size) return socket.destroy()
+          payloadRequests.push(piece)
+          const frame = Buffer.alloc(13 + size)
+          frame.writeUInt32BE(9 + size)
+          frame[4] = 7
+          frame.writeUInt32BE(piece, 5)
+          frame.writeUInt32BE(begin, 9)
+          frame.set(block, 13)
+          socket.write(frame)
+          continue
+        }
         if (message[0] !== 20 || length < 2) continue
         const value = decode(message.subarray(2)).value
         if (!(value instanceof BDictionary)) continue
@@ -77,6 +112,7 @@ export async function startMetadataPeer(info: Buffer) {
     port: address.port,
     hash: hash.toString('hex'),
     requests: () => requests,
+    payloadRequests: () => [...payloadRequests],
     async close() {
       for (const socket of sockets) socket.destroy()
       await new Promise<void>((resolve) => server.close(() => resolve()))

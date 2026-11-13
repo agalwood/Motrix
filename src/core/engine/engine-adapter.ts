@@ -6,6 +6,7 @@ import type {
   LegacyCheckpointReconcile,
   LegacyCheckpointReconciliation,
 } from '@shared/schemas/legacy-checkpoint'
+import type { TorrentSelection } from '@shared/schemas/torrent-selection'
 import type {
   EngineCapability,
   EngineFeatureReport,
@@ -20,7 +21,6 @@ import type { TaskPeer } from '@shared/types/peer'
 import type { TaskPiecesResult } from '@shared/types/pieces'
 import type { GlobalStats } from '@shared/types/stats'
 import type { DownloadTask, TaskFile } from '@shared/types/task'
-import type { FileAllocation } from '@shared/types/tuning'
 import type { TaskCookieDiagnostic } from './task-cookie-error'
 
 export interface OutputFilePath {
@@ -61,9 +61,7 @@ export interface AddTorrentParams {
    * hexadecimal characters; adapters must reject any other shape before
    * dispatching engine work. */
   gid?: string
-  /** Engine-native file indices, serialized to the engine as-is. For aria2
-   *  these are 1-based (matching aria2's `select-file`). The create path is
-   *  responsible for converting its 0-based request indices before calling. */
+  /** Zero-based indices in the complete torrent file list, including padding positions. */
   selectedFiles?: number[]
   /** Optional per-file mapping relative to outputRoot, or saveDir when absent.
    * The adapter translates indices and option syntax to the target engine. */
@@ -90,9 +88,7 @@ export interface AddTorrentParams {
   /** Per-task limits in bytes per second; zero means unlimited. */
   dlLimit?: number
   ulLimit?: number
-  /** Engine-agnostic passthrough for shell-supplied options. The adapter
-   *  honors keys it understands. */
-  extraEngineOptions?: Record<string, string | string[]>
+  trackers?: string[]
 }
 
 /** An in-memory HTTP cookie, scoped by the engine on every request. */
@@ -155,9 +151,12 @@ export interface CreateDownloadParams {
   proxy?: string
   /** Explicit bypass context for verified legacy HTTP restoration. */
   noProxy?: string
-  /** Engine-agnostic passthrough for shell-supplied options, such as a
-   *  referer. The adapter honors keys it understands. */
-  extraEngineOptions?: Record<string, string | string[]>
+  /** Zero-based torrent file positions; absent means all files. */
+  selectedFiles?: number[]
+  seedRatio?: number
+  trackers?: string[]
+  /** Piece size required by explicit checkpoint import. */
+  pieceLength?: number
   priority?: number
   category?: string
   /** Per-task limits in bytes per second; zero means unlimited. */
@@ -174,7 +173,6 @@ export interface CreateDownloadParams {
   isMultiFile?: boolean
 
   // Explicit override
-  fileAllocation?: FileAllocation
   split?: number
   minSplitSize?: number
 }
@@ -212,6 +210,19 @@ export interface LegacyHttpBindingProof {
 }
 
 export interface EngineAdapter {
+  fetchMagnetMetadata(params: {
+    uri: string
+    saveDir: string
+    engineTaskId?: string
+  }): Promise<string>
+  getTorrentMetadata(
+    engineTaskId: string
+  ): Promise<{ data: string; awaitingSelection: boolean }>
+  confirmTorrentSelection(
+    engineTaskId: string,
+    selection: TorrentSelection
+  ): Promise<void>
+
   holdHttpOutput?(engineTaskId: string): Promise<HttpOutput>
   getHttpOutput?(engineTaskId: string): Promise<HttpOutput>
   finalizeHttpOutput?(
@@ -302,15 +313,10 @@ export interface EngineAdapter {
   getTaskStatus(engineTaskId: string): Promise<DownloadTask | null>
   getTaskFiles(engineTaskId: string): Promise<TaskFile[]>
 
-  /**
-   * Mutate per-task engine options (aria2 `changeOption`). Used by
-   * SetSelectedFiles to update `select-file` on a paused BT task without
-   * re-adding it. Engines that return a status string should swallow it
-   * and resolve to void.
-   */
-  changeOption(
+  /** Apply zero-based file selection. The engine handles wire indexing and padding. */
+  setSelectedFiles(
     engineTaskId: string,
-    options: Record<string, string>
+    indices: readonly number[]
   ): Promise<void>
 
   /**

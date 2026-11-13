@@ -1,7 +1,7 @@
 import { DEFAULT_PROXY_SETTINGS } from '@shared/schemas/proxy-settings'
 import { describe, expect, it } from 'vitest'
 import {
-  proxyToAria2Options,
+  proxyToDownloadOptions,
   proxyToDownloadRequestOptions,
   proxyToElectronConfig,
   proxyToFetchUrl,
@@ -15,17 +15,17 @@ const enabledHttp = {
   port: 8080,
 }
 
-describe('proxyToAria2Options', () => {
+describe('proxyToDownloadOptions', () => {
   it('returns null when disabled', () => {
-    expect(proxyToAria2Options(DEFAULT_PROXY_SETTINGS)).toBeNull()
+    expect(proxyToDownloadOptions(DEFAULT_PROXY_SETTINGS)).toBeNull()
   })
 
   it('returns null when download scope is off', () => {
-    expect(proxyToAria2Options(enabledHttp)).toBeNull()
+    expect(proxyToDownloadOptions(enabledHttp)).toBeNull()
   })
 
   it('returns options when enabled and scope on', () => {
-    const r = proxyToAria2Options({
+    const r = proxyToDownloadOptions({
       ...enabledHttp,
       scopes: {
         download: true,
@@ -39,7 +39,7 @@ describe('proxyToAria2Options', () => {
 
   it('does not pass socks5 to aria2', () => {
     expect(
-      proxyToAria2Options({
+      proxyToDownloadOptions({
         ...enabledHttp,
         protocol: 'socks5',
         scopes: {
@@ -53,7 +53,7 @@ describe('proxyToAria2Options', () => {
   })
 
   it('joins bypass with comma', () => {
-    const r = proxyToAria2Options({
+    const r = proxyToDownloadOptions({
       ...enabledHttp,
       scopes: {
         download: true,
@@ -67,7 +67,7 @@ describe('proxyToAria2Options', () => {
   })
 
   it('encodes credentials', () => {
-    const r = proxyToAria2Options({
+    const r = proxyToDownloadOptions({
       ...enabledHttp,
       user: 'a@b',
       password: 'p:s',
@@ -82,7 +82,7 @@ describe('proxyToAria2Options', () => {
   })
 
   it('brackets an IPv6 proxy host', () => {
-    const r = proxyToAria2Options({
+    const r = proxyToDownloadOptions({
       ...enabledHttp,
       host: '2001:db8::1',
       scopes: {
@@ -97,7 +97,7 @@ describe('proxyToAria2Options', () => {
 
   it('rejects control characters at the serialization boundary', () => {
     expect(
-      proxyToAria2Options({
+      proxyToDownloadOptions({
         ...enabledHttp,
         bypass: ['localhost\nhttp-proxy=http://evil'],
         scopes: {
@@ -109,7 +109,7 @@ describe('proxyToAria2Options', () => {
       })
     ).toBeNull()
     expect(
-      proxyToAria2Options({
+      proxyToDownloadOptions({
         ...enabledHttp,
         user: 'user\nhttp-proxy=http://evil',
         scopes: {

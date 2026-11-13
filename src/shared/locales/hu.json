@@ -206,7 +206,7 @@
             "unidentified": "Nem azonosítható; nem lesz leállítva",
             "current_app": "PID {{pid}} ({{name}}), a Motrix kezeli",
             "verified_orphan": "PID {{pid}} ({{name}}), ellenőrzött, hátramaradt Motrix-folyamat; biztonságosan leállítható",
-            "external_aria2": "PID {{pid}} ({{name}}), a Motrixhoz tartozása nem igazolt; nem lesz leállítva",
+            "external_engine": "PID {{pid}} ({{name}}), a Motrixhoz tartozása nem igazolt; nem lesz leállítva",
             "other": "PID {{pid}} ({{name}}), a Motrixhoz tartozása nem igazolt; nem lesz leállítva",
             "unknown": "PID {{pid}}, nem azonosítható; nem lesz leállítva"
           },

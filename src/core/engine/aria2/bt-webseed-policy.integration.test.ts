@@ -172,7 +172,7 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
               selectedFiles: [1],
               outputFilePaths: plan.outputFilePaths,
               // A stale task override must not re-enable the fatal policy.
-              extraEngineOptions: { 'max-file-not-found': '10' },
+              wireOptions: { 'max-file-not-found': '10' },
             })
           : await wired.rpc.addTorrent(metadata.toString('base64'), [], {
               dir: saveDir,

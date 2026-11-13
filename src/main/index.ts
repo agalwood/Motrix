@@ -5,8 +5,6 @@ import { TaskActivityService, TaskActivityStore } from '@core/activity'
 import { createDownloadDirectories } from '@core/bridge-receiver/download-directories'
 import { Aria2SegmentClient } from '@core/download/aria2-segment-client'
 import { Aria2TrustStore } from '@core/engine/aria2/aria2-trust-store'
-import type { DnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
-import { createDnsFallbackConsumer } from '@core/engine/aria2/dns-fallback'
 import { isNotFoundError } from '@core/engine/aria2/error-utils'
 import { JsonRpcProtocol } from '@core/engine/aria2/json-rpc-protocol'
 import {
@@ -581,9 +579,7 @@ let aria2Adapter: TaijiAdapter
 let notificationCenter: NotificationCenter
 // Constructed and registered in startEngineAndRestore; its task retry is
 // late-bound by buildCommandHandlers to the ReAddTasks deps bundle.
-let dnsFallbackConsumer: DnsFallbackConsumer | undefined
 let recoveryService: TaskRecoveryServiceImpl | undefined
-let dnsFallbackRetry: ((taskId: string) => Promise<unknown>) | undefined
 let trayHandle: ReturnType<typeof setupTray> | null = null
 let natManager: NatManager | null = null
 let taijiNatBridge: TaijiNatBridge | null = null
@@ -935,7 +931,8 @@ async function handlePolledTasks(
   if (supervisor.getState() !== EngineState.Ready) return
   let dirty = false
   for (const raw of rawTasks) {
-    if (shouldSkipForPendingMagnetMetadata(raw, magnetTracker)) {
+    const translated = translateRawToTask(raw)
+    if (shouldSkipForPendingMagnetMetadata(translated, magnetTracker)) {
       continue
     }
     // Segment downloads run on the shared aria2 daemon. Skip phantom
@@ -962,7 +959,6 @@ async function handlePolledTasks(
       continue
     }
 
-    const translated = translateRawToTask(raw)
     if (await completedEngineTaskCleanup?.observe(translated)) {
       dirty = true
       continue
@@ -1419,22 +1415,6 @@ async function startEngineAndRestore(
   occurrenceDispatcher.register(
     notificationConsumer.name,
     notificationConsumer.consume
-  )
-  dnsFallbackConsumer = createDnsFallbackConsumer({
-    getDnsMode: () => settingsManager.get().engine.dnsMode,
-    getTaskStatus: (id) => taskManager.getById(id)?.status ?? null,
-    getTaskName: (id) => taskManager.getById(id)?.name ?? null,
-    applyAsyncDns: (asyncDns) => supervisor.applyAsyncDns(asyncDns),
-    reAddTask: (id) =>
-      dnsFallbackRetry
-        ? dnsFallbackRetry(id)
-        : Promise.reject(new Error('dns fallback task retry not bound')),
-    notify: (input) => notificationCenter.notify(input),
-    log: getLogger('dns-fallback'),
-  })
-  occurrenceDispatcher.register(
-    dnsFallbackConsumer.name,
-    dnsFallbackConsumer.consume
   )
 
   const pluginStartup = new PluginRuntimeStartupCoordinator()
@@ -2454,9 +2434,7 @@ async function initializeMainProcess(): Promise<void> {
       activeTaskInspectorActivityRuntime.runTaskMutation(ids, operation),
     log,
   })
-  supervisor.setSessionRecoveryStore(
-    sessionManager.getEngineSessionRecoveryStore()
-  )
+
   supervisor.setStartupGuard(
     new TaijiStartupGuard({
       completedGids: () => sessionManager.getCompletedDirectEngineTaskIds(),
@@ -2571,7 +2549,7 @@ async function initializeMainProcess(): Promise<void> {
   // (Plan B), and mirrors them into TaskManager so the Downloads list
   // shows a row in fetching_metadata state immediately on submit.
   const activeMagnetTracker = new MagnetTracker(
-    rpcClient,
+    adapter,
     eventBus,
     settingsManager,
     motrixDb,
@@ -3180,10 +3158,6 @@ async function initializeMainProcess(): Promise<void> {
     mediaMetaStore,
     cliToolService,
     supervisor,
-    dnsFallback: { reset: () => dnsFallbackConsumer?.reset() },
-    bindTaskRetry: (fn) => {
-      dnsFallbackRetry = fn
-    },
     recoverFinalization: async (taskId, sha256) => {
       if (!recoveryService) throw new Error('Task recovery is not ready')
       try {

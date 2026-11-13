@@ -10,7 +10,7 @@ it('checks output authorization under the mutation lock before changing selected
   const task = makeDownloadTask({ kind: TaskKind.Bt, type: TaskType.Bt })
   tasks.add(task)
   const engine = {
-    changeOption: vi.fn(async () => {}),
+    setSelectedFiles: vi.fn(async () => {}),
     getTaskFiles: vi.fn(async () => []),
   }
   const db = { replaceTaskFiles: vi.fn() }
@@ -37,6 +37,6 @@ it('checks output authorization under the mutation lock before changing selected
   await expect(handler({ taskId: task.id, indices: [0] })).rejects.toThrow(
     'revoked'
   )
-  expect(engine.changeOption).not.toHaveBeenCalled()
+  expect(engine.setSelectedFiles).not.toHaveBeenCalled()
   expect(db.replaceTaskFiles).not.toHaveBeenCalled()
 })

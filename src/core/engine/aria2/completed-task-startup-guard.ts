@@ -3,6 +3,10 @@ import path from 'node:path'
 import Database from 'better-sqlite3'
 import writeFileAtomic from 'write-file-atomic'
 import { z } from 'zod'
+import type {
+  EngineStartupGuard,
+  PreparedEngineStartup,
+} from '../engine-startup-guard'
 import type { Aria2RpcClient } from './aria2-rpc-client'
 import { isNotFoundError } from './error-utils'
 
@@ -14,15 +18,6 @@ const journalSchema = z
     resume: z.array(gidSchema),
   })
   .strict()
-
-export interface PreparedEngineStartup {
-  args: string[]
-  reconcile: (isStopping: () => boolean) => Promise<void>
-}
-
-export interface EngineStartupGuard {
-  prepare(args: readonly string[]): Promise<PreparedEngineStartup | null>
-}
 
 function argument(args: readonly string[], name: string): string | undefined {
   return args

@@ -325,7 +325,7 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
               expiresAt: Date.now() + 300_000,
             },
           ],
-          extraEngineOptions: { pause: 'true' },
+          wireOptions: { pause: 'true' },
         })
         await vi.waitFor(
           async () => {

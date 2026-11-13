@@ -68,7 +68,6 @@ export const Queries = {
   GetNatStatus: 'query:getNatStatus',
   GetNatDiagnostic: 'query:getNatDiagnostic',
   // Tuning
-  GetTuningRecommendation: 'query:getTuningRecommendation',
   GetTaskTrackerPlan: 'query:getTaskTrackerPlan',
   // Tracker
   GetTrackerList: 'query:getTrackerList',

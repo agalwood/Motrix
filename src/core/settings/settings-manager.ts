@@ -9,6 +9,7 @@ import {
   APP_RESTART_REQUIRED_KEYS,
   ENGINE_RESTART_REQUIRED_KEYS,
 } from '@shared/constants/restart-keys'
+import { AppError, ErrorCode } from '@shared/errors'
 import type { BridgeSettings } from '@shared/schemas/bridge-settings'
 import {
   bridgeSettingsSchema,
@@ -41,6 +42,7 @@ import {
   DEFAULT_PROXY_SETTINGS,
   proxySettingsSchema,
 } from '@shared/schemas/proxy-settings'
+import { publicEngineSettingsSchema } from '@shared/schemas/public-engine-settings'
 import { createDefaultSpeedLimitSettings } from '@shared/schemas/speed-limit'
 import type { GeoIPSettings } from '@shared/types/geoip'
 import type {
@@ -609,18 +611,23 @@ export class SettingsManager {
 
     // Merge engine settings
     if (partial.engine) {
-      if (
-        Object.hasOwn(partial.engine, 'rpcSecret') &&
-        typeof partial.engine.rpcSecret !== 'string'
-      ) {
-        // The schema's `.catch('')` is intentionally tolerant while loading
-        // damaged legacy files. At the live update boundary, however, only a
-        // literal string (including explicit "") may change authentication.
-        throw new TypeError(
-          'settings.engine.rpcSecret must be a string when provided'
+      if (Object.values(partial.engine).some((value) => value === undefined)) {
+        throw new AppError(
+          ErrorCode.SettingsInvalid,
+          'Unsupported or invalid engine setting'
         )
       }
-      const merged = { ...next.engine, ...partial.engine }
+      const accepted = publicEngineSettingsSchema
+        .partial()
+        .strict()
+        .safeParse(partial.engine)
+      if (!accepted.success)
+        throw new AppError(
+          ErrorCode.SettingsInvalid,
+          'Unsupported or invalid engine setting',
+          accepted.error
+        )
+      const merged = { ...next.engine, ...accepted.data }
       if (
         partial.engine.performanceProfile === undefined &&
         ENGINE_PERFORMANCE_TUNING_KEYS.some(

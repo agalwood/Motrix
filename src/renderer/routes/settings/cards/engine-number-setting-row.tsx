@@ -36,10 +36,7 @@ export function EngineNumberSettingRow({
 }: EngineNumberSettingRowProps) {
   const { t } = useTranslation()
   const { formatByteUnit } = useByteFormat()
-  const unit =
-    name === 'lowestSpeedLimit'
-      ? formatByteUnit('KiB', true)
-      : formatByteUnit('MiB')
+  const unit = formatByteUnit('MiB')
   const { min, max, scale, hasUpperBound } = getEngineNumberRules(name)
   const scaledPresets = presets?.map((preset) => ({
     ...preset,

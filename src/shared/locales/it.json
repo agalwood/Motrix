@@ -207,7 +207,7 @@
             "unidentified": "Non identificato; non verrà arrestato",
             "current_app": "PID {{pid}} ({{name}}), gestito da Motrix",
             "verified_orphan": "PID {{pid}} ({{name}}), processo residuo di Motrix verificato; può essere arrestato in sicurezza",
-            "external_aria2": "PID {{pid}} ({{name}}), appartenenza non verificata; non verrà arrestato",
+            "external_engine": "PID {{pid}} ({{name}}), appartenenza non verificata; non verrà arrestato",
             "other": "PID {{pid}} ({{name}}), appartenenza non verificata; non verrà arrestato",
             "unknown": "PID {{pid}}, non identificato; non verrà arrestato"
           },

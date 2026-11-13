@@ -5,14 +5,16 @@ import { createGetEngineTaskOptionsHandler } from './get-engine-task-options'
 describe('getEngineTaskOptions handler', () => {
   it('delegates to adapter.getEngineTaskOptions', async () => {
     const engine = {
-      getEngineTaskOptions: vi
-        .fn()
-        .mockResolvedValue({ dir: '/tmp', header: ['User-Agent: Foo'] }),
+      getEngineTaskOptions: vi.fn().mockResolvedValue({
+        headers: [{ name: 'User-Agent', value: 'Foo' }],
+      }),
     } as unknown as Pick<EngineAdapter, 'getEngineTaskOptions'>
     const handler = createGetEngineTaskOptionsHandler({ engine })
     const result = await handler('gid-1')
     expect(engine.getEngineTaskOptions).toHaveBeenCalledWith('gid-1')
-    expect(result).toEqual({ dir: '/tmp', header: ['User-Agent: Foo'] })
+    expect(result).toEqual({
+      headers: [{ name: 'User-Agent', value: 'Foo' }],
+    })
   })
 
   it('returns null when adapter returns null', async () => {

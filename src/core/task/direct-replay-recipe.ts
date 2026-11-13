@@ -15,12 +15,7 @@ export type { DirectReplayRecipe } from '@shared/schemas/direct-replay-recipe'
 export function buildDirectReplayRecipe(
   params: Pick<
     CreateDownloadParams,
-    | 'connections'
-    | 'headers'
-    | 'cookies'
-    | 'proxy'
-    | 'extraEngineOptions'
-    | 'retainRequestContext'
+    'connections' | 'headers' | 'cookies' | 'proxy' | 'retainRequestContext'
   >,
   ambientEngineRequestOptions = false
 ): DirectReplayRecipe {
@@ -29,9 +24,7 @@ export function buildDirectReplayRecipe(
   if (hasEntries(params.headers)) requestModifiers.push('headers')
   if (params.cookies !== undefined) requestModifiers.push('cookies')
   if (hasText(params.proxy)) requestModifiers.push('proxy')
-  if (hasEntries(params.extraEngineOptions)) {
-    requestModifiers.push('extraEngineOptions')
-  }
+
   if (ambientEngineRequestOptions) {
     requestModifiers.push('engineGlobalOptions')
   }

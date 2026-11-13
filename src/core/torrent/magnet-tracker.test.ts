@@ -1,4 +1,12 @@
-import { access, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import {
+  access,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  writeFile,
+} from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { NOOP_TASK_ACTIVITY_RECORDER } from '@core/activity'
@@ -37,21 +45,24 @@ import type { TorrentParser } from './torrent-parser'
 
 // ─── Mock factories ─────────────────────────────────────────────
 
-type EventHandler = (event: { gid: string }) => void
+type EventHandler = (gid: string) => void
 
 function createMockRpcClient() {
   return {
-    addUri:
+    createDownload: vi.fn().mockResolvedValue('direct-gid'),
+    getTorrentMetadata: vi.fn(),
+    fetchMagnetMetadata:
       vi.fn<
-        (
-          uris: string[],
-          options?: Record<string, string | string[]>
-        ) => Promise<string>
+        (params: {
+          uri: string
+          saveDir: string
+          engineTaskId?: string
+        }) => Promise<string>
       >(),
     tellStatus: vi.fn(),
     getFiles: vi.fn(),
-    remove: vi.fn<(gid: string) => Promise<string>>(),
-    forceRemove: vi.fn<(gid: string) => Promise<string>>(),
+    removeTask: vi.fn<(gid: string) => Promise<string>>(),
+    forceRemoveTask: vi.fn<(gid: string) => Promise<string>>(),
     removeDownloadResult: vi.fn<(gid: string) => Promise<'OK'>>(),
     onDownloadComplete: vi
       .fn<(handler: EventHandler) => () => void>()
@@ -282,6 +293,22 @@ function createMagnetTracker(
     occurrenceDispatcher?: Pick<OccurrenceDispatcher, 'dispatch'>
   }
 ): MagnetTracker {
+  rpcClient.getTorrentMetadata.mockImplementation(async (gid: string) => {
+    const pair = db
+      .getAllTasks()
+      .find((pair) => pair.instances.some((instance) => instance.gid === gid))
+    const directory = pair?.instances.find((instance) => instance.gid === gid)
+      ?.payload.metadataDir
+    if (typeof directory !== 'string') throw new Error('metadata unavailable')
+    const file = (await readdir(directory)).find((file) =>
+      file.endsWith('.torrent')
+    )
+    if (!file) throw new Error('metadata unavailable')
+    return {
+      data: (await readFile(path.join(directory, file))).toString('base64'),
+      awaitingSelection: true,
+    }
+  })
   return new MagnetTracker(
     rpcClient as never,
     eventBus as never,
@@ -320,12 +347,12 @@ describe('MagnetTracker', () => {
     db = createMockMotrixDatabase()
     taskManager = createMockTaskManager()
     torrentParser = createMockTorrentParser()
-    rpc.addUri.mockImplementation(async (_uris, options) => {
-      const gid = options?.gid
+    rpc.fetchMagnetMetadata.mockImplementation(async (options) => {
+      const gid = options?.engineTaskId
       return typeof gid === 'string' ? gid : 'gid-abc'
     })
-    rpc.remove.mockResolvedValue('OK')
-    rpc.forceRemove.mockResolvedValue('OK')
+    rpc.removeTask.mockResolvedValue('OK')
+    rpc.forceRemoveTask.mockResolvedValue('OK')
     rpc.removeDownloadResult.mockResolvedValue('OK')
     tmpDirs = []
   })
@@ -344,8 +371,8 @@ describe('MagnetTracker', () => {
   }
 
   function lastMetadataDir(): string {
-    const options = rpc.addUri.mock.calls.at(-1)?.[1]
-    const dir = options?.dir
+    const options = rpc.fetchMagnetMetadata.mock.calls.at(-1)?.[0]
+    const dir = options?.saveDir
     expect(typeof dir).toBe('string')
     if (!tmpDirs.includes(dir as string)) {
       tmpDirs.push(dir as string)
@@ -354,7 +381,7 @@ describe('MagnetTracker', () => {
   }
 
   function lastMetadataGid(): string {
-    const gid = rpc.addUri.mock.calls.at(-1)?.[1]?.gid
+    const gid = rpc.fetchMagnetMetadata.mock.calls.at(-1)?.[0]?.engineTaskId
     expect(gid).toMatch(/^[a-f0-9]{16}$/)
     return gid as string
   }
@@ -410,17 +437,11 @@ describe('MagnetTracker', () => {
 
     const metadataDir = lastMetadataDir()
     expect(metadataDir).not.toBe(dir)
-    expect(rpc.addUri).toHaveBeenCalledWith(
-      ['magnet:?xt=urn:btih:6367c48dd193d56ea7b0baad25b19455e529f5ee'],
-      {
-        'max-file-not-found': '0',
-        'bt-load-saved-metadata': 'false',
-        'bt-metadata-only': 'true',
-        dir: metadataDir,
-        'follow-torrent': 'false',
-        gid: expect.stringMatching(/^[a-f0-9]{16}$/),
-      }
-    )
+    expect(rpc.fetchMagnetMetadata).toHaveBeenCalledWith({
+      uri: 'magnet:?xt=urn:btih:6367c48dd193d56ea7b0baad25b19455e529f5ee',
+      saveDir: metadataDir,
+      engineTaskId: expect.stringMatching(/^[a-f0-9]{16}$/),
+    })
   })
 
   it('reuses a same-directory seed and rejects a second active directory', async () => {
@@ -478,7 +499,7 @@ describe('MagnetTracker', () => {
     await expect(
       tracker.submit(`magnet:?xt=urn:btih:${infoHash}`, dir)
     ).resolves.toBe(existing.id)
-    expect(rpc.addUri).not.toHaveBeenCalled()
+    expect(rpc.fetchMagnetMetadata).not.toHaveBeenCalled()
 
     const otherDir = await makeTempDir()
     await expect(
@@ -490,7 +511,7 @@ describe('MagnetTracker', () => {
         canCreateCopy: false,
       },
     })
-    expect(rpc.addUri).not.toHaveBeenCalled()
+    expect(rpc.fetchMagnetMetadata).not.toHaveBeenCalled()
   })
 
   it('reserves and silently owns the caller GID before aria2 can expose it', async () => {
@@ -501,8 +522,8 @@ describe('MagnetTracker', () => {
     const addStarted = new Promise<void>((resolve) => {
       markAddStarted = resolve
     })
-    rpc.addUri.mockImplementation(async (_uris, options) => {
-      requestedGid = options?.gid as string
+    rpc.fetchMagnetMetadata.mockImplementation(async (options) => {
+      requestedGid = options?.engineTaskId as string
       markAddStarted()
       return new Promise<string>((resolve) => {
         resolveAdd = resolve
@@ -652,7 +673,7 @@ describe('MagnetTracker', () => {
     const reservedGid = vi.mocked(taskManager.reserveEngineTaskId).mock
       .calls[0]?.[0]
     expect(db.saveTaskWithInstances).not.toHaveBeenCalled()
-    expect(rpc.addUri).not.toHaveBeenCalled()
+    expect(rpc.fetchMagnetMetadata).not.toHaveBeenCalled()
     expect(taskManager.set).not.toHaveBeenCalled()
     expect(taskManager.setReservedEngineTaskOwner).not.toHaveBeenCalled()
     expect(taskManager.rollbackReservedEngineTaskOwner).not.toHaveBeenCalled()
@@ -665,7 +686,9 @@ describe('MagnetTracker', () => {
 
   it('retires the caller GID after post-dispatch compensation so a stale poll stays blocked', async () => {
     const dir = await makeTempDir()
-    rpc.addUri.mockRejectedValueOnce(new Error('rpc response lost'))
+    rpc.fetchMagnetMetadata.mockRejectedValueOnce(
+      new Error('rpc response lost')
+    )
     const tracker = createMagnetTracker(
       rpc as never,
       eventBus as never,
@@ -682,17 +705,18 @@ describe('MagnetTracker', () => {
       )
     ).rejects.toThrow('rpc response lost')
 
-    const requestedGid = rpc.addUri.mock.calls[0]?.[1]?.gid as string
+    const requestedGid = rpc.fetchMagnetMetadata.mock.calls[0]?.[0]
+      ?.engineTaskId as string
     const submittedOwner = vi.mocked(taskManager.setReservedEngineTaskOwner)
       .mock.calls[0]?.[1]
-    expect(rpc.forceRemove).toHaveBeenCalledWith(requestedGid)
+    expect(rpc.forceRemoveTask).toHaveBeenCalledWith(requestedGid)
     expect(rpc.removeDownloadResult).toHaveBeenCalledWith(requestedGid)
     expect(db.getTask(submittedOwner?.id ?? '')).toBeNull()
     expect(taskManager.getByEngineTaskId(requestedGid)).toBeUndefined()
     expect(taskManager.retireEngineTaskIdReservation).toHaveBeenCalledWith(
       requestedGid
     )
-    // Models an authoritative poll snapshot captured before forceRemove:
+    // Models an authoritative poll snapshot captured before forceRemoveTask:
     // even after cache/DB cleanup it still sees a bounded negative owner.
     expect(taskManager.isEngineTaskIdRetired(requestedGid)).toBe(true)
     await expect(
@@ -702,7 +726,9 @@ describe('MagnetTracker', () => {
 
   it('does not emit an occurrence for the hidden cleanup tombstone written after post-dispatch compensation', async () => {
     const dir = await makeTempDir()
-    rpc.addUri.mockRejectedValueOnce(new Error('rpc response lost'))
+    rpc.fetchMagnetMetadata.mockRejectedValueOnce(
+      new Error('rpc response lost')
+    )
     const dispatch = vi.fn(async () => {})
     const tracker = createMagnetTracker(
       rpc as never,
@@ -755,7 +781,7 @@ describe('MagnetTracker', () => {
     vi.mocked(db.saveTaskWithInstances).mockClear()
     vi.mocked(taskManager.set).mockClear()
 
-    await onComplete({ gid })
+    await onComplete(gid)
 
     expect(lifecycle.recordTransition).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -801,7 +827,7 @@ describe('MagnetTracker', () => {
     vi.mocked(db.persistTaskWithOccurrence).mockClear()
     vi.mocked(taskManager.set).mockClear()
 
-    await onError({ gid })
+    await onError(gid)
 
     expect(lifecycle.recordTransition).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -902,7 +928,7 @@ describe('MagnetTracker', () => {
     eventBus.emit.mockClear()
 
     const onComplete = rpc.onDownloadComplete.mock.calls[0][0]
-    onComplete({ gid })
+    onComplete(gid)
     await Promise.resolve()
     releaseSwap()
     await swapping
@@ -959,15 +985,15 @@ describe('MagnetTracker', () => {
       engineTaskId: 'bt-after-error-gid',
       instances: [btInstance],
     })
-    vi.mocked(rpc.forceRemove).mockClear()
+    vi.mocked(rpc.forceRemoveTask).mockClear()
     eventBus.emit.mockClear()
 
     const onError = rpc.onDownloadError.mock.calls[0][0]
-    await onError({ gid })
+    await onError(gid)
 
     expect(db.getTask(taskId)?.task.aggStatus).toBe(TaskStatus.Downloading)
     expect(taskManager.getById(taskId)?.status).toBe(TaskStatus.Downloading)
-    expect(rpc.forceRemove).not.toHaveBeenCalled()
+    expect(rpc.forceRemoveTask).not.toHaveBeenCalled()
     expect(eventBus.emit).not.toHaveBeenCalled()
   })
 
@@ -990,8 +1016,8 @@ describe('MagnetTracker', () => {
     eventBus.emit.mockClear()
 
     const onComplete = rpc.onDownloadComplete.mock.calls[0][0]
-    await onComplete({ gid })
-    await onComplete({ gid })
+    await onComplete(gid)
+    await onComplete(gid)
 
     const selectionEvents = eventBus.emit.mock.calls.filter(
       ([event]) => event === Events.MagnetFileSelection
@@ -1048,7 +1074,7 @@ describe('MagnetTracker', () => {
     await autosaveStarted
 
     const onComplete = rpc.onDownloadComplete.mock.calls[0][0]
-    const completion = onComplete({ gid }) as unknown as Promise<void>
+    const completion = onComplete(gid) as unknown as Promise<void>
     await Promise.resolve()
     releaseAutosave()
     await staleAutosave
@@ -1140,13 +1166,10 @@ describe('MagnetTracker', () => {
       '/downloads'
     )
 
-    expect(rpc.addUri).toHaveBeenCalledWith(
-      ['magnet:?xt=urn:btih:6367c48dd193d56ea7b0baad25b19455e529f5ee'],
-      {
-        dir: '/downloads',
-        'max-file-not-found': '0',
-      }
-    )
+    expect(rpc.createDownload).toHaveBeenCalledWith({
+      uris: ['magnet:?xt=urn:btih:6367c48dd193d56ea7b0baad25b19455e529f5ee'],
+      saveDir: '/downloads',
+    })
   })
 
   // ── 4. onComplete for known gid ──────────────────────────────
@@ -1195,11 +1218,11 @@ describe('MagnetTracker', () => {
     const torrent = await writeTorrentFixture(lastMetadataDir())
 
     // Simulate aria2 completing metadata download
-    await onComplete({ gid })
+    await onComplete(gid)
 
     // Parser was called with the saved .torrent file's base64.
     expect(torrentParser.parse).toHaveBeenCalledWith(torrent.base64)
-    expect(rpc.removeDownloadResult).toHaveBeenCalledWith(gid)
+    expect(rpc.removeDownloadResult).not.toHaveBeenCalled()
 
     // Find the MagnetFileSelection emit (TaskUpdated may interleave).
     const emitCall = (
@@ -1268,7 +1291,7 @@ describe('MagnetTracker', () => {
     await tracker.submit(`magnet:?xt=urn:btih:${infoHash}`, saveDir)
     const gid = lastMetadataGid()
     const torrent = await writeTorrentFixture(lastMetadataDir())
-    await onBtComplete({ gid })
+    await onBtComplete(gid)
 
     expect(eventBus.emit).toHaveBeenCalledWith(
       Events.MagnetFileSelection,
@@ -1318,7 +1341,7 @@ describe('MagnetTracker', () => {
     )
     const gid = lastMetadataGid()
     const torrent = await writeTorrentFixture(lastMetadataDir())
-    await onComplete({ gid })
+    await onComplete(gid)
 
     // User dismissed the dialog — clear emits so we assert the RE-open emits.
     ;(eventBus.emit as ReturnType<typeof vi.fn>).mockClear()
@@ -1392,7 +1415,7 @@ describe('MagnetTracker', () => {
     const gid = lastMetadataGid()
     const metaDir = lastMetadataDir()
     await writeTorrentFixture(metaDir)
-    await onComplete({ gid })
+    await onComplete(gid)
     // Temp dir cleared (e.g. OS reboot wiped /tmp).
     await rm(metaDir, { recursive: true, force: true })
 
@@ -1435,7 +1458,7 @@ describe('MagnetTracker', () => {
     await tracker.submit(`magnet:?xt=urn:btih:${infoHash}`, saveDir)
     const gid = lastMetadataGid()
     const torrent = await writeTorrentFixture(lastMetadataDir())
-    await onBtComplete({ gid })
+    await onBtComplete(gid)
 
     expect(torrentParser.parse).toHaveBeenCalledWith(torrent.base64)
 
@@ -1458,7 +1481,7 @@ describe('MagnetTracker', () => {
     // misleading: the metadata is already in the user's lap.
     const infoHash = 'e'.repeat(40)
     const saveDir = await makeTempDir()
-    rpc.addUri.mockResolvedValue('g-meta-ready')
+    rpc.fetchMagnetMetadata.mockResolvedValue('g-meta-ready')
     torrentParser.parse.mockResolvedValue({
       name: 'resolved-name.torrent',
       infoHash,
@@ -1483,7 +1506,7 @@ describe('MagnetTracker', () => {
       saveDir
     )
     await writeTorrentFixture(lastMetadataDir())
-    await onBtComplete({ gid: 'g-meta-ready' })
+    await onBtComplete('g-meta-ready')
 
     const after = db.getTask(taskId)
     expect(after?.task.aggStatus).toBe(TaskStatus.MetadataReady)
@@ -1507,80 +1530,84 @@ describe('MagnetTracker', () => {
     expect(emits).toContain(Events.TaskUpdated)
   })
 
-  it('keeps a restart-safe quarantine owner when metadata result purge is unconfirmed', async () => {
-    const saveDir = await makeTempDir()
-    rpc.addUri.mockResolvedValue('g-meta-result-purge-failed')
-    rpc.removeDownloadResult.mockRejectedValue(new Error('ECONNREFUSED'))
-    rpc.remove.mockRejectedValue(new Error('ECONNREFUSED'))
-    rpc.forceRemove.mockRejectedValue(new Error('ECONNREFUSED'))
-
+  it('does not confuse a paused Fetching task with verified metadata', async () => {
     const tracker = createMagnetTracker(
-      rpc as never,
-      eventBus as never,
-      settings as never,
+      rpc,
+      eventBus,
+      settings,
       db,
       taskManager,
       torrentParser
     )
-    const onComplete = rpc.onDownloadComplete.mock.calls[0][0]
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:5059f80d16ae552ccb397a269bb49d015a3c6388',
+      await makeTempDir()
+    )
+    const engineTaskId = lastMetadataGid()
+    tracker.observe({
+      engineTaskId,
+      type: TaskType.Magnet,
+      status: TaskStatus.Paused,
+    })
+    expect(rpc.getTorrentMetadata).not.toHaveBeenCalled()
+    expect(db.getTask(taskId)?.task.aggStatus).toBe(TaskStatus.FetchingMetadata)
+    await writeTorrentFixture(lastMetadataDir())
+    tracker.observe({
+      engineTaskId,
+      type: TaskType.Bt,
+      status: TaskStatus.Paused,
+    })
+    await vi.waitFor(() =>
+      expect(db.getTask(taskId)?.task.aggStatus).toBe(TaskStatus.MetadataReady)
+    )
+    await tracker.stopAndDrain()
+  })
+
+  it('retains the same parked engine task and polling shield across restart while waiting for selection', async () => {
+    const saveDir = await makeTempDir()
+    const tracker = createMagnetTracker(
+      rpc,
+      eventBus,
+      settings,
+      db,
+      taskManager,
+      torrentParser
+    )
     const taskId = await tracker.submit(
       'magnet:?xt=urn:btih:5059f80d16ae552ccb397a269bb49d015a3c6388',
       saveDir
     )
+    const gid = lastMetadataGid()
     await writeTorrentFixture(lastMetadataDir())
-
-    await onComplete({ gid: 'g-meta-result-purge-failed' })
-
-    const failed = db.getTask(taskId)
-    expect(failed?.task).toMatchObject({
-      aggStatus: TaskStatus.Error,
-      errorCode: DownloadErrorCode.BtMetadataFailed,
-      errorMessage: 'Magnet metadata result cleanup could not be confirmed',
-    })
-    expect(failed?.instances[0]).toMatchObject({
-      gid: 'g-meta-result-purge-failed',
-      status: TaskStatus.Error,
-      payload: {
-        cleanupQuarantined: true,
-        cleanupTombstoneHidden: false,
-      },
-    })
-    expect(taskManager.getById(taskId)?.status).toBe(TaskStatus.Error)
-    expect(
-      tracker.observe({
-        gid: 'g-meta-result-purge-failed',
-        status: 'complete',
-      } as never)
-    ).toBe(true)
-    expect(eventBus.emit).not.toHaveBeenCalledWith(
-      Events.MagnetFileSelection,
-      expect.anything()
-    )
-
+    await rpc.onDownloadComplete.mock.calls[0][0](gid)
+    expect(db.getTask(taskId)?.task.aggStatus).toBe(TaskStatus.MetadataReady)
+    expect(rpc.removeDownloadResult).not.toHaveBeenCalled()
     await tracker.stopAndDrain()
-    const restartedTaskManager = createMockTaskManager()
-    const restartedTracker = createMagnetTracker(
-      rpc as never,
-      eventBus as never,
-      settings as never,
+    const restarted = createMagnetTracker(
+      rpc,
+      eventBus,
+      settings,
       db,
-      restartedTaskManager,
+      taskManager,
       torrentParser
     )
-    restartedTracker.primeFromDatabase()
-
+    restarted.primeFromDatabase()
     expect(
-      restartedTracker.observe({
-        gid: 'g-meta-result-purge-failed',
-        status: 'complete',
-      } as never)
+      restarted.observe({ engineTaskId: gid, status: 'paused' } as never)
     ).toBe(true)
-    await restartedTracker.stopAndDrain()
+    await vi.advanceTimersByTimeAsync(120000)
+    expect(db.getTask(taskId)?.task.aggStatus).toBe(TaskStatus.MetadataReady)
+    expect(rpc.forceRemoveTask).not.toHaveBeenCalled()
+    restarted.releaseSelection(taskId)
+    expect(
+      restarted.observe({ engineTaskId: gid, status: 'active' } as never)
+    ).toBe(false)
+    await restarted.stopAndDrain()
   })
 
   it('keeps MetadataReady when a TaskUpdated listener throws (bus isolates, no cleanup)', async () => {
     const saveDir = await makeTempDir()
-    rpc.addUri.mockResolvedValue('g-meta-task-updated-throws')
+    rpc.fetchMagnetMetadata.mockResolvedValue('g-meta-task-updated-throws')
     const onListenerError = vi.fn()
     const realEventBus = new EventBus({ onListenerError })
     const emitSpy = vi.spyOn(realEventBus, 'emit')
@@ -1605,7 +1632,7 @@ describe('MagnetTracker', () => {
     })
 
     await expect(
-      onComplete({ gid: 'g-meta-task-updated-throws' })
+      onComplete('g-meta-task-updated-throws')
     ).resolves.toBeUndefined()
 
     expect(onListenerError).toHaveBeenCalledTimes(1)
@@ -1622,10 +1649,10 @@ describe('MagnetTracker', () => {
       Events.TaskUpdated,
       Events.MagnetFileSelection,
     ])
-    expect(rpc.forceRemove).not.toHaveBeenCalled()
+    expect(rpc.forceRemoveTask).not.toHaveBeenCalled()
     expect(
       tracker.observe({
-        gid: 'g-meta-task-updated-throws',
+        engineTaskId: 'g-meta-task-updated-throws',
         status: 'complete',
       } as never)
     ).toBe(true)
@@ -1633,7 +1660,7 @@ describe('MagnetTracker', () => {
 
   it('keeps MetadataReady when a MagnetFileSelection listener throws (bus isolates, no cleanup)', async () => {
     const saveDir = await makeTempDir()
-    rpc.addUri.mockResolvedValue('g-meta-file-selection-throws')
+    rpc.fetchMagnetMetadata.mockResolvedValue('g-meta-file-selection-throws')
     const onListenerError = vi.fn()
     const realEventBus = new EventBus({ onListenerError })
     const emitSpy = vi.spyOn(realEventBus, 'emit')
@@ -1658,7 +1685,7 @@ describe('MagnetTracker', () => {
     })
 
     await expect(
-      onComplete({ gid: 'g-meta-file-selection-throws' })
+      onComplete('g-meta-file-selection-throws')
     ).resolves.toBeUndefined()
 
     expect(onListenerError).toHaveBeenCalledTimes(1)
@@ -1675,74 +1702,46 @@ describe('MagnetTracker', () => {
       Events.TaskUpdated,
       Events.MagnetFileSelection,
     ])
-    expect(rpc.forceRemove).not.toHaveBeenCalled()
+    expect(rpc.forceRemoveTask).not.toHaveBeenCalled()
     expect(
       tracker.observe({
-        gid: 'g-meta-file-selection-throws',
+        engineTaskId: 'g-meta-file-selection-throws',
         status: 'complete',
       } as never)
     ).toBe(true)
   })
 
-  it('commits a visible terminal Error when completed metadata cannot be read and cleanup succeeds', async () => {
-    const saveDir = await makeTempDir()
-    rpc.addUri.mockResolvedValue('g-meta-read-failed')
+  it('retries a failed metadata read on the same task without deleting verified data', async () => {
     const tracker = createMagnetTracker(
-      rpc as never,
-      eventBus as never,
-      settings as never,
+      rpc,
+      eventBus,
+      settings,
       db,
       taskManager,
       torrentParser
     )
-    const onComplete = rpc.onDownloadComplete.mock.calls[0][0]
     const taskId = await tracker.submit(
       'magnet:?xt=urn:btih:5ab7152919bbbeea66421c7b727d0dc803b18393',
-      saveDir
+      await makeTempDir()
     )
-    eventBus.emit.mockClear()
-
-    // Leave the metadata directory without a .torrent file.
-    await onComplete({ gid: 'g-meta-read-failed' })
-
-    const saved = db.getTask(taskId)
-    expect(saved?.task).toMatchObject({
-      aggStatus: TaskStatus.Error,
-      finishedAt: expect.any(Number),
-      errorMessage: 'Magnet metadata processing failed',
-      errorCode: DownloadErrorCode.BtMetadataFailed,
-    })
-    expect(saved?.instances[0]).toMatchObject({
-      status: TaskStatus.Error,
-      payload: expect.objectContaining({
-        cleanupQuarantined: false,
-        cleanupTombstoneHidden: false,
-      }),
-    })
-    expect(taskManager.getById(taskId)).toMatchObject({
-      status: TaskStatus.Error,
-      errorCode: DownloadErrorCode.BtMetadataFailed,
-    })
-    expect(eventBus.emit).toHaveBeenCalledWith(
-      Events.TaskUpdated,
-      expect.any(Array)
+    const gid = lastMetadataGid()
+    rpc.getTorrentMetadata.mockRejectedValueOnce(
+      new Error('connection interrupted')
     )
-    expect(eventBus.emit).not.toHaveBeenCalledWith(
-      Events.MagnetFileSelection,
-      expect.anything()
-    )
-    expect(
-      tracker.observe({
-        gid: 'g-meta-read-failed',
-        status: 'complete',
-      } as never)
-    ).toBe(false)
+    await rpc.onDownloadComplete.mock.calls[0][0](gid)
+    expect(db.getTask(taskId)?.task.aggStatus).toBe(TaskStatus.FetchingMetadata)
+    expect(rpc.forceRemoveTask).not.toHaveBeenCalled()
+    await writeTorrentFixture(lastMetadataDir())
+    await rpc.onDownloadComplete.mock.calls[0][0](gid)
+    expect(db.getTask(taskId)?.task.aggStatus).toBe(TaskStatus.MetadataReady)
+    expect(rpc.fetchMagnetMetadata).toHaveBeenCalledOnce()
+    await tracker.stopAndDrain()
   })
 
   it('keeps parse failure terminal and visible when cleanup reaches MAX', async () => {
     const saveDir = await makeTempDir()
-    rpc.addUri.mockResolvedValue('g-meta-parse-failed')
-    rpc.forceRemove.mockRejectedValue(new Error('ECONNREFUSED'))
+    rpc.fetchMagnetMetadata.mockResolvedValue('g-meta-parse-failed')
+    rpc.forceRemoveTask.mockRejectedValue(new Error('ECONNREFUSED'))
     rpc.removeDownloadResult.mockRejectedValue(new Error('ECONNREFUSED'))
     torrentParser.parse.mockRejectedValue(new Error('invalid bencode'))
     const tracker = createMagnetTracker(
@@ -1761,11 +1760,11 @@ describe('MagnetTracker', () => {
     await writeTorrentFixture(lastMetadataDir())
     eventBus.emit.mockClear()
 
-    await onComplete({ gid: 'g-meta-parse-failed' })
+    await onComplete('g-meta-parse-failed')
     await vi.advanceTimersByTimeAsync(400_000)
 
     const saved = db.getTask(taskId)
-    expect(rpc.forceRemove).toHaveBeenCalledTimes(6)
+    expect(rpc.forceRemoveTask).toHaveBeenCalledTimes(6)
     expect(saved?.task).toMatchObject({
       aggStatus: TaskStatus.Error,
       finishedAt: expect.any(Number),
@@ -1793,7 +1792,7 @@ describe('MagnetTracker', () => {
     )
     expect(
       tracker.observe({
-        gid: 'g-meta-parse-failed',
+        engineTaskId: 'g-meta-parse-failed',
         status: 'complete',
       } as never)
     ).toBe(true)
@@ -1812,7 +1811,7 @@ describe('MagnetTracker', () => {
     )
     const onComplete = rpc.onDownloadComplete.mock.calls[0][0]
 
-    await onComplete({ gid: 'unknown-gid' })
+    await onComplete('unknown-gid')
 
     expect(rpc.getFiles).not.toHaveBeenCalled()
     expect(eventBus.emit).not.toHaveBeenCalled()
@@ -1839,9 +1838,9 @@ describe('MagnetTracker', () => {
     const gid = lastMetadataGid()
     eventBus.emit.mockClear()
 
-    await onError({ gid })
+    await onError(gid)
 
-    expect(rpc.forceRemove).toHaveBeenCalledWith(gid)
+    expect(rpc.forceRemoveTask).toHaveBeenCalledWith(gid)
     const saved = db.getTask(taskId)
     expect(saved?.task).toMatchObject({
       aggStatus: TaskStatus.Error,
@@ -1889,7 +1888,7 @@ describe('MagnetTracker', () => {
     )
     const gid = lastMetadataGid()
 
-    await onError({ gid })
+    await onError(gid)
 
     expect(dispatch).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({
@@ -1909,7 +1908,7 @@ describe('MagnetTracker', () => {
 
   it('does not turn a normal metadata Error into a hidden tombstone when cleanup reaches MAX', async () => {
     const dir = await makeTempDir()
-    rpc.forceRemove.mockRejectedValue(new Error('ECONNREFUSED'))
+    rpc.forceRemoveTask.mockRejectedValue(new Error('ECONNREFUSED'))
     rpc.removeDownloadResult.mockRejectedValue(new Error('ECONNREFUSED'))
     const dispatch = vi.fn(async () => {})
     const tracker = createMagnetTracker(
@@ -1929,18 +1928,20 @@ describe('MagnetTracker', () => {
       dir
     )
     const gid = lastMetadataGid()
-    await onError({ gid })
+    await onError(gid)
     await vi.advanceTimersByTimeAsync(400_000)
 
     const saved = db.getTask(taskId)
-    expect(rpc.forceRemove).toHaveBeenCalledTimes(6)
+    expect(rpc.forceRemoveTask).toHaveBeenCalledTimes(6)
     expect(saved?.task.aggStatus).toBe(TaskStatus.Error)
     expect(saved?.instances[0].payload).toMatchObject({
       cleanupQuarantined: true,
       cleanupTombstoneHidden: false,
     })
     expect(taskManager.getById(taskId)?.status).toBe(TaskStatus.Error)
-    expect(tracker.observe({ gid, status: 'active' } as never)).toBe(true)
+    expect(
+      tracker.observe({ engineTaskId: gid, status: 'active' } as never)
+    ).toBe(true)
     // Not a hidden tombstone (cleanupTombstoneHidden: false above) — the
     // initial onError (markMetadataFailure) commit emits a user-visible
     // occurrence. The later deferCleanup give-up branch does NOT emit a
@@ -1976,7 +1977,7 @@ describe('MagnetTracker', () => {
 
     await vi.advanceTimersByTimeAsync(120_000)
     expect(db.getTask(taskId)?.task.aggStatus).toBe(TaskStatus.FetchingMetadata)
-    expect(rpc.forceRemove).not.toHaveBeenCalled()
+    expect(rpc.forceRemoveTask).not.toHaveBeenCalled()
 
     await vi.advanceTimersByTimeAsync(479_999)
     expect(db.getTask(taskId)?.task.aggStatus).toBe(TaskStatus.FetchingMetadata)
@@ -2015,7 +2016,7 @@ describe('MagnetTracker', () => {
     // Advance time by 60 seconds (timeout)
     await vi.advanceTimersByTimeAsync(60 * 1000)
 
-    expect(rpc.forceRemove).toHaveBeenCalledWith(gid)
+    expect(rpc.forceRemoveTask).toHaveBeenCalledWith(gid)
     const saved = db.getTask(taskId)
     expect(saved?.task).toMatchObject({
       aggStatus: TaskStatus.Error,
@@ -2077,7 +2078,7 @@ describe('MagnetTracker', () => {
     // global stats showed Active=1 because aria2 itself saw the
     // metadata GID, but the renderer never knew about the new row.
     const dir = await makeTempDir()
-    rpc.addUri.mockResolvedValue('g-meta-emit')
+    rpc.fetchMagnetMetadata.mockResolvedValue('g-meta-emit')
     const tracker = createMagnetTracker(
       rpc as never,
       eventBus as never,
@@ -2109,7 +2110,7 @@ describe('MagnetTracker', () => {
 
   it('observe() recognises a gid that lives in a magnet_metadata_resolution instance', async () => {
     const dir = await makeTempDir()
-    rpc.addUri.mockResolvedValue('g-meta-1')
+    rpc.fetchMagnetMetadata.mockResolvedValue('g-meta-1')
     const tracker = createMagnetTracker(
       rpc as never,
       eventBus as never,
@@ -2124,7 +2125,7 @@ describe('MagnetTracker', () => {
     )
 
     expect(
-      tracker.observe({ gid: 'g-meta-1', status: 'active' } as never)
+      tracker.observe({ engineTaskId: 'g-meta-1', status: 'active' } as never)
     ).toBe(true)
   })
 
@@ -2138,14 +2139,14 @@ describe('MagnetTracker', () => {
       torrentParser
     )
 
-    expect(tracker.observe({ gid: 'g-other', status: 'active' } as never)).toBe(
-      false
-    )
+    expect(
+      tracker.observe({ engineTaskId: 'g-other', status: 'active' } as never)
+    ).toBe(false)
   })
 
   it('observe() self-clears a stale failed-swap shield after the BT owner is installed', async () => {
     const dir = await makeTempDir()
-    rpc.addUri.mockResolvedValue('g-meta-before-swap')
+    rpc.fetchMagnetMetadata.mockResolvedValue('g-meta-before-swap')
     const tracker = createMagnetTracker(
       rpc as never,
       eventBus as never,
@@ -2193,7 +2194,10 @@ describe('MagnetTracker', () => {
     // the authoritative TaskManager owner and heals the stale shield rather
     // than suppressing legitimate BT updates indefinitely.
     expect(
-      tracker.observe({ gid: 'g-bt-committed', status: 'active' } as never)
+      tracker.observe({
+        engineTaskId: 'g-bt-committed',
+        status: 'active',
+      } as never)
     ).toBe(false)
     expect(tracker.hasPendingSwapCleanup(taskId)).toBe(false)
     await tracker.stopAndDrain()
@@ -2201,7 +2205,7 @@ describe('MagnetTracker', () => {
 
   it('cancel(taskId) calls aria2 forceRemove with the GID, not the instanceId', async () => {
     const dir = await makeTempDir()
-    rpc.addUri.mockResolvedValue('g-meta-cancel')
+    rpc.fetchMagnetMetadata.mockResolvedValue('g-meta-cancel')
     const tracker = createMagnetTracker(
       rpc as never,
       eventBus as never,
@@ -2220,14 +2224,14 @@ describe('MagnetTracker', () => {
     // Regression guard for Codex finding #2: cleanupCacheEntry must
     // delete by aria2 gid and call RPC with the aria2 gid. The legacy bug
     // passed `meta:${taskId}` here and silently failed against aria2.
-    expect(rpc.forceRemove).toHaveBeenCalledWith('g-meta-cancel')
-    expect(rpc.forceRemove).not.toHaveBeenCalledWith(
+    expect(rpc.forceRemoveTask).toHaveBeenCalledWith('g-meta-cancel')
+    expect(rpc.forceRemoveTask).not.toHaveBeenCalledWith(
       expect.stringMatching(/^meta:/)
     )
   })
 
   it('cancel(taskId, { deleteTaskRow: false }) leaves the DB task row in place', async () => {
-    // Bug 2 fix: swapMagnetMetadataForBt reuses cancel() only to drop
+    // Bug 2 fix: confirmMagnetSelection reuses cancel() only to drop
     // the in-memory cache + tear down the aria2 metadata GID — it
     // does NOT want the persistent task row deleted, because swap
     // immediately writes a new bt_download instance under the same
@@ -2235,7 +2239,7 @@ describe('MagnetTracker', () => {
     // trip the FK constraint after adapter.addTorrent already
     // accepted a fresh BT GID, leaving aria2 with an orphan.
     const dir = await makeTempDir()
-    rpc.addUri.mockResolvedValue('g-meta-keep-row')
+    rpc.fetchMagnetMetadata.mockResolvedValue('g-meta-keep-row')
     const tracker = createMagnetTracker(
       rpc as never,
       eventBus as never,
@@ -2253,11 +2257,14 @@ describe('MagnetTracker', () => {
 
     await tracker.cancel(taskId, { deleteTaskRow: false })
 
-    expect(rpc.forceRemove).toHaveBeenCalledWith('g-meta-keep-row')
+    expect(rpc.forceRemoveTask).toHaveBeenCalledWith('g-meta-keep-row')
     // cache entry dropped (cleanup succeeded) — observe() no longer
     // shields the gid.
     expect(
-      tracker.observe({ gid: 'g-meta-keep-row', status: 'active' } as never)
+      tracker.observe({
+        engineTaskId: 'g-meta-keep-row',
+        status: 'active',
+      } as never)
     ).toBe(false)
     // DB row preserved for the caller (swap) to mutate next.
     expect(db.deleteTask).not.toHaveBeenCalled()
@@ -2270,7 +2277,7 @@ describe('MagnetTracker', () => {
       magnetFileSelection: true,
       magnetResolveTimeout: 1,
     })
-    rpc.addUri.mockResolvedValue('g-meta-timeout')
+    rpc.fetchMagnetMetadata.mockResolvedValue('g-meta-timeout')
     const tracker = createMagnetTracker(
       rpc as never,
       eventBus as never,
@@ -2286,8 +2293,8 @@ describe('MagnetTracker', () => {
     )
     await vi.advanceTimersByTimeAsync(1500)
 
-    expect(rpc.forceRemove).toHaveBeenCalledWith('g-meta-timeout')
-    expect(rpc.forceRemove).not.toHaveBeenCalledWith(
+    expect(rpc.forceRemoveTask).toHaveBeenCalledWith('g-meta-timeout')
+    expect(rpc.forceRemoveTask).not.toHaveBeenCalledWith(
       expect.stringMatching(/^meta:/)
     )
   })
@@ -2311,25 +2318,24 @@ describe('MagnetTracker', () => {
       'magnet:?xt=urn:btih:43efb4f44e8b1198387ddd79269a2dbdece78bec',
       dir
     )
-    const firstOptions = rpc.addUri.mock.calls[0][1]
+    const firstOptions = rpc.fetchMagnetMetadata.mock.calls[0][0]
     await vi.advanceTimersByTimeAsync(1_000)
     await vi.waitFor(() => {
       expect(db.getTask(taskId)?.task.aggStatus).toBe(TaskStatus.Error)
       expect(
-        tracker.observe({ gid: firstOptions?.gid, status: 'removed' } as never)
+        tracker.observe({
+          engineTaskId: firstOptions?.engineTaskId,
+          status: 'removed',
+        } as never)
       ).toBe(false)
     })
 
     await tracker.retryMetadata(taskId)
 
-    const secondOptions = rpc.addUri.mock.calls[1][1]
-    expect(rpc.addUri).toHaveBeenCalledTimes(2)
-    expect(firstOptions?.['bt-load-saved-metadata']).toBe('false')
-    expect(secondOptions?.['bt-load-saved-metadata']).toBe('false')
-    expect(firstOptions?.['max-file-not-found']).toBe('0')
-    expect(secondOptions?.['max-file-not-found']).toBe('0')
-    expect(secondOptions?.gid).not.toBe(firstOptions?.gid)
-    expect(secondOptions?.dir).not.toBe(firstOptions?.dir)
+    const secondOptions = rpc.fetchMagnetMetadata.mock.calls[1][0]
+    expect(rpc.fetchMagnetMetadata).toHaveBeenCalledTimes(2)
+    expect(secondOptions?.engineTaskId).not.toBe(firstOptions?.engineTaskId)
+    expect(secondOptions?.saveDir).not.toBe(firstOptions?.saveDir)
     expect(db.getTask(taskId)).toMatchObject({
       task: {
         motrixId: taskId,
@@ -2339,7 +2345,7 @@ describe('MagnetTracker', () => {
       },
       instances: [
         {
-          gid: secondOptions?.gid,
+          gid: secondOptions?.engineTaskId,
           payload: { metadataTimeoutMultiplier: 2 },
         },
       ],
@@ -2399,7 +2405,7 @@ describe('MagnetTracker', () => {
       magnetFileSelection: true,
       magnetResolveTimeout: 1,
     })
-    rpc.forceRemove.mockRejectedValue(new Error('ECONNREFUSED'))
+    rpc.forceRemoveTask.mockRejectedValue(new Error('ECONNREFUSED'))
     rpc.removeDownloadResult.mockRejectedValue(new Error('ECONNREFUSED'))
     const tracker = createMagnetTracker(
       rpc as never,
@@ -2419,12 +2425,12 @@ describe('MagnetTracker', () => {
     await expect(tracker.retryMetadata(taskId)).rejects.toMatchObject({
       code: ErrorCode.MagnetCleanupPending,
     })
-    expect(rpc.addUri).toHaveBeenCalledTimes(1)
+    expect(rpc.fetchMagnetMetadata).toHaveBeenCalledTimes(1)
   })
 
   it('error event path also forceRemoves by aria2 GID', async () => {
     const dir = await makeTempDir()
-    rpc.addUri.mockResolvedValue('g-meta-err')
+    rpc.fetchMagnetMetadata.mockResolvedValue('g-meta-err')
     const tracker = createMagnetTracker(
       rpc as never,
       eventBus as never,
@@ -2439,10 +2445,10 @@ describe('MagnetTracker', () => {
       'magnet:?xt=urn:btih:eb35c321d6997c344882962b8aa1cd0939b123e1',
       dir
     )
-    await onError({ gid: 'g-meta-err' })
+    await onError('g-meta-err')
 
-    expect(rpc.forceRemove).toHaveBeenCalledWith('g-meta-err')
-    expect(rpc.forceRemove).not.toHaveBeenCalledWith(
+    expect(rpc.forceRemoveTask).toHaveBeenCalledWith('g-meta-err')
+    expect(rpc.forceRemoveTask).not.toHaveBeenCalledWith(
       expect.stringMatching(/^meta:/)
     )
   })
@@ -2454,8 +2460,8 @@ describe('MagnetTracker', () => {
     // the metadata fetch. observe() must keep returning true so polling
     // won't adopt the GID as a normal task.
     const dir = await makeTempDir()
-    rpc.addUri.mockResolvedValue('g-meta-flaky')
-    rpc.forceRemove.mockRejectedValue(new Error('ECONNREFUSED'))
+    rpc.fetchMagnetMetadata.mockResolvedValue('g-meta-flaky')
+    rpc.forceRemoveTask.mockRejectedValue(new Error('ECONNREFUSED'))
     rpc.removeDownloadResult.mockRejectedValue(new Error('ECONNREFUSED'))
 
     const tracker = createMagnetTracker(
@@ -2473,16 +2479,19 @@ describe('MagnetTracker', () => {
     )
     await tracker.cancel(taskId)
 
-    expect(rpc.forceRemove).toHaveBeenCalledWith('g-meta-flaky')
+    expect(rpc.forceRemoveTask).toHaveBeenCalledWith('g-meta-flaky')
     expect(
-      tracker.observe({ gid: 'g-meta-flaky', status: 'active' } as never)
+      tracker.observe({
+        engineTaskId: 'g-meta-flaky',
+        status: 'active',
+      } as never)
     ).toBe(true)
   })
 
   it('cleanup completes when result purge proves absence after forceRemove fails', async () => {
     const dir = await makeTempDir()
-    rpc.addUri.mockResolvedValue('g-meta-stopped')
-    rpc.forceRemove.mockRejectedValue(new Error('task is not active'))
+    rpc.fetchMagnetMetadata.mockResolvedValue('g-meta-stopped')
+    rpc.forceRemoveTask.mockRejectedValue(new Error('task is not active'))
     rpc.removeDownloadResult.mockResolvedValue('OK')
 
     const tracker = createMagnetTracker(
@@ -2500,10 +2509,13 @@ describe('MagnetTracker', () => {
     )
     await expect(tracker.cancel(taskId)).resolves.toBe('removed')
 
-    expect(rpc.forceRemove).toHaveBeenCalledWith('g-meta-stopped')
+    expect(rpc.forceRemoveTask).toHaveBeenCalledWith('g-meta-stopped')
     expect(rpc.removeDownloadResult).toHaveBeenCalledWith('g-meta-stopped')
     expect(
-      tracker.observe({ gid: 'g-meta-stopped', status: 'complete' } as never)
+      tracker.observe({
+        engineTaskId: 'g-meta-stopped',
+        status: 'complete',
+      } as never)
     ).toBe(false)
   })
 
@@ -2511,8 +2523,10 @@ describe('MagnetTracker', () => {
     // Counterpart: a not-found error means aria2 confirms the task is
     // gone, so we treat it as a successful cleanup and drop the cache.
     const dir = await makeTempDir()
-    rpc.addUri.mockResolvedValue('g-meta-gone')
-    rpc.forceRemove.mockRejectedValue(new Error('GID#g-meta-gone not found'))
+    rpc.fetchMagnetMetadata.mockResolvedValue('g-meta-gone')
+    rpc.forceRemoveTask.mockRejectedValue(
+      new Error('GID#g-meta-gone not found')
+    )
     rpc.removeDownloadResult.mockRejectedValue(
       new Error('GID#g-meta-gone not found')
     )
@@ -2533,7 +2547,10 @@ describe('MagnetTracker', () => {
     await tracker.cancel(taskId)
 
     expect(
-      tracker.observe({ gid: 'g-meta-gone', status: 'active' } as never)
+      tracker.observe({
+        engineTaskId: 'g-meta-gone',
+        status: 'active',
+      } as never)
     ).toBe(false)
   })
 
@@ -2543,8 +2560,8 @@ describe('MagnetTracker', () => {
     // removal. The narrowed isAria2NotFoundError requires the message to
     // mention the gid or aria2-specific keywords ('gid' / 'download').
     const dir = await makeTempDir()
-    rpc.addUri.mockResolvedValue('g-meta-proxy')
-    rpc.forceRemove.mockRejectedValue(new Error('HTTP 404 Not Found'))
+    rpc.fetchMagnetMetadata.mockResolvedValue('g-meta-proxy')
+    rpc.forceRemoveTask.mockRejectedValue(new Error('HTTP 404 Not Found'))
     rpc.removeDownloadResult.mockRejectedValue(new Error('HTTP 404 Not Found'))
 
     const tracker = createMagnetTracker(
@@ -2565,14 +2582,17 @@ describe('MagnetTracker', () => {
     // Cache entry preserved because the failure was classified as
     // transient (not as "GID confirmed gone").
     expect(
-      tracker.observe({ gid: 'g-meta-proxy', status: 'active' } as never)
+      tracker.observe({
+        engineTaskId: 'g-meta-proxy',
+        status: 'active',
+      } as never)
     ).toBe(true)
   })
 
   it('treats aria2 "GID#... not found" as confirmed removal (Codex finding #10)', async () => {
     const dir = await makeTempDir()
-    rpc.addUri.mockResolvedValue('g-meta-real')
-    rpc.forceRemove.mockRejectedValue(
+    rpc.fetchMagnetMetadata.mockResolvedValue('g-meta-real')
+    rpc.forceRemoveTask.mockRejectedValue(
       new Error('GID#g-meta-real is not found in active downloads')
     )
     rpc.removeDownloadResult.mockRejectedValue(
@@ -2595,14 +2615,17 @@ describe('MagnetTracker', () => {
     await tracker.cancel(taskId)
 
     expect(
-      tracker.observe({ gid: 'g-meta-real', status: 'active' } as never)
+      tracker.observe({
+        engineTaskId: 'g-meta-real',
+        status: 'active',
+      } as never)
     ).toBe(false)
   })
 
   it('cleanup retry eventually succeeds when aria2 recovers', async () => {
     const dir = await makeTempDir()
-    rpc.addUri.mockResolvedValue('g-meta-recover')
-    rpc.forceRemove
+    rpc.fetchMagnetMetadata.mockResolvedValue('g-meta-recover')
+    rpc.forceRemoveTask
       .mockRejectedValueOnce(new Error('ECONNREFUSED'))
       .mockResolvedValueOnce('OK')
     rpc.removeDownloadResult
@@ -2626,15 +2649,21 @@ describe('MagnetTracker', () => {
 
     // First attempt: cache still present (transient failure).
     expect(
-      tracker.observe({ gid: 'g-meta-recover', status: 'active' } as never)
+      tracker.observe({
+        engineTaskId: 'g-meta-recover',
+        status: 'active',
+      } as never)
     ).toBe(true)
 
     // Advance timers past the retry window.
     await vi.advanceTimersByTimeAsync(6000)
 
-    expect(rpc.forceRemove).toHaveBeenCalledTimes(2)
+    expect(rpc.forceRemoveTask).toHaveBeenCalledTimes(2)
     expect(
-      tracker.observe({ gid: 'g-meta-recover', status: 'active' } as never)
+      tracker.observe({
+        engineTaskId: 'g-meta-recover',
+        status: 'active',
+      } as never)
     ).toBe(false)
   })
 
@@ -2645,8 +2674,8 @@ describe('MagnetTracker', () => {
     // the DB instance status is marked Error so the task surfaces as
     // failed in the UI.
     const dir = await makeTempDir()
-    rpc.addUri.mockResolvedValue('g-meta-stuck')
-    rpc.forceRemove.mockRejectedValue(new Error('ECONNREFUSED'))
+    rpc.fetchMagnetMetadata.mockResolvedValue('g-meta-stuck')
+    rpc.forceRemoveTask.mockRejectedValue(new Error('ECONNREFUSED'))
     rpc.removeDownloadResult.mockRejectedValue(new Error('ECONNREFUSED'))
     const dispatch = vi.fn(async () => {})
     const lifecycle = {
@@ -2673,9 +2702,12 @@ describe('MagnetTracker', () => {
 
     await vi.advanceTimersByTimeAsync(400_000)
 
-    expect(rpc.forceRemove).toHaveBeenCalledTimes(6)
+    expect(rpc.forceRemoveTask).toHaveBeenCalledTimes(6)
     expect(
-      tracker.observe({ gid: 'g-meta-stuck', status: 'active' } as never)
+      tracker.observe({
+        engineTaskId: 'g-meta-stuck',
+        status: 'active',
+      } as never)
     ).toBe(true)
 
     const saved = db.getTask(taskId)
@@ -2706,8 +2738,8 @@ describe('MagnetTracker', () => {
 
   it('cancel() resets the attempt budget so a quarantined entry can retry', async () => {
     const dir = await makeTempDir()
-    rpc.addUri.mockResolvedValue('g-meta-revive')
-    rpc.forceRemove.mockRejectedValue(new Error('ECONNREFUSED'))
+    rpc.fetchMagnetMetadata.mockResolvedValue('g-meta-revive')
+    rpc.forceRemoveTask.mockRejectedValue(new Error('ECONNREFUSED'))
     rpc.removeDownloadResult.mockRejectedValue(new Error('ECONNREFUSED'))
 
     const tracker = createMagnetTracker(
@@ -2727,23 +2759,29 @@ describe('MagnetTracker', () => {
     await vi.advanceTimersByTimeAsync(400_000)
 
     // Quarantined: observe() still true, attempts = 6.
-    expect(rpc.forceRemove).toHaveBeenCalledTimes(6)
+    expect(rpc.forceRemoveTask).toHaveBeenCalledTimes(6)
     expect(
-      tracker.observe({ gid: 'g-meta-revive', status: 'active' } as never)
+      tracker.observe({
+        engineTaskId: 'g-meta-revive',
+        status: 'active',
+      } as never)
     ).toBe(true)
 
     // Simulate aria2 recovery: subsequent forceRemove resolves.
-    rpc.forceRemove.mockReset()
-    rpc.forceRemove.mockResolvedValue('OK')
+    rpc.forceRemoveTask.mockReset()
+    rpc.forceRemoveTask.mockResolvedValue('OK')
     rpc.removeDownloadResult.mockResolvedValue('OK')
 
     // User retries removal via UI → cancel(taskId). Budget reset, real
     // cleanup runs.
     await tracker.cancel(taskId)
 
-    expect(rpc.forceRemove).toHaveBeenCalledWith('g-meta-revive')
+    expect(rpc.forceRemoveTask).toHaveBeenCalledWith('g-meta-revive')
     expect(
-      tracker.observe({ gid: 'g-meta-revive', status: 'active' } as never)
+      tracker.observe({
+        engineTaskId: 'g-meta-revive',
+        status: 'active',
+      } as never)
     ).toBe(false)
   })
 
@@ -2753,8 +2791,8 @@ describe('MagnetTracker', () => {
     // preserves the DB row + marks Error. The background retry timer
     // that cancel armed must, on eventual success, delete that DB row.
     const dir = await makeTempDir()
-    rpc.addUri.mockResolvedValue('g-meta-user-del')
-    rpc.forceRemove
+    rpc.fetchMagnetMetadata.mockResolvedValue('g-meta-user-del')
+    rpc.forceRemoveTask
       .mockRejectedValueOnce(new Error('ECONNREFUSED'))
       .mockResolvedValueOnce('OK')
     rpc.removeDownloadResult
@@ -2802,9 +2840,12 @@ describe('MagnetTracker', () => {
 
     await vi.advanceTimersByTimeAsync(6000)
 
-    expect(rpc.forceRemove).toHaveBeenCalledTimes(2)
+    expect(rpc.forceRemoveTask).toHaveBeenCalledTimes(2)
     expect(
-      tracker.observe({ gid: 'g-meta-user-del', status: 'active' } as never)
+      tracker.observe({
+        engineTaskId: 'g-meta-user-del',
+        status: 'active',
+      } as never)
     ).toBe(false)
     expect(db.getTask(taskId)).toBeNull()
 
@@ -2820,13 +2861,16 @@ describe('MagnetTracker', () => {
     )
     tracker2.primeFromDatabase()
     expect(
-      tracker2.observe({ gid: 'g-meta-user-del', status: 'active' } as never)
+      tracker2.observe({
+        engineTaskId: 'g-meta-user-del',
+        status: 'active',
+      } as never)
     ).toBe(false)
   })
 
   it('re-arms cleanup when durable parent deletion fails after engine cleanup', async () => {
     const dir = await makeTempDir()
-    rpc.addUri.mockResolvedValue('g-meta-delete-retry')
+    rpc.fetchMagnetMetadata.mockResolvedValue('g-meta-delete-retry')
     const deleteParentTask = vi
       .fn()
       .mockRejectedValueOnce(new Error('delete transaction busy'))
@@ -2856,7 +2900,7 @@ describe('MagnetTracker', () => {
     expect(db.getTask(taskId)).not.toBeNull()
     expect(
       tracker.observe({
-        gid: 'g-meta-delete-retry',
+        engineTaskId: 'g-meta-delete-retry',
         status: 'removed',
       } as never)
     ).toBe(true)
@@ -2867,7 +2911,7 @@ describe('MagnetTracker', () => {
     expect(db.getTask(taskId)).toBeNull()
     expect(
       tracker.observe({
-        gid: 'g-meta-delete-retry',
+        engineTaskId: 'g-meta-delete-retry',
         status: 'removed',
       } as never)
     ).toBe(false)
@@ -2953,24 +2997,24 @@ describe('MagnetTracker', () => {
       tracker.primeFromDatabase()
       if (!allowed) {
         await vi.advanceTimersByTimeAsync(5_000)
-        expect(rpc.forceRemove).not.toHaveBeenCalled()
+        expect(rpc.forceRemoveTask).not.toHaveBeenCalled()
         tracker.dispose()
         return
       }
 
       expect(
         tracker.observe({
-          gid: 'g-meta-quarantined',
+          engineTaskId: 'g-meta-quarantined',
           status: 'active',
         } as never)
       ).toBe(true)
 
       await vi.advanceTimersByTimeAsync(5_000)
 
-      expect(rpc.forceRemove).toHaveBeenCalledWith('g-meta-quarantined')
+      expect(rpc.forceRemoveTask).toHaveBeenCalledWith('g-meta-quarantined')
       expect(
         tracker.observe({
-          gid: 'g-meta-quarantined',
+          engineTaskId: 'g-meta-quarantined',
           status: 'active',
         } as never)
       ).toBe(false)
@@ -3107,7 +3151,7 @@ describe('MagnetTracker', () => {
       )
       expect(
         preRestartTracker.observe({
-          gid: 'g-bt-orphan',
+          engineTaskId: 'g-bt-orphan',
           status: 'active',
         } as never)
       ).toBe(true)
@@ -3128,7 +3172,7 @@ describe('MagnetTracker', () => {
       )
       expect(
         preRestartTracker.observe({
-          gid: 'g-bt-orphan',
+          engineTaskId: 'g-bt-orphan',
           status: 'active',
         } as never)
       ).toBe(true)
@@ -3154,7 +3198,7 @@ describe('MagnetTracker', () => {
       )
       expect(
         restartedTracker.observe({
-          gid: 'g-bt-orphan',
+          engineTaskId: 'g-bt-orphan',
           status: 'active',
         } as never)
       ).toBe(true)
@@ -3163,7 +3207,7 @@ describe('MagnetTracker', () => {
         restartedTracker.cancel('m-swap-restart', { deleteTaskRow: false })
       ).resolves.toBe('quarantined')
 
-      expect(rpc.forceRemove).toHaveBeenCalledWith('g-bt-orphan')
+      expect(rpc.forceRemoveTask).toHaveBeenCalledWith('g-bt-orphan')
       expect(rpc.removeDownloadResult).toHaveBeenCalledWith('g-bt-orphan')
       expect(restartedTracker.hasPendingSwapCleanup('m-swap-restart')).toBe(
         true
@@ -3255,7 +3299,10 @@ describe('MagnetTracker', () => {
     await expect(access(unsafeTorrentPath)).resolves.toBeUndefined()
     expect(tracker.hasPendingSwapCleanup('m-path-guard')).toBe(true)
     expect(
-      tracker.observe({ gid: 'g-path-guard', status: 'removed' } as never)
+      tracker.observe({
+        engineTaskId: 'g-path-guard',
+        status: 'removed',
+      } as never)
     ).toBe(true)
     await tracker.stopAndDrain()
   })
@@ -3372,7 +3419,7 @@ describe('MagnetTracker', () => {
 
     expect(
       tracker.observe({
-        gid: 'g-meta-visible-error',
+        engineTaskId: 'g-meta-visible-error',
         status: 'error',
       } as never)
     ).toBe(true)
@@ -3380,13 +3427,13 @@ describe('MagnetTracker', () => {
     // A normal terminal Error is not a resumed metadata fetch. No timeout or
     // automatic cleanup should run after restart.
     vi.advanceTimersByTime(400_000)
-    expect(rpc.forceRemove).not.toHaveBeenCalled()
+    expect(rpc.forceRemoveTask).not.toHaveBeenCalled()
   })
 
   it('dispose() cancels all in-flight cleanup retry timers', async () => {
     const dir = await makeTempDir()
-    rpc.addUri.mockResolvedValue('g-meta-shutdown')
-    rpc.forceRemove.mockRejectedValue(new Error('ECONNREFUSED'))
+    rpc.fetchMagnetMetadata.mockResolvedValue('g-meta-shutdown')
+    rpc.forceRemoveTask.mockRejectedValue(new Error('ECONNREFUSED'))
     rpc.removeDownloadResult.mockRejectedValue(new Error('ECONNREFUSED'))
 
     const tracker = createMagnetTracker(
@@ -3404,28 +3451,34 @@ describe('MagnetTracker', () => {
     )
     await tracker.cancel(taskId)
     expect(
-      tracker.observe({ gid: 'g-meta-shutdown', status: 'active' } as never)
+      tracker.observe({
+        engineTaskId: 'g-meta-shutdown',
+        status: 'active',
+      } as never)
     ).toBe(true)
 
     tracker.dispose()
 
     expect(
-      tracker.observe({ gid: 'g-meta-shutdown', status: 'active' } as never)
+      tracker.observe({
+        engineTaskId: 'g-meta-shutdown',
+        status: 'active',
+      } as never)
     ).toBe(false)
 
-    const callCountBefore = (rpc.forceRemove as ReturnType<typeof vi.fn>).mock
-      .calls.length
+    const callCountBefore = (rpc.forceRemoveTask as ReturnType<typeof vi.fn>)
+      .mock.calls.length
     await vi.advanceTimersByTimeAsync(400_000)
     expect(
-      (rpc.forceRemove as ReturnType<typeof vi.fn>).mock.calls.length
+      (rpc.forceRemoveTask as ReturnType<typeof vi.fn>).mock.calls.length
     ).toBe(callCountBefore)
   })
 
   it('stopAndDrain unsubscribes ingress, awaits an in-flight callback, and gates late callbacks', async () => {
     const dir = await makeTempDir()
-    rpc.addUri.mockResolvedValue('g-meta-drain')
+    rpc.fetchMagnetMetadata.mockResolvedValue('g-meta-drain')
     let resolveRemove!: (value: string) => void
-    rpc.forceRemove.mockImplementation(
+    rpc.forceRemoveTask.mockImplementation(
       () =>
         new Promise<string>((resolve) => {
           resolveRemove = resolve
@@ -3451,7 +3504,7 @@ describe('MagnetTracker', () => {
       dir
     )
     const onError = rpc.onDownloadError.mock.calls[0][0]
-    onError({ gid: 'g-meta-drain' })
+    onError('g-meta-drain')
     for (let i = 0; i < 20 && !resolveRemove; i += 1) {
       await Promise.resolve()
     }
@@ -3475,7 +3528,7 @@ describe('MagnetTracker', () => {
       db.saveTaskWithInstances as ReturnType<typeof vi.fn>
     ).mock.calls.length
 
-    onError({ gid: 'g-meta-drain' })
+    onError('g-meta-drain')
     await Promise.resolve()
     expect(
       (db.saveTaskWithInstances as ReturnType<typeof vi.fn>).mock.calls.length
@@ -3492,7 +3545,7 @@ describe('MagnetTracker', () => {
       magnetFileSelection: true,
       magnetResolveTimeout: 1,
     })
-    rpc.addUri.mockResolvedValue('g-meta-race')
+    rpc.fetchMagnetMetadata.mockResolvedValue('g-meta-race')
 
     // Build a stalled first forceRemove and capture its resolver via a
     // typed deferred — avoids TypeScript control-flow narrowing the
@@ -3502,8 +3555,8 @@ describe('MagnetTracker', () => {
     const firstForceRemovePromise = new Promise<'OK'>((resolve) => {
       resolveFirstForceRemove = resolve
     })
-    rpc.forceRemove.mockImplementationOnce(() => firstForceRemovePromise)
-    rpc.forceRemove.mockResolvedValue('OK')
+    rpc.forceRemoveTask.mockImplementationOnce(() => firstForceRemovePromise)
+    rpc.forceRemoveTask.mockResolvedValue('OK')
     rpc.removeDownloadResult.mockResolvedValue('OK')
 
     const tracker = createMagnetTracker(
@@ -3523,11 +3576,11 @@ describe('MagnetTracker', () => {
     const cancelPromise = tracker.cancel(taskId)
     await vi.advanceTimersByTimeAsync(1100)
 
-    expect(rpc.forceRemove).toHaveBeenCalledTimes(1)
+    expect(rpc.forceRemoveTask).toHaveBeenCalledTimes(1)
 
     resolveFirstForceRemove('OK')
     await cancelPromise
 
-    expect(rpc.forceRemove).toHaveBeenCalledTimes(1)
+    expect(rpc.forceRemoveTask).toHaveBeenCalledTimes(1)
   })
 })

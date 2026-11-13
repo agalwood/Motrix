@@ -205,7 +205,7 @@
             "unidentified": "Chưa xác định, sẽ không bị dừng",
             "current_app": "PID {{pid}} ({{name}}), do Motrix quản lý",
             "verified_orphan": "PID {{pid}} ({{name}}), đã xác minh là tiến trình Motrix còn sót lại; có thể dừng an toàn",
-            "external_aria2": "PID {{pid}} ({{name}}), chưa xác minh thuộc về ứng dụng nào; sẽ không bị dừng",
+            "external_engine": "PID {{pid}} ({{name}}), chưa xác minh thuộc về ứng dụng nào; sẽ không bị dừng",
             "other": "PID {{pid}} ({{name}}), chưa xác minh thuộc về ứng dụng nào; sẽ không bị dừng",
             "unknown": "PID {{pid}}, chưa xác định; sẽ không bị dừng"
           },

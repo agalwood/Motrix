@@ -19,6 +19,10 @@ import {
   admitDownloadSources,
   DownloadSourceError,
 } from '@core/task/source-admission'
+import {
+  confirmPendingTorrentSelection,
+  hasPendingTorrentSelection,
+} from '@core/torrent/pending-torrent-selection'
 import { parseDirectReplayRecipe } from '@shared/schemas/direct-replay-recipe'
 import type { DownloadTask } from '@shared/types/task'
 import {
@@ -853,6 +857,38 @@ export class SessionManager {
       }
       persisted.push(pair)
     }
+
+    for (const pair of persisted) {
+      if (pendingHandoffs.has(pair.task.motrixId)) continue
+      const task = taskRowToDownloadTask(pair.task, pair.instances)
+      if (
+        [TaskStatus.Completed, TaskStatus.Error, TaskStatus.Removed].includes(
+          task.status
+        ) ||
+        !hasPendingTorrentSelection(task) ||
+        !(await this.canRecoverWrite(pair))
+      )
+        continue
+      try {
+        const confirmed = await confirmPendingTorrentSelection(
+          task,
+          this.adapter
+        )
+        pair.task.aggStatus = confirmed.status
+        pair.instances = pair.instances.map((instance, index) => ({
+          ...instance,
+          status: confirmed.instances[index].status,
+          payload: confirmed.instances[index].payload,
+        }))
+        this.db.saveTaskWithInstances(pair)
+      } catch (err) {
+        log.warn(
+          { err, taskId: task.id },
+          'confirmed magnet selection remains pending for retry'
+        )
+      }
+    }
+
     const byMotrixId = new Map<string, TaskWithInstances>()
     const instanceByGid = new Map<
       string,
@@ -1056,6 +1092,17 @@ export class SessionManager {
           const task = taskRowToDownloadTask(parent.task, parent.instances)
           this.taskManager.set(task.id, task)
           consumedMotrixIds.add(parent.task.motrixId)
+          continue
+        }
+        if (
+          parent.instances.some(
+            (instance) =>
+              instance.phase === TaskInstancePhase.MagnetMetadataResolution
+          )
+        ) {
+          const task = taskRowToDownloadTask(parent.task, parent.instances)
+          this.taskManager.set(task.id, task)
+          consumedMotrixIds.add(task.id)
           continue
         }
         if (parent.task.aggStatus === TaskStatus.Error) {
@@ -2243,12 +2290,10 @@ export class SessionManager {
       const uris = admitDownloadSources([magnetUri], 'recovery', [
         'magnet',
       ]).map((source) => source.requestUrl)
-      const newGid = await this.rpc.addUri(uris, {
-        'max-file-not-found': '0',
-        'bt-load-saved-metadata': 'false',
-        'bt-metadata-only': 'true',
-        dir: metadataDir,
-        'follow-torrent': 'false',
+      const newGid = await this.adapter.fetchMagnetMetadata({
+        uri: uris[0],
+        saveDir: metadataDir,
+        engineTaskId: primary.gid ?? undefined,
       })
 
       const updatedInstance: TaskInstanceRow = {

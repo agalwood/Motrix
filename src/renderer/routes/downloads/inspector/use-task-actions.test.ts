@@ -467,8 +467,8 @@ describe('useTaskActions', () => {
   it('onRedownload({ alt: true }) opens dialog with prefilled parameters', async () => {
     const task = makeTask({ id: 'comp', status: TaskStatus.Completed })
     ;(transport.invoke as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      dir: '/downloads',
-      header: ['Cookie: session=123'],
+      saveDir: '/downloads',
+      headers: [{ name: 'Cookie', value: 'session=123' }],
     })
     const { result } = renderHook(() => useTaskActions([task]))
     await result.current.onRedownload({ alt: true })
@@ -481,7 +481,7 @@ describe('useTaskActions', () => {
       expect.objectContaining({
         tab: 'links',
         cookie: 'session=123',
-        saveDir: '/downloads',
+        saveDir: '/tmp',
       })
     )
   })

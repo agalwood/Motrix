@@ -44,10 +44,7 @@ export const ENGINE_DEFAULTS: EngineFields = {
   socketTimeout: DEFAULT_ENGINE_SETTINGS.socketTimeout,
   maxTries: DEFAULT_ENGINE_SETTINGS.maxTries,
   retryWait: DEFAULT_ENGINE_SETTINGS.retryWait,
-  lowestSpeedLimit: DEFAULT_ENGINE_SETTINGS.lowestSpeedLimit,
-  fileAllocation: DEFAULT_ENGINE_SETTINGS.fileAllocation,
   remoteTime: DEFAULT_ENGINE_SETTINGS.remoteTime,
-  diskCache: DEFAULT_ENGINE_SETTINGS.diskCache,
 }
 
 export const DOWNLOADS_DEFAULTS: DownloadsFields = {
@@ -64,12 +61,7 @@ export const DOWNLOADS_DEFAULTS: DownloadsFields = {
 
 export function getEngineNumberRules(name: EngineNumberField) {
   const schema = downloadsFormSchema.shape.engine.shape[name]
-  const scale =
-    name === 'minSplitSize' || name === 'diskCache'
-      ? MB
-      : name === 'lowestSpeedLimit'
-        ? KB
-        : 1
+  const scale = name === 'minSplitSize' ? MB : 1
   return {
     min: (schema.minValue ?? 0) / scale,
     max: (schema.maxValue ?? Number.MAX_SAFE_INTEGER) / scale,

@@ -1,9 +1,9 @@
 import { z } from 'zod'
+import { isNotFoundError } from '../aria2/error-utils'
 import type {
   EngineStartupGuard,
   PreparedEngineStartup,
-} from '../aria2/completed-task-startup-guard'
-import { isNotFoundError } from '../aria2/error-utils'
+} from '../engine-startup-guard'
 import type { TaijiRpcClient } from './taiji-rpc-client'
 
 const startupTasks = z.array(

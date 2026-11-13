@@ -1,6 +1,6 @@
 import type { ProxySettings } from '@shared/types/settings'
 
-export interface Aria2ProxyOptions {
+export interface DownloadProxyOptions {
   allProxy: string
   noProxy: string
 }
@@ -10,9 +10,9 @@ export interface DownloadProxyRequestOptions {
   noProxy: string
 }
 
-export function proxyToAria2Options(
+export function proxyToDownloadOptions(
   p: ProxySettings
-): Aria2ProxyOptions | null {
+): DownloadProxyOptions | null {
   if (!p.enabled || !p.scopes.download) return null
   if (hasUnsafeProxyControls(p)) return null
   if (p.protocol === 'socks5') return null
@@ -43,7 +43,7 @@ export function proxyToFetchUrl(p: ProxySettings): string | null {
 
 /**
  * Snapshot the current global download-proxy policy for a short-lived HTTP
- * request. Unlike proxyToAria2Options(), SOCKS5 remains usable here because
+ * request. Unlike proxyToDownloadOptions(), SOCKS5 remains usable here because
  * the metadata client can speak SOCKS5 directly.
  */
 export function proxyToDownloadRequestOptions(

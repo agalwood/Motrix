@@ -5,7 +5,6 @@ import { getLogger } from '@core/logger'
 import type { MotrixDatabase } from '@core/session/motrix-database'
 import type { TaskManager } from '@core/task/task-manager'
 import { AppError, ErrorCode } from '@shared/errors'
-import { formatFileSelection } from '@shared/lib/file-selection-ranges'
 import { Events } from '@shared/protocol/events'
 import { setSelectedFilesPayloadSchema } from '@shared/schemas/task-file-selection'
 import type { DownloadTask } from '@shared/types/task'
@@ -15,7 +14,7 @@ const log = getLogger('SetSelectedFilesHandler')
 interface Deps {
   authorizeTaskWrite?: (task: DownloadTask) => Promise<void>
   taskManager: Pick<TaskManager, 'getById' | 'set'>
-  engine: Pick<EngineAdapter, 'changeOption' | 'getTaskFiles'>
+  engine: Pick<EngineAdapter, 'setSelectedFiles' | 'getTaskFiles'>
   db: Pick<MotrixDatabase, 'replaceTaskFiles'>
   eventBus: Pick<EventBus, 'emit'>
   runTaskMutation: <T>(
@@ -47,9 +46,7 @@ export function createSetSelectedFilesHandler(deps: Deps) {
           'legacyImport.activationRequired'
         )
       await deps.authorizeTaskWrite?.(task)
-      await deps.engine.changeOption(task.engineTaskId, {
-        'select-file': formatRange(indices),
-      })
+      await deps.engine.setSelectedFiles(task.engineTaskId, indices)
 
       const live = await deps.engine.getTaskFiles(task.engineTaskId)
       deps.db.replaceTaskFiles(
@@ -72,8 +69,4 @@ export function createSetSelectedFilesHandler(deps: Deps) {
       log.info({ taskId, count: indices.length }, 'selected files updated')
     })
   }
-}
-
-export function formatRange(indices: number[]): string {
-  return formatFileSelection(indices, 0)
 }

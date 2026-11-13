@@ -1,7 +1,7 @@
 import { DEFAULT_PROXY_SETTINGS } from '@shared/schemas/proxy-settings'
 import { describe, expect, it, vi } from 'vitest'
 import { createProxyApplier } from './applier'
-import { proxyToAria2Options } from './serializers'
+import { proxyToDownloadOptions } from './serializers'
 
 const baseProxy = {
   ...DEFAULT_PROXY_SETTINGS,
@@ -17,7 +17,7 @@ function makeDeps() {
     proxyBridge: {
       reconcile: vi.fn().mockResolvedValue(undefined),
       resolveForDownload: vi.fn(async (settings) =>
-        proxyToAria2Options(settings)
+        proxyToDownloadOptions(settings)
       ),
     },
     applyUpdateAppProxy: vi.fn(),

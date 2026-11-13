@@ -627,7 +627,7 @@ export class LegacyBtActivationService {
       metadata,
       saveDir: intent.saveDir,
       gid: intent.engineTaskId,
-      selectedFiles: intent.selectedFiles.map((index) => index + 1),
+      selectedFiles: intent.selectedFiles,
       pause: true,
       checkIntegrity: true,
       btSeedUnverified: false,
@@ -640,7 +640,7 @@ export class LegacyBtActivationService {
         path: pair.task.torrentMetaPath ?? '',
         digest: intent.torrentDigest,
       },
-      extraEngineOptions: { 'bt-tracker': intent.trackers.join(',') },
+      trackers: intent.trackers,
     })
     if (gid !== intent.engineTaskId) throw failure('activationUncertain')
     await this.reconcile(pair, resume)
