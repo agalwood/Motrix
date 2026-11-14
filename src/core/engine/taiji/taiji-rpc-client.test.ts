@@ -30,6 +30,16 @@ function fixture() {
 }
 
 describe('native taiji RPC boundary', () => {
+  it('notifies network changes through the authenticated native method', async () => {
+    const { rpc, protocol } = fixture()
+    protocol.call.mockResolvedValue('OK')
+    expect(await rpc.notifyNetworkChange()).toBe('OK')
+    expect(protocol.call).toHaveBeenCalledWith(
+      'taiji.notifyNetworkChange',
+      ['token:secret'],
+      undefined
+    )
+  })
   it('discards pre-confirmation file reads and clears accepted pause state on the same GID', async () => {
     const { rpc, protocol } = fixture()
     const cache = new TaskFileMetadata(rpc)

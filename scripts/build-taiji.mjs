@@ -334,7 +334,14 @@ export async function buildTaiji(options = {}) {
         '--test',
         'dual_swarm',
       ],
-      ['-p', 'taiji-io', '--test', 'dns_concurrency'],
+      [
+        '-p',
+        'taiji-io',
+        '--test',
+        'dns_concurrency',
+        '--test',
+        'dns_network_change',
+      ],
       ['-p', 'taiji', '--test', 'import_flow'],
       ['-p', 'taiji-rpc', '--test', 'rpc_boundary_guard'],
     ]) {

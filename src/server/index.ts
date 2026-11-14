@@ -30,6 +30,7 @@ import {
 import { TaijiAdapter } from '@core/engine/taiji/taiji-adapter'
 import { TaijiConfigBuilder } from '@core/engine/taiji/taiji-config-builder'
 import { TaijiNatBridge } from '@core/engine/taiji/taiji-nat-bridge'
+import { TaijiNetworkBridge } from '@core/engine/taiji/taiji-network-bridge'
 import { TaijiProcessManager } from '@core/engine/taiji/taiji-process-manager'
 import { TaijiRpcClient } from '@core/engine/taiji/taiji-rpc-client'
 import { TaijiStartupGuard } from '@core/engine/taiji/taiji-startup-guard'
@@ -852,9 +853,19 @@ async function main() {
     isEngineReady: () => supervisor.getState() === EngineState.Ready,
   })
   taijiNatBridge.start()
+  const taijiNetworkBridge = new TaijiNetworkBridge({
+    rpc: rpcClient,
+    eventBus,
+    isEngineReady: () => supervisor.getState() === EngineState.Ready,
+  })
+  taijiNetworkBridge.start()
   shutdownActions.stopEngine = async () => {
     try {
-      await taijiNatBridge.stop()
+      try {
+        await taijiNetworkBridge.stop()
+      } finally {
+        await taijiNatBridge.stop()
+      }
     } finally {
       try {
         await supervisor.stop()

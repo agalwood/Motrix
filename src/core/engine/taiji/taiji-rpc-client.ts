@@ -174,6 +174,10 @@ export class TaijiRpcClient extends Aria2RpcClient {
     return result.data
   }
 
+  notifyNetworkChange(): Promise<'OK'> {
+    return this.call('taiji.notifyNetworkChange', [])
+  }
+
   override onDownloadComplete(
     handler: (event: { gid: string }) => void
   ): () => void {

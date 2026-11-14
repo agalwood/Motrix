@@ -21,6 +21,7 @@ import {
 import { TaijiAdapter } from '@core/engine/taiji/taiji-adapter'
 import { TaijiConfigBuilder } from '@core/engine/taiji/taiji-config-builder'
 import { TaijiNatBridge } from '@core/engine/taiji/taiji-nat-bridge'
+import { TaijiNetworkBridge } from '@core/engine/taiji/taiji-network-bridge'
 import { TaijiProcessManager } from '@core/engine/taiji/taiji-process-manager'
 import { TaijiRpcClient } from '@core/engine/taiji/taiji-rpc-client'
 import { TaijiStartupGuard } from '@core/engine/taiji/taiji-startup-guard'
@@ -583,6 +584,7 @@ let recoveryService: TaskRecoveryServiceImpl | undefined
 let trayHandle: ReturnType<typeof setupTray> | null = null
 let natManager: NatManager | null = null
 let taijiNatBridge: TaijiNatBridge | null = null
+let taijiNetworkBridge: TaijiNetworkBridge | null = null
 let stopNatDiagnostics: (() => Promise<void>) | null = null
 let trackerManager: TrackerManager | null = null
 let menuManager: MenuManager | null = null
@@ -699,6 +701,7 @@ function performCleanup(): Promise<void> {
       safely('magnet', () => magnetTracker?.stopAndDrain()),
       safely('speed-limit', () => speedLimitController?.stop()),
       safely('geoip', () => geoipManager?.stop()),
+      safely('network-context', () => taijiNetworkBridge?.stop()),
       safely('nat', async () => {
         try {
           await taijiNatBridge?.stop()
@@ -1943,6 +1946,7 @@ async function initializeMainProcess(): Promise<void> {
   // OS logout/shutdown: skip the quit dialog so session end is never blocked.
   powerMonitor.on('shutdown', prepareForSessionEnd)
   powerMonitor.on('resume', () => {
+    taijiNetworkBridge?.notifyWake()
     trackerManager?.notifyWake()
     pluginHost?.notifySecurityWake()
   })
@@ -2528,6 +2532,12 @@ async function initializeMainProcess(): Promise<void> {
     isEngineReady: () => supervisor.getState() === EngineState.Ready,
   })
   taijiNatBridge.start()
+  taijiNetworkBridge = new TaijiNetworkBridge({
+    rpc: rpcClient,
+    eventBus,
+    isEngineReady: () => supervisor.getState() === EngineState.Ready,
+  })
+  taijiNetworkBridge.start()
   log.info('NatManager constructed')
 
   const startupGeoipManager = new GeoIPManager({

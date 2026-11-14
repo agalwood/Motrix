@@ -102,6 +102,7 @@ export async function start(
     throw new Error(`taiji startup failed: ${diagnostics}`, { cause: error })
   }
   return {
+    port,
     rpc,
     adapter,
     child,
