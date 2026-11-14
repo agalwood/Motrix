@@ -4,7 +4,12 @@ import {
   getLegacyHttpBindingInput,
   hasLegacyImport,
 } from '@core/legacy-import/legacy-task-policy'
+import {
+  removeTorrentArtifact,
+  verifiedTorrentRecord,
+} from '@core/torrent/verified-torrent-artifact'
 import { AppError, ErrorCode } from '@shared/errors'
+import { manifestToEngineTorrent } from '@shared/lib/torrent-manifest'
 import { Events } from '@shared/protocol/events'
 import { legacyBtActivationSchema } from '@shared/schemas/legacy-bt-activation'
 import {
@@ -258,7 +263,7 @@ async function removeTaskUnderMutation(
     if (result === 'removed' && options.deleteWithFiles) {
       await cleanupReservedOutputs(restoredTask, deps)
       if (restoredTask.torrentMetaPath)
-        await deps.torrentMetaStore.remove(restoredTask.torrentMetaPath)
+        await removeTorrentArtifact(restoredTask, deps.torrentMetaStore)
     } else if (result === 'removed' && reservations.length > 0) {
       for (const reservation of reservations)
         deps.eventBus.emit(Events.ToastShow, {
@@ -384,7 +389,7 @@ async function removeTaskUnderMutation(
     // Keep metadata with a retryable task if file cleanup (including trash)
     // fails. Removing both concurrently can orphan the retained BT task.
     if (task.torrentMetaPath)
-      await deps.torrentMetaStore.remove(task.torrentMetaPath)
+      await removeTorrentArtifact(task, deps.torrentMetaStore)
   } else if (!options.deleteWithFiles) {
     deps.eventBus.emit(Events.ToastShow, {
       key: 'task.remove.orphanToast',
@@ -450,13 +455,22 @@ async function cleanupReservedOutputs(
   if (reservations.length === 0) return
   // Old reservation rows omitted the shape. Read the durable torrent before
   // removing anything so a missing/corrupt source leaves a retryable owner.
-  const parsed =
-    reservations.some((entry) => typeof entry.multiFile !== 'boolean') &&
-    task.torrentMetaPath
-      ? await parseBtFileLayout(
-          await deps.torrentMetaStore.read(task.torrentMetaPath)
-        )
-      : null
+  const metadata =
+    task.torrentMetaPath &&
+    reservations.some((entry) => typeof entry.multiFile !== 'boolean')
+      ? await deps.torrentMetaStore.read(task.torrentMetaPath)
+      : undefined
+  const verifiedManifest = metadata
+    ? await verifiedTorrentRecord(task, metadata)
+    : undefined
+  const parsed = metadata
+    ? await parseBtFileLayout(
+        metadata,
+        verifiedManifest
+          ? manifestToEngineTorrent(verifiedManifest.manifest)
+          : undefined
+      )
+    : null
   for (const reservation of reservations) {
     if (
       !isSafeCleanupPath(reservation.finalPath, task.saveDir) ||

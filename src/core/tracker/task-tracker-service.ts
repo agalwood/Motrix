@@ -6,6 +6,7 @@ import type {
 } from '@core/engine/engine-adapter'
 import { hasLegacyImport } from '@core/legacy-import/legacy-task-policy'
 import type { TaskManager } from '@core/task/task-manager'
+import { parseMagnet } from '@motrix/torrent'
 import { AppError, ErrorCode } from '@shared/errors'
 import { parseEngineTorrent as parseTorrent } from '@shared/lib/engine-torrent'
 import type {
@@ -109,9 +110,11 @@ export class TaskTrackerService {
     metadata,
     manual,
     isPrivate,
+    verifiedPrivacy,
   }) => {
     if (this.stopped) throw new Error('Tracker service stopped')
-    let privacy: boolean | null = isPrivate === true ? true : null
+    let privacy: boolean | null =
+      isPrivate === true ? true : (verifiedPrivacy ?? null)
     let original: string[] = []
     if (metadata) {
       try {
@@ -136,6 +139,17 @@ export class TaskTrackerService {
         'legacyImport.trackersReadOnly'
       )
     const saved = this.deps.repository.get(task.id)
+    if (verifiedPrivacy !== undefined && original.length === 0) {
+      original = unique(
+        task.uris.flatMap((uri) => {
+          try {
+            return parseMagnet(uri).trackers
+          } catch {
+            return []
+          }
+        })
+      )
+    }
     const retainedManual =
       privacy === true
         ? saved?.isPrivate === true

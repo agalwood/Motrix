@@ -1,5 +1,6 @@
 import { AppError, ErrorCode } from '@shared/errors'
 import { magnetResolutionSchema } from '@shared/schemas/magnet-resolution'
+import { torrentManifestResponseSchema } from '@shared/schemas/torrent-manifest'
 import { z } from 'zod'
 import { Aria2RpcClient } from '../aria2/aria2-rpc-client'
 import type { JsonRpcProtocol } from '../aria2/json-rpc-protocol'
@@ -206,6 +207,19 @@ export class TaijiRpcClient extends Aria2RpcClient {
     return z
       .object({ data: z.string().min(1), awaitingSelection: z.boolean() })
       .parse(await this.call('taiji.getTorrentMetadata', [gid]))
+  }
+
+  async getTorrentManifest(gid: string) {
+    const result = torrentManifestResponseSchema.safeParse(
+      await this.call('taiji.getTorrentManifest', [gid])
+    )
+    if (!result.success)
+      throw new AppError(
+        ErrorCode.EngineProtocolError,
+        'Invalid native torrent manifest',
+        result.error
+      )
+    return result.data
   }
 
   async confirmTorrentSelection(

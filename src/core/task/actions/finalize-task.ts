@@ -10,7 +10,12 @@ import { FinalizeSourceVerificationError } from '@core/plugin/finalize/finalize-
 import type { HookAuditLog } from '@core/plugin/hooks/audit-log'
 import type { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
 import type { StagedMetadataOp } from '@core/plugin/hooks/staged-effects'
+import {
+  refreshTorrentArtifact,
+  verifiedTorrentRecord,
+} from '@core/torrent/verified-torrent-artifact'
 import { AppError, DownloadErrorCode, ErrorCode } from '@shared/errors'
+import { manifestToEngineTorrent } from '@shared/lib/torrent-manifest'
 import { Events } from '@shared/protocol/events'
 import { legacyBtActivationSchema } from '@shared/schemas/legacy-bt-activation'
 import type {
@@ -108,6 +113,7 @@ export interface FinalizeTaskDeps {
   publishTaskUpdate: () => void
   publishTaskUpdateNow: () => void
   adapter: {
+    getTorrentMetadata?: EngineAdapter['getTorrentMetadata']
     getHttpOutput?: EngineAdapter['getHttpOutput']
     finalizeHttpOutput?: EngineAdapter['finalizeHttpOutput']
     verifyLegacyBtBinding?: EngineAdapter['verifyLegacyBtBinding']
@@ -136,6 +142,7 @@ export interface FinalizeTaskDeps {
   }
   torrentMetaStore: {
     read(metaPath: string): Promise<Uint8Array>
+    persist?(taskId: string, bytes: Uint8Array): Promise<string>
   }
   /** Rebase persisted task_files after the staging payload is renamed. */
   rebaseTaskFilePaths?: (
@@ -1059,12 +1066,19 @@ async function finalizeBtAfterRename(
   try {
     const storageLayout = getBtStorageLayout(task)
     const directLayout = getBtDirectStorageLayout(task)
+    const verifiedManifest = await verifiedTorrentRecord(task, bytes)
     const parsedLayout =
       storageLayout || directLayout?.torrentRootName
-        ? await parseBtFileLayout(bytes)
+        ? await parseBtFileLayout(
+            bytes,
+            verifiedManifest
+              ? manifestToEngineTorrent(verifiedManifest.manifest)
+              : undefined
+          )
         : null
     const actualGid = await deps.adapter.addTorrent({
       metadata: bytes,
+      ...(verifiedManifest ? { verifiedManifest } : {}),
       // aria2 lays files out at `<dir>/<info.name>/...` (multi-file) or
       // `<dir>/<info.name>` (single-file). The original task wrote into
       // `<saveDir>/<finalName>.motrix/...`; after rename those files live
@@ -1209,11 +1223,16 @@ async function finalizeBtInPlace(
       false
     )
   }
-  if (deps.recordInPlaceOutput && task.torrentMetaPath)
-    await deps.recordInPlaceOutput(
-      task,
-      await deps.torrentMetaStore.read(task.torrentMetaPath)
-    )
+  if (
+    task.torrentMetaPath &&
+    (deps.recordInPlaceOutput ||
+      task.instances.some(
+        (instance) => instance.payload.verifiedTorrentManifest !== undefined
+      ))
+  ) {
+    const metadata = await readTorrentMeta(task, deps)
+    if (deps.recordInPlaceOutput) await deps.recordInPlaceOutput(task, metadata)
+  }
   const unselected = live ? await snapshotUnselectedRelPaths(task, deps) : []
   await cleanupUnselectedAfterRename(task, unselected, deps)
   const completedAt = Date.now()
@@ -1370,7 +1389,12 @@ async function readTorrentMeta(
     )
   }
   try {
-    return await deps.torrentMetaStore.read(task.torrentMetaPath)
+    return await refreshTorrentArtifact(
+      task,
+      await deps.torrentMetaStore.read(task.torrentMetaPath),
+      deps.adapter,
+      deps.torrentMetaStore
+    )
   } catch (e) {
     throw new AppError(
       ErrorCode.TaskFinalizeMetaMissing,

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import path from 'node:path'
 import { containsOnlyVideoFiles } from '@shared/constants/file-types'
+import type { EngineTorrent } from '@shared/lib/engine-torrent'
 import { parseEngineTorrent as parseTorrent } from '@shared/lib/engine-torrent'
 import type { DownloadTask } from '@shared/types/task'
 import { outputNameIdentity } from './output-path-identity'
@@ -146,12 +147,13 @@ export class UnsafeTorrentPathError extends Error {
  */
 export async function parseBtFileLayout(
   metadata: Uint8Array,
-  selectedFiles?: readonly number[]
+  selectedFiles?: readonly number[],
+  verifiedManifest?: EngineTorrent
 ): Promise<ParsedBtFileLayout> {
-  const parsed = await parseTorrent(metadata)
+  const parsed = verifiedManifest ?? (await parseTorrent(metadata))
   if (
     typeof parsed.infoHash !== 'string' ||
-    !/^[a-f0-9]{40}$/i.test(parsed.infoHash)
+    !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/i.test(parsed.infoHash)
   ) {
     throw new UnsafeTorrentPathError('Torrent contains no valid info hash')
   }

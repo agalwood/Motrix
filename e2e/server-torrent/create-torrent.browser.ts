@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { createHash, randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 import { once } from 'node:events'
 import {
   mkdir,
@@ -21,7 +21,7 @@ import {
   TASK_FORM_WIDTH,
 } from '../../src/shared/constants/add-task'
 import type { DownloadTask } from '../../src/shared/types/task'
-import { startMetadataPeer } from '../../src/test-utils/metadata-peer'
+import { startV2MetadataPeer } from '../../src/test-utils/v2-metadata-peer'
 import { getFreePort } from '../helpers/free-port'
 
 test('create on the server, download in the browser, and seed the original folder', async ({
@@ -217,16 +217,16 @@ test('create on the server, download in the browser, and seed the original folde
       .getByRole('button', { name: 'Close', exact: true })
       .last()
       .click()
-    const magnetPayload = Buffer.alloc(16384, 31)
-    const magnetInfo = Buffer.from(
-      encode({
-        name: 'server-magnet.bin',
-        length: magnetPayload.length,
-        'piece length': 16384,
-        pieces: createHash('sha1').update(magnetPayload).digest(),
-      })
-    )
-    const peer = await startMetadataPeer(magnetInfo, magnetPayload)
+    const nativePeer = await startV2MetadataPeer({
+      pieceLength: 32768,
+      pieces: 2,
+    })
+    const magnetPayload = nativePeer.payload
+    const peer = {
+      ...nativePeer,
+      hash: nativePeer.infoHash,
+      payloadRequests: () => nativePeer.payloadRequests,
+    }
     const compact = Buffer.from([127, 0, 0, 1, peer.port >> 8, peer.port & 255])
     const tracker = createServer((_request, response) =>
       response.end(encode({ interval: 3600, peers: compact }))
@@ -242,7 +242,7 @@ test('create on the server, download in the browser, and seed the original folde
       await magnetDialog
         .getByRole('textbox', { name: 'URLs' })
         .fill(
-          `magnet:?xt=urn:btih:${peer.hash}&tr=${encodeURIComponent(`http://127.0.0.1:${address.port}/announce`)}`
+          `${peer.magnet}&tr=${encodeURIComponent(`http://127.0.0.1:${address.port}/announce`)}`
         )
       await magnetDialog
         .getByRole('button', { name: 'Download', exact: true })
@@ -259,7 +259,7 @@ test('create on the server, download in the browser, and seed the original folde
       expect(before.engineTaskId).toMatch(/^[a-f0-9]{16}$/)
       expect(peer.payloadRequests()).toEqual([])
       await expect(
-        magnetDialog.getByText('server-magnet.bin', { exact: true }).first()
+        magnetDialog.getByText('payload.bin', { exact: true }).first()
       ).toBeVisible()
       await magnetDialog
         .getByRole('button', { name: 'Download', exact: true })

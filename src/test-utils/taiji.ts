@@ -106,6 +106,7 @@ export async function start(
     rpc,
     adapter,
     child,
+    diagnostics: () => diagnostics,
     async close() {
       adapter.dispose()
       rpc.disconnect()

@@ -3,7 +3,12 @@ import { assertLegacyTaskNotRecreated } from '@core/legacy-import/legacy-task-po
 import { newEngineTaskId } from '@core/lib/ids'
 import type { AppliedDownloadProxyPolicyReader } from '@core/proxy/applied-download-proxy-policy'
 import { admitDownloadSources } from '@core/task/source-admission'
+import {
+  refreshTorrentArtifact,
+  verifiedTorrentRecord,
+} from '@core/torrent/verified-torrent-artifact'
 import { AppError, ErrorCode } from '@shared/errors'
+import { manifestToEngineTorrent } from '@shared/lib/torrent-manifest'
 import { parseDirectReplayRecipe } from '@shared/schemas/direct-replay-recipe'
 import type { DownloadTask } from '@shared/types/task'
 import {
@@ -117,7 +122,12 @@ async function readBtMetadata(
       `Torrent metadata missing for task ${task.id}`
     )
   }
-  return deps.torrentMetaStore.read(task.torrentMetaPath)
+  return refreshTorrentArtifact(
+    task,
+    await deps.torrentMetaStore.read(task.torrentMetaPath),
+    deps.adapter,
+    deps.torrentMetaStore
+  )
 }
 
 /**
@@ -147,9 +157,16 @@ async function reAddBt(
 ): Promise<string> {
   const storageLayout = getBtStorageLayout(task)
   const directLayout = getBtDirectStorageLayout(task)
+  const verifiedManifest = await verifiedTorrentRecord(task, metadata)
   const parsedLayout =
     storageLayout || directLayout?.torrentRootName
-      ? await parseBtFileLayout(metadata)
+      ? await parseBtFileLayout(
+          metadata,
+          undefined,
+          verifiedManifest
+            ? manifestToEngineTorrent(verifiedManifest.manifest)
+            : undefined
+        )
       : null
   const completed = task.status === TaskStatus.Completed
   const prioritizePreviewPieces =
@@ -160,6 +177,7 @@ async function reAddBt(
   const selectedFiles = task.bt?.selectedFiles
   return deps.adapter.addTorrent({
     metadata,
+    ...(verifiedManifest ? { verifiedManifest } : {}),
     saveDir: directLayout
       ? buildBtDirectOutputPaths(
           task.diskPath,

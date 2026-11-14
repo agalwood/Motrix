@@ -1306,23 +1306,59 @@ describe('handleCreateTask', () => {
     expect(options['bt-prioritize-piece']).toBe('head=10M,tail=10M')
   })
 
+  it('accepts complete v2 metadata and retains the full native identity', async () => {
+    const deps = makeDeps()
+    const base64 = Buffer.from(
+      encode({
+        info: {
+          name: 'v2',
+          'meta version': 2,
+          'piece length': 16384,
+          'file tree': { empty: { '': { length: 0 } } },
+        },
+      })
+    ).toString('base64')
+    await expect(
+      handleCreateTask(
+        {
+          type: 'bt',
+          payload: { kind: 'torrent-base64', base64 },
+          selectedFiles: [0],
+          saveDir: '/d',
+        },
+        deps
+      )
+    ).resolves.toMatchObject({ outcome: 'created' })
+    expect(deps.addTorrent).toHaveBeenCalled()
+    expect(lastAddedTask(deps).infoHash).toMatch(/^[a-f0-9]{64}$/)
+  })
+
   it.each([
-    { base64: 'AAAA', code: ErrorCode.TorrentParseFailed },
     {
+      label: 'malformed bencode',
+      base64: 'AAAA',
+      code: ErrorCode.TorrentParseFailed,
+    },
+    {
+      label: 'missing v2 proofs',
       base64: Buffer.from(
         encode({
           info: {
             name: 'v2',
             'meta version': 2,
             'piece length': 16384,
-            'file tree': { empty: { '': { length: 0 } } },
+            'file tree': {
+              file: {
+                '': { length: 32768, 'pieces root': Buffer.alloc(32, 1) },
+              },
+            },
           },
         })
       ).toString('base64'),
-      code: ErrorCode.EngineFeatureUnavailable,
+      code: ErrorCode.TorrentParseFailed,
     },
   ])(
-    'rejects unsupported or invalid metadata before allocating engine/storage state ($code)',
+    'rejects invalid metadata before allocating engine/storage state ($label)',
     async ({ base64, code }) => {
       const deps = makeDeps()
       await expect(

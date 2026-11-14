@@ -444,3 +444,27 @@ describe('task tracker ownership and journal', () => {
     await expect(f.plan()).rejects.toThrow('stopped')
   })
 })
+
+it.each([false, true])(
+  'promotes verified info-only privacy (%s) before native selection',
+  async (privacy) => {
+    const f = fixture([])
+    f.setState(null)
+    f.task.uris = [
+      `magnet:?xt=urn:btih:${'a'.repeat(40)}&tr=${encodeURIComponent(native)}`,
+    ]
+    vi.mocked(parseTorrent).mockRejectedValue(new Error('missing v2 layers'))
+    const result = await f.service.prepareCreation({
+      engineGid: f.task.engineTaskId,
+      metadata: new Uint8Array([1]),
+      manual: [],
+      verifiedPrivacy: privacy,
+    })
+    expect(result).toEqual({ trackers: privacy ? [] : [c], isPrivate: privacy })
+    expect(f.state()).toMatchObject({
+      isPrivate: privacy,
+      original: [native],
+      managed: privacy ? [] : [c],
+    })
+  }
+)

@@ -28,6 +28,7 @@ import {
   acquireBtInfoHashAdmission,
   btTaskTargetDir,
   canonicalBtPath,
+  extractMagnetInfoHash,
   isBtInfoHashRegistered,
   normalizeBtInfoHash,
   TorrentDuplicateConflictError,
@@ -38,9 +39,11 @@ import { admitDownloadSources } from '@core/task/source-admission'
 import type { TaskManager } from '@core/task/task-manager'
 import { taskRowToDownloadTask } from '@core/task/task-row-to-download-task'
 import { AppError, DownloadErrorCode, ErrorCode } from '@shared/errors'
+import { manifestToTorrentMeta } from '@shared/lib/torrent-manifest'
 import { Events } from '@shared/protocol/events'
 import type { MagnetFileSelectionPayload } from '@shared/schemas/add-task'
 import type { MagnetResolution } from '@shared/schemas/magnet-resolution'
+import type { TorrentManifest } from '@shared/schemas/torrent-manifest'
 import type { DownloadTask, SourceMeta, TaskSource } from '@shared/types/task'
 import {
   TaskInstancePhase,
@@ -63,9 +66,6 @@ import {
 import type { TorrentParser } from './torrent-parser'
 
 const log = getLogger('magnet-tracker')
-const HEX_INFO_HASH_RE = /^[a-fA-F0-9]{40}$/
-const BASE32_INFO_HASH_RE = /^[A-Z2-7]{32}$/i
-const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
 const UNKNOWN_INFO_HASH = '0'.repeat(40)
 const METADATA_TIMEOUT_MULTIPLIER_PAYLOAD_KEY =
   'metadataTimeoutMultiplier' as const
@@ -1091,11 +1091,13 @@ export class MagnetTracker {
     const saveDir = cached?.saveDir ?? pair.task.finalPath
 
     let torrentBase64: string | undefined
+    let nativeManifest: TorrentManifest | undefined
     let sourceError: unknown
     if (metaInst?.gid) {
       try {
-        torrentBase64 = (await this.engine.getTorrentMetadata(metaInst.gid))
-          .data
+        const metadata = await this.engine.getTorrentMetadata(metaInst.gid)
+        torrentBase64 = metadata.data
+        nativeManifest = metadata.manifest
       } catch (err) {
         sourceError = err
       }
@@ -1117,7 +1119,9 @@ export class MagnetTracker {
       )
     }
 
-    const meta = await this.torrentParser.parse(torrentBase64)
+    const meta = nativeManifest
+      ? manifestToTorrentMeta(nativeManifest)
+      : await this.torrentParser.parse(torrentBase64)
     if (this.stopped) return
     // A different client may have confirmed or removed the task during IO.
     if (this.db.getTask(taskId)?.task.aggStatus !== TaskStatus.MetadataReady) {
@@ -1520,14 +1524,28 @@ export class MagnetTracker {
     if (!this.getCurrentFetchingMetadataPair(gid, entry)) return
 
     let torrentBase64: string
+    let nativeManifest: TorrentManifest | undefined
     try {
       const metadata = await this.engine.getTorrentMetadata(gid)
       if (!metadata.awaitingSelection || this.stopped) return
       clearTimeout(entry.timer)
       torrentBase64 = metadata.data
+      nativeManifest = metadata.manifest
     } catch (err) {
       // A reconnect/read failure does not invalidate verified engine data.
       // Polling retries the read; the existing metadata deadline still applies.
+      if (
+        err instanceof AppError &&
+        err.code === ErrorCode.EngineProtocolError
+      ) {
+        const marked = await this.markMetadataFailure(
+          entry,
+          'Magnet metadata processing failed',
+          DownloadErrorCode.BtMetadataFailed
+        )
+        if (marked) await this.cleanupCacheEntry(entry)
+        return
+      }
       log.warn(
         { err, gid },
         'metadata read deferred until the next observation'
@@ -1536,7 +1554,9 @@ export class MagnetTracker {
     }
     let meta: Awaited<ReturnType<TorrentParser['parse']>>
     try {
-      meta = await this.torrentParser.parse(torrentBase64)
+      meta = nativeManifest
+        ? manifestToTorrentMeta(nativeManifest)
+        : await this.torrentParser.parse(torrentBase64)
       if (this.stopped) return
     } catch (err) {
       log.error({ err, gid }, 'failed to process magnet metadata')
@@ -1569,6 +1589,8 @@ export class MagnetTracker {
       // user sees "video.mp4" instead of "[METADATA] magnet:?…"
       // while reviewing files in the dialog.
       name: meta.name || pair.task.name,
+      infoHash: meta.infoHash,
+      isPrivate: meta.isPrivate,
       updatedAt: now,
     }
     const updatedInstances: TaskInstanceRow[] = pair.instances.map((i) =>
@@ -2277,41 +2299,5 @@ function isSafeSwapCleanupArtifactPath(
 }
 
 function extractInfoHash(magnetUri: string): string {
-  try {
-    const params = new URL(magnetUri).searchParams
-    for (const xt of params.getAll('xt')) {
-      const normalized = normalizeBtih(xt)
-      if (normalized) return normalized
-    }
-  } catch {
-    /* Fall through to schema-safe placeholder. */
-  }
-
-  return UNKNOWN_INFO_HASH
-}
-
-function normalizeBtih(xt: string): string | null {
-  const prefix = 'urn:btih:'
-  if (!xt.toLowerCase().startsWith(prefix)) return null
-
-  const hash = xt.slice(prefix.length).trim()
-  if (HEX_INFO_HASH_RE.test(hash)) return hash.toLowerCase()
-  if (BASE32_INFO_HASH_RE.test(hash)) return base32ToHex(hash)
-
-  return null
-}
-
-function base32ToHex(input: string): string {
-  let bits = ''
-  for (const char of input.toUpperCase()) {
-    const value = BASE32_ALPHABET.indexOf(char)
-    bits += value.toString(2).padStart(5, '0')
-  }
-
-  let hex = ''
-  for (let i = 0; i < bits.length; i += 4) {
-    hex += Number.parseInt(bits.slice(i, i + 4), 2).toString(16)
-  }
-
-  return hex
+  return extractMagnetInfoHash(magnetUri) ?? UNKNOWN_INFO_HASH
 }

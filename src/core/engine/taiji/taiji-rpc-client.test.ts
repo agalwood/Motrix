@@ -30,6 +30,36 @@ function fixture() {
 }
 
 describe('native taiji RPC boundary', () => {
+  it('reads the synchronized manifest contract directly, including v2 proof readiness', async () => {
+    const { rpc, protocol } = fixture()
+    const manifest = {
+      infoHash: 'a'.repeat(64),
+      v1: null,
+      v2: 'a'.repeat(64),
+      name: 'file.bin',
+      multiFile: false,
+      isPrivate: false,
+      verificationReady: false,
+      files: [
+        { index: 0, components: ['file.bin'], length: 65536, padding: false },
+      ],
+    }
+    protocol.call.mockResolvedValue({
+      data: 'ZGU=',
+      awaitingSelection: true,
+      manifest,
+    })
+    const adapter = new TaijiAdapter(rpc)
+    expect((await adapter.getTorrentMetadata('gid')).manifest).toEqual(manifest)
+    expect(protocol.call).toHaveBeenCalledExactlyOnceWith(
+      'taiji.getTorrentManifest',
+      ['token:secret', 'gid'],
+      undefined
+    )
+    protocol.call.mockResolvedValue({ data: 'ZGU=', awaitingSelection: true })
+    await expect(adapter.getTorrentMetadata('gid')).rejects.toThrow()
+  })
+
   it('prepares discovery on connection without waiting for preparation', async () => {
     const { rpc, protocol } = fixture()
     protocol.call.mockImplementation(async (method) => {

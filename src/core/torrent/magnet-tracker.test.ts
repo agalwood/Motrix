@@ -419,6 +419,60 @@ describe('MagnetTracker', () => {
 
   // ── 2. submit with magnetFileSelection ON ─────────────────────
 
+  it('publishes and reopens a verified v2 manifest before download proofs are ready', async () => {
+    const hash = 'a'.repeat(64)
+    const tracker = createMagnetTracker(
+      rpc as never,
+      eventBus as never,
+      settings as never,
+      db,
+      taskManager,
+      torrentParser
+    )
+    const taskId = await tracker.submit(
+      `magnet:?xt=urn:btmh:1220${hash}`,
+      await makeTempDir()
+    )
+    rpc.getTorrentMetadata.mockResolvedValue({
+      data: 'aW5mby1vbmx5',
+      awaitingSelection: true,
+      manifest: {
+        infoHash: hash,
+        v1: null,
+        v2: hash,
+        name: 'video.bin',
+        multiFile: false,
+        isPrivate: false,
+        verificationReady: false,
+        files: [
+          {
+            index: 0,
+            components: ['video.bin'],
+            length: 65536,
+            padding: false,
+          },
+        ],
+      },
+    })
+    await rpc.onBtDownloadComplete.mock.calls[0][0](lastMetadataGid())
+    await vi.waitFor(() =>
+      expect(db.getTask(taskId)?.task.aggStatus).toBe(TaskStatus.MetadataReady)
+    )
+    expect(db.getTask(taskId)?.task.infoHash).toBe(hash)
+    expect(torrentParser.parse).not.toHaveBeenCalled()
+    const emitted = eventBus.emit.mock.calls.find(
+      (call) => call[0] === Events.MagnetFileSelection
+    )?.[1]
+    expect(magnetFileSelectionPayloadSchema.safeParse(emitted).success).toBe(
+      true
+    )
+    expect(emitted.meta.files[0].size).toBe(65536)
+    const reopened = await tracker.getFileSelection(taskId)
+    expect(reopened?.meta.infoHash).toBe(hash)
+    expect(torrentParser.parse).not.toHaveBeenCalled()
+    await tracker.stopAndDrain()
+  })
+
   it('starts metadata-only fetch when magnetFileSelection is ON', async () => {
     const dir = await makeTempDir()
     const tracker = createMagnetTracker(

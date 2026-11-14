@@ -7,6 +7,10 @@ import type {
   LegacyCheckpointReconciliation,
 } from '@shared/schemas/legacy-checkpoint'
 import type { MagnetResolution } from '@shared/schemas/magnet-resolution'
+import type {
+  TorrentManifest,
+  TorrentManifestRecord,
+} from '@shared/schemas/torrent-manifest'
 import type { TorrentSelection } from '@shared/schemas/torrent-selection'
 import type {
   EngineCapability,
@@ -52,6 +56,8 @@ export type DirectResourceMetadataProfile =
   typeof DIRECT_RESOURCE_METADATA_PROFILE
 
 export interface AddTorrentParams {
+  /** Bound to the exact stored bytes; used only for an engine-verified replay. */
+  verifiedManifest?: TorrentManifestRecord
   /** Internal migration path: keeps original trackers and pins verification/no-seeding options. */
   legacyCheckpointActivation?: { token: string; targetPath: string }
   /** Read-only durable metadata source for an authorized legacy BT task. */
@@ -184,6 +190,8 @@ export type BtTrackerPolicy = (input: {
   metadata?: Uint8Array
   manual: string[]
   isPrivate?: boolean
+  /** Trusted native manifest or checksum-bound replay, including info-only v2. */
+  verifiedPrivacy?: boolean
 }) => Promise<{ trackers: string[]; isPrivate: boolean }>
 
 export interface LegacyBtBindingProof {
@@ -217,9 +225,11 @@ export interface EngineAdapter {
     engineTaskId?: string
   }): Promise<string>
   getMagnetResolution?(engineTaskId: string): Promise<MagnetResolution | null>
-  getTorrentMetadata(
-    engineTaskId: string
-  ): Promise<{ data: string; awaitingSelection: boolean }>
+  getTorrentMetadata(engineTaskId: string): Promise<{
+    data: string
+    awaitingSelection: boolean
+    manifest?: TorrentManifest
+  }>
   confirmTorrentSelection(
     engineTaskId: string,
     selection: TorrentSelection

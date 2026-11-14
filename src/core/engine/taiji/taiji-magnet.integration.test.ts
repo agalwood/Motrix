@@ -17,6 +17,137 @@ import { describe, expect, it } from 'vitest'
 describe.skipIf(!process.env.MOTRIX_TAIJI_BIN && !existsSync(bundled))(
   'native magnet discovery',
   () => {
+    it('reaches a useful tracker after twenty-four blackholes using spare session capacity', async () => {
+      const directory = await mkdtemp(
+        path.join(tmpdir(), 'taiji-tracker-budget-')
+      )
+      const info = Buffer.from(
+        encode({
+          name: 'tracker-budget.bin',
+          length: 1,
+          'piece length': 16384,
+          pieces: createHash('sha1')
+            .update(Buffer.from([7]))
+            .digest(),
+        })
+      )
+      const peer = await startMetadataPeer(info)
+      const silent = await startSilentMetadataPeers(24)
+      const tracker = createHttpServer((_request, response) =>
+        response.end(
+          encode({
+            interval: 3600,
+            peers: Buffer.from([127, 0, 0, 1, peer.port >> 8, peer.port & 255]),
+          })
+        )
+      )
+      let engine: Awaited<ReturnType<typeof start>> | undefined
+      try {
+        const port = await listen(tracker)
+        engine = await start(directory)
+        const trackers = [...silent.ports, port]
+          .map(
+            (value) =>
+              `&tr=${encodeURIComponent(`http://127.0.0.1:${value}/announce`)}`
+          )
+          .join('')
+        const gid = await engine.adapter.fetchMagnetMetadata({
+          uri: `magnet:?xt=urn:btih:${peer.hash}${trackers}`,
+          saveDir: directory,
+        })
+        await expect
+          .poll(async () => (await engine!.rpc.tellStatus(gid)).status, {
+            timeout: 3000,
+          })
+          .toBe('paused')
+        expect(peer.requests()).toBeGreaterThan(0)
+        expect(peer.payloadRequests()).toEqual([])
+      } finally {
+        await engine?.close()
+        tracker.closeAllConnections()
+        await new Promise<void>((resolve) => tracker.close(() => resolve()))
+        await silent.close()
+        await peer.close()
+        await rm(directory, { recursive: true, force: true })
+      }
+    }, 10000)
+
+    it('lets four metadata tasks progress through shared tracker blackholes', async () => {
+      const directory = await mkdtemp(
+        path.join(tmpdir(), 'taiji-tracker-fairness-')
+      )
+      const peers = await Promise.all(
+        Array.from({ length: 4 }, (_, index) =>
+          startMetadataPeer(
+            Buffer.from(
+              encode({
+                name: `fair-${index}.bin`,
+                length: 1,
+                'piece length': 16384,
+                pieces: createHash('sha1')
+                  .update(Buffer.from([index]))
+                  .digest(),
+              })
+            )
+          )
+        )
+      )
+      const silent = await startSilentMetadataPeers(32)
+      const tracker = createHttpServer((_request, response) =>
+        response.end(
+          encode({
+            interval: 3600,
+            peers: Buffer.concat(
+              peers.map((peer) =>
+                Buffer.from([127, 0, 0, 1, peer.port >> 8, peer.port & 255])
+              )
+            ),
+          })
+        )
+      )
+      let engine: Awaited<ReturnType<typeof start>> | undefined
+      try {
+        const port = await listen(tracker)
+        engine = await start(directory)
+        const trackers = [...silent.ports, port]
+          .map(
+            (value) =>
+              `&tr=${encodeURIComponent(`http://127.0.0.1:${value}/announce`)}`
+          )
+          .join('')
+        const gids = await Promise.all(
+          peers.map((peer) =>
+            engine!.adapter.fetchMagnetMetadata({
+              uri: `magnet:?xt=urn:btih:${peer.hash}${trackers}`,
+              saveDir: directory,
+            })
+          )
+        )
+        await expect
+          .poll(
+            async () =>
+              Promise.all(
+                gids.map(
+                  async (gid) => (await engine!.rpc.tellStatus(gid)).status
+                )
+              ),
+            { timeout: 15000 }
+          )
+          .toEqual(['paused', 'paused', 'paused', 'paused'])
+        for (const peer of peers) {
+          expect(peer.requests()).toBeGreaterThan(0)
+          expect(peer.payloadRequests()).toEqual([])
+        }
+      } finally {
+        await engine?.close()
+        tracker.closeAllConnections()
+        await new Promise<void>((resolve) => tracker.close(() => resolve()))
+        await silent.close()
+        await Promise.all(peers.map((peer) => peer.close()))
+        await rm(directory, { recursive: true, force: true })
+      }
+    }, 20000)
+
     it('reaches a healthy candidate behind eighty silent handshakes without waiting for their timeout', async () => {
       const directory = await mkdtemp(
         path.join(tmpdir(), 'taiji-handshake-budget-')

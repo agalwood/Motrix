@@ -130,13 +130,14 @@ export interface InspectBtDuplicateInput {
 
 /** Normalize a magnet/torrent BTIH to the 40-character domain form. */
 export function normalizeBtInfoHash(value: string): string | null {
-  return normalizeBtih(value.trim())
+  const hash = value.trim()
+  return /^[a-f0-9]{64}$/i.test(hash) ? hash.toLowerCase() : normalizeBtih(hash)
 }
 
 export function extractMagnetInfoHash(uri: string): string | null {
   try {
     const { identity } = parseMagnet(uri)
-    return identity.kind === 'v2' ? null : identity.sha1
+    return identity.kind === 'v2' ? identity.sha256 : identity.sha1
   } catch {
     return null
   }

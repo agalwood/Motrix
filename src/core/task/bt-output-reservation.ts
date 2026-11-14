@@ -96,7 +96,7 @@ export function getBtOutputReservations(
         path.resolve(reservation.finalPath) !==
           path.parse(reservation.finalPath).root &&
         typeof reservation.infoHash === 'string' &&
-        /^[a-f0-9]{40}$/i.test(reservation.infoHash)
+        /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/i.test(reservation.infoHash)
       )
         reservations.set(
           reservation.finalPath,

@@ -14,7 +14,7 @@ const torrentFileSchema = z.object({
 
 const torrentMetaSchema = z.object({
   name: z.string(),
-  infoHash: z.string().length(40),
+  infoHash: z.string().regex(/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/i),
   totalSize: z.number().int().nonnegative(),
   files: z.array(torrentFileSchema),
 })
@@ -165,7 +165,7 @@ export type TaskCreateRequest = z.input<typeof taskCreateRequestSchema>
 
 export const torrentDuplicateConflictSchema = z.object({
   reason: z.enum(['active-info-hash', 'selection-mismatch', 'existing-files']),
-  infoHash: z.string().length(40),
+  infoHash: z.string().regex(/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/i),
   targetDir: z.string(),
   existingTaskId: z.string().nullable(),
   existingTaskName: z.string().nullable(),

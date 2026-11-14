@@ -8,6 +8,7 @@ import { admitDownloadSources } from '@core/task/source-admission'
 import { parseTorrent } from '@motrix/torrent'
 import { AppError, ErrorCode } from '@shared/errors'
 import { MAX_TORRENT_FILE_SIZE } from '@shared/lib/torrent-meta'
+import { torrentManifestRecordSchema } from '@shared/schemas/torrent-manifest'
 import {
   type TorrentSelection,
   torrentSelectionSchema,
@@ -67,7 +68,8 @@ export class TaijiAdapter extends Aria2Adapter {
     options: Record<string, string | string[]>,
     gid?: string,
     metadata?: Uint8Array,
-    isPrivate?: boolean
+    isPrivate?: boolean,
+    verifiedPrivacy?: boolean
   ): Promise<void> {
     const raw = options['bt-tracker']
     const manual = (Array.isArray(raw) ? raw : (raw ?? '').split(',')).filter(
@@ -78,6 +80,7 @@ export class TaijiAdapter extends Aria2Adapter {
           engineGid: gid,
           metadata,
           isPrivate,
+          verifiedPrivacy,
           manual,
         })
       : { isPrivate, trackers: isPrivate ? [] : manual }
@@ -203,7 +206,7 @@ export class TaijiAdapter extends Aria2Adapter {
   }
 
   override getTorrentMetadata(engineTaskId: string) {
-    return this.taijiRpc.getTorrentMetadata(engineTaskId)
+    return this.taijiRpc.getTorrentManifest(engineTaskId)
   }
 
   override async confirmTorrentSelection(
@@ -222,6 +225,20 @@ export class TaijiAdapter extends Aria2Adapter {
     )
     if (Object.keys(paths).length !== selection.outputFilePaths.length)
       throw new TypeError('Duplicate torrent output mapping')
+    if (this.nativeTrackerPolicy) {
+      const verified = await this.taijiRpc.getTorrentManifest(engineTaskId)
+      if (verified.awaitingSelection) {
+        const policyOptions: Record<string, string> = {}
+        await this.applyTrackerPolicy(
+          policyOptions,
+          engineTaskId,
+          Buffer.from(verified.data, 'base64'),
+          verified.manifest.isPrivate,
+          verified.manifest.isPrivate
+        )
+        await this.taijiRpc.changeOption(engineTaskId, policyOptions)
+      }
+    }
     const gid = await this.taijiRpc.confirmTorrentSelection(engineTaskId, {
       dir: selection.saveDir,
       'select-file': toTaijiSelection(
@@ -321,6 +338,16 @@ export class TaijiAdapter extends Aria2Adapter {
     const options = { ...params.wireOptions }
     if (options['index-out'] !== undefined)
       throw new TypeError('Use the typed torrent output mapping')
+    const verified = params.verifiedManifest
+      ? torrentManifestRecordSchema.parse(params.verifiedManifest)
+      : undefined
+    if (
+      verified &&
+      (params.metadata.length > MAX_TORRENT_FILE_SIZE ||
+        verified.metadataSha256 !==
+          createHash('sha256').update(params.metadata).digest('hex'))
+    )
+      throw new TypeError('Torrent manifest does not match replay metadata')
     const selection =
       options['select-file'] ??
       (params.selectedFiles?.length
@@ -329,11 +356,17 @@ export class TaijiAdapter extends Aria2Adapter {
     if (selection !== undefined) {
       if (typeof selection !== 'string')
         throw new TypeError('Invalid torrent file selection')
-      const metadata = parseTorrent(params.metadata, {
-        maxBytes: MAX_TORRENT_FILE_SIZE,
-        allowUnsortedKeys: true,
-      })
-      const files = metadata.v1?.files ?? metadata.v2?.files ?? []
+      const metadata = verified
+        ? undefined
+        : parseTorrent(params.metadata, {
+            maxBytes: MAX_TORRENT_FILE_SIZE,
+            allowUnsortedKeys: true,
+          })
+      const files =
+        verified?.manifest.files ??
+        metadata?.v2?.files ??
+        metadata?.v1?.files ??
+        []
       options['select-file'] = toTaijiSelection(
         selection,
         files.map((file) => file.padding)
@@ -365,7 +398,8 @@ export class TaijiAdapter extends Aria2Adapter {
       options,
       params.gid,
       params.metadata,
-      params.isPrivate
+      params.isPrivate,
+      verified?.manifest.isPrivate
     )
     await mkdir(root, { recursive: true })
     const gid = await this.taijiRpc.addTorrent(

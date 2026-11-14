@@ -31,12 +31,17 @@ import { taskRowToDownloadTask } from '@core/task/task-row-to-download-task'
 import type { TorrentMetaStore } from '@core/task/torrent-meta-store'
 import { AppError, ErrorCode } from '@shared/errors'
 import { parseEngineTorrent } from '@shared/lib/engine-torrent'
+import { manifestToEngineTorrent } from '@shared/lib/torrent-manifest'
 import type { TaskCreateSuccessResult } from '@shared/schemas/add-task'
 import { torrentSelectionSchema } from '@shared/schemas/torrent-selection'
 import { TaskInstancePhase, TaskStatus, TaskType } from '@shared/types/task'
 import { isMagnetCleanupTombstoneHidden } from './magnet-cleanup-quarantine'
 import type { MagnetTracker } from './magnet-tracker'
 import { confirmPendingTorrentSelection } from './pending-torrent-selection'
+import {
+  manifestRecord,
+  persistTorrentManifest,
+} from './verified-torrent-artifact'
 
 const log = getLogger('confirm-magnet-selection')
 
@@ -166,7 +171,9 @@ async function confirmMagnetSelectionUnderMutation(
       'Torrent metadata does not match the pending magnet task'
     )
   }
-  const parsedMetadata = await parseEngineTorrent(torrentBytes)
+  const parsedMetadata = nativeMetadata.manifest
+    ? manifestToEngineTorrent(nativeMetadata.manifest)
+    : await parseEngineTorrent(torrentBytes)
   torrentSelectionSchema.shape.selectedFiles.parse(selectedFiles)
   if (
     selectedFiles.some(
@@ -188,7 +195,7 @@ async function confirmMagnetSelectionUnderMutation(
   // indexed paths when metadata is valid, and durable `.torrent` bytes.
   let parsedBtLayout: ParsedBtFileLayout | null = null
   try {
-    parsedBtLayout = await parseBtFileLayout(torrentBytes)
+    parsedBtLayout = await parseBtFileLayout(torrentBytes, undefined, parsedMetadata)
   } catch (err) {
     if (err instanceof AppError) throw err
     throw new AppError(
@@ -250,6 +257,12 @@ async function confirmMagnetSelectionUnderMutation(
   const finalPath = path.join(saveDir, finalName)
   // Persist metadata before creating any output or stopping metadata resolution.
   const torrentMetaPath = await torrentMetaStore.persist(taskId, torrentBytes)
+  const verifiedManifest = nativeMetadata.manifest
+    ? await persistTorrentManifest(
+        torrentMetaPath,
+        manifestRecord(nativeMetadata.manifest, torrentBytes)
+      )
+    : undefined
   const btStoragePlan = createBtDirectStoragePlan(
     finalPath,
     parsedBtLayout,
@@ -277,6 +290,9 @@ async function confirmMagnetSelectionUnderMutation(
     payload: {
       ...btStoragePayload(btStoragePlan.layout),
       pendingTorrentSelection: selection,
+      ...(verifiedManifest
+        ? { verifiedTorrentManifest: verifiedManifest }
+        : {}),
     },
     updatedAt: now,
   }

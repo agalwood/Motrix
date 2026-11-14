@@ -1,6 +1,5 @@
 import { readFileSync } from 'node:fs'
 import { BDictionary, type BInput, decode, encode } from '@motrix/torrent'
-import { ErrorCode } from '@shared/errors'
 import {
   parseEngineTorrent,
   torrentFileErrorKey,
@@ -15,16 +14,18 @@ const fixture = (name: string) =>
     )
   )
 describe('current engine torrent capability projection', () => {
-  it('selects v1 identity for hybrid and rejects v2 without truncating its SHA-256 hash', async () => {
+  it('selects v1 identity for hybrid and preserves the full v2 identity', async () => {
     const parsed = await parseEngineTorrent(fixture('v2'))
     expect(parsed.identity.kind).toBe('hybrid')
     expect(parsed.infoHash).toHaveLength(40)
-    await expect(parseEngineTorrent(fixture('v2-only'))).rejects.toMatchObject({
-      code: ErrorCode.EngineFeatureUnavailable,
-    })
-    await expect(
-      parseEngineTorrent(`magnet:?xt=urn:btmh:1220${'ab'.repeat(32)}`)
-    ).rejects.toBeInstanceOf(UnsupportedTorrentError)
+    const v2 = await parseEngineTorrent(fixture('v2-only'))
+    expect(v2.identity.kind).toBe('v2')
+    expect(v2.infoHash).toHaveLength(64)
+    expect(v2.files?.length).toBeGreaterThan(0)
+    expect(
+      (await parseEngineTorrent(`magnet:?xt=urn:btmh:1220${'ab'.repeat(32)}`))
+        .infoHash
+    ).toBe('ab'.repeat(32))
     expect(torrentFileErrorKey(new UnsupportedTorrentError('v2'))).toBe(
       'task.add.unsupportedTorrent'
     )
@@ -85,7 +86,7 @@ describe('current engine torrent capability projection', () => {
       ).name
     ).toBe('\uFEFFfile')
   })
-  it('rejects unsorted info that aria2 would rehash, but accepts unsorted outer metadata', async () => {
+  it('keeps strict imported-info validation while accepting unsorted outer metadata', async () => {
     const utf8 = new TextEncoder()
     const info = 'd4:name1:a6:lengthi0e12:piece lengthi16384e6:pieces0:e'
     await expect(

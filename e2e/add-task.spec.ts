@@ -13,6 +13,7 @@ import {
   TaskType,
 } from '../src/shared/types/task'
 import { startMetadataPeer } from '../src/test-utils/metadata-peer'
+import { startV2MetadataPeer } from '../src/test-utils/v2-metadata-peer'
 import {
   expect,
   findAddTaskWindow,
@@ -416,110 +417,125 @@ test.describe('add task', () => {
     })
   }
 
-  test('magnet selection and payload completion keep the same engine task', async ({
-    electronApp,
-    mainWindow,
-    userDataDir,
-    rpcPort,
-  }) => {
-    const info = Buffer.from(
-      encode({
-        name: 'metadata-fixture.bin',
-        length: 16384,
-        'piece length': 16384,
-        pieces: createHash('sha1').update(Buffer.alloc(16384)).digest(),
-      })
-    )
-    const payload = Buffer.alloc(16384)
-    const peer = await startMetadataPeer(info, payload)
-    const compact = Buffer.from([127, 0, 0, 1, 0, 0])
-    compact.writeUInt16BE(peer.port, 4)
-    const tracker = createServer((_request, response) =>
-      response.end(encode({ interval: 3600, peers: compact }))
-    )
-    tracker.listen(0, '127.0.0.1')
-    await once(tracker, 'listening')
-    try {
-      await waitForEngineReady(mainWindow)
-      const address = tracker.address()
-      if (!address || typeof address === 'string')
-        throw new Error('Missing tracker')
-      const settings = JSON.parse(
-        await readFile(path.join(userDataDir, 'settings.json'), 'utf8')
+  for (const format of ['v1', 'v2'] as const) {
+    test(`magnet selection and payload completion keep the same engine task (${format})`, async ({
+      electronApp,
+      mainWindow,
+      userDataDir,
+      rpcPort,
+    }) => {
+      const info = Buffer.from(
+        encode({
+          name: 'metadata-fixture.bin',
+          length: 16384,
+          'piece length': 16384,
+          pieces: createHash('sha1').update(Buffer.alloc(16384)).digest(),
+        })
       )
-      const result = await fetch(`http://127.0.0.1:${rpcPort}/jsonrpc`, {
-        method: 'POST',
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          id: 'metadata-tracker',
-          method: 'taiji.changeGlobalOption',
-          params: [
-            `token:${settings.engine.rpcSecret}`,
-            { 'bt-tracker': `http://127.0.0.1:${address.port}/announce` },
-          ],
-        }),
-      })
-      expect((await result.json()).error).toBeUndefined()
-      await mainWindow.getByRole('button', { name: 'New task' }).click()
-      const add = await findAddTaskWindow(electronApp)
-      await add
-        .getByRole('textbox', { name: 'URLs' })
-        .fill(`magnet:?xt=urn:btih:${peer.hash}`)
-      await add.getByRole('button', { name: 'Download', exact: true }).click()
-      await expect
-        .poll(
-          async () => {
-            const tasks = (await mainWindow.evaluate(
-              (channel) => window.motrix.invoke(channel),
-              Queries.ListTasks
-            )) as DownloadTask[]
-            return tasks.find((task) => task.infoHash === peer.hash)?.status
-          },
-          { timeout: 12000 }
+      const v2 =
+        format === 'v2'
+          ? await startV2MetadataPeer({ pieceLength: 32768, pieces: 2 })
+          : undefined
+      const payload = v2?.payload ?? Buffer.alloc(16384)
+      const peer = v2
+        ? {
+            port: v2.port,
+            hash: v2.infoHash,
+            requests: v2.requests,
+            payloadRequests: () => v2.payloadRequests,
+            close: v2.close,
+          }
+        : await startMetadataPeer(info, payload)
+      const magnet = v2?.magnet ?? `magnet:?xt=urn:btih:${peer.hash}`
+      const fileName = v2 ? 'payload.bin' : 'metadata-fixture.bin'
+      const compact = Buffer.from([127, 0, 0, 1, 0, 0])
+      compact.writeUInt16BE(peer.port, 4)
+      const tracker = createServer((_request, response) =>
+        response.end(encode({ interval: 3600, peers: compact }))
+      )
+      tracker.listen(0, '127.0.0.1')
+      await once(tracker, 'listening')
+      try {
+        await waitForEngineReady(mainWindow)
+        const address = tracker.address()
+        if (!address || typeof address === 'string')
+          throw new Error('Missing tracker')
+        const settings = JSON.parse(
+          await readFile(path.join(userDataDir, 'settings.json'), 'utf8')
         )
-        .toBe(TaskStatus.MetadataReady)
-      expect(peer.requests()).toBeGreaterThan(0)
-      const selection = await findAddTaskWindow(electronApp)
-      await expect(
-        selection.getByText('metadata-fixture.bin', { exact: true }).first()
-      ).toBeVisible()
-      const before = (
-        (await mainWindow.evaluate(
-          (channel) => window.motrix.invoke(channel),
-          Queries.ListTasks
-        )) as DownloadTask[]
-      ).find((task) => task.infoHash === peer.hash)!
-      expect(peer.payloadRequests()).toEqual([])
-      await selection
-        .getByRole('button', { name: 'Download', exact: true })
-        .click()
-      await expect
-        .poll(
-          async () => {
-            const tasks = (await mainWindow.evaluate(
-              (channel) => window.motrix.invoke(channel),
-              Queries.ListTasks
-            )) as DownloadTask[]
-            return tasks.find((task) => task.id === before.id)?.downloadedBytes
-          },
-          { timeout: 15000 }
-        )
-        .toBe(16384)
-      const after = (
-        (await mainWindow.evaluate(
-          (channel) => window.motrix.invoke(channel),
-          Queries.ListTasks
-        )) as DownloadTask[]
-      ).find((task) => task.id === before.id)!
-      expect(after.engineTaskId).toBe(before.engineTaskId)
-      expect(await readFile(after.finalPath)).toEqual(payload)
-    } finally {
-      await removeAllTasks(mainWindow).catch(() => {})
-      tracker.closeAllConnections()
-      await new Promise<void>((resolve) => tracker.close(() => resolve()))
-      await peer.close()
-    }
-  })
+        const result = await fetch(`http://127.0.0.1:${rpcPort}/jsonrpc`, {
+          method: 'POST',
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: 'metadata-tracker',
+            method: 'taiji.changeGlobalOption',
+            params: [
+              `token:${settings.engine.rpcSecret}`,
+              { 'bt-tracker': `http://127.0.0.1:${address.port}/announce` },
+            ],
+          }),
+        })
+        expect((await result.json()).error).toBeUndefined()
+        await mainWindow.getByRole('button', { name: 'New task' }).click()
+        const add = await findAddTaskWindow(electronApp)
+        await add.getByRole('textbox', { name: 'URLs' }).fill(magnet)
+        await add.getByRole('button', { name: 'Download', exact: true }).click()
+        await expect
+          .poll(
+            async () => {
+              const tasks = (await mainWindow.evaluate(
+                (channel) => window.motrix.invoke(channel),
+                Queries.ListTasks
+              )) as DownloadTask[]
+              return tasks.find((task) => task.infoHash === peer.hash)?.status
+            },
+            { timeout: 12000 }
+          )
+          .toBe(TaskStatus.MetadataReady)
+        expect(peer.requests()).toBeGreaterThan(0)
+        const selection = await findAddTaskWindow(electronApp)
+        await expect(
+          selection.getByText(fileName, { exact: true }).first()
+        ).toBeVisible()
+        const before = (
+          (await mainWindow.evaluate(
+            (channel) => window.motrix.invoke(channel),
+            Queries.ListTasks
+          )) as DownloadTask[]
+        ).find((task) => task.infoHash === peer.hash)!
+        expect(peer.payloadRequests()).toEqual([])
+        await selection
+          .getByRole('button', { name: 'Download', exact: true })
+          .click()
+        await expect
+          .poll(
+            async () => {
+              const tasks = (await mainWindow.evaluate(
+                (channel) => window.motrix.invoke(channel),
+                Queries.ListTasks
+              )) as DownloadTask[]
+              return tasks.find((task) => task.id === before.id)
+                ?.downloadedBytes
+            },
+            { timeout: 15000 }
+          )
+          .toBe(payload.length)
+        const after = (
+          (await mainWindow.evaluate(
+            (channel) => window.motrix.invoke(channel),
+            Queries.ListTasks
+          )) as DownloadTask[]
+        ).find((task) => task.id === before.id)!
+        expect(after.engineTaskId).toBe(before.engineTaskId)
+        expect(await readFile(after.finalPath)).toEqual(payload)
+      } finally {
+        await removeAllTasks(mainWindow).catch(() => {})
+        tracker.closeAllConnections()
+        await new Promise<void>((resolve) => tracker.close(() => resolve()))
+        await peer.close()
+      }
+    })
+  }
 
   test('http url submitted via the add-task window reveals hidden main and appears in Downloads', async ({
     electronApp,

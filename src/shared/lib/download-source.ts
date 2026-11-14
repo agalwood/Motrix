@@ -61,8 +61,7 @@ export function analyzeDownloadSource(
   if (protocol === 'magnet') {
     if (!/^magnet:\?/i.test(raw)) return failure('invalidMagnet', 0, raw.length)
     try {
-      if (parseMagnet(raw).identity.kind === 'v2')
-        return failure('invalidMagnet', 0, raw.length)
+      parseMagnet(raw)
     } catch {
       return failure('invalidMagnet', 0, raw.length)
     }
