@@ -7,13 +7,70 @@ import { createServer as createHttpServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { encode, parseTorrent } from '@motrix/torrent'
-import { startMetadataPeer } from '@test-utils/metadata-peer'
+import {
+  startMetadataPeer,
+  startSilentMetadataPeers,
+} from '@test-utils/metadata-peer'
 import { bundled, listen, start } from '@test-utils/taiji'
 import { describe, expect, it } from 'vitest'
 
 describe.skipIf(!process.env.MOTRIX_TAIJI_BIN && !existsSync(bundled))(
   'native magnet discovery',
   () => {
+    it('reaches a healthy candidate behind eighty silent handshakes without waiting for their timeout', async () => {
+      const directory = await mkdtemp(
+        path.join(tmpdir(), 'taiji-handshake-budget-')
+      )
+      const info = Buffer.from(
+        encode({
+          name: 'budget.bin',
+          length: 1,
+          'piece length': 16384,
+          pieces: createHash('sha1')
+            .update(Buffer.from([1]))
+            .digest(),
+        })
+      )
+      const peer = await startMetadataPeer(info)
+      const silent = await startSilentMetadataPeers(80)
+      const compact = Buffer.concat(
+        [...silent.ports, peer.port].map((port) =>
+          Buffer.from([127, 0, 0, 1, port >> 8, port & 255])
+        )
+      )
+      const tracker = createHttpServer((_request, response) =>
+        response.end(encode({ interval: 3600, peers: compact }))
+      )
+      let engine: Awaited<ReturnType<typeof start>> | undefined
+      try {
+        const port = await listen(tracker)
+        engine = await start(directory)
+        const gid = await engine.adapter.fetchMagnetMetadata({
+          uri: `magnet:?xt=urn:btih:${peer.hash}&tr=${encodeURIComponent(`http://127.0.0.1:${port}/announce`)}`,
+          saveDir: directory,
+        })
+        // Existing handshake attempts have an 8s budget; a healthy candidate
+        // must not wait behind either a task or process limit of 32/64 peers.
+        await expect
+          .poll(async () => (await engine!.rpc.tellStatus(gid)).status, {
+            timeout: 5000,
+          })
+          .toBe('paused')
+        expect(peer.requests()).toBeGreaterThan(0)
+        expect(
+          (await engine.adapter.getMagnetResolution(gid))?.milestones
+            .firstHandshakeMs
+        ).toBeLessThan(5000)
+      } finally {
+        await engine?.close()
+        tracker.closeAllConnections()
+        await new Promise<void>((resolve) => tracker.close(() => resolve()))
+        await silent.close()
+        await peer.close()
+        await rm(directory, { recursive: true, force: true })
+      }
+    }, 15000)
+
     it.each([
       'global-before',
       'global-after',
@@ -82,6 +139,11 @@ describe.skipIf(!process.env.MOTRIX_TAIJI_BIN && !existsSync(bundled))(
           expect(Date.now() - started).toBeLessThan(8000)
           expect(announces).toBeGreaterThan(0)
           expect(peer.requests()).toBeGreaterThan(0)
+          const resolution = await engine.adapter.getMagnetResolution(gid)
+          expect(resolution?.state).toBe('ready')
+          expect(resolution?.milestones.metadataReadyMs).toEqual(
+            expect.any(Number)
+          )
           const saved = await readFile(
             path.join(metadataDirectory, `${peer.hash}.torrent`)
           )

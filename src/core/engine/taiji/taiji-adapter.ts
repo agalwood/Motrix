@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { TaskCookieError } from '@core/engine/task-cookie-error'
+import { getLogger } from '@core/logger'
 import type { DownloadProxyOptions } from '@core/proxy/serializers'
 import { admitDownloadSources } from '@core/task/source-admission'
 import { parseTorrent } from '@motrix/torrent'
@@ -33,6 +34,14 @@ import { taijiProxyOptions, taijiRuntimeSettings } from './taiji-settings'
  * Process start/stop remains the EngineSupervisor's responsibility.
  */
 export class TaijiAdapter extends Aria2Adapter {
+  private prepareDiscovery(): void {
+    void this.taijiRpc.prepareBitTorrent().catch((error: unknown) => {
+      getLogger('taiji-adapter').debug(
+        { error },
+        'BT discovery preparation request failed'
+      )
+    })
+  }
   private nativeCapabilities: EngineCapability = {
     http: false,
     ftp: false,
@@ -94,6 +103,7 @@ export class TaijiAdapter extends Aria2Adapter {
     const options = taijiRuntimeSettings(settings, previous)
     if (Object.keys(options).length)
       await this.taijiRpc.changeGlobalOption(options)
+    if (settings.dhtEnabled && !previous?.dhtEnabled) this.prepareDiscovery()
   }
   async setSpeedLimits(limits: {
     download: number
@@ -131,6 +141,7 @@ export class TaijiAdapter extends Aria2Adapter {
       magnet: enabledFeatures.includes('BitTorrent'),
       metalink: enabledFeatures.includes('Metalink'),
     }
+    this.prepareDiscovery()
   }
 
   override setFeatureReport(report: EngineFeatureReport): void {
@@ -185,6 +196,10 @@ export class TaijiAdapter extends Aria2Adapter {
         'bt-save-metadata': 'false',
       },
     })
+  }
+
+  getMagnetResolution(engineTaskId: string) {
+    return this.taijiRpc.getMagnetResolution(engineTaskId)
   }
 
   override getTorrentMetadata(engineTaskId: string) {

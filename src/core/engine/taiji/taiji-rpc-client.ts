@@ -1,4 +1,5 @@
 import { AppError, ErrorCode } from '@shared/errors'
+import { magnetResolutionSchema } from '@shared/schemas/magnet-resolution'
 import { z } from 'zod'
 import { Aria2RpcClient } from '../aria2/aria2-rpc-client'
 import type { JsonRpcProtocol } from '../aria2/json-rpc-protocol'
@@ -163,6 +164,10 @@ export class TaijiRpcClient extends Aria2RpcClient {
     return result
   }
 
+  prepareBitTorrent(): Promise<'OK'> {
+    return this.call('taiji.prepareBitTorrent', [])
+  }
+
   override async getVersion() {
     const result = versionSchema.safeParse(await super.getVersion())
     if (!result.success) {
@@ -187,6 +192,12 @@ export class TaijiRpcClient extends Aria2RpcClient {
       complete()
       ready()
     }
+  }
+
+  async getMagnetResolution(gid: string) {
+    return magnetResolutionSchema.parse(
+      await this.call('taiji.getMagnetResolution', [gid])
+    )
   }
 
   async getTorrentMetadata(

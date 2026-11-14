@@ -1,7 +1,44 @@
 import { createHash } from 'node:crypto'
 import { once } from 'node:events'
-import { createServer, type Socket } from 'node:net'
+import { createServer, type Server, type Socket } from 'node:net'
 import { BDictionary, decode, encode } from '@motrix/torrent'
+
+/** Accept TCP but never answer a BT handshake; distinct ports remain distinct candidates. */
+export async function startSilentMetadataPeers(count: number) {
+  const servers: Server[] = []
+  const sockets = new Set<Socket>()
+  const ports: number[] = []
+  const close = async () => {
+    for (const socket of sockets) socket.destroy()
+    await Promise.all(
+      servers.map(
+        (server) =>
+          new Promise<void>((resolve) => server.close(() => resolve()))
+      )
+    )
+  }
+  try {
+    for (let index = 0; index < count; index++) {
+      const server = createServer((socket) => {
+        sockets.add(socket)
+        socket.on('close', () => sockets.delete(socket))
+        socket.on('error', () => {})
+        socket.resume()
+      })
+      server.listen(0, '127.0.0.1')
+      await once(server, 'listening')
+      servers.push(server)
+      const address = server.address()
+      if (!address || typeof address === 'string')
+        throw new Error('Expected a peer port')
+      ports.push(address.port)
+    }
+    return { ports, close }
+  } catch (error) {
+    await close()
+    throw error
+  }
+}
 
 export async function startMetadataPeer(info: Buffer, payload?: Buffer) {
   const hash = createHash('sha1').update(info).digest()

@@ -30,6 +30,34 @@ function fixture() {
 }
 
 describe('native taiji RPC boundary', () => {
+  it('prepares discovery on connection without waiting for preparation', async () => {
+    const { rpc, protocol } = fixture()
+    protocol.call.mockImplementation(async (method) => {
+      if (method === 'taiji.getVersion')
+        return {
+          version: 'taiji/0.4.3',
+          enabledFeatures: ['BitTorrent'],
+        }
+      if (method === 'taiji.prepareBitTorrent') return new Promise(() => {})
+      return 'OK'
+    })
+    const adapter = new TaijiAdapter(rpc)
+    await adapter.connect()
+    expect(protocol.call).toHaveBeenCalledWith(
+      'taiji.prepareBitTorrent',
+      ['token:secret'],
+      undefined
+    )
+    protocol.call.mockClear()
+    await adapter.connect()
+    expect(protocol.call).toHaveBeenCalledWith(
+      'taiji.prepareBitTorrent',
+      ['token:secret'],
+      undefined
+    )
+    adapter.dispose()
+  })
+
   it('notifies network changes through the authenticated native method', async () => {
     const { rpc, protocol } = fixture()
     protocol.call.mockResolvedValue('OK')

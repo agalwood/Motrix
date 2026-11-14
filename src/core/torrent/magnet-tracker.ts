@@ -40,6 +40,7 @@ import { taskRowToDownloadTask } from '@core/task/task-row-to-download-task'
 import { AppError, DownloadErrorCode, ErrorCode } from '@shared/errors'
 import { Events } from '@shared/protocol/events'
 import type { MagnetFileSelectionPayload } from '@shared/schemas/add-task'
+import type { MagnetResolution } from '@shared/schemas/magnet-resolution'
 import type { DownloadTask, SourceMeta, TaskSource } from '@shared/types/task'
 import {
   TaskInstancePhase,
@@ -162,6 +163,10 @@ interface MetadataInstanceCache {
   hiddenTombstone: boolean
   restoreGraph?: TaskWithInstancesAndFiles
   timeoutMultiplier: number
+  resolution?: MagnetResolution
+  resolutionPending?: boolean
+  resolutionAdmittedAttempt?: string
+  resolutionObservedStatus?: TaskStatus
   timer: ReturnType<typeof setTimeout>
   cleanupAttempts: number
   cleanupFirstFailureAt?: number
@@ -957,6 +962,22 @@ export class MagnetTracker {
         TaskStatus.FetchingMetadata
     ) {
       void this.trackCallback(() => this.onComplete(entry.gid))
+    } else if (this.engine.getMagnetResolution) {
+      if (
+        task.status === TaskStatus.Queued ||
+        task.status === TaskStatus.Paused
+      ) {
+        clearTimeout(entry.timer)
+        entry.resolutionAdmittedAttempt = undefined
+        entry.resolutionObservedStatus = task.status
+      } else if (
+        !entry.resolutionPending &&
+        entry.resolutionObservedStatus !== task.status
+      ) {
+        void this.trackCallback(() =>
+          this.refreshResolution(entry, task.status)
+        )
+      }
     }
 
     return true
@@ -1135,13 +1156,74 @@ export class MagnetTracker {
 
   private armTimeout(
     gid: string,
-    timeoutMultiplier = INITIAL_METADATA_TIMEOUT_MULTIPLIER
+    timeoutMultiplier = INITIAL_METADATA_TIMEOUT_MULTIPLIER,
+    elapsedMs = 0
   ): ReturnType<typeof setTimeout> {
     const timeoutSec = this.settingsManager.getEngine().magnetResolveTimeout
     return setTimeout(
       () => void this.trackCallback(() => this.handleTimeout(gid)),
-      timeoutSec * timeoutMultiplier * 1000
+      Math.max(0, timeoutSec * timeoutMultiplier * 1000 - elapsedMs)
     )
+  }
+
+  private async refreshResolution(
+    entry: MetadataInstanceCache,
+    status: TaskStatus
+  ): Promise<void> {
+    if (entry.resolutionPending || !this.engine.getMagnetResolution) return
+    entry.resolutionPending = true
+    const requestedGid = entry.gid
+    try {
+      const snapshot = await this.engine.getMagnetResolution(requestedGid)
+      if (
+        !snapshot ||
+        this.stopped ||
+        entry.gid !== requestedGid ||
+        !this.getCurrentFetchingMetadataPair(entry.gid, entry)
+      )
+        return
+      if (
+        entry.resolution?.attemptId === snapshot.attemptId &&
+        entry.resolution.revision > snapshot.revision
+      )
+        return
+      entry.resolution = snapshot
+      const admitted = snapshot.milestones.admittedMs
+      entry.resolutionObservedStatus =
+        admitted === undefined ? undefined : status
+      if (snapshot.state === 'ready') {
+        clearTimeout(entry.timer)
+        await this.onComplete(entry.gid)
+        return
+      }
+      if (snapshot.state === 'failed') {
+        await this.onError(entry.gid)
+        return
+      }
+      if (
+        admitted === undefined ||
+        snapshot.state === 'queued' ||
+        snapshot.state === 'paused' ||
+        status === TaskStatus.Queued ||
+        status === TaskStatus.Paused
+      ) {
+        clearTimeout(entry.timer)
+        entry.resolutionAdmittedAttempt = undefined
+        entry.resolutionObservedStatus = undefined
+      } else if (entry.resolutionAdmittedAttempt !== snapshot.attemptId) {
+        clearTimeout(entry.timer)
+        entry.timer = this.armTimeout(
+          entry.gid,
+          entry.timeoutMultiplier,
+          Math.max(0, snapshot.elapsedMs - admitted)
+        )
+        entry.resolutionAdmittedAttempt = snapshot.attemptId
+      }
+    } catch (err) {
+      log.debug({ err, gid: entry.gid }, 'magnet timing snapshot unavailable')
+    } finally {
+      entry.resolutionPending = false
+    }
   }
 
   private runTaskMutation<T>(
@@ -1441,6 +1523,7 @@ export class MagnetTracker {
     try {
       const metadata = await this.engine.getTorrentMetadata(gid)
       if (!metadata.awaitingSelection || this.stopped) return
+      clearTimeout(entry.timer)
       torrentBase64 = metadata.data
     } catch (err) {
       // A reconnect/read failure does not invalidate verified engine data.
@@ -1530,6 +1613,23 @@ export class MagnetTracker {
       { gid, taskId: entry.taskId, name: meta.name },
       'magnet metadata resolved'
     )
+    if (this.engine.getMagnetResolution) {
+      void this.trackCallback(async () => {
+        try {
+          const resolution = await this.engine.getMagnetResolution?.(gid)
+          if (resolution)
+            log.info(
+              { gid, taskId: entry.taskId, resolution },
+              'magnet resolution timings'
+            )
+        } catch (err) {
+          log.debug(
+            { err, gid },
+            'completed magnet timing snapshot unavailable'
+          )
+        }
+      })
+    }
   }
 
   private async onError(gid: string): Promise<void> {
@@ -1567,6 +1667,45 @@ export class MagnetTracker {
     entry: MetadataInstanceCache
   ): Promise<void> {
     if (!this.getCurrentFetchingMetadataPair(gid, entry)) return
+    if (this.engine.getMagnetResolution) {
+      try {
+        const snapshot = await this.engine.getMagnetResolution(gid)
+        if (!this.getCurrentFetchingMetadataPair(gid, entry)) return
+        if (snapshot) {
+          entry.resolution = snapshot
+          if (snapshot.state === 'ready') {
+            await this.onCompleteUnderMutation(gid, entry)
+            return
+          }
+          if (snapshot.state === 'failed') {
+            await this.onErrorUnderMutation(gid, entry)
+            return
+          }
+          if (snapshot.state === 'queued' || snapshot.state === 'paused') {
+            clearTimeout(entry.timer)
+            entry.resolutionAdmittedAttempt = undefined
+            entry.resolutionObservedStatus = undefined
+            return
+          }
+          const admitted = snapshot.milestones.admittedMs
+          const elapsed =
+            admitted === undefined
+              ? 0
+              : Math.max(0, snapshot.elapsedMs - admitted)
+          const budget =
+            this.settingsManager.getEngine().magnetResolveTimeout *
+            entry.timeoutMultiplier *
+            1000
+          if (admitted === undefined || elapsed < budget) {
+            entry.timer = this.armTimeout(gid, entry.timeoutMultiplier, elapsed)
+            entry.resolutionAdmittedAttempt = snapshot.attemptId
+            return
+          }
+        }
+      } catch (err) {
+        log.debug({ err, gid }, 'magnet deadline reconciliation failed')
+      }
+    }
     log.warn({ gid, taskId: entry.taskId }, 'magnet metadata fetch timed out')
     const marked = await this.markMetadataFailure(
       entry,

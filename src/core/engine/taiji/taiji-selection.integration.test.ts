@@ -10,6 +10,80 @@ import { startMetadataPeer } from '@test-utils/metadata-peer'
 import { bundled, listen, start } from '@test-utils/taiji'
 import { expect, it } from 'vitest'
 
+it.skipIf(!process.env.MOTRIX_TAIJI_BIN && !existsSync(bundled))(
+  'resolves native magnet selection while payload slots are full, then waits for a download slot',
+  async () => {
+    const directory = await mkdtemp(
+      path.join(tmpdir(), 'motrix-selection-queue-')
+    )
+    const payload = Buffer.alloc(16384, 47)
+    const info = Buffer.from(
+      encode({
+        name: 'selected.bin',
+        length: payload.length,
+        'piece length': 16384,
+        pieces: createHash('sha1').update(payload).digest(),
+      })
+    )
+    const peer = await startMetadataPeer(info, payload)
+    const compact = Buffer.from([127, 0, 0, 1, peer.port >> 8, peer.port & 255])
+    const tracker = createServer((_request, response) =>
+      response.end(encode({ interval: 3600, peers: compact }))
+    )
+    let engine: Awaited<ReturnType<typeof start>> | undefined
+    try {
+      const port = await listen(tracker)
+      engine = await start(directory)
+      await engine.rpc.changeGlobalOption({ 'max-concurrent-downloads': '1' })
+      const blocker = await engine.rpc.addUri(
+        [
+          `magnet:?xt=urn:btih:${'11'.repeat(20)}&tr=${encodeURIComponent(`http://127.0.0.1:${port}/announce`)}`,
+        ],
+        { dir: path.join(directory, 'blocker') }
+      )
+      await expect
+        .poll(async () => (await engine!.rpc.tellStatus(blocker)).status)
+        .toBe('active')
+      const gid = await engine.adapter.fetchMagnetMetadata({
+        uri: `magnet:?xt=urn:btih:${peer.hash}&tr=${encodeURIComponent(`http://127.0.0.1:${port}/announce`)}`,
+        saveDir: path.join(directory, 'metadata'),
+      })
+      await expect
+        .poll(async () => (await engine!.rpc.tellStatus(gid)).status, {
+          timeout: 5000,
+        })
+        .toBe('paused')
+      expect(
+        (await engine.adapter.getTorrentMetadata(gid)).awaitingSelection
+      ).toBe(true)
+      expect(peer.payloadRequests()).toEqual([])
+      await engine.adapter.confirmTorrentSelection(gid, {
+        saveDir: path.join(directory, 'selected'),
+        selectedFiles: [0],
+        outputFilePaths: [{ fileIndex: 0, relativePath: 'selected.bin' }],
+      })
+      expect((await engine.rpc.tellStatus(gid)).status).toBe('waiting')
+      expect(peer.payloadRequests()).toEqual([])
+      await engine.adapter.removeTask(blocker)
+      await expect
+        .poll(async () => (await engine!.rpc.tellStatus(gid)).completedLength, {
+          timeout: 8000,
+        })
+        .toBe(String(payload.length))
+      expect(
+        await readFile(path.join(directory, 'selected/selected.bin'))
+      ).toEqual(payload)
+    } finally {
+      await engine?.close()
+      tracker.closeAllConnections()
+      await new Promise<void>((resolve) => tracker.close(() => resolve()))
+      await peer.close()
+      await rm(directory, { recursive: true, force: true })
+    }
+  },
+  20000
+)
+
 it
   .skipIf(!process.env.MOTRIX_TAIJI_BIN && !existsSync(bundled))
   .each([true, false])(

@@ -1960,6 +1960,165 @@ describe('MagnetTracker', () => {
 
   // ── 7. Timeout ────────────────────────────────────────────────
 
+  it('accepts verified metadata at the deadline when its readiness notification was missed', async () => {
+    settings = createMockSettingsManager({ magnetResolveTimeout: 60 })
+    Object.assign(rpc, {
+      getMagnetResolution: vi.fn().mockResolvedValue({
+        state: 'ready',
+        attemptId: '0000000000000001',
+        revision: 6,
+        elapsedMs: 60_000,
+        cache: null,
+        milestones: { admittedMs: 0, metadataReadyMs: 59_999 },
+      }),
+    })
+    const tracker = createMagnetTracker(
+      rpc as never,
+      eventBus as never,
+      settings as never,
+      db,
+      taskManager,
+      torrentParser
+    )
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:6367c48dd193d56ea7b0baad25b19455e529f5ee',
+      await makeTempDir()
+    )
+    await writeTorrentFixture(lastMetadataDir())
+    await vi.advanceTimersByTimeAsync(60_000)
+    await vi.waitFor(() =>
+      expect(db.getTask(taskId)?.task.aggStatus).toBe(TaskStatus.MetadataReady)
+    )
+    expect(rpc.forceRemoveTask).not.toHaveBeenCalled()
+    await tracker.stopAndDrain()
+  })
+
+  it('preserves a paused resolution and gives a resumed attempt its own remaining budget', async () => {
+    settings = createMockSettingsManager({ magnetResolveTimeout: 60 })
+    const getResolution = vi.fn().mockResolvedValue({
+      state: 'paused',
+      attemptId: '0000000000000001',
+      revision: 1,
+      elapsedMs: 60_000,
+      cache: null,
+      milestones: { admittedMs: 0 },
+    })
+    Object.assign(rpc, { getMagnetResolution: getResolution })
+    const tracker = createMagnetTracker(
+      rpc as never,
+      eventBus as never,
+      settings as never,
+      db,
+      taskManager,
+      torrentParser
+    )
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:6367c48dd193d56ea7b0baad25b19455e529f5ee',
+      await makeTempDir()
+    )
+    const gid = lastMetadataGid()
+    await vi.advanceTimersByTimeAsync(180_000)
+    expect(db.getTask(taskId)?.task.aggStatus).toBe(TaskStatus.FetchingMetadata)
+    expect(rpc.forceRemoveTask).not.toHaveBeenCalled()
+    getResolution.mockResolvedValue({
+      state: 'resolving',
+      attemptId: '0000000000000002',
+      revision: 1,
+      elapsedMs: 5000,
+      cache: null,
+      milestones: { admittedMs: 1000 },
+    })
+    tracker.observe({
+      engineTaskId: gid,
+      type: TaskType.Magnet,
+      status: TaskStatus.Downloading,
+    })
+    await vi.advanceTimersByTimeAsync(55_999)
+    expect(db.getTask(taskId)?.task.aggStatus).toBe(TaskStatus.FetchingMetadata)
+    getResolution.mockResolvedValue({
+      state: 'resolving',
+      attemptId: '0000000000000002',
+      revision: 1,
+      elapsedMs: 61_000,
+      cache: null,
+      milestones: { admittedMs: 1000 },
+    })
+    await vi.advanceTimersByTimeAsync(1)
+    expect(db.getTask(taskId)?.task.aggStatus).toBe(TaskStatus.Error)
+    expect(rpc.forceRemoveTask).toHaveBeenCalledWith(gid)
+    await tracker.stopAndDrain()
+  })
+
+  it('excludes native queue time and uses the remaining admitted resolution budget', async () => {
+    settings = createMockSettingsManager({ magnetResolveTimeout: 60 })
+    const getResolution = vi.fn().mockResolvedValue({
+      state: 'queued',
+      attemptId: '0000000000000001',
+      revision: 0,
+      elapsedMs: 0,
+      cache: null,
+      milestones: {},
+    })
+    Object.assign(rpc, { getMagnetResolution: getResolution })
+    const tracker = createMagnetTracker(
+      rpc as never,
+      eventBus as never,
+      settings as never,
+      db,
+      taskManager,
+      torrentParser
+    )
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:6367c48dd193d56ea7b0baad25b19455e529f5ee',
+      await makeTempDir()
+    )
+    const gid = lastMetadataGid()
+    tracker.observe({
+      engineTaskId: gid,
+      status: TaskStatus.Queued,
+      type: TaskType.Magnet,
+    })
+    await vi.advanceTimersByTimeAsync(0)
+    await vi.advanceTimersByTimeAsync(200_000)
+    expect(db.getTask(taskId)?.task.aggStatus).toBe(TaskStatus.FetchingMetadata)
+    expect(rpc.forceRemoveTask).not.toHaveBeenCalled()
+    getResolution.mockResolvedValue({
+      state: 'resolving',
+      attemptId: '0000000000000001',
+      revision: 1,
+      elapsedMs: 210_000,
+      cache: null,
+      milestones: { admittedMs: 200_000 },
+    })
+    tracker.observe({
+      engineTaskId: gid,
+      status: TaskStatus.Downloading,
+      type: TaskType.Magnet,
+    })
+    await vi.advanceTimersByTimeAsync(0)
+    await vi.advanceTimersByTimeAsync(49_999)
+    expect(db.getTask(taskId)?.task.aggStatus).toBe(TaskStatus.FetchingMetadata)
+    // Unchanged active observations do not add per-tick diagnostic RPC calls.
+    for (let index = 0; index < 5; index++)
+      tracker.observe({
+        engineTaskId: gid,
+        status: TaskStatus.Downloading,
+        type: TaskType.Magnet,
+      })
+    expect(getResolution).toHaveBeenCalledTimes(1)
+    getResolution.mockResolvedValue({
+      state: 'resolving',
+      attemptId: '0000000000000001',
+      revision: 1,
+      elapsedMs: 260_000,
+      cache: null,
+      milestones: { admittedMs: 200_000 },
+    })
+    await vi.advanceTimersByTimeAsync(1)
+    expect(db.getTask(taskId)?.task.aggStatus).toBe(TaskStatus.Error)
+    expect(rpc.forceRemoveTask).toHaveBeenCalledWith(gid)
+  })
+
   it('waits ten minutes initially and twenty minutes on retry with default settings', async () => {
     const dir = await makeTempDir()
     const tracker = createMagnetTracker(

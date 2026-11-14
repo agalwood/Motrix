@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
+import { once } from 'node:events'
 import {
   mkdir,
   mkdtemp,
@@ -8,16 +9,19 @@ import {
   rm,
   writeFile,
 } from 'node:fs/promises'
+import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { parseTorrent } from '@motrix/torrent'
+import { encode, parseTorrent } from '@motrix/torrent'
 import { expect, test } from '@playwright/test'
 import { CURRENT_SETTINGS_VERSION } from '../../src/core/settings/migrations'
 import {
   ADD_TASK_COLLAPSED_HEIGHT,
   TASK_FORM_WIDTH,
 } from '../../src/shared/constants/add-task'
+import type { DownloadTask } from '../../src/shared/types/task'
+import { startMetadataPeer } from '../../src/test-utils/metadata-peer'
 import { getFreePort } from '../helpers/free-port'
 
 test('create on the server, download in the browser, and seed the original folder', async ({
@@ -42,7 +46,13 @@ test('create on the server, download in the browser, and seed the original folde
       app: { language: 'en-US', defaultSaveDir: allowed },
       onboarding: { disclaimerAccepted: true },
       tracker: { autoSync: false },
-      engine: { rpcPort: await getFreePort(), seedRatio: 0, seedTime: 0 },
+      engine: {
+        rpcPort: await getFreePort(),
+        seedRatio: 0,
+        seedTime: 0,
+        dhtEnabled: false,
+        btEnableLpd: false,
+      },
     })
   )
   const port = await getFreePort(),
@@ -187,7 +197,7 @@ test('create on the server, download in the browser, and seed the original folde
     await expect(maker.getByRole('status')).toContainText(
       'The seeding task was submitted.'
     )
-    const tasks = async () =>
+    const tasks = async (): Promise<DownloadTask[]> =>
       (
         await page.request.post(`${base}/rpc/query/query%3AlistTasks`, {
           data: { args: [] },
@@ -207,6 +217,71 @@ test('create on the server, download in the browser, and seed the original folde
       .getByRole('button', { name: 'Close', exact: true })
       .last()
       .click()
+    const magnetPayload = Buffer.alloc(16384, 31)
+    const magnetInfo = Buffer.from(
+      encode({
+        name: 'server-magnet.bin',
+        length: magnetPayload.length,
+        'piece length': 16384,
+        pieces: createHash('sha1').update(magnetPayload).digest(),
+      })
+    )
+    const peer = await startMetadataPeer(magnetInfo, magnetPayload)
+    const compact = Buffer.from([127, 0, 0, 1, peer.port >> 8, peer.port & 255])
+    const tracker = createServer((_request, response) =>
+      response.end(encode({ interval: 3600, peers: compact }))
+    )
+    try {
+      tracker.listen(0, '127.0.0.1')
+      await once(tracker, 'listening')
+      const address = tracker.address()
+      if (!address || typeof address === 'string')
+        throw new Error('Missing tracker port')
+      await openFileMenu('New Task…')
+      const magnetDialog = page.getByRole('dialog', { name: 'New Task' })
+      await magnetDialog
+        .getByRole('textbox', { name: 'URLs' })
+        .fill(
+          `magnet:?xt=urn:btih:${peer.hash}&tr=${encodeURIComponent(`http://127.0.0.1:${address.port}/announce`)}`
+        )
+      await magnetDialog
+        .getByRole('button', { name: 'Download', exact: true })
+        .click()
+      await expect
+        .poll(
+          async () =>
+            (await tasks()).find((task) => task.infoHash === peer.hash)?.status,
+          { timeout: 12000 }
+        )
+        .toBe('metadata_ready')
+      const before = (await tasks()).find((task) => task.infoHash === peer.hash)
+      if (!before) throw new Error('Missing resolved magnet task')
+      expect(before.engineTaskId).toMatch(/^[a-f0-9]{16}$/)
+      expect(peer.payloadRequests()).toEqual([])
+      await expect(
+        magnetDialog.getByText('server-magnet.bin', { exact: true }).first()
+      ).toBeVisible()
+      await magnetDialog
+        .getByRole('button', { name: 'Download', exact: true })
+        .click()
+      await expect
+        .poll(
+          async () =>
+            (await tasks()).find((task) => task.id === before.id)
+              ?.downloadedBytes,
+          { timeout: 15000 }
+        )
+        .toBe(magnetPayload.length)
+      const after = (await tasks()).find((task) => task.id === before.id)
+      if (!after) throw new Error('Missing completed magnet task')
+      expect(after.engineTaskId).toBe(before.engineTaskId)
+      expect(await readFile(after.finalPath)).toEqual(magnetPayload)
+    } finally {
+      tracker.closeAllConnections()
+      await new Promise<void>((resolve) => tracker.close(() => resolve()))
+      await peer.close()
+    }
+    const taskIdsAfterMagnet = (await tasks()).map((task) => task.id).sort()
     await openFileMenu('Create Torrent File…')
     await maker
       .getByRole('button', { name: 'Select file', exact: true })
@@ -222,7 +297,9 @@ test('create on the server, download in the browser, and seed the original folde
       .click()
     expect((await download2).suggestedFilename()).toBe('single.bin.torrent')
     await expect(maker.getByRole('status')).toContainText('Download requested')
-    expect(await tasks()).toHaveLength(1)
+    expect((await tasks()).map((task) => task.id).sort()).toEqual(
+      taskIdsAfterMagnet
+    )
     await maker
       .getByRole('button', { name: 'Close', exact: true })
       .last()

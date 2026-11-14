@@ -6,6 +6,7 @@ import type {
   LegacyCheckpointReconcile,
   LegacyCheckpointReconciliation,
 } from '@shared/schemas/legacy-checkpoint'
+import type { MagnetResolution } from '@shared/schemas/magnet-resolution'
 import type { TorrentSelection } from '@shared/schemas/torrent-selection'
 import type {
   EngineCapability,
@@ -215,6 +216,7 @@ export interface EngineAdapter {
     saveDir: string
     engineTaskId?: string
   }): Promise<string>
+  getMagnetResolution?(engineTaskId: string): Promise<MagnetResolution | null>
   getTorrentMetadata(
     engineTaskId: string
   ): Promise<{ data: string; awaitingSelection: boolean }>
