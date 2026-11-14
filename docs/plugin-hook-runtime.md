@@ -610,6 +610,17 @@ and records cleanup quarantine. It fsyncs affected directories, records
 quarantined), releases the mutation lease, and then removes or retains the
 journal as the quarantine policy requires. Cleanup is idempotent.
 
+Task deletion removes `cleaned` journals in the same transaction as the task.
+Unfinished journals enter a terminal `quarantined` state with reason
+`task-deleted`; their original plan and artifact identities remain available
+because a rollback or private path may contain the only surviving copy of user
+data. These records cannot be recovered, retried, or reopened by a late recovery
+error, and do not count as pending finalization. Opening the database applies
+the same policy to orphaned journals left by older builds before either host
+starts recovery. This cancellation does not access or mutate files; normal
+task-removal file policy still applies. Independent post deliveries and their
+quota accounting survive task deletion as specified in section 11.
+
 ### 10.3 Compensation and crash recovery
 
 If target staging or installation fails, the source is restored from the

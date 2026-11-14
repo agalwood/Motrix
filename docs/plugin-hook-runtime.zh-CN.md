@@ -542,6 +542,14 @@ quarantine。随后 fsync 受影响目录；只有全部已知清理完成（或
 quarantine）才记录 `cleaned`，释放 mutation lease，并按 quarantine policy
 删除或保留 journal。清理操作必须幂等。
 
+删除任务时，在同一事务中删除其 `cleaned` journal。未完成的 journal 转为
+`quarantined`，原因设为 `task-deleted`，作为不可恢复的取消状态；原始 plan 和
+文件身份信息继续保留，因为 rollback 或 private path 中可能是用户数据的唯一
+剩余副本。这些记录不再恢复、重试或计入待最终化状态，迟到的恢复错误也不能
+重新启用它们。打开数据库时，在 Desktop 或 Server 启动恢复之前，对旧版本
+遗留的孤儿 journal 执行相同处理。取消操作不访问或修改文件，任务删除原有的
+文件处理策略仍然适用。独立的 post delivery 及其配额账本按第 11 节约定保留。
+
 ### 10.3 补偿与崩溃恢复
 
 Target staging 或安装失败时，Motrix 在必要时从 rollback path 恢复 source，
