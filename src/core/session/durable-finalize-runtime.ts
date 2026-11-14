@@ -29,6 +29,7 @@ import type { PostDeliveryAdmission } from '@core/plugin/post/delivery-types'
 import type { DownloadTask } from '@shared/types/task'
 import type { TaskOccurrence } from '@shared/types/task-occurrence'
 import type Database from 'better-sqlite3'
+import { TASK_DELETED_FINALIZE_REASON } from './finalize-journal-lifecycle'
 import { SqliteFinalizeJournalRepository } from './finalize-journal-repository'
 import type { SessionManager } from './session-manager'
 
@@ -362,9 +363,10 @@ export class DurableFinalizeRuntime {
     return (
       this.options.db
         .prepare(
-          "SELECT 1 FROM plugin_finalize_journals WHERE task_id=? AND phase <> 'cleaned'"
+          `SELECT 1 FROM plugin_finalize_journals
+           WHERE task_id=? AND phase <> 'cleaned' AND quarantine_reason IS NOT ?`
         )
-        .get(taskId) !== undefined
+        .get(taskId, TASK_DELETED_FINALIZE_REASON) !== undefined
     )
   }
 

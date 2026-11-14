@@ -37,6 +37,7 @@ import type {
 import type BetterSqlite3 from 'better-sqlite3'
 import Database from 'better-sqlite3'
 import { z } from 'zod'
+import { FinalizeJournalLifecycle } from './finalize-journal-lifecycle'
 import { migrate } from './migrations'
 import { SqlitePostDeliveryRepository } from './post-delivery-repository'
 
@@ -238,6 +239,7 @@ export class MotrixDatabase {
   // keeps it fail-safe: a stale-or-missing entry forces a write, never a skip.
   private readonly lastPersistedSig = new Map<string, string>()
   private postDeliveryRepository?: SqlitePostDeliveryRepository
+  private finalizeJournalLifecycle!: FinalizeJournalLifecycle
   // ── task-level statements ─────────────────────────────
   private stmtUpsertTask!: BetterSqlite3.Statement
   private stmtGetAllTasks!: BetterSqlite3.Statement
@@ -292,6 +294,8 @@ export class MotrixDatabase {
   init(): void {
     migrate(this.db)
     ensureMetadataSchema(this.db)
+    this.finalizeJournalLifecycle = new FinalizeJournalLifecycle(this.db)
+    this.finalizeJournalLifecycle.cancelOrphans()
     this.prepareStatements()
     this.postDeliveryRepository = new SqlitePostDeliveryRepository(this.db)
   }
@@ -699,7 +703,10 @@ export class MotrixDatabase {
     // gets the same explicit delete for the same reason — its rows carry
     // no FK either. The notifications DISPLAY rows are deliberately left
     // alone: they are user-facing history and must survive task deletion.
+    // Finalize recovery loses its authority with the task. Post-Hook delivery
+    // snapshots and their quota ledger deliberately survive (runtime §11).
     this.db.transaction(() => {
+      this.finalizeJournalLifecycle.cancelTask(motrixId)
       this.stmtDeleteFiles.run(motrixId)
       this.stmtDeleteTaskOccurrences.run(motrixId)
       this.stmtDeleteNotificationLedgerForTask.run(motrixId)
@@ -719,6 +726,7 @@ export class MotrixDatabase {
 
     this.db.transaction(() => {
       for (const motrixId of ids) {
+        this.finalizeJournalLifecycle.cancelTask(motrixId)
         // FOREIGN KEY ON DELETE CASCADE removes task_instances. task_files,
         // task_occurrences, and notification_occurrences have no such FK,
         // so all three are deleted explicitly, in the same transaction as

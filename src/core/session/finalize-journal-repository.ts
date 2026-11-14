@@ -21,6 +21,7 @@ import {
 } from '@core/plugin/finalize/reserved-identity'
 import type Database from 'better-sqlite3'
 import { z } from 'zod'
+import { TASK_DELETED_FINALIZE_REASON } from './finalize-journal-lifecycle'
 
 interface RawFinalizeJournal {
   plan_id: string
@@ -238,9 +239,14 @@ export class SqliteFinalizeJournalRepository
       .prepare(
         `UPDATE plugin_finalize_journals
          SET phase='quarantined', quarantine_reason=?, updated_at=?
-         WHERE plan_id=? AND phase <> 'cleaned'`
+         WHERE plan_id=? AND phase <> 'cleaned' AND quarantine_reason IS NOT ?`
       )
-      .run(boundedReason, Math.max(1, this.now()), journalId).changes
+      .run(
+        boundedReason,
+        Math.max(1, this.now()),
+        journalId,
+        TASK_DELETED_FINALIZE_REASON
+      ).changes
     if (changed === 0) {
       const row = this.readRaw(journalId)
       if (!row) throw new Error('finalize journal does not exist')
@@ -255,9 +261,14 @@ export class SqliteFinalizeJournalRepository
       .prepare(
         `SELECT * FROM plugin_finalize_journals
          WHERE phase <> 'cleaned' AND (? IS NULL OR task_id=?)
+           AND quarantine_reason IS NOT ?
          ORDER BY created_at, plan_id`
       )
-      .all(taskId ?? null, taskId ?? null) as RawFinalizeJournal[]
+      .all(
+        taskId ?? null,
+        taskId ?? null,
+        TASK_DELETED_FINALIZE_REASON
+      ) as RawFinalizeJournal[]
     const records: FinalizeJournalRecord[] = []
     for (const row of rows) {
       try {
