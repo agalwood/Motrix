@@ -103,8 +103,8 @@ Desktop and Server builds use taiji as their sole download engine.
 `scripts/engine.lock.json` pins the target matrix and version; `scripts/taiji-source.lock.json`
 pins the canonical upstream commit and Cargo lock digest.
 
-- **Version:** 0.4.0
-- **Upstream source:** <https://github.com/motrixapp/taiji/tree/382cce2282cc94caa38fe60b3171907ab2eda620>
+- **Version:** 0.4.2
+- **Upstream source:** <https://github.com/motrixapp/taiji/tree/6b608a10ee68a50e66cfbdb82c5097af4abfaed2>
 - **License:** GNU General Public License v2.0 or later (`GPL-2.0-or-later`)
 - **Full license text:** `THIRD_PARTY_LICENSES/taiji-COPYING`
 - **Linked dependency notices:** `taiji-licenses.txt`, installed beside the engine.

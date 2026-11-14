@@ -941,7 +941,7 @@ jobs:
           EXPECTED_COMMIT: ${{ github.sha }}
           EXPECTED_PLATFORM: ${{ matrix.platform }}
           # Updated only after reviewing the verifier source itself.
-          VERIFIER_SHA256: e443228f2751c0d8f6a7c8e98c3dc89bad7d1638c21e4e5d653ba9242dc4c948
+          VERIFIER_SHA256: c46691459390343c2b1c1c9888984b488f2ddd01c11a2a9be730ccdaee2d2aaa
         run: |
           const crypto = require('node:crypto')
           const fs = require('node:fs')
