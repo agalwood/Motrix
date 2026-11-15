@@ -258,6 +258,7 @@ export interface MotrixAppSettings {
   lightweightMode: boolean
   /** Show download progress in the macOS Dock or Windows taskbar. Default false. */
   showDownloadProgress: boolean
+  keepStatsBarVisible: boolean
   traySpeedometer: boolean
   /** Linux tray artwork color; auto follows the resolved application theme. */
   trayIconColor: TrayIconColor

@@ -1876,6 +1876,8 @@
     "appearance": {
       "byteUnitBinary": "Δυαδικές ({{megabyte}}, {{gigabyte}} · 1024)",
       "byteUnitDecimal": "Δεκαδικές ({{megabyte}}, {{gigabyte}} · 1000)",
+      "keepStatsBarVisible": "Διατήρηση στατιστικών με ανοιχτές λεπτομέρειες",
+      "keepStatsBarVisibleDesc": "Διατήρηση της γραμμής στατιστικών λήψης κάτω από το πλαίσιο λεπτομερειών εργασίας.",
       "byteUnitSystem": "Μονάδες μεγέθους και ταχύτητας",
       "byteUnitSystemDefault": "Σύμφωνα με το σύστημα ({{units}})",
       "byteUnitSystemDesc": "Επιλέξτε πώς εμφανίζονται τα μεγέθη αρχείων και οι ταχύτητες.",

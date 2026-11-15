@@ -1895,6 +1895,8 @@
     "appearance": {
       "byteUnitBinary": "Binare ({{megabyte}}, {{gigabyte}} · 1024)",
       "byteUnitDecimal": "Zecimale ({{megabyte}}, {{gigabyte}} · 1000)",
+      "keepStatsBarVisible": "Păstrează statisticile vizibile cu detaliile deschise",
+      "keepStatsBarVisibleDesc": "Păstrează bara de statistici de descărcare sub panoul cu detaliile sarcinii.",
       "byteUnitSystem": "Unități pentru dimensiune și viteză",
       "byteUnitSystemDefault": "Urmează sistemul ({{units}})",
       "byteUnitSystemDesc": "Alege cum sunt afișate dimensiunile fișierelor și vitezele.",

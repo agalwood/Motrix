@@ -1401,6 +1401,8 @@
       "runModeLinuxDesc": "La disponibilidad de la bandeja del sistema y su comportamiento de activación dependen del entorno de escritorio.",
       "lightweightMode": "Modo ligero",
       "lightweightModeDesc": "Ahorra memoria al cerrar la ventana. Las descargas continúan, pero volver a abrirla tarda más y se borran los datos sin guardar.",
+      "keepStatsBarVisible": "Mantener las estadísticas visibles al abrir los detalles",
+      "keepStatsBarVisibleDesc": "Mantener la barra de estadísticas de descarga debajo del panel de detalles de la tarea.",
       "byteUnitSystem": "Unidades de tamaño y velocidad",
       "byteUnitSystemDesc": "Elige cómo se muestran los tamaños de archivo y las velocidades.",
       "byteUnitDecimal": "Decimal ({{megabyte}}, {{gigabyte}} · 1000)",

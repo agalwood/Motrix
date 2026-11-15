@@ -1876,6 +1876,8 @@
     "appearance": {
       "byteUnitBinary": "Двоични ({{megabyte}}, {{gigabyte}} · 1024)",
       "byteUnitDecimal": "Десетични ({{megabyte}}, {{gigabyte}} · 1000)",
+      "keepStatsBarVisible": "Показване на статистиката при отворени подробности",
+      "keepStatsBarVisibleDesc": "Запазване на лентата със статистика под панела с подробности за задачата.",
       "byteUnitSystem": "Мерни единици за размер и скорост",
       "byteUnitSystemDefault": "Според системата ({{units}})",
       "byteUnitSystemDesc": "Изберете как да се показват размерите на файловете и скоростите.",

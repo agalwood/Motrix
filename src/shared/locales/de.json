@@ -1387,6 +1387,8 @@
       "runModeLinuxDesc": "Die Verfügbarkeit des Infobereichs und das Aktivierungsverhalten hängen von Ihrer Desktop-Umgebung ab.",
       "lightweightMode": "Speichersparmodus",
       "lightweightModeDesc": "Bei geschlossenem Fenster Arbeitsspeicher sparen. Downloads laufen weiter, aber das erneute Öffnen dauert länger und nicht gespeicherte Eingaben werden verworfen.",
+      "keepStatsBarVisible": "Statistik bei geöffneten Details sichtbar halten",
+      "keepStatsBarVisibleDesc": "Die Download-Statistikleiste unter dem Aufgabendetailbereich anzeigen.",
       "byteUnitSystem": "Einheiten für Größe und Geschwindigkeit",
       "byteUnitSystemDesc": "Wählen Sie die Anzeigeeinheiten für Dateigrößen und Übertragungsgeschwindigkeiten.",
       "byteUnitDecimal": "Dezimal ({{megabyte}}, {{gigabyte}} · 1000)",

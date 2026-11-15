@@ -1876,6 +1876,8 @@
     "appearance": {
       "byteUnitBinary": "دودویی ({{megabyte}}، {{gigabyte}} · 1024)",
       "byteUnitDecimal": "ده‌دهی ({{megabyte}}، {{gigabyte}} · 1000)",
+      "keepStatsBarVisible": "نمایش آمار هنگام باز بودن جزئیات",
+      "keepStatsBarVisibleDesc": "نوار آمار بارگیری در زیر پنل جزئیات کار نمایش داده شود.",
       "byteUnitSystem": "واحدهای اندازه و سرعت",
       "byteUnitSystemDefault": "پیروی از سیستم ({{units}})",
       "byteUnitSystemDesc": "نحوهٔ نمایش اندازهٔ فایل‌ها و سرعت‌ها را انتخاب کنید.",

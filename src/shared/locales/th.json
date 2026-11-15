@@ -1857,6 +1857,8 @@
     "appearance": {
       "byteUnitBinary": "ฐานสอง ({{megabyte}}, {{gigabyte}} · 1024)",
       "byteUnitDecimal": "ฐานสิบ ({{megabyte}}, {{gigabyte}} · 1000)",
+      "keepStatsBarVisible": "แสดงสถิติต่อไปเมื่อเปิดรายละเอียด",
+      "keepStatsBarVisibleDesc": "แสดงแถบสถิติการดาวน์โหลดไว้ด้านล่างแผงรายละเอียดงาน",
       "byteUnitSystem": "หน่วยขนาดและความเร็ว",
       "byteUnitSystemDefault": "ตามระบบ ({{units}})",
       "byteUnitSystemDesc": "เลือกรูปแบบหน่วยที่ใช้แสดงขนาดไฟล์และความเร็ว",

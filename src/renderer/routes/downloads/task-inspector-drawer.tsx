@@ -57,6 +57,8 @@ export interface TaskInspectorDrawerProps {
   tasks: readonly DownloadTask[]
   /** Bounded portal target. The inspector overlays the list without resizing it. */
   container: HTMLElement | null
+  bottomInset?: number
+  maxHeight?: number
   onDismiss?: () => void
 }
 
@@ -64,6 +66,8 @@ export function TaskInspectorDrawer({
   selection,
   tasks,
   container,
+  bottomInset,
+  maxHeight,
   onDismiss,
 }: TaskInspectorDrawerProps) {
   const { t } = useTranslation()
@@ -106,6 +110,8 @@ export function TaskInspectorDrawer({
   return (
     <InspectorDrawer
       container={container}
+      bottomInset={bottomInset}
+      maxHeight={maxHeight}
       open={open}
       snap={snap}
       onSnapChange={setSnap}

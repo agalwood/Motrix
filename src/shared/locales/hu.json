@@ -1387,6 +1387,8 @@
       "runModeLinuxDesc": "A rendszertálca elérhetősége és működése az asztali környezettől függ.",
       "lightweightMode": "Könnyített mód",
       "lightweightModeDesc": "Memóriamegtakarítás az ablak bezárásakor. A letöltések folytatódnak, de az újbóli megnyitás lassabb, és a nem mentett bevitt adatok törlődnek.",
+      "keepStatsBarVisible": "Statisztikák megjelenítése a részletek mellett",
+      "keepStatsBarVisibleDesc": "A letöltési statisztikasáv megtartása a feladat részletei alatt.",
       "byteUnitSystem": "Méret és sebesség mértékegységei",
       "byteUnitSystemDesc": "Válaszd ki, hogyan jelenjenek meg a fájlméretek és a sebességek.",
       "byteUnitDecimal": "Decimális ({{megabyte}}, {{gigabyte}} · 1000)",

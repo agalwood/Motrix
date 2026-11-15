@@ -67,6 +67,7 @@ export const appSettingsSchema = z.object({
   runMode: z.enum(RunMode).catch(RunMode.Standard),
   lightweightMode: z.boolean().catch(false),
   showDownloadProgress: z.boolean().catch(false),
+  keepStatsBarVisible: z.boolean().catch(false),
   traySpeedometer: z.boolean().catch(true),
   trayIconColor: trayIconColorSchema.catch(DEFAULT_TRAY_ICON_COLOR),
   magnetFileSelection: z.boolean().catch(true),

@@ -12,10 +12,17 @@ import { type ReactNode, useEffect, useRef, useState } from 'react'
 export type InspectorSnap = 'compact' | 'medium' | 'expanded'
 export const SNAP_NAMES: InspectorSnap[] = ['compact', 'medium', 'expanded']
 
-export function getInspectorSnapHeights(availableHeight: number) {
+export function getInspectorSnapHeights(
+  availableHeight: number,
+  maxHeight = Number.POSITIVE_INFINITY
+) {
   const maximum = Math.max(
     1,
-    Math.min(Math.round(availableHeight * 0.75), availableHeight - 64)
+    Math.min(
+      Math.round(availableHeight * 0.75),
+      availableHeight - 64,
+      maxHeight
+    )
   )
   // Keep useful detents at least 48px apart in short windows. The semantic
   // preference survives merging, so resizing the window restores its intent.
@@ -28,6 +35,8 @@ export function getInspectorSnapHeights(availableHeight: number) {
 
 export function InspectorDrawer({
   container,
+  bottomInset = 0,
+  maxHeight,
   open,
   snap,
   onSnapChange,
@@ -38,6 +47,10 @@ export function InspectorDrawer({
   children,
 }: {
   container: HTMLElement | null
+  /** Space below the drawer reserved for persistent controls. */
+  bottomInset?: number
+  /** Optional limit that keeps content above the drawer reachable. */
+  maxHeight?: number
   open: boolean
   snap: InspectorSnap
   onSnapChange: (snap: InspectorSnap) => void
@@ -61,7 +74,10 @@ export function InspectorDrawer({
     observer.observe(container)
     return () => observer.disconnect()
   }, [container])
-  const heights = getInspectorSnapHeights(availableHeight)
+  const heights = getInspectorSnapHeights(
+    Math.max(0, availableHeight - bottomInset),
+    maxHeight
+  )
   const maximum = heights[2]
   const snapPoints = [...new Set(heights)]
   const height = heights[SNAP_NAMES.indexOf(snap)]
@@ -102,7 +118,10 @@ export function InspectorDrawer({
       }}
     >
       <DrawerPortal container={container}>
-        <DrawerViewport className="pointer-events-none absolute inset-0 z-30 flex items-end overflow-hidden">
+        <DrawerViewport
+          className="pointer-events-none absolute inset-0 z-30 flex items-end overflow-hidden"
+          style={{ bottom: bottomInset }}
+        >
           <DrawerPopup
             ref={popupRef}
             initialFocus={false}

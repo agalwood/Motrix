@@ -6,12 +6,13 @@ import {
 import { TASK_HEADER_HEIGHT, TASK_ROW_HEIGHT } from './columns'
 
 export interface InspectorInsetInput {
-  /** Height of the portal container the drawer overlays (the page root). */
+  /** Height available to the drawer after reserving any persistent footer. */
   pageHeight: number
-  /** Height of the PanelShell footer, which the drawer also overlays. */
+  /** Height of the footer inside the overlaid area; zero when kept visible. */
   footerHeight: number
   /** Height of the task grid wrapper that owns the scroll region. */
   gridHeight: number
+  maxHeight?: number
   snap: InspectorSnap
   open: boolean
 }
@@ -27,15 +28,15 @@ export function resolveInspectorInset({
   pageHeight,
   footerHeight,
   gridHeight,
+  maxHeight,
   snap,
   open,
 }: InspectorInsetInput): number {
   if (!open || pageHeight <= 0) return 0
   const snapIndex = SNAP_NAMES.indexOf(snap)
-  const drawerHeight =
-    getInspectorSnapHeights(pageHeight)[
-      snapIndex === -1 ? SNAP_NAMES.length - 1 : snapIndex
-    ]
+  const drawerHeight = getInspectorSnapHeights(pageHeight, maxHeight)[
+    snapIndex === -1 ? SNAP_NAMES.length - 1 : snapIndex
+  ]
   const overlap = Math.max(0, drawerHeight - footerHeight)
   // A drawer tall enough to swallow nearly the whole grid must not push rows
   // out of reach in the other direction: cap the compensation so the last row
