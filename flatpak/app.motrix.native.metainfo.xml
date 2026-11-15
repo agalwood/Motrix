@@ -68,6 +68,14 @@
   </screenshots>
 
   <releases>
+    <release version="2.4.2" date="2026-11-15">
+      <description>
+        <p>
+          Cancels unfinished file finalization recovery when tasks are deleted.
+          Updates Electron, SQLite and WebSocket dependencies.
+        </p>
+      </description>
+    </release>
     <release version="2.4.1" date="2026-11-10">
       <description>
         <p>

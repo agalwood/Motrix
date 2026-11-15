@@ -19,12 +19,12 @@ The same core powers two ways to run Motrix:
 - **Desktop app:** Runs on macOS, Windows, and Linux
 - **Headless server:** Runs without a desktop environment, either directly on Node.js or in Docker, and includes a web UI for NAS devices and home servers
 
-## Motrix 2.4.1
+## Motrix 2.4.2
 
-On Windows, downloads now try the remaining resolved server addresses when a connection fails.
-This release also updates the translation libraries used by the desktop app, Web UI and Server CLI.
-Download [v2.4.1 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.4.1)
-and read the [full release notes](./docs/release-notes/2.4.1.md).
+Deleting a task now cancels its unfinished file finalization recovery, preventing it from being processed again after a restart.
+This release also refreshes Electron, SQLite and WebSocket dependencies.
+Download [v2.4.2 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.4.2)
+and read the [full release notes](./docs/release-notes/2.4.2.md).
 
 Back up your existing Motrix profile and downloads before upgrading. The bundled
 engine upgrades its SQLite database to schema 6 and keeps a pre-upgrade backup;
@@ -185,7 +185,7 @@ included `compose.yaml` keeps Server state separate from downloaded resources:
 ```bash
 mkdir -p motrix-data downloads
 sudo chown 1000:1000 motrix-data downloads
-export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.4.1'
+export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.4.2'
 export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
 docker compose pull server
 docker compose up -d --wait
