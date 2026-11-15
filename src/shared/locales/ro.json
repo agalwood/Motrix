@@ -870,6 +870,7 @@
         "openFileFailedHint": "Verifică dacă fișierul mai există și dacă ai permisiunea să îl deschizi.",
         "openFolder": "Deschide dosarul",
         "pause": "Pune pe pauză",
+        "pausing": "Se pune pe pauză…",
         "pauseTooltipBatch": "Pune pe pauză: {{n}} din selecția totală de {{total}}",
         "queueBoundary": "Selecția este deja la începutul sau la sfârșitul cozii",
         "queueMoveFailed": "Coada de așteptare nu a putut fi actualizată.",

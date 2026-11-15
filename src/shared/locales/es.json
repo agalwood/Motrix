@@ -897,6 +897,7 @@
       },
       "action": {
         "pause": "Pausar",
+        "pausing": "Pausando…",
         "queueMoveFailed": "No se pudo actualizar la cola de espera.",
         "queueTaskStarted": "La tarea ya no está en la cola de espera.",
         "queueMoveHint": "La posición en la cola determina qué descarga en espera comienza a continuación. El orden de las columnas se guarda por separado.",

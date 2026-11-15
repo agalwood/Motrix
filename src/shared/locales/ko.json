@@ -873,6 +873,7 @@
       },
       "action": {
         "pause": "일시 정지",
+        "pausing": "일시 중지 중…",
         "queueMoveFailed": "대기열을 업데이트하지 못했습니다.",
         "queueTaskStarted": "이 작업은 더 이상 대기열에 없습니다.",
         "queueMoveHint": "대기열 순서는 다음에 시작할 다운로드를 결정합니다. 열 정렬 순서는 별도로 저장됩니다.",

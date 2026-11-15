@@ -873,6 +873,7 @@
       },
       "action": {
         "pause": "Tạm dừng",
+        "pausing": "Đang tạm dừng…",
         "queueMoveFailed": "Không thể cập nhật hàng đợi.",
         "queueTaskStarted": "Tác vụ không còn trong hàng đợi.",
         "queueMoveHint": "Vị trí trong hàng đợi quyết định lượt tải xuống đang chờ nào sẽ bắt đầu tiếp theo. Cách sắp xếp theo cột được lưu riêng.",

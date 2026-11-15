@@ -316,8 +316,8 @@ it('separates completed segment downloads from active mux progress and unknown o
       muxProgress: 0.42,
     }),
   })
-  expect(screen.getByText('100%')).toBeInTheDocument()
-  expect(screen.getByText('42%')).toBeInTheDocument()
+  expect(screen.getByText('100.0%')).toBeInTheDocument()
+  expect(screen.getByText('42.0%')).toBeInTheDocument()
   expect(screen.getByText('1000 / 1000 segments')).toBeInTheDocument()
   expect(screen.getByText('Merging')).toBeInTheDocument()
   expect(screen.getByText('Output size').parentElement).toHaveTextContent('—')

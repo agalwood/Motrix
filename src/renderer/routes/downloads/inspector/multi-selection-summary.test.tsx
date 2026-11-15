@@ -90,7 +90,7 @@ it('averages download fractions while counting post-processing separately', () =
       ]}
     />
   )
-  expect(screen.getByText('75%')).toBeInTheDocument()
+  expect(screen.getByText('75.0%')).toBeInTheDocument()
   expect(screen.getByText('Processing').parentElement).toHaveTextContent('1')
   expect(screen.getByText('Total size').parentElement).toHaveTextContent('—')
   rerender(

@@ -265,6 +265,39 @@ describe('canonical task mutation serialization', () => {
     expect(taskManager.getById(initial.id)).toBeUndefined()
   })
 
+  it('shares the engine pause without joining a caller holding the mutation lease', async () => {
+    const gate = deferred()
+    const started = deferred()
+    const leaseEntered = deferred()
+    const taskManager = new TaskManager()
+    const initial = task(TaskStatus.Downloading)
+    taskManager.add(initial)
+    const durable = new Map([[initial.id, structuredClone(initial)]])
+    const eventBus = new EventBus()
+    const store = activityStore()
+    const runtime = new TaskInspectorActivityRuntime(store, eventBus)
+    const adapter = {
+      pauseTask: vi.fn(async () => {
+        started.resolve()
+        await gate.promise
+      }),
+      getTaskStatus: vi.fn(async () => null),
+    } as unknown as EngineAdapter
+    const deps = actionDeps(taskManager, eventBus, runtime, adapter, durable)
+    const userPause = pauseTask(initial.id, deps)
+    await started.promise
+    const trackerPause = runtime.runTaskMutation([initial.id], async () => {
+      leaseEntered.resolve()
+      await pauseTask(initial.id, deps)
+    })
+    await leaseEntered.promise
+    gate.resolve()
+    await Promise.all([userPause, trackerPause])
+    expect(adapter.pauseTask).toHaveBeenCalledTimes(1)
+    expect(store.recordTransition).toHaveBeenCalledTimes(1)
+    expect(taskManager.getById(initial.id)?.status).toBe(TaskStatus.Paused)
+  })
+
   it('does not resurrect a task when a deferred pause loses to remove', async () => {
     const pauseGate = deferred()
     const pauseStarted = deferred()

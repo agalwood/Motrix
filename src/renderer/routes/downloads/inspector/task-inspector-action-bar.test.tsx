@@ -66,6 +66,89 @@ function makeTask(overrides: Partial<DownloadTask> = {}): DownloadTask {
 }
 
 describe('TaskInspectorActionBar', () => {
+  it('counts only the paused subset while keeping unrelated mixed-state actions available', async () => {
+    vi.mocked(transport.invoke).mockClear()
+    let finish!: (result: unknown) => void
+    vi.mocked(transport.invoke).mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve
+      })
+    )
+    const selected = [
+      makeTask({ id: 'active-a', type: TaskType.Bt }),
+      makeTask({ id: 'active-b', type: TaskType.Bt }),
+      makeTask({ id: 'already-paused', status: TaskStatus.Paused }),
+      makeTask({ id: 'completed', status: TaskStatus.Completed }),
+      makeTask({ id: 'failed', status: TaskStatus.Error }),
+    ]
+    const view = render(
+      <TaskInspectorActionBar selected={selected} onClose={vi.fn()} />
+    )
+    fireEvent.click(screen.getByRole('button', { name: /^Pause\s*\(2\)$/ }))
+    expect(
+      screen.getByRole('button', { name: /^Pausing…\s*\(2\)$/ })
+    ).toHaveProperty('disabled', true)
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.PauseTasks, [
+      'active-a',
+      'active-b',
+    ])
+    // An early snapshot for one member must not unlock its Resume button.
+    const updated = selected.map((task) =>
+      task.id === 'active-a' ? { ...task, status: TaskStatus.Paused } : task
+    )
+    view.rerender(
+      <TaskInspectorActionBar selected={updated} onClose={vi.fn()} />
+    )
+    const resume = screen.getByRole('button', { name: /^Resume\s*\(1\)$/ })
+    expect(resume).toHaveProperty('disabled', false)
+    fireEvent.click(resume)
+    await waitFor(() =>
+      expect(transport.invoke).toHaveBeenCalledWith(Commands.ResumeTasks, [
+        'already-paused',
+      ])
+    )
+    finish({
+      succeeded: ['active-a'],
+      failed: [{ taskId: 'active-b', reason: 'test pause failed' }],
+    })
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: /^Pause\s*\(1\)$/ })
+      ).toHaveProperty('disabled', false)
+    )
+    expect(
+      screen.getByRole('button', { name: /^Resume\s*\(2\)$/ })
+    ).toHaveProperty('disabled', false)
+  })
+
+  it('disables pause immediately and permits a retry after a failed request', async () => {
+    vi.mocked(transport.invoke).mockClear()
+    let reject!: (error: Error) => void
+    vi.mocked(transport.invoke).mockReturnValueOnce(
+      new Promise((_resolve, fail) => {
+        reject = fail
+      })
+    )
+    render(
+      <TaskInspectorActionBar
+        selected={[makeTask({ type: TaskType.Bt })]}
+        onClose={vi.fn()}
+      />
+    )
+    const button = screen.getByRole('button', { name: 'Pause' })
+    fireEvent.click(button)
+    expect(button).toHaveProperty('disabled', true)
+    expect(button.textContent).toContain('Pausing…')
+    fireEvent.click(button)
+    expect(transport.invoke).toHaveBeenCalledTimes(1)
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.PauseTasks, ['t1'])
+    reject(new Error('connection lost'))
+    await waitFor(() => expect(button).toHaveProperty('disabled', false))
+    expect(button.textContent).toContain('Pause')
+    fireEvent.click(button)
+    await waitFor(() => expect(transport.invoke).toHaveBeenCalledTimes(2))
+  })
+
   it('opens a completed file from the inspector and allows retry after failure', async () => {
     vi.mocked(transport.invoke).mockClear()
     let reject!: (error: Error) => void

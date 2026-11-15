@@ -154,14 +154,14 @@ test('media task progress follows segments, then the processing stage, until the
   )
   task.mediaProgress = { ...task.mediaProgress, muxProgress: 0.42 }
   await publish(electronApp, [task])
-  await expect(row.getByText('Merging 42%', { exact: true })).toBeVisible()
+  await expect(row.getByText('Merging 42.0%', { exact: true })).toBeVisible()
   await row.dblclick()
   const inspector = mainWindow.getByRole('dialog', { name: 'Task Inspector' })
   await expect(
     inspector.getByText('Download progress', { exact: true })
   ).toBeVisible()
-  await expect(inspector.getByText('100%', { exact: true })).toBeVisible()
-  await expect(inspector.getByText('42%', { exact: true })).toBeVisible()
+  await expect(inspector.getByText('100.0%', { exact: true })).toBeVisible()
+  await expect(inspector.getByText('42.0%', { exact: true })).toBeVisible()
   await expect(
     inspector.getByText('1000 / 1000 segments', { exact: true })
   ).toBeVisible()
@@ -252,8 +252,8 @@ test('media file list shows every segment through virtual scrolling and stays re
   await inspector.getByRole('tab', { name: 'Files', exact: true }).click()
   const list = inspector.getByTestId('virtual-list-container')
   await expect(list.getByText('video/init.mp4', { exact: true })).toBeVisible()
-  await expect(list.getByText('100%', { exact: true })).toBeVisible()
-  await expect(list.getByText('50%', { exact: true })).toBeVisible()
+  await expect(list.getByText('100.0%', { exact: true })).toBeVisible()
+  await expect(list.getByText('50.0%', { exact: true })).toBeVisible()
   expect(await list.getByRole('checkbox').count()).toBeLessThan(50)
   await expect(list.getByRole('checkbox').first()).toHaveAttribute(
     'aria-disabled',
@@ -281,6 +281,134 @@ test('media file list shows every segment through virtual scrolling and stays re
   await mainWindow.screenshot({
     path: testInfo.outputPath('media-segments-last.png'),
   })
+})
+
+test('download progress advances between rounded percentage labels', async ({
+  electronApp,
+  mainWindow,
+}, testInfo) => {
+  await waitForEngineReady(mainWindow)
+  await mainWindow.getByRole('link', { name: 'Downloads', exact: true }).click()
+  await expect(mainWindow.getByTestId('downloads-loading')).toHaveCount(0)
+  const task = makeDownloadTask({
+    id: 'fractional-progress',
+    name: 'Fractional progress.bin',
+    status: TaskStatus.Downloading,
+    progress: 0.350625,
+  })
+  await publish(electronApp, [task])
+  const row = mainWindow.locator('[data-task-id="fractional-progress"]')
+  const bar = row.getByRole('progressbar')
+  await expect(row.getByText('35.1%', { exact: true })).toBeVisible()
+  await expect(bar).toHaveAttribute('aria-valuenow', '35.0625')
+  const width = () =>
+    bar.evaluate(
+      (element) =>
+        element.firstElementChild?.firstElementChild?.getBoundingClientRect()
+          .width ?? 0
+    )
+  await expect.poll(width).toBeGreaterThan(0)
+  // Wait for the existing transition before comparing the next fractional update.
+  await bar.evaluate(async (element) => {
+    await Promise.all(
+      element
+        .getAnimations({ subtree: true })
+        .map((animation) => animation.finished)
+    )
+  })
+  const before = await width()
+  await publish(electronApp, [{ ...task, progress: 0.3514 }])
+  await expect(bar).toHaveAttribute('aria-valuenow', '35.14')
+  await expect(row.getByText('35.1%', { exact: true })).toBeVisible()
+  await expect.poll(width).toBeGreaterThan(before)
+  await mainWindow.screenshot({
+    path: testInfo.outputPath('fractional-progress.png'),
+  })
+})
+
+test('pause stays disabled across controls until a delayed BT request settles', async ({
+  electronApp,
+  mainWindow,
+}, testInfo) => {
+  await waitForEngineReady(mainWindow)
+  await electronApp.evaluate(({ ipcMain }, channel) => {
+    const probe = {
+      calls: [] as string[][],
+      resolve: null as null | ((value: unknown) => void),
+    }
+    Object.assign(globalThis, { pauseProbe: probe })
+    ipcMain.removeHandler(channel)
+    ipcMain.handle(channel, (_event, ids: string[]) => {
+      probe.calls.push(ids)
+      return new Promise((resolve) => {
+        probe.resolve = resolve
+      })
+    })
+  }, Commands.PauseTasks)
+  const task = makeDownloadTask({
+    id: 'pause-pending',
+    name: 'Slow pause.torrent',
+    type: TaskType.Bt,
+    status: TaskStatus.Downloading,
+    progress: 0.5,
+  })
+  await mainWindow.getByRole('link', { name: 'Downloads', exact: true }).click()
+  await expect(mainWindow.getByTestId('downloads-loading')).toHaveCount(0)
+  await publish(electronApp, [task])
+  const row = mainWindow.locator('[data-task-id="pause-pending"]')
+  await row.dblclick()
+  const drawer = mainWindow.getByRole('dialog', { name: 'Task Inspector' })
+  const pause = drawer.getByRole('button', { name: /^(Pause|Pausing…)$/ })
+  await pause.click()
+  await expect(pause).toBeDisabled()
+  await expect(pause).toHaveText('Pausing…')
+  await pause.evaluate((button: HTMLButtonElement) => button.click())
+  await row.click({ button: 'right' })
+  await expect(
+    mainWindow.getByRole('menuitem', { name: 'Pausing…', exact: true })
+  ).toBeDisabled()
+  await mainWindow.keyboard.press('Escape')
+  const calls = () =>
+    electronApp.evaluate(
+      () =>
+        (globalThis as unknown as { pauseProbe: { calls: string[][] } })
+          .pauseProbe.calls
+    )
+  expect(await calls()).toEqual([['pause-pending']])
+  await mainWindow.screenshot({
+    path: testInfo.outputPath('bt-pause-pending.png'),
+  })
+  await electronApp.evaluate(
+    (_electron, response) => {
+      ;(
+        globalThis as unknown as {
+          pauseProbe: { resolve: (value: unknown) => void }
+        }
+      ).pauseProbe.resolve(response)
+    },
+    makeProtocolSuccess({
+      succeeded: [],
+      failed: [{ taskId: task.id, reason: 'test pause failure' }],
+    })
+  )
+  await expect(pause).toBeEnabled()
+  await pause.click()
+  await expect(pause).toBeDisabled()
+  await expect.poll(calls).toEqual([['pause-pending'], ['pause-pending']])
+  await publish(electronApp, [{ ...task, status: TaskStatus.Paused }])
+  await electronApp.evaluate(
+    (_electron, response) => {
+      ;(
+        globalThis as unknown as {
+          pauseProbe: { resolve: (value: unknown) => void }
+        }
+      ).pauseProbe.resolve(response)
+    },
+    makeProtocolSuccess({ succeeded: [task.id], failed: [] })
+  )
+  await expect(
+    drawer.getByRole('button', { name: 'Resume', exact: true })
+  ).toBeEnabled()
 })
 
 test('default columns keep the download speed fully visible at minimum window size', async ({
@@ -723,7 +851,7 @@ for (const { count, width, height, zoom } of [
       name: new RegExp(`Active tail ${count - 1}\\.bin`),
     })
     await expectUsable(tail)
-    await expect(tail).toContainText('99%')
+    await expect(tail).toContainText('99.5%')
     await tail.click({ position: { x: 120, y: 18 } })
     const listBox = await list.boundingBox()
     await mainWindow

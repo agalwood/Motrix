@@ -4,6 +4,7 @@ import { getProgressBarTone } from '@renderer/lib/task-status-ui'
 import { cn } from '@renderer/lib/utils'
 import type { DownloadTask } from '@shared/types/task'
 import {
+  finiteProgress,
   getMediaPhaseLabel,
   getStageProgress,
   isMediaTask,
@@ -19,15 +20,18 @@ export function TaskProgress({ task }: { task: DownloadTask }) {
       ? null
       : isMediaTask(task)
         ? mediaProgressPercent(progress)
-        : formatProgressPercent(progress)
+        : formatProgressPercent(progress, 1)
   const phase = getMediaPhaseLabel(task)
-  const label = [phase ? t(phase) : null, pct === null ? '—' : `${pct}%`]
+  const label = [
+    phase ? t(phase) : null,
+    pct === null ? '—' : `${pct.toFixed(1)}%`,
+  ]
     .filter(Boolean)
     .join(' ')
   return (
     <div className="flex items-center gap-2" title={label}>
       <Progress
-        value={pct ?? undefined}
+        value={progress === null ? undefined : finiteProgress(progress) * 100}
         indicatorClassName={cn(
           getProgressBarTone(task.status),
           pct === null && !phase && 'w-0 animate-none'

@@ -251,7 +251,9 @@ describe('PollingScheduler', () => {
       expect(scheduler.getMode()).toBe('active')
       expect(emitted).toEqual([true])
 
-      await vi.advanceTimersByTimeAsync(1_000)
+      await vi.advanceTimersByTimeAsync(499)
+      expect(rpc.multicall).toHaveBeenCalledTimes(1)
+      await vi.advanceTimersByTimeAsync(1)
       expect(rpc.multicall).toHaveBeenCalledTimes(2)
     })
 
@@ -275,8 +277,8 @@ describe('PollingScheduler', () => {
       // Should switch to active mode and emit event
       expect(emitted).toEqual([true])
 
-      // Active mode polls at 1s
-      await vi.advanceTimersByTimeAsync(1_000)
+      // Active mode polls at 500ms
+      await vi.advanceTimersByTimeAsync(500)
       expect(rpc.multicall).toHaveBeenCalledTimes(3)
       expect(onTasksUpdate).toHaveBeenCalled()
     })
@@ -295,7 +297,7 @@ describe('PollingScheduler', () => {
       scheduler.handleNotification('aria2.onDownloadStart', {
         gid: 'gid1',
       })
-      await vi.advanceTimersByTimeAsync(1_000)
+      await vi.advanceTimersByTimeAsync(500)
 
       const emitted: boolean[] = []
       eventBus.on(Events.EngineActiveChanged, (active) => {
@@ -326,7 +328,7 @@ describe('PollingScheduler', () => {
       scheduler.handleNotification('aria2.onDownloadStart', {
         gid: 'gid1',
       })
-      await vi.advanceTimersByTimeAsync(1_000)
+      await vi.advanceTimersByTimeAsync(500)
 
       const emitted: boolean[] = []
       eventBus.on(Events.EngineActiveChanged, (active) => {
@@ -386,7 +388,7 @@ describe('PollingScheduler', () => {
         gid: 'gid1',
       })
 
-      await vi.advanceTimersByTimeAsync(1_000)
+      await vi.advanceTimersByTimeAsync(500)
 
       expect(rpc.multicall).toHaveBeenCalledTimes(3)
       expect(onStats).toHaveBeenCalledWith(ACTIVE_STATS_TRANSLATED)

@@ -870,6 +870,7 @@
         "openFileFailedHint": "Vérifiez que le fichier existe toujours et que vous avez l’autorisation de l’ouvrir.",
         "openFolder": "Ouvrir le dossier",
         "pause": "Mettre en pause",
+        "pausing": "Mise en pause…",
         "pauseTooltipBatch": "Mettre en pause {{n}} des {{total}} tâches sélectionnées",
         "queueBoundary": "La sélection est déjà à l’extrémité de la file",
         "queueMoveFailed": "Impossible de modifier la file d’attente.",

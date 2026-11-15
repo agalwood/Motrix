@@ -885,6 +885,7 @@
       },
       "action": {
         "pause": "Szüneteltetés",
+        "pausing": "Szüneteltetés…",
         "queueMoveFailed": "Nem sikerült frissíteni a várakozási sort.",
         "queueTaskStarted": "A feladat már nincs a várakozási sorban.",
         "queueMoveHint": "A várakozási sorban elfoglalt hely határozza meg, melyik letöltés indul el következőként. Az oszlopok rendezése ettől függetlenül kerül mentésre.",

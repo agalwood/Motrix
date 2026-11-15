@@ -57,6 +57,42 @@ function makeDeps(
 }
 
 describe('pauseTask', () => {
+  it('shares one in-flight pause across callers and releases it on failure', async () => {
+    const deps = makeDeps()
+    let reject!: (error: Error) => void
+    vi.mocked(deps.adapter.pauseTask).mockReturnValueOnce(
+      new Promise((_resolve, fail) => {
+        reject = fail
+      })
+    )
+    const first = pauseTask('t1', deps)
+    const onPauseRequested = vi.fn()
+    const second = pauseTask('t1', { ...deps, onPauseRequested })
+    expect(onPauseRequested).toHaveBeenCalledWith('t1')
+    const results = Promise.allSettled([first, second])
+    await Promise.resolve()
+    expect(deps.adapter.pauseTask).toHaveBeenCalledTimes(1)
+    reject(new Error('pause failed'))
+    expect((await results).map((result) => result.status)).toEqual([
+      'rejected',
+      'rejected',
+    ])
+    await pauseTask('t1', deps)
+    expect(deps.adapter.pauseTask).toHaveBeenCalledTimes(2)
+  })
+
+  it('treats a repeated pause of an already paused task as a no-op', async () => {
+    const deps = {
+      ...makeDeps({
+        task: { id: 't1', engineTaskId: 'gid-1', status: TaskStatus.Paused },
+      }),
+      onPauseRequested: vi.fn(),
+    }
+    await pauseTask('t1', deps)
+    expect(deps.onPauseRequested).toHaveBeenCalledWith('t1')
+    expect(deps.adapter.pauseTask).not.toHaveBeenCalled()
+  })
+
   it('looks up engineTaskId and calls adapter.pauseTask with gid', async () => {
     const deps = makeDeps()
     await pauseTask('t1', deps)

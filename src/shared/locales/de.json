@@ -885,6 +885,7 @@
       },
       "action": {
         "pause": "Pausieren",
+        "pausing": "Wird pausiert…",
         "queueMoveFailed": "Die Warteschlange konnte nicht aktualisiert werden.",
         "queueTaskStarted": "Die Aufgabe befindet sich nicht mehr in der Warteschlange.",
         "queueMoveHint": "Die Position in der Warteschlange bestimmt, welcher wartende Download als Nächstes startet. Die Spaltensortierung wird separat gespeichert.",

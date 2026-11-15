@@ -7,6 +7,7 @@ import {
   useOperatorSession,
 } from '@renderer/lib/operator-auth'
 import { transport } from '@renderer/lib/transport'
+import { useTaskPauseStore } from '@renderer/routes/downloads/inspector/task-pause-store'
 import { useDownloadsSelection } from '@renderer/routes/downloads/store'
 import { PRODUCT_MENU_ITEMS } from '@shared/application-menu-catalog'
 import { type CommandId, CommandIds } from '@shared/commands-catalog'
@@ -120,8 +121,11 @@ export function menuActionEnabled(
   if (id === CommandIds.TaskClearStopped)
     return tasks.some((task) => isStoppedTaskStatus(task.status))
   const selected = selectedMenuTasks(intent)
-  if (id === CommandIds.TaskPause) return selected.some(canPause)
-  if (id === CommandIds.TaskResume) return selected.some(canResume)
+  const available = selected.filter(
+    (task) => !useTaskPauseStore.getState().pending.has(task.id)
+  )
+  if (id === CommandIds.TaskPause) return available.some(canPause)
+  if (id === CommandIds.TaskResume) return available.some(canResume)
   if (id === CommandIds.TaskDelete) return selected.some(canRemove)
   if (id === CommandIds.TaskMoveUp || id === CommandIds.TaskMoveDown)
     return selected.some(canMoveInQueue)
@@ -133,11 +137,13 @@ export function subscribeMenuContext(listener: () => void): () => void {
   const detachTasks = subscribeTaskList(listener)
   const detachSelection = useDownloadsSelection.subscribe(listener)
   const detachAuth = useOperatorSession.subscribe(listener)
+  const detachPauses = useTaskPauseStore.subscribe(listener)
   listeners.add(listener)
   return () => {
     detachTasks()
     detachSelection()
     detachAuth()
+    detachPauses()
     listeners.delete(listener)
   }
 }
