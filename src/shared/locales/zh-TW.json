@@ -873,6 +873,7 @@
       },
       "action": {
         "pause": "暫停",
+        "pausing": "暫停中…",
         "queueMoveFailed": "無法調整等待佇列。",
         "queueTaskStarted": "任務已不在等待佇列中。",
         "queueMoveHint": "佇列位置決定等待任務的啟動順序，欄位排序另行儲存。",

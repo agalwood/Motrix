@@ -885,6 +885,7 @@
       },
       "action": {
         "pause": "Pause",
+        "pausing": "Pausing…",
         "queueMoveFailed": "Could not update the waiting queue.",
         "queueTaskStarted": "The task is no longer in the waiting queue.",
         "queueMoveHint": "Queue position determines which waiting download starts next. Column sorting is saved separately.",

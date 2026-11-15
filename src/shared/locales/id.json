@@ -873,6 +873,7 @@
       },
       "action": {
         "pause": "Jeda",
+        "pausing": "Menjeda…",
         "queueMoveFailed": "Antrean tunggu tidak dapat diperbarui.",
         "queueTaskStarted": "Tugas sudah tidak ada dalam antrean tunggu.",
         "queueMoveHint": "Posisi dalam antrean menentukan unduhan mana yang dimulai berikutnya. Pengurutan kolom disimpan secara terpisah.",

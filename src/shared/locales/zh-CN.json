@@ -873,6 +873,7 @@
       },
       "action": {
         "pause": "暂停",
+        "pausing": "暂停中…",
         "queueMoveFailed": "无法调整等待队列。",
         "queueTaskStarted": "任务已不在等待队列中。",
         "queueMoveHint": "队列位置决定等待任务的启动顺序，列排序单独保存。",

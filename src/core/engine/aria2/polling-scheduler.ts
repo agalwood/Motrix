@@ -10,7 +10,7 @@ import type { Aria2RawStatus, Aria2TaskStatus } from './types'
 
 const log = getLogger('polling-scheduler')
 
-const ACTIVE_INTERVAL = 1_000
+const ACTIVE_INTERVAL = 500
 const IDLE_INTERVAL = 10_000
 
 // Notifications that indicate a download has started or resumed.
@@ -218,7 +218,7 @@ export class PollingScheduler {
   }
 
   // Both modes share the same RPC shape: get stats + active + waiting in
-  // one multicall round-trip. Only the cadence differs (1s vs 10s). Idle
+  // one multicall round-trip. Only the cadence differs (500ms vs 10s). Idle
   // still polls the task list because BT magnet metadata-fetch never emits
   // aria2.onDownloadStart, leaving freshly added tasks stuck at the
   // renderer's initial Queued placeholder until polling reconciles.

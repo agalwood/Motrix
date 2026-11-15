@@ -215,17 +215,30 @@ export function TaskInspectorActionBar({
 
   return (
     <div className="flex shrink-0 items-center gap-2 border-b border-border/50 px-4 py-2">
-      {actions.pauseCount > 0 && (
+      {(actions.pauseCount > 0 || actions.pausing) && (
         <CountedButton
-          label={t('panel.downloads.action.pause')}
+          label={t(
+            actions.pausing
+              ? 'panel.downloads.action.pausing'
+              : 'panel.downloads.action.pause'
+          )}
           total={actions.total}
-          count={actions.pauseCount}
-          tooltipSingle={t('panel.downloads.action.pause')}
-          tooltipBatch={t('panel.downloads.action.pauseTooltipBatch', {
-            n: actions.pauseCount,
-            total: actions.total,
-          })}
+          count={actions.pausing ? actions.pausingCount : actions.pauseCount}
+          tooltipSingle={t(
+            actions.pausing
+              ? 'panel.downloads.action.pausing'
+              : 'panel.downloads.action.pause'
+          )}
+          tooltipBatch={
+            actions.pausing
+              ? t('panel.downloads.action.pausing')
+              : t('panel.downloads.action.pauseTooltipBatch', {
+                  n: actions.pauseCount,
+                  total: actions.total,
+                })
+          }
           icon={<PauseIcon />}
+          disabled={actions.pausing}
           onClick={() => void actions.onPause()}
         />
       )}

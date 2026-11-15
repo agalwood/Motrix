@@ -867,6 +867,7 @@
         "openFileFailedHint": "Kontroller at filen fortsatt finnes, og at du har tillatelse til å åpne den.",
         "openFolder": "Åpne mappe",
         "pause": "Sett på pause",
+        "pausing": "Setter på pause…",
         "pauseTooltipBatch": "Sett på pause: {{n}} / {{total}} i utvalget",
         "queueBoundary": "Utvalget kan ikke flyttes lenger i denne retningen",
         "queueMoveFailed": "Kunne ikke oppdatere ventekøen.",

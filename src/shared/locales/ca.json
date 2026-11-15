@@ -870,6 +870,7 @@
         "openFileFailedHint": "Comproveu que el fitxer encara existeixi i que tingueu permís per obrir-lo.",
         "openFolder": "Obrir la carpeta",
         "pause": "Pausar",
+        "pausing": "S’està posant en pausa…",
         "pauseTooltipBatch": "Pausar {{n}} de {{total}} tasques seleccionades",
         "queueBoundary": "La selecció ja és al límit de la cua",
         "queueMoveFailed": "No s'ha pogut actualitzar la cua d'espera.",

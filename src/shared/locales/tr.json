@@ -885,6 +885,7 @@
       },
       "action": {
         "pause": "Duraklat",
+        "pausing": "Duraklatılıyor…",
         "queueMoveFailed": "Bekleme kuyruğu güncellenemedi.",
         "queueTaskStarted": "Görev artık bekleme kuyruğunda değil.",
         "queueMoveHint": "Kuyruk konumu, bekleyen indirmelerden hangisinin önce başlayacağını belirler. Sütun sıralaması ayrıca kaydedilir.",

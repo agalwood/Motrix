@@ -897,6 +897,7 @@
       },
       "action": {
         "pause": "Pausar",
+        "pausing": "Pausando…",
         "queueMoveFailed": "Não foi possível atualizar a fila de espera.",
         "queueTaskStarted": "A tarefa não está mais na fila de espera.",
         "queueMoveHint": "A posição na fila determina qual download em espera será iniciado a seguir. A ordenação das colunas é salva separadamente.",

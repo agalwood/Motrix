@@ -909,6 +909,7 @@
       },
       "action": {
         "pause": "Wstrzymaj",
+        "pausing": "Wstrzymywanie…",
         "queueMoveFailed": "Nie udało się zaktualizować kolejki oczekujących.",
         "queueTaskStarted": "Zadanie nie znajduje się już w kolejce oczekujących.",
         "queueMoveHint": "Pozycja w kolejce określa, które oczekujące pobieranie rozpocznie się jako następne. Sortowanie kolumn jest zapisywane osobno.",

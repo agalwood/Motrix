@@ -142,6 +142,7 @@ export function TaskActionsMenu({
   const single = selected.length === 1 ? selected[0] : null
   const canChooseFiles = single && canSelectTaskFiles(single)
   const hasTransferActions =
+    actions.pausing ||
     actions.pauseCount +
       actions.resumeCount +
       actions.retryCount +
@@ -332,9 +333,19 @@ export function TaskActionsMenu({
       visible: hasTransferActions,
       content: (
         <>
-          {actions.pauseCount > 0 && (
-            <DropdownMenuItem onClick={() => void actions.onPause()}>
-              {t('panel.downloads.action.pause')}
+          {(actions.pauseCount > 0 || actions.pausing) && (
+            <DropdownMenuItem
+              disabled={actions.pausing}
+              onClick={() => void actions.onPause()}
+            >
+              {t(
+                actions.pausing
+                  ? 'panel.downloads.action.pausing'
+                  : 'panel.downloads.action.pause'
+              )}
+              {actions.pausing &&
+                actions.total > 1 &&
+                ` (${actions.pausingCount})`}
             </DropdownMenuItem>
           )}
           {actions.resumeCount > 0 && (

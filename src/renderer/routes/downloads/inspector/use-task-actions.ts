@@ -39,6 +39,11 @@ import { useTranslation } from 'react-i18next'
 import { useRedownloadOverwriteStore } from './redownload-overwrite-store'
 import { useRemoveTasksStore } from './remove-tasks-store'
 import { useRetryParametersStore } from './retry-parameters-store'
+import {
+  beginTaskPauses,
+  finishTaskPauses,
+  useTaskPauseStore,
+} from './task-pause-store'
 
 export interface RemoveDialogState {
   open: boolean
@@ -154,6 +159,8 @@ export interface TaskActionsState {
   moving: boolean
   onMove: (direction: MoveTasksPayload['direction']) => Promise<void>
   pauseCount: number
+  pausing: boolean
+  pausingCount: number
   resumeCount: number
   stopSeedingCount: number
   reseedCount: number
@@ -190,6 +197,11 @@ export function useTaskActions(
 ): TaskActionsState {
   const { t } = useTranslation()
   const [moving, setMoving] = useState(false)
+  const pendingPauses = useTaskPauseStore((state) => state.pending)
+  const pausingCount = selected.filter((task) =>
+    pendingPauses.has(task.id)
+  ).length
+  const pausing = pausingCount > 0
   const removeDialog = useRemoveTasksStore()
   const removeTargets = removeDialog.targets
 
@@ -203,7 +215,7 @@ export function useTaskActions(
     let removeCount = 0
     for (const task of selected) {
       if (canPause(task)) pauseCount++
-      if (canResume(task)) resumeCount++
+      if (canResume(task) && !pendingPauses.has(task.id)) resumeCount++
       if (canStopSeeding(task)) stopSeedingCount++
       if (canReseed(task)) reseedCount++
       if (canOfferRetry(task)) retryCount++
@@ -221,7 +233,7 @@ export function useTaskActions(
       removeCount,
       total: selected.length,
     }
-  }, [selected])
+  }, [selected, pendingPauses])
 
   const reportPartial = useCallback(
     (results: ActionResult[]) => {
@@ -259,7 +271,12 @@ export function useTaskActions(
   const dispatchSubset = useCallback(
     async (cmd: CommandChannel, predicate: (task: DownloadTask) => boolean) => {
       if (!readyToWrite()) return
-      const targets = resolveLatest(selected).filter(predicate)
+      const targets = resolveLatest(selected).filter(
+        (task) =>
+          predicate(task) &&
+          (cmd !== Commands.ResumeTasks ||
+            !useTaskPauseStore.getState().pending.has(task.id))
+      )
       if (targets.length === 0) return
       const results = await invokeBulk(
         cmd,
@@ -271,10 +288,24 @@ export function useTaskActions(
     [selected, reportPartial, readyToWrite]
   )
 
-  const onPause = useCallback(
-    () => dispatchSubset(Commands.PauseTasks, canPause),
-    [dispatchSubset]
-  )
+  const onPause = useCallback(async () => {
+    if (!readyToWrite()) return
+    const targets = resolveLatest(selected).filter(canPause)
+    const ids = beginTaskPauses(targets.map((task) => task.id))
+    if (!ids.length) return
+    const acquired = new Set(ids)
+    try {
+      reportPartial(
+        await invokeBulk(
+          Commands.PauseTasks,
+          targets.filter((task) => acquired.has(task.id)),
+          ids
+        )
+      )
+    } finally {
+      finishTaskPauses(ids)
+    }
+  }, [selected, readyToWrite, reportPartial])
 
   const onResume = useCallback(
     () => dispatchSubset(Commands.ResumeTasks, canResume),
@@ -631,6 +662,8 @@ export function useTaskActions(
   return {
     ...counts,
     moving,
+    pausing,
+    pausingCount,
     onMove,
     removeDialog,
     removeTargets,

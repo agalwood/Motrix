@@ -97,6 +97,12 @@ describe('formatProgressPercent', () => {
     'does not report 100%% while progress is %s',
     (progress) => expect(formatProgressPercent(progress)).toBe(99)
   )
+  it('supports one decimal without rounding unfinished progress to completion', () => {
+    expect(formatProgressPercent(0.35125, 1)).toBe(35.1)
+    expect(formatProgressPercent(0.995, 1)).toBe(99.5)
+    expect(formatProgressPercent(0.99999, 1)).toBe(99.9)
+    expect(formatProgressPercent(1, 1)).toBe(100)
+  })
   it('reports full byte completion and handles invalid snapshots', () => {
     expect(formatProgressPercent(1)).toBe(100)
     expect(formatProgressPercent(1.01)).toBe(100)

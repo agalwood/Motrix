@@ -215,7 +215,7 @@ export function OverviewTab({
                   value={
                     muxProgress === null
                       ? '—'
-                      : `${mediaProgressPercent(muxProgress)}%`
+                      : `${mediaProgressPercent(muxProgress).toFixed(1)}%`
                   }
                 />
               )}
@@ -257,7 +257,7 @@ export function OverviewTab({
             value={
               progress === null
                 ? '—'
-                : `${media ? mediaProgressPercent(progress) : formatProgressPercent(progress)}%`
+                : `${(media ? mediaProgressPercent(progress) : formatProgressPercent(progress, 1)).toFixed(1)}%`
             }
           />
           <Row

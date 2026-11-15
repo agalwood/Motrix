@@ -897,6 +897,7 @@
       },
       "action": {
         "pause": "Metti in pausa",
+        "pausing": "Messa in pausa…",
         "queueMoveFailed": "Impossibile aggiornare la coda di attesa.",
         "queueTaskStarted": "L’attività non è più nella coda di attesa.",
         "queueMoveHint": "La posizione in coda determina quale download in attesa partirà per primo. L’ordinamento delle colonne viene salvato separatamente.",

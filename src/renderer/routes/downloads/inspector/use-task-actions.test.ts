@@ -7,7 +7,7 @@ import {
   TransitionPhase,
 } from '@shared/types/task'
 import { makeDownloadTask } from '@test-utils/task'
-import { renderHook } from '@testing-library/react'
+import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@renderer/lib/transport', () => ({
@@ -141,6 +141,37 @@ describe('useTaskActions', () => {
     await result.current.onPause()
     expect(transport.invoke).toHaveBeenCalledTimes(1)
     expect(transport.invoke).toHaveBeenCalledWith(Commands.PauseTasks, ['a'])
+  })
+
+  it('shares pending pauses between mounted controls and clears them after failure', async () => {
+    const tasks = [makeTask({ id: 'pending-bt', type: TaskType.Bt })]
+    let reject!: (error: Error) => void
+    vi.mocked(transport.invoke).mockReturnValueOnce(
+      new Promise((_resolve, fail) => {
+        reject = fail
+      })
+    )
+    const first = renderHook(() => useTaskActions(tasks))
+    const second = renderHook(() => useTaskActions(tasks))
+    let pending!: Promise<void>
+    await act(async () => {
+      pending = first.result.current.onPause()
+      await second.result.current.onPause()
+    })
+    expect(transport.invoke).toHaveBeenCalledTimes(1)
+    expect(first.result.current.pausing).toBe(true)
+    expect(second.result.current.pausing).toBe(true)
+    expect(first.result.current.pauseCount).toBe(1)
+    await act(async () => {
+      reject(new Error('connection lost'))
+      await pending
+    })
+    expect(first.result.current.pausing).toBe(false)
+    expect(second.result.current.pausing).toBe(false)
+    await act(async () => {
+      await second.result.current.onPause()
+    })
+    expect(transport.invoke).toHaveBeenCalledTimes(2)
   })
 
   it('reports per-task failures from the plural command result', async () => {

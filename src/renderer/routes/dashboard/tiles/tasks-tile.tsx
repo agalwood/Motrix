@@ -117,13 +117,21 @@ function TaskQuickAction({
   const actions = useTaskActions(selected)
   const [pending, setPending] = useState(false)
   const pendingRef = useRef(false)
-  const action = actions.pauseCount
-    ? { label: t('panel.downloads.action.pause'), run: actions.onPause }
-    : actions.resumeCount
-      ? { label: t('panel.downloads.action.resume'), run: actions.onResume }
-      : actions.retryCount
-        ? { label: t('panel.downloads.action.retry'), run: actions.onRetry }
-        : null
+  const action =
+    actions.pauseCount || actions.pausing
+      ? {
+          label: t(
+            actions.pausing
+              ? 'panel.downloads.action.pausing'
+              : 'panel.downloads.action.pause'
+          ),
+          run: actions.onPause,
+        }
+      : actions.resumeCount
+        ? { label: t('panel.downloads.action.resume'), run: actions.onResume }
+        : actions.retryCount
+          ? { label: t('panel.downloads.action.retry'), run: actions.onRetry }
+          : null
 
   if (!action) return null
 
@@ -144,9 +152,9 @@ function TaskQuickAction({
       type="button"
       variant="ghost"
       size="xs"
-      disabled={!enabled || pending}
+      disabled={!enabled || pending || actions.pausing}
       aria-label={`${action.label}: ${task.name}`}
-      aria-busy={pending || undefined}
+      aria-busy={pending || actions.pausing || undefined}
       onClick={() => void run()}
       className="relative z-20 col-start-2 row-start-1 me-1 h-7 min-w-11 px-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground motion-reduce:transition-none"
     >
