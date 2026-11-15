@@ -48,6 +48,7 @@ export const Events = {
   LiquidGlassChanged: 'event:liquidGlassChanged',
   // Payload: { sidebarColor: SidebarColor }.
   SidebarColorChanged: 'event:sidebarColorChanged',
+  StatsBarVisibilityChanged: 'event:statsBarVisibilityChanged',
   // Payload: { color: string | null }, an RGB hex color from the desktop host.
   SystemAccentColorChanged: 'event:systemAccentColorChanged',
   // Payload: { byteUnitSystem: ByteUnitPreference }.

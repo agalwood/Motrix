@@ -1876,6 +1876,8 @@
     "appearance": {
       "byteUnitBinary": "Binære ({{megabyte}}, {{gigabyte}} · 1024)",
       "byteUnitDecimal": "Desimale ({{megabyte}}, {{gigabyte}} · 1000)",
+      "keepStatsBarVisible": "Behold statistikken når detaljer er åpne",
+      "keepStatsBarVisibleDesc": "Behold nedlastingsstatistikken under panelet med oppgavedetaljer.",
       "byteUnitSystem": "Enheter for størrelse og hastighet",
       "byteUnitSystemDefault": "Følg systemet ({{units}})",
       "byteUnitSystemDesc": "Velg hvordan filstørrelser og hastigheter vises.",

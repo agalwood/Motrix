@@ -1387,6 +1387,8 @@
       "runModeLinuxDesc": "System tray availability and activation behavior depend on your desktop environment.",
       "lightweightMode": "Lightweight mode",
       "lightweightModeDesc": "Save memory when the window is closed. Downloads continue, but reopening takes longer and clears unsaved input.",
+      "keepStatsBarVisible": "Keep statistics visible with details open",
+      "keepStatsBarVisibleDesc": "Keep the download statistics bar below the task details drawer.",
       "byteUnitSystem": "Size and speed units",
       "byteUnitSystemDesc": "Choose how file sizes and speeds are displayed.",
       "byteUnitDecimal": "Decimal ({{megabyte}}, {{gigabyte}} · 1000)",

@@ -67,6 +67,7 @@ type AppearanceFields = Pick<
   | 'byteUnitSystem'
   | 'traySpeedometer'
   | 'showDownloadProgress'
+  | 'keepStatsBarVisible'
   | 'trayIconColor'
   | 'liquidGlassEffect'
 >
@@ -83,6 +84,7 @@ const DEFAULTS: AppearanceFields = {
   byteUnitSystem: DEFAULT_APP_SETTINGS.byteUnitSystem,
   traySpeedometer: DEFAULT_APP_SETTINGS.traySpeedometer,
   showDownloadProgress: DEFAULT_APP_SETTINGS.showDownloadProgress,
+  keepStatsBarVisible: DEFAULT_APP_SETTINGS.keepStatsBarVisible,
   trayIconColor: DEFAULT_APP_SETTINGS.trayIconColor,
   liquidGlassEffect: DEFAULT_APP_SETTINGS.liquidGlassEffect,
 }
@@ -121,6 +123,8 @@ export function AppearanceDialog({
         traySpeedometer: all.app.traySpeedometer,
         showDownloadProgress:
           all.app.showDownloadProgress ?? DEFAULTS.showDownloadProgress,
+        keepStatsBarVisible:
+          all.app.keepStatsBarVisible ?? DEFAULTS.keepStatsBarVisible,
         trayIconColor: all.app.trayIconColor ?? DEFAULTS.trayIconColor,
         liquidGlassEffect: all.app.liquidGlassEffect,
       })
@@ -462,6 +466,28 @@ export function AppearanceDialog({
                                 </SelectGroup>
                               </SelectContent>
                             </Select>
+                          </FormControl>
+                        </SettingsFormRow>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="keepStatsBarVisible"
+                      render={({ field }) => (
+                        <SettingsFormRow>
+                          <div className="space-y-1">
+                            <FormLabel>
+                              {t('settings.appearance.keepStatsBarVisible')}
+                            </FormLabel>
+                            <FormDescription className="text-xs">
+                              {t('settings.appearance.keepStatsBarVisibleDesc')}
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
                           </FormControl>
                         </SettingsFormRow>
                       )}

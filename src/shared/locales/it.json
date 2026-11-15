@@ -1401,6 +1401,8 @@
       "runModeLinuxDesc": "La disponibilità dell’area di notifica e il comportamento di attivazione dipendono dall’ambiente desktop.",
       "lightweightMode": "Modalità leggera",
       "lightweightModeDesc": "Risparmia memoria quando la finestra è chiusa. I download continuano, ma la riapertura richiede più tempo e i dati non salvati vengono cancellati.",
+      "keepStatsBarVisible": "Mantieni visibili le statistiche con i dettagli aperti",
+      "keepStatsBarVisibleDesc": "Mantieni la barra delle statistiche di download sotto il pannello dei dettagli dell’attività.",
       "byteUnitSystem": "Unità di dimensione e velocità",
       "byteUnitSystemDesc": "Scegli come visualizzare le dimensioni dei file e le velocità.",
       "byteUnitDecimal": "Decimali ({{megabyte}}, {{gigabyte}} · 1000)",

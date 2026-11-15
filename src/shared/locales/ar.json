@@ -1952,6 +1952,8 @@
     "appearance": {
       "byteUnitBinary": "ثنائية ({{megabyte}}، {{gigabyte}} · 1024)",
       "byteUnitDecimal": "عشرية ({{megabyte}}، {{gigabyte}} · 1000)",
+      "keepStatsBarVisible": "إبقاء الإحصاءات ظاهرة عند فتح التفاصيل",
+      "keepStatsBarVisibleDesc": "إبقاء شريط إحصاءات التنزيل أسفل لوحة تفاصيل المهمة.",
       "byteUnitSystem": "وحدات الحجم والسرعة",
       "byteUnitSystemDefault": "اتباع النظام ({{units}})",
       "byteUnitSystemDesc": "اختر كيفية عرض أحجام الملفات والسرعات.",

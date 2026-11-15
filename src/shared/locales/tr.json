@@ -1387,6 +1387,8 @@
       "runModeLinuxDesc": "Sistem tepsisinin kullanılabilirliği ve etkinleştirme davranışı masaüstü ortamınıza bağlıdır.",
       "lightweightMode": "Hafif mod",
       "lightweightModeDesc": "Pencere kapalıyken bellekten tasarruf edin. İndirmeler devam eder ancak pencerenin yeniden açılması daha uzun sürer ve kaydedilmemiş girişler temizlenir.",
+      "keepStatsBarVisible": "Ayrıntılar açıkken istatistikleri görünür tut",
+      "keepStatsBarVisibleDesc": "İndirme istatistikleri çubuğunu görev ayrıntıları panelinin altında tut.",
       "byteUnitSystem": "Boyut ve hız birimleri",
       "byteUnitSystemDesc": "Dosya boyutlarının ve hızların nasıl gösterileceğini seçin.",
       "byteUnitDecimal": "Ondalık ({{megabyte}}, {{gigabyte}} · 1000)",

@@ -428,6 +428,11 @@ const settingsManager = new SettingsManager(settingsPath, {
     ) {
       eventBus.emit(Events.NotificationsChanged)
     }
+    if (old.app.keepStatsBarVisible !== updated.app.keepStatsBarVisible) {
+      eventBus.emit(Events.StatsBarVisibilityChanged, {
+        keepStatsBarVisible: updated.app.keepStatsBarVisible,
+      })
+    }
     if (old.app.sidebarColor !== updated.app.sidebarColor) {
       eventBus.emit(Events.SidebarColorChanged, {
         sidebarColor: updated.app.sidebarColor,

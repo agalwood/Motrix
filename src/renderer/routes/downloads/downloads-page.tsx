@@ -2,7 +2,12 @@ import { PanelShell } from '@renderer/components/desktop-kit/panel/panel-shell'
 import { Button } from '@renderer/components/ui/button'
 import { Skeleton } from '@renderer/components/ui/skeleton'
 import { useTaskList } from '@renderer/hooks/use-task-list'
+import { useTransportMirror } from '@renderer/hooks/use-transport-mirror'
 import { isTaskAvailable, resolveTaskRoute } from '@shared/lib/task-navigation'
+import { Events } from '@shared/protocol/events'
+import { Queries } from '@shared/protocol/queries'
+import { DEFAULT_APP_SETTINGS } from '@shared/schemas/app-settings'
+import type { AppSettings } from '@shared/types/settings'
 import type { TaskType } from '@shared/types/task'
 import {
   useCallback,
@@ -19,6 +24,7 @@ import {
   useParams,
   useSearchParams,
 } from 'react-router'
+import { TASK_HEADER_HEIGHT, TASK_ROW_HEIGHT } from './columns'
 import { DownloadsToolbar } from './downloads-toolbar'
 import {
   applyFilter,
@@ -285,6 +291,19 @@ export function DownloadsPage() {
     types,
   ])
 
+  const [keepStatsBarVisible, setKeepStatsBarVisible] = useState(
+    DEFAULT_APP_SETTINGS.keepStatsBarVisible
+  )
+  useTransportMirror({
+    events: [Events.StatsBarVisibilityChanged],
+    refreshOnSettingsSave: true,
+    load: async (stale, read) => {
+      const settings = (await read(Queries.GetSettings)) as AppSettings
+      if (!stale())
+        setKeepStatsBarVisible(settings?.app?.keepStatsBarVisible === true)
+    },
+  })
+
   const [container, setContainer] = useState<HTMLElement | null>(null)
   const taskListKey = `${filter}:${serializeTypeParam(types)}`
 
@@ -313,7 +332,7 @@ export function DownloadsPage() {
     grid: 0,
   })
   // biome-ignore lint/correctness/useExhaustiveDependencies: rebind when loading/empty states or the keyed task panel replace the observed elements without resizing the page root
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!container) return
     const footerElement = container.querySelector<HTMLElement>(
       '[data-slot="panel-shell-footer"]'
@@ -343,10 +362,21 @@ export function DownloadsPage() {
     if (gridElement) observer.observe(gridElement)
     return () => observer.disconnect()
   }, [container, status, hasReadySnapshot, filtered.length, taskListKey])
+  const inspectorBottomInset = keepStatsBarVisible ? inspectorMetrics.footer : 0
+  // A wrapping footer in a short window must still leave one complete row
+  // below the sticky list header, even at the largest drawer snap.
+  const inspectorMaxHeight =
+    keepStatsBarVisible && inspectorMetrics.grid > 0
+      ? Math.max(
+          1,
+          inspectorMetrics.grid - TASK_HEADER_HEIGHT - TASK_ROW_HEIGHT
+        )
+      : undefined
   const inspectorInset = resolveInspectorInset({
-    pageHeight: inspectorMetrics.page,
-    footerHeight: inspectorMetrics.footer,
+    pageHeight: inspectorMetrics.page - inspectorBottomInset,
+    footerHeight: inspectorMetrics.footer - inspectorBottomInset,
     gridHeight: inspectorMetrics.grid,
+    maxHeight: inspectorMaxHeight,
     snap: inspectorSnap,
     open: inspectorOpen,
   })
@@ -413,6 +443,8 @@ export function DownloadsPage() {
         selection={useDownloadsSelection}
         tasks={tasks}
         container={container}
+        bottomInset={inspectorBottomInset}
+        maxHeight={inspectorMaxHeight}
         onDismiss={removeTaskQuery}
       />
     </div>

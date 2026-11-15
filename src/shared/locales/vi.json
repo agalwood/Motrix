@@ -1373,6 +1373,8 @@
       "runModeLinuxDesc": "Khả năng dùng khay hệ thống và cách kích hoạt phụ thuộc vào môi trường màn hình nền của bạn.",
       "lightweightMode": "Chế độ nhẹ",
       "lightweightModeDesc": "Tiết kiệm bộ nhớ khi đóng cửa sổ. Tải xuống vẫn tiếp tục, nhưng cửa sổ mở lại lâu hơn và nội dung chưa lưu sẽ bị xóa.",
+      "keepStatsBarVisible": "Giữ thống kê hiển thị khi mở chi tiết",
+      "keepStatsBarVisibleDesc": "Giữ thanh thống kê tải xuống bên dưới bảng chi tiết tác vụ.",
       "byteUnitSystem": "Đơn vị kích thước và tốc độ",
       "byteUnitSystemDesc": "Chọn cách hiển thị kích thước tệp và tốc độ.",
       "byteUnitDecimal": "Thập phân ({{megabyte}}, {{gigabyte}} · 1000)",

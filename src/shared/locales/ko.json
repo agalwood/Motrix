@@ -1373,6 +1373,8 @@
       "runModeLinuxDesc": "시스템 트레이 지원 여부와 활성화 동작은 데스크톱 환경에 따라 다릅니다.",
       "lightweightMode": "경량 모드",
       "lightweightModeDesc": "창을 닫으면 메모리를 절약합니다. 다운로드는 계속되지만 창을 다시 여는 데 더 오래 걸리며 저장하지 않은 입력 내용은 지워집니다.",
+      "keepStatsBarVisible": "세부 정보가 열려 있을 때 통계 표시",
+      "keepStatsBarVisibleDesc": "작업 세부 정보 패널 아래에 다운로드 통계 표시줄을 유지합니다.",
       "byteUnitSystem": "크기 및 속도 단위",
       "byteUnitSystemDesc": "파일 크기와 속도의 표시 방식을 선택하세요.",
       "byteUnitDecimal": "십진수({{megabyte}}, {{gigabyte}} · 1000)",

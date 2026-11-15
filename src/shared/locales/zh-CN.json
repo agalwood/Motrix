@@ -1373,6 +1373,8 @@
       "runModeLinuxDesc": "系统托盘的可用性和激活方式取决于桌面环境。",
       "lightweightMode": "轻量模式",
       "lightweightModeDesc": "关闭窗口后节省内存，下载不受影响。重新打开稍慢，未保存的输入会清除。",
+      "keepStatsBarVisible": "详情展开时保留统计栏",
+      "keepStatsBarVisibleDesc": "在任务详情抽屉下方保留下载统计栏。",
       "byteUnitSystem": "大小和速度单位",
       "byteUnitSystemDesc": "选择文件大小和速度的显示单位。",
       "byteUnitDecimal": "十进制（{{megabyte}}、{{gigabyte}} · 1000）",

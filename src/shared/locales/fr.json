@@ -1895,6 +1895,8 @@
     "appearance": {
       "byteUnitBinary": "Binaires ({{megabyte}}, {{gigabyte}} · 1024)",
       "byteUnitDecimal": "Décimales ({{megabyte}}, {{gigabyte}} · 1000)",
+      "keepStatsBarVisible": "Garder les statistiques visibles avec les détails ouverts",
+      "keepStatsBarVisibleDesc": "Afficher la barre des statistiques de téléchargement sous le panneau des détails de la tâche.",
       "byteUnitSystem": "Unités de taille et de débit",
       "byteUnitSystemDefault": "Suivre le système ({{units}})",
       "byteUnitSystemDesc": "Choisissez les unités d’affichage des tailles de fichiers et des débits.",

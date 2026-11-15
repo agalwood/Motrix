@@ -1373,6 +1373,8 @@
       "runModeLinuxDesc": "Ketersediaan baki sistem dan perilaku aktivasinya bergantung pada lingkungan desktop.",
       "lightweightMode": "Mode ringan",
       "lightweightModeDesc": "Hemat memori saat jendela ditutup. Unduhan tetap berjalan, tetapi jendela lebih lama dibuka kembali dan isian yang belum disimpan akan dihapus.",
+      "keepStatsBarVisible": "Tetap tampilkan statistik saat detail terbuka",
+      "keepStatsBarVisibleDesc": "Pertahankan bilah statistik unduhan di bawah panel detail tugas.",
       "byteUnitSystem": "Satuan ukuran dan kecepatan",
       "byteUnitSystemDesc": "Pilih cara menampilkan ukuran berkas dan kecepatan.",
       "byteUnitDecimal": "Desimal ({{megabyte}}, {{gigabyte}} · 1000)",

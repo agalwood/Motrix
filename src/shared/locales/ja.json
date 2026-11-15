@@ -1373,6 +1373,8 @@
       "runModeLinuxDesc": "システムトレイの利用可否やアプリの表示動作は、デスクトップ環境によって異なります。",
       "lightweightMode": "軽量モード",
       "lightweightModeDesc": "ウインドウを閉じたときにメモリーを節約します。ダウンロードは続行されますが、再度開くときに時間がかかり、未保存の入力内容は消去されます。",
+      "keepStatsBarVisible": "詳細表示中も統計バーを表示",
+      "keepStatsBarVisibleDesc": "タスクの詳細パネルの下にダウンロード統計バーを表示します。",
       "byteUnitSystem": "サイズと速度の単位",
       "byteUnitSystemDesc": "ファイルサイズと速度の表示方法を選択します。",
       "byteUnitDecimal": "10 進単位（{{megabyte}}、{{gigabyte}} · 1000）",

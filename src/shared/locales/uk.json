@@ -1914,6 +1914,8 @@
     "appearance": {
       "byteUnitBinary": "Двійкові ({{megabyte}}, {{gigabyte}} · 1024)",
       "byteUnitDecimal": "Десяткові ({{megabyte}}, {{gigabyte}} · 1000)",
+      "keepStatsBarVisible": "Показувати статистику з відкритими подробицями",
+      "keepStatsBarVisibleDesc": "Залишати панель статистики завантажень під панеллю відомостей про завдання.",
       "byteUnitSystem": "Одиниці розміру та швидкості",
       "byteUnitSystemDefault": "Як у системі ({{units}})",
       "byteUnitSystemDesc": "Виберіть спосіб відображення розмірів файлів і швидкості.",

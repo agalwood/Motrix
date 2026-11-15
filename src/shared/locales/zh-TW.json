@@ -1373,6 +1373,8 @@
       "runModeLinuxDesc": "系統匣的可用性和啟用方式取決於桌面環境。",
       "lightweightMode": "輕量模式",
       "lightweightModeDesc": "關閉視窗後節省記憶體，下載不受影響。重新開啟稍慢，未儲存的輸入會清除。",
+      "keepStatsBarVisible": "詳情展開時保留統計列",
+      "keepStatsBarVisibleDesc": "在工作詳情抽屜下方保留下載統計列。",
       "byteUnitSystem": "大小與速度單位",
       "byteUnitSystemDesc": "選擇檔案大小和速度的顯示單位。",
       "byteUnitDecimal": "十進位（{{megabyte}}、{{gigabyte}} · 1000）",
