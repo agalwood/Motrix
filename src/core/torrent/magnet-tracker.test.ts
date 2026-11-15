@@ -64,6 +64,9 @@ function createMockRpcClient() {
     removeTask: vi.fn<(gid: string) => Promise<string>>(),
     forceRemoveTask: vi.fn<(gid: string) => Promise<string>>(),
     removeDownloadResult: vi.fn<(gid: string) => Promise<'OK'>>(),
+    onTorrentMetadataReady: vi
+      .fn<(handler: EventHandler) => () => void>()
+      .mockReturnValue(vi.fn()),
     onDownloadComplete: vi
       .fn<(handler: EventHandler) => () => void>()
       .mockReturnValue(vi.fn()),
@@ -409,6 +412,7 @@ describe('MagnetTracker', () => {
       torrentParser
     )
 
+    expect(rpc.onTorrentMetadataReady).toHaveBeenCalledOnce()
     expect(rpc.onDownloadComplete).toHaveBeenCalledOnce()
     expect(rpc.onBtDownloadComplete).toHaveBeenCalledOnce()
     expect(rpc.onDownloadError).toHaveBeenCalledOnce()
@@ -454,7 +458,7 @@ describe('MagnetTracker', () => {
         ],
       },
     })
-    await rpc.onBtDownloadComplete.mock.calls[0][0](lastMetadataGid())
+    await rpc.onTorrentMetadataReady.mock.calls[0][0](lastMetadataGid())
     await vi.waitFor(() =>
       expect(db.getTask(taskId)?.task.aggStatus).toBe(TaskStatus.MetadataReady)
     )
@@ -467,6 +471,16 @@ describe('MagnetTracker', () => {
       true
     )
     expect(emitted.meta.files[0].size).toBe(65536)
+    await rpc.onTorrentMetadataReady.mock.calls[0][0](lastMetadataGid())
+    await rpc.onBtDownloadComplete.mock.calls[0][0](lastMetadataGid())
+    expect(rpc.getTorrentMetadata).toHaveBeenCalledTimes(1)
+    expect(rpc.tellStatus).not.toHaveBeenCalled()
+    expect(rpc.getFiles).not.toHaveBeenCalled()
+    expect(
+      eventBus.emit.mock.calls.filter(
+        (call) => call[0] === Events.MagnetFileSelection
+      )
+    ).toHaveLength(1)
     const reopened = await tracker.getFileSelection(taskId)
     expect(reopened?.meta.infoHash).toBe(hash)
     expect(torrentParser.parse).not.toHaveBeenCalled()

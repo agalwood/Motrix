@@ -237,6 +237,7 @@ export class Aria2Adapter implements EngineAdapter {
   private directResourceMetadataProfile: DirectResourceMetadataProfile | null =
     null
 
+  private metadataReadyHandlers: Array<(engineTaskId: string) => void> = []
   private btCompleteHandlers: Array<(engineTaskId: string) => void> = []
   private downloadCompleteHandlers: Array<(engineTaskId: string) => void> = []
   private downloadErrorHandlers: Array<(engineTaskId: string) => void> = []
@@ -313,6 +314,7 @@ export class Aria2Adapter implements EngineAdapter {
   dispose(): void {
     if (this.disposed) return
     this.disposed = true
+    this.metadataReadyHandlers = []
     this.btCompleteHandlers = []
     this.downloadCompleteHandlers = []
     this.downloadErrorHandlers = []
@@ -327,6 +329,18 @@ export class Aria2Adapter implements EngineAdapter {
     if (firstError !== undefined) {
       throw firstError
     }
+  }
+
+  protected ownNotificationSubscription(unsubscribe: () => void): void {
+    if (this.disposed) {
+      unsubscribe()
+      return
+    }
+    this.rpcUnsubscribers.push(unsubscribe)
+  }
+
+  protected emitTorrentMetadataReady(gid: string): void {
+    this.fanOut(this.metadataReadyHandlers, gid)
   }
 
   private fanOut(
@@ -1425,6 +1439,16 @@ export class Aria2Adapter implements EngineAdapter {
     return {
       newEngineTaskId: result.gid,
       strategy: result.strategy,
+    }
+  }
+
+  onTorrentMetadataReady(handler: (engineTaskId: string) => void): () => void {
+    // Legacy engines continue to use status reconciliation instead of emitting this event.
+    this.metadataReadyHandlers.push(handler)
+    return () => {
+      this.metadataReadyHandlers = this.metadataReadyHandlers.filter(
+        (h) => h !== handler
+      )
     }
   }
 

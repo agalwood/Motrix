@@ -30,6 +30,48 @@ function fixture() {
 }
 
 describe('native taiji RPC boundary', () => {
+  it('delivers native metadata readiness without status or feature queries', () => {
+    const { rpc, protocol, notify } = fixture()
+    const adapter = new TaijiAdapter(rpc)
+    const ready = vi.fn()
+    const unsubscribe = adapter.onTorrentMetadataReady(ready)
+    notify('taiji.onDownloadPause')
+    expect(ready).not.toHaveBeenCalled()
+    notify('taiji.onTorrentMetadataReady')
+    expect(ready).toHaveBeenCalledExactlyOnceWith('gid')
+    expect(protocol.call).not.toHaveBeenCalled()
+    unsubscribe()
+    notify('taiji.onTorrentMetadataReady')
+    expect(ready).toHaveBeenCalledTimes(1)
+  })
+
+  it('releases metadata-ready subscriptions when the adapter is disposed', () => {
+    const { rpc, notify } = fixture()
+    const adapter = new TaijiAdapter(rpc)
+    const ready = vi.fn()
+    adapter.onTorrentMetadataReady(ready)
+    adapter.dispose()
+    notify('taiji.onTorrentMetadataReady')
+    expect(ready).not.toHaveBeenCalled()
+    const late = vi.fn()
+    adapter.onTorrentMetadataReady(late)
+    notify('taiji.onTorrentMetadataReady')
+    expect(late).not.toHaveBeenCalled()
+  })
+
+  it('isolates a failing metadata-ready subscriber', () => {
+    const { rpc, notify } = fixture()
+    const adapter = new TaijiAdapter(rpc)
+    const ready = vi.fn()
+    adapter.onTorrentMetadataReady(() => {
+      throw new Error('consumer failed')
+    })
+    adapter.onTorrentMetadataReady(ready)
+    expect(() => notify('taiji.onTorrentMetadataReady')).not.toThrow()
+    expect(ready).toHaveBeenCalledExactlyOnceWith('gid')
+    adapter.dispose()
+  })
+
   it('reads the synchronized manifest contract directly, including v2 proof readiness', async () => {
     const { rpc, protocol } = fixture()
     const manifest = {

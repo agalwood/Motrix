@@ -221,6 +221,11 @@ export class MagnetTracker {
     private lifecycle: MagnetTrackerLifecycle
   ) {
     this.storeUnsubscribe(
+      this.engine.onTorrentMetadataReady((gid) =>
+        this.trackCallback(() => this.onComplete(gid))
+      )
+    )
+    this.storeUnsubscribe(
       this.engine.onDownloadComplete((gid) =>
         this.trackCallback(() => this.onComplete(gid))
       )

@@ -465,10 +465,10 @@ export interface EngineAdapter {
     overrides?: Record<string, string>
   ): Promise<RequeueResult>
 
-  /**
-   * Subscribe to aria2.onBtDownloadComplete notifications.
-   * Returns an unsubscribe function.
-   */
+  /** Verified magnet info is ready for native file selection. */
+  onTorrentMetadataReady(handler: (engineTaskId: string) => void): () => void
+
+  /** Subscribe to BT payload completion notifications. */
   onBtDownloadComplete(handler: (engineTaskId: string) => void): () => void
 
   /**

@@ -35,6 +35,8 @@ import { taijiProxyOptions, taijiRuntimeSettings } from './taiji-settings'
  * Process start/stop remains the EngineSupervisor's responsibility.
  */
 export class TaijiAdapter extends Aria2Adapter {
+  private metadataReadySubscribed = false
+
   private prepareDiscovery(): void {
     void this.taijiRpc.prepareBitTorrent().catch((error: unknown) => {
       getLogger('taiji-adapter').debug(
@@ -199,6 +201,20 @@ export class TaijiAdapter extends Aria2Adapter {
         'bt-save-metadata': 'false',
       },
     })
+  }
+
+  override onTorrentMetadataReady(
+    handler: (engineTaskId: string) => void
+  ): () => void {
+    if (!this.metadataReadySubscribed) {
+      this.ownNotificationSubscription(
+        this.taijiRpc.onTorrentMetadataReady(({ gid }) =>
+          this.emitTorrentMetadataReady(gid)
+        )
+      )
+      this.metadataReadySubscribed = true
+    }
+    return super.onTorrentMetadataReady(handler)
   }
 
   getMagnetResolution(engineTaskId: string) {

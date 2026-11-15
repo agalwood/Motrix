@@ -59,15 +59,16 @@ describe.skipIf(!process.env.MOTRIX_TAIJI_BIN && !existsSync(bundled))(
         try {
           const port = await listen(tracker)
           engine = await start(directory)
+          const ready: string[] = []
+          const unsubscribe = engine.adapter.onTorrentMetadataReady((gid) =>
+            ready.push(gid)
+          )
           const gid = await engine.adapter.fetchMagnetMetadata({
             uri: `${peer.magnet}&tr=${encodeURIComponent(`http://127.0.0.1:${port}/announce`)}`,
             saveDir: path.join(directory, 'metadata'),
           })
-          await expect
-            .poll(async () => (await engine!.rpc.tellStatus(gid)).status, {
-              timeout: 4000,
-            })
-            .toBe('paused')
+          await expect.poll(() => ready, { timeout: 4000 }).toEqual([gid])
+          unsubscribe()
           const result = await engine.adapter.getTorrentMetadata(gid)
           expect(result.awaitingSelection).toBe(true)
           expect(result.manifest.infoHash).toBe(peer.infoHash)
@@ -292,6 +293,40 @@ describe.skipIf(!process.env.MOTRIX_TAIJI_BIN && !existsSync(bundled))(
         await rm(directory, { recursive: true, force: true })
       }
     }, 20000)
+
+    it('does not report metadata readiness for an ordinary user pause', async () => {
+      const directory = await mkdtemp(
+        path.join(tmpdir(), 'taiji-metadata-pause-')
+      )
+      const tracker = createServer((_request, response) =>
+        response.end(encode({ interval: 3600, peers: Buffer.alloc(0) }))
+      )
+      let engine: Awaited<ReturnType<typeof start>> | undefined
+      try {
+        const port = await listen(tracker)
+        engine = await start(directory)
+        const ready: string[] = []
+        const unsubscribe = engine.adapter.onTorrentMetadataReady((gid) =>
+          ready.push(gid)
+        )
+        const gid = await engine.adapter.fetchMagnetMetadata({
+          uri: `magnet:?xt=urn:btih:${'7'.repeat(40)}&tr=${encodeURIComponent(`http://127.0.0.1:${port}/announce`)}`,
+          saveDir: directory,
+        })
+        await engine.adapter.pauseTask(gid)
+        await expect
+          .poll(async () => (await engine!.rpc.tellStatus(gid)).status)
+          .toBe('paused')
+        await expect(engine.adapter.getTorrentMetadata(gid)).rejects.toThrow()
+        expect(ready).toEqual([])
+        unsubscribe()
+      } finally {
+        await engine?.close()
+        tracker.closeAllConnections()
+        await new Promise<void>((resolve) => tracker.close(() => resolve()))
+        await rm(directory, { recursive: true, force: true })
+      }
+    }, 10000)
 
     it('rejects a corrupted network proof without exporting metadata or requesting payload', async () => {
       const directory = await mkdtemp(path.join(tmpdir(), 'taiji-bad-proof-'))

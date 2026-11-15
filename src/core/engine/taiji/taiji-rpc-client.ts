@@ -195,6 +195,12 @@ export class TaijiRpcClient extends Aria2RpcClient {
     }
   }
 
+  onTorrentMetadataReady(
+    handler: (event: { gid: string }) => void
+  ): () => void {
+    return this.addHandler('aria2.onTorrentMetadataReady', handler)
+  }
+
   async getMagnetResolution(gid: string) {
     return magnetResolutionSchema.parse(
       await this.call('taiji.getMagnetResolution', [gid])
