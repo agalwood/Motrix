@@ -184,10 +184,10 @@ test('native host refresh reads new configuration after an earlier theme event',
   await page.evaluate(() => {
     const host = window as unknown as {
       hostConfig: { theme: string }
-      hostEmit: (event: string, value: string) => void
+      hostEmit: (event: string, value: unknown) => void
     }
     host.hostConfig.theme = 'dark'
-    host.hostEmit('os/theme', 'dark')
+    host.hostEmit('os/theme', { theme: 'dark' })
   })
   await expect(frame.locator('html')).toHaveClass(/dark/)
   await page.evaluate(() => {

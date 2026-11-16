@@ -59,6 +59,13 @@ export async function fnosPlatformConfig(): Promise<PlatformConfig> {
   return reusedSnapshot ? { ...config, ...platformEvents } : config
 }
 
+const themeValue = z.enum(['dark', 'light'])
+// Native fnOS emits an object; extension hosts can emit the theme directly.
+const themeEvent = z.union([
+  themeValue,
+  z.object({ theme: themeValue }).transform(({ theme }) => theme),
+])
+
 export function watchFnosPlatform(
   event: 'os/theme' | 'os/language',
   refresh: (value: string) => void
@@ -68,14 +75,16 @@ export function watchFnosPlatform(
   const receive = (value: unknown) => {
     if (disposed) return
     if (event === 'os/theme') {
-      if (value !== 'dark' && value !== 'light') return
-      platformEvents.theme = value
+      const parsed = themeEvent.safeParse(value)
+      if (!parsed.success) return
+      platformEvents.theme = parsed.data
+      refresh(parsed.data)
     } else {
       if (typeof value !== 'string' || !/^[a-zA-Z0-9_-]{1,128}$/.test(value))
         return
       platformEvents.language = value
+      refresh(value)
     }
-    refresh(value)
   }
   if (isFnos())
     void fnosSdk()
