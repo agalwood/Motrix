@@ -140,13 +140,47 @@ implementation time the official fnpack page linked 1.2.3 binaries returning
 - File actions obtain the published task path from the backend, check scope
   and read permission, then invoke the fnOS file or file-manager action.
 - System theme/language preferences follow the fnOS host. Explicit Motrix
-  preferences remain explicit. Mobile/standalone sessions refresh on focus;
-  only embedded Web hosts subscribe to SDK theme/language events.
+  preferences take priority. Web hosts subscribe to the documented SDK event
+  values; native and mobile sessions also read fresh configuration on focus.
 
 The backend reads `TRIM_API_TOKEN` from the running environment on every API
 call. It is not written to package receipts, settings or browser responses.
 `MOTRIX_FNOS_API_SOCKET` is a test/integration override; an installed FPK uses
 the platform's `/var/run/trim_open_gateway_apiscope.socket` by default.
+
+## SDK 0.6 host behavior
+
+Motrix uses the published `@trimjs/web-app@0.6.0` SDK. Native fnOS iframe and
+mobile hosts keep their direct shared-directory picker and file actions.
+Top-level Web pages use the official `pickSharedFile` App Auth route, including
+pages connected to a Trim Extension Host. That SDK adapter reports
+`isStandaloneWeb=false` but does not implement `pickSharedFile`, `openFile`
+or `openFileManager`. An unsupported file action directs the user to open
+Motrix from the fnOS desktop or mobile app.
+
+Directory authorization reserves its popup in the click handler before SDK
+discovery, which can take five seconds without an extension. The callback is
+parsed without waiting for discovery. The opener validates the exact popup,
+gateway origin, method, application and random state, then the backend validates
+the selected directory against current grants and the user's ACL. Closing the
+popup cancels the operation; denial and timeout produce an error. If a browser
+cannot retain an opener, authorize a directory in fnOS Application settings and
+use the existing directory input. Every submitted path is still checked by the
+backend.
+
+Theme and language events carry the current values. Motrix validates and uses
+them even if the extension adapter returns its cached initial configuration.
+Fresh native-host configuration still wins on a later focus refresh.
+A failed SDK initialization can reconnect on a later call without caching a
+rejected readiness promise. See the official [calling conventions](https://developer.fnnas.com/api/calling)
+and [theme/language events](https://developer.fnnas.com/api/page/ui).
+
+`pnpm exec playwright test --config e2e/fnos-sdk/playwright.config.ts` exercises
+the real SDK with simulated native, extension and mobile bridges, plus an
+ordinary browser with no host. It covers popup activation, the same-origin
+callback, backend directory validation, file-action errors and preferences.
+These fixtures establish the frontend contract; installation on an actual NAS
+remains part of device acceptance.
 
 ## Lifecycle and validation boundary
 

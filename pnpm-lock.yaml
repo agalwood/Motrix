@@ -222,8 +222,8 @@ importers:
         specifier: ^3.14.26
         version: 3.14.26(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@trimjs/web-app':
-        specifier: ^0.5.0
-        version: 0.5.0
+        specifier: ^0.6.0
+        version: 0.6.0
       '@xyflow/react':
         specifier: ^12.12.1
         version: 12.12.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(immer@11.2.9)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -1585,8 +1585,8 @@ packages:
     peerDependencies:
       '@testing-library/dom': '>=7.21.4'
 
-  '@trimjs/web-app@0.5.0':
-    resolution: {integrity: sha512-YHDVSUDP4CYoMAkplNyv+IxB0bTTH8IYPikQEx4RrSoOe3/oQC8wCa8OrXTc57EcYJW1gYC7EC+Z1q5vGEvipA==}
+  '@trimjs/web-app@0.6.0':
+    resolution: {integrity: sha512-UFYw4p6L54iilhEWPGmk3GZ9wGkg1MTjODqqbbEaky96cKBPygliJaB/J4m6hYsQK3MF4zpWfduA9PsLAfo7aA==}
 
   '@ts-morph/common@0.27.0':
     resolution: {integrity: sha512-Wf29UqxWDpc+i61k3oIOzcUfQt79PIT9y/MWfAGlrkjg6lBC1hwDECLXPVJAhWjiGbfBCxZd65F/LIZF3+jeJQ==}
@@ -5450,7 +5450,7 @@ snapshots:
     dependencies:
       '@testing-library/dom': 10.4.2
 
-  '@trimjs/web-app@0.5.0': {}
+  '@trimjs/web-app@0.6.0': {}
 
   '@ts-morph/common@0.27.0':
     dependencies:

@@ -8,7 +8,11 @@ import {
   type SettingsReader,
 } from '@renderer/lib/settings-refresh'
 import { transport } from '@renderer/lib/transport'
-import { fnosSdk, isFnos, watchFnosPlatform } from '@renderer/platform/fnos'
+import {
+  fnosPlatformConfig,
+  isFnos,
+  watchFnosPlatform,
+} from '@renderer/platform/fnos'
 import {
   isSupportedLocale,
   resolveSupportedLocale,
@@ -60,7 +64,8 @@ export function LanguageSync({
     }
 
     const reconcileHostLocale = async (
-      read: SettingsReader = (channel) => transport.invoke(channel)
+      read: SettingsReader = (channel) => transport.invoke(channel),
+      hostLanguage?: string
     ): Promise<void> => {
       const localeGeneration = ++generation
       const state = await read(
@@ -74,9 +79,10 @@ export function LanguageSync({
         windowId !== 'onboarding' &&
         (state as AppSettings)?.app?.language === 'system'
       ) {
-        const config = await (await fnosSdk()).getPlatformConfig()
+        const nextLanguage =
+          hostLanguage ?? (await fnosPlatformConfig()).language
         await queueLocale(
-          resolveSupportedLocale(config.language),
+          resolveSupportedLocale(nextLanguage),
           localeGeneration
         )
         return
@@ -87,7 +93,9 @@ export function LanguageSync({
     }
 
     const refresh = () => void reconcileHostLocale().catch(() => {})
-    const stopFnosSync = watchFnosPlatform('os/language', refresh)
+    const stopFnosSync = watchFnosPlatform('os/language', (language) => {
+      void reconcileHostLocale(undefined, language).catch(() => {})
+    })
 
     // Subscribe before starting a query so a newer live/buffered event wins
     // over any older authoritative snapshot returned by IPC/HTTP.

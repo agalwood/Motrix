@@ -2,7 +2,7 @@ import { useAddTaskDialogStore } from '@renderer/components/add-task-dialog/use-
 import { readTorrentFile } from '@renderer/lib/parse-torrent-file'
 import { torrentFileErrorKey } from '@shared/lib/engine-torrent'
 import { useEffect } from 'react'
-import { fnosRequest, fnosSdk, isFnos } from './fnos'
+import { fnosRequest, isFnos, parseFnosAuthCallback } from './fnos'
 import { usePlatformServices } from './services'
 
 /** File associations open a draft; they never submit a download automatically. */
@@ -12,8 +12,8 @@ export function FnosEntry() {
     if (!isFnos()) return
     let active = true
     void (async () => {
-      const sdk = await fnosSdk()
-      const callback = sdk.parseAppAuthCallback(location.href)
+      const callback = await parseFnosAuthCallback(location.href)
+      if (!active) return
       if (
         callback.state &&
         callback.method === 'pickSharedFile' &&

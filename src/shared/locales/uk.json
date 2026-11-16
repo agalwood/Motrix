@@ -933,7 +933,8 @@
         "downloadToDevice": "Download to this device",
         "revealInFileStation": "Show in File Station",
         "nasFileUnavailable": "File access could not be authorized. Check the account and folder permissions.",
-        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again."
+        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again.",
+        "fnosHostRequired": "Відкрийте Motrix із робочого столу fnOS або мобільного застосунку, щоб виконати цю дію з файлом."
       },
       "column": {
         "connections": "З’єднання",
@@ -2986,7 +2987,8 @@
       "urlsWithInvalid": "Коректні: {{valid}}, некоректні: {{invalid}}",
       "userAgent": "User-Agent",
       "validUrlCount": "Коректні: {{count}}",
-      "selectNasTorrent": "Choose a torrent from the NAS"
+      "selectNasTorrent": "Choose a torrent from the NAS",
+      "fnosAuthorizationPopupBlocked": "Дозвольте спливні вікна для цього сайту й виберіть теку ще раз."
     },
     "detail": {
       "peers": "Піри: {{count}}",

@@ -954,7 +954,8 @@
         "downloadToDevice": "Download to this device",
         "revealInFileStation": "Show in File Station",
         "nasFileUnavailable": "File access could not be authorized. Check the account and folder permissions.",
-        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again."
+        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again.",
+        "fnosHostRequired": "このファイル操作を使うには、fnOS デスクトップまたはモバイルアプリから Motrix を開いてください。"
       },
       "titleCount": "{{shown}} 件表示 · 全 {{total}} 件",
       "type": {
@@ -1144,7 +1145,8 @@
       },
       "undoCorrection": "URL の修正を取り消す",
       "submissionUnconfirmed": "結果を確認できていません。再試行時は、別のタスクを作成する前に元のリクエストを確認します。",
-      "selectNasTorrent": "Choose a torrent from the NAS"
+      "selectNasTorrent": "Choose a torrent from the NAS",
+      "fnosAuthorizationPopupBlocked": "このサイトのポップアップを許可してから、フォルダーをもう一度選択してください。"
     },
     "detail": {
       "peers": "ピア: {{count}}",

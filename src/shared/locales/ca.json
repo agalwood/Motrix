@@ -930,7 +930,8 @@
         "downloadToDevice": "Download to this device",
         "revealInFileStation": "Show in File Station",
         "nasFileUnavailable": "File access could not be authorized. Check the account and folder permissions.",
-        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again."
+        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again.",
+        "fnosHostRequired": "Obriu Motrix des de l’escriptori del fnOS o l’aplicació mòbil per utilitzar aquesta acció de fitxer."
       },
       "column": {
         "connections": "Connexions",
@@ -2965,7 +2966,8 @@
       "urlsWithInvalid": "Vàlids: {{valid}}, no vàlids: {{invalid}}",
       "userAgent": "User-Agent",
       "validUrlCount": "Vàlids: {{count}}",
-      "selectNasTorrent": "Choose a torrent from the NAS"
+      "selectNasTorrent": "Choose a torrent from the NAS",
+      "fnosAuthorizationPopupBlocked": "Permeteu les finestres emergents d’aquest lloc i torneu a seleccionar la carpeta."
     },
     "detail": {
       "peers": "Parells: {{count}}",
