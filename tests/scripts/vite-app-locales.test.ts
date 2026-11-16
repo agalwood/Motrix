@@ -20,6 +20,7 @@ describe('desktop main locale projection', () => {
       expect(original.operatorAdmin).toBeDefined()
       const result = JSON.parse(transform(source, path.join(root, file))!.code)
       expect(result.operatorAdmin).toBeUndefined()
+      expect(result.operatorToken).toBeUndefined()
       expect(result.settings.integration.browser).toBeUndefined()
       expect(result.task.add.duplicate).toBeUndefined()
       expect(result.task.storage).toEqual({
@@ -28,6 +29,7 @@ describe('desktop main locale projection', () => {
         errors: original.task.storage.errors,
       })
       delete original.operatorAdmin
+      delete original.operatorToken
       original.createTorrent = { menuLabel: original.createTorrent.menuLabel }
       delete original.settings.integration.browser
       delete original.task.add.duplicate
@@ -59,6 +61,7 @@ describe('desktop main locale projection', () => {
     delete original.operatorAdmin
     expect(projected).toEqual(original)
     expect(projected.createTorrent.seedAfter).toBeTruthy()
+    expect(projected.operatorToken).toEqual(original.operatorToken)
   })
 
   it('leaves unrelated JSON and scripts unchanged', () => {

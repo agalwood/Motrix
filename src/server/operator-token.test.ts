@@ -1,8 +1,16 @@
-import { chmod, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import {
+  chmod,
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { provisionOperatorToken } from './operator-token'
+import { persistOperatorToken, provisionOperatorToken } from './operator-token'
 
 describe('provisionOperatorToken', () => {
   let dir: string
@@ -62,11 +70,33 @@ describe('provisionOperatorToken', () => {
 
   it('refuses to rotate an invalid persistent token silently', async () => {
     const path = join(dir, 'operator-token')
-    await writeFile(path, 'not-a-valid-generated-token', { mode: 0o600 })
+    await writeFile(path, 'invalid\ntoken', { mode: 0o600 })
 
     await expect(
       provisionOperatorToken({ dataDir: dir, env: {} })
     ).rejects.toThrow(/Operator token file is invalid/)
-    expect(await readFile(path, 'utf8')).toBe('not-a-valid-generated-token')
+    expect(await readFile(path, 'utf8')).toBe('invalid\ntoken')
+  })
+
+  it.each(['1', '只想安静地下载文件', ' spaced passphrase '])(
+    'persists a custom token and reads it on restart: %s',
+    async (token) => {
+      const initial = await provisionOperatorToken({ dataDir: dir, env: {} })
+      await persistOperatorToken(initial.path!, token)
+      expect(
+        (await provisionOperatorToken({ dataDir: dir, env: {} })).token
+      ).toBe(token)
+      expect((await stat(initial.path!)).mode & 0o777).toBe(0o600)
+    }
+  )
+
+  it('keeps the old file after invalid input and refuses symlink destinations', async () => {
+    const initial = await provisionOperatorToken({ dataDir: dir, env: {} })
+    await expect(persistOperatorToken(initial.path!, '')).rejects.toThrow()
+    expect(await readFile(initial.path!, 'utf8')).toBe(initial.token)
+    const link = join(dir, 'linked-token')
+    await symlink(initial.path!, link)
+    await expect(persistOperatorToken(link, '1')).rejects.toThrow()
+    expect(await readFile(initial.path!, 'utf8')).toBe(initial.token)
   })
 })

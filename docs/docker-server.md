@@ -396,6 +396,46 @@ The same token is reused across restart and image replacement. You may set
 `MOTRIX_OPERATOR_TOKEN` instead, but environment variables are visible in
 container metadata; the generated file is the safer single-host default.
 
+After signing in, open **Settings → Advanced → Access password → Change password**
+and enter the current password, new password, and confirmation in the dialog,
+then select **Update password** in the footer. Alternatively, run the
+CLI inside the running container; input is hidden and requested twice:
+
+```bash
+docker compose exec server motrix-admin token set
+```
+
+Scripts can provide one line through standard input, keeping the token out of
+command arguments and shell history:
+
+```bash
+docker compose exec -T server motrix-admin token set --stdin --json < /secure/new-token.txt
+```
+
+Weak tokens produce a warning but can still be saved. There is no required mix
+of uppercase, lowercase, numbers, or symbols; Unicode and spaces are supported.
+Only blank values, control characters, and inputs longer than 1,024 UTF-16 code
+units are rejected. The CLI removes one trailing line ending from stdin and
+preserves spaces in the token. The new token atomically replaces `operator-token`
+at mode `0600`, takes effect immediately, and survives restarts. The old token and
+other sessions stop working. A Web change keeps the current browser session;
+a CLI change signs out all existing sessions. Downloads are not removed or
+interrupted. If a network failure leaves the outcome uncertain, read the token
+file on the host before retrying. A forgotten token can also be recovered from
+that file without clearing download data.
+
+When `MOTRIX_OPERATOR_TOKEN` is set, Web and CLI explain that the credential is
+deployment-managed. Change the environment variable and restart the server;
+it always takes precedence over the file. Native fnOS and Synology packages
+continue to authenticate through NAS accounts and do not expose a separate
+administrator-token setting.
+
+Login and HTTP credential verification are limited by connection source IP:
+after 20 failures within a minute, verification pauses until the window expires.
+Clients behind a reverse proxy may share the same source IP. Ordinary ASCII
+tokens still support Bearer authentication. Tokens containing spaces or non-ASCII
+characters support HTTP Basic with an empty username; the CLI selects this automatically.
+
 If the Web approval URL is unavailable, an operator connected over SSH can
 approve the exact device code from inside the running container. The command
 uses the existing operator credential over container loopback; it never prints
@@ -745,7 +785,7 @@ detection.
 | Port is already allocated | Change `MOTRIX_HTTP_PORT` or `MOTRIX_MDXP_PUBLIC_PORT`, and update `MOTRIX_PUBLIC_URL` if the Web port changes. |
 | Web UI is healthy but port 16801 refuses connections | Look for `bridge data ownership unavailable` and inspect its `stage` and `reason` fields. If ownership is ready, verify the MDXP publish address and all four remote Extension variables. |
 | External aria2 RPC client cannot connect | Confirm `MOTRIX_ARIA2_RPC_LISTEN_ALL=true`, a non-empty matching RPC secret, the correct 16800 mapping (or configured RPC port), and the host firewall. The standard Compose files do not publish this port. |
-| Web UI opens but unlock fails | Read the current persistent `/data/operator-token`; do not use a token copied from another deployment. Verify the file is regular, base64url text, and mode `0600`. |
+| Web UI opens but unlock fails | Read the current persistent `/data/operator-token`; do not use a token copied from another deployment. Verify the file is regular, contains a nonblank single-line token, and has mode `0600`; environment configuration takes precedence. Wait a minute after too many attempts. |
 | Download directory is rejected or files are missing from the NAS share | Use an absolute container path below `MOTRIX_ALLOWED_SAVE_DIRS`; verify the intended host directory is mounted at that exact path and writable by the runtime UID/GID. |
 | Plugin install fails | Inspect `/api/diagnostics` and logs, retain `/data`, confirm package/source trust and network/TLS access, and mount any `MOTRIX_PLUGIN_IMPORT_DIRS` explicitly. Do not enable unmanaged plugins for a normal `.moext`, URL, or registry install. |
 | Container is unhealthy after an upgrade | Inspect logs and diagnostics, verify both mounts, then roll back to the recorded immutable image and matching `/data` backup. |

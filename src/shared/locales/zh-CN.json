@@ -1,15 +1,15 @@
 {
   "operatorUnlock": {
-    "title": "解锁 Motrix",
-    "help": "此服务器需要管理员令牌。请在主机上设置 MOTRIX_OPERATOR_TOKEN，或读取 <dataDir>/operator-token 中的令牌，然后粘贴到下方。",
-    "placeholder": "管理员令牌",
-    "error": "管理员令牌无效。请核对主机上的 MOTRIX_OPERATOR_TOKEN 或 <dataDir>/operator-token 后重试。",
-    "submit": "解锁",
+    "title": "登录 Motrix",
+    "help": "首次登录或忘记密码时，请向服务器管理员获取访问密码。",
+    "placeholder": "访问密码",
+    "error": "密码不正确，请重试。",
+    "submit": "登录",
     "nasSessionExpired": "无法验证 NAS 管理员会话，请从 NAS 桌面重新打开 Motrix。",
     "openDsm": "打开 DSM 登录"
   },
   "operatorAdmin": {
-    "help": "用法：\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <配对码> [--json]\n  motrix-admin pairing deny <配对码> [--json]\n  motrix-admin extension pair\n\n此命令仅通过容器内的本机回环地址与正在运行的 Motrix 服务器通信。",
+    "help": "用法：\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <配对码> [--json]\n  motrix-admin pairing deny <配对码> [--json]\n  motrix-admin extension pair\n\n此命令仅通过容器内的本机回环地址与正在运行的 Motrix 服务器通信。\n\n  motrix-admin token set [--stdin] [--json]\n设置自定义管理员令牌；弱令牌只提示，不阻止保存。",
     "errorPrefix": "motrix-admin：{{message}}",
     "usageHint": "运行 `motrix-admin --help` 查看用法。",
     "pending": {
@@ -71,6 +71,21 @@
       "cancelled": "已关闭配对码视图，未发送批准或拒绝操作。",
       "invalidSelection": "请通过序号选择一个列表中的请求。",
       "unavailable": "所选请求已过期、结束或发生变化，请在扩展中重新发起配对。"
+    },
+    "token": {
+      "weak": "此令牌可能容易被猜到，建议使用更长、独特的短语。你仍然可以保存。",
+      "invalid": "请输入非空白令牌，最多 1,024 个字符，不能包含控制字符。",
+      "mismatch": "两次输入的新令牌不一致。",
+      "incorrectToken": "当前令牌不正确，请核对后重试。",
+      "managed": "此令牌由 MOTRIX_OPERATOR_TOKEN 管理，请修改部署环境变量并重启服务器。",
+      "unavailable": "无法保存令牌，旧令牌仍然有效。请检查服务器存储后重试。",
+      "rateLimited": "尝试次数过多，请等待一分钟后重试。",
+      "unknown": "无法确认修改结果，请先检查服务器上的令牌文件再重试。",
+      "prompt": "新令牌（输入隐藏）：",
+      "confirm": "再次输入新令牌：",
+      "saved": "令牌已更新，已有会话已退出登录，下载任务继续运行。",
+      "ttyRequired": "请在交互式终端运行，或使用 token set --stdin 从标准输入读取令牌。",
+      "cancelled": "已取消令牌修改。"
     }
   },
   "common": {
@@ -3524,5 +3539,27 @@
     "invalidOptions": "每个列表最多 {{limit}} 个有效 URL。私有种子至少需要一个 Tracker。",
     "menuLabel": "创建种子文件…",
     "downloadRequested": "已请求下载 {{path}}"
+  },
+  "operatorToken": {
+    "title": "访问密码",
+    "change": "修改密码",
+    "effect": "修改后，其他设备需要重新登录。",
+    "currentToken": "当前密码",
+    "newToken": "新密码",
+    "confirmation": "再次输入新密码",
+    "weak": "如需通过公网访问，建议设置更复杂的密码。",
+    "invalid": "请移除换行等控制字符。",
+    "mismatch": "两次输入的密码不一致。",
+    "incorrectToken": "当前密码不正确，请重试。",
+    "managed": "此密码由服务器管理员管理。",
+    "unavailable": "未能保存，原密码仍然有效。请稍后重试。",
+    "rateLimited": "尝试次数过多，请等待一分钟后重试。",
+    "unknown": "连接中断，暂时无法确认修改结果。",
+    "saved": "访问密码已更新。",
+    "saving": "正在更新…",
+    "update": "更新密码",
+    "requiredCurrent": "请输入当前密码。",
+    "requiredNew": "请输入新密码。",
+    "tooLong": "密码过长，请缩短后重试。"
   }
 }

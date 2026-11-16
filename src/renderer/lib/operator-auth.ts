@@ -3,6 +3,10 @@ import {
   type OperatorStatus,
   operatorStatusSchema,
 } from '@shared/schemas/operator-auth'
+import {
+  type ChangeOperatorTokenResult,
+  changeOperatorTokenResultSchema,
+} from '@shared/schemas/operator-token'
 import { create } from 'zustand'
 import { webBaseUrl } from './web-base-url'
 
@@ -130,7 +134,10 @@ export async function getOperatorStatus(): Promise<boolean> {
   return useOperatorSession.getState().state === 'authenticated'
 }
 
-export async function operatorLogin(token: string): Promise<boolean> {
+export async function operatorLogin(
+  token: string,
+  onFailure?: (status: number) => void
+): Promise<boolean> {
   const epoch = useOperatorSession.getState().epoch + 1
   statusRequest += 1
   useOperatorSession.setState({ epoch })
@@ -141,7 +148,11 @@ export async function operatorLogin(token: string): Promise<boolean> {
       credentials: 'same-origin',
       body: JSON.stringify({ token }),
     })
-    if (!res.ok || epoch !== useOperatorSession.getState().epoch) return false
+    if (epoch !== useOperatorSession.getState().epoch) return false
+    if (!res.ok) {
+      onFailure?.(res.status)
+      return false
+    }
     await refreshOperatorSession(epoch)
     hints?.postMessage('changed')
     return useOperatorSession.getState().state === 'authenticated'
@@ -172,4 +183,28 @@ export async function operatorLogout(): Promise<void> {
     void refreshOperatorSession()
     throw error
   }
+}
+
+export async function changeOperatorToken(
+  currentToken: string,
+  newToken: string
+): Promise<ChangeOperatorTokenResult> {
+  const res = await fetch(`${base}/rpc/auth/token`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    credentials: 'same-origin',
+    cache: 'no-store',
+    body: JSON.stringify({ currentToken, newToken }),
+  })
+  const parsed = changeOperatorTokenResultSchema.safeParse(await res.json())
+  if (!parsed.success) {
+    if (res.status === 401) await refreshOperatorSession()
+    throw new Error('Token change outcome unknown')
+  }
+  if (parsed.data.ok) {
+    if (!res.ok) throw new Error('Token change outcome unknown')
+    hints?.postMessage('changed')
+    void refreshOperatorSession()
+  }
+  return parsed.data
 }

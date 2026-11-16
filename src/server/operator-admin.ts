@@ -14,6 +14,11 @@ import {
   type ResolvePairParams,
   type ResolvePairResult,
 } from '@shared/protocol/bridge'
+import {
+  changeOperatorTokenResultSchema,
+  isWeakOperatorToken,
+  operatorTokenSchema,
+} from '@shared/schemas/operator-token'
 import { createInstance } from 'i18next'
 import {
   Agent,
@@ -32,8 +37,13 @@ import {
   type PairingTerminal,
   runExtensionPairingTerminal,
 } from './operator-extension-pairing'
+import { operatorTokenAuthorization } from './operator-token'
+import {
+  OperatorTokenInputError,
+  readOperatorSecret,
+  readOperatorTokenStdin,
+} from './operator-token-input'
 
-const OPERATOR_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43,128}$/
 const USER_CODE_PATTERN = /^[A-HJ-NP-Z2-9]{8}$/
 const WIRE_USER_CODE_PATTERN = /^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/
 const DEFAULT_DATA_DIR = '/data'
@@ -185,6 +195,8 @@ interface OperatorAdminDependencies {
   pendingRetryWindowMs: number
   mutationTimeoutMs: number
   terminal?: PairingTerminal
+  readSecret: (prompt: string) => Promise<string>
+  readTokenStdin: () => Promise<string>
 }
 
 export interface OperatorAdminOptions
@@ -192,7 +204,8 @@ export interface OperatorAdminOptions
 
 interface ParsedCommand {
   json: boolean
-  operation: 'pending' | 'approve' | 'deny' | 'extension-pair'
+  operation: 'pending' | 'approve' | 'deny' | 'extension-pair' | 'token-set'
+  stdin?: boolean
   userCode?: string
 }
 
@@ -228,6 +241,8 @@ function defaultDependencies(
         process.stderr.write(`${message}\n`)
       }),
     terminal: options.terminal,
+    readSecret: options.readSecret ?? readOperatorSecret,
+    readTokenStdin: options.readTokenStdin ?? readOperatorTokenStdin,
     pendingRetryWindowMs:
       options.pendingRetryWindowMs ?? PENDING_RETRY_WINDOW_MS,
     mutationTimeoutMs: options.mutationTimeoutMs ?? MUTATION_TIMEOUT_MS,
@@ -291,6 +306,13 @@ function parseCommand(argv: readonly string[]): ParsedCommand | 'help' {
     return { json: false, operation: 'extension-pair' }
   }
   const args = argv.filter((arg) => arg !== '--json')
+  if (
+    args[0] === 'token' &&
+    args[1] === 'set' &&
+    (args.length === 2 || (args.length === 3 && args[2] === '--stdin'))
+  ) {
+    return { json, operation: 'token-set', stdin: args[2] === '--stdin' }
+  }
   if (args.some((arg) => arg.startsWith('--'))) {
     throw new OperatorAdminError(
       OperatorAdminErrorKind.Usage,
@@ -386,7 +408,7 @@ async function readOperatorToken(
       OperatorAdminErrorCode.CredentialUnreadable
     )
   }
-  if (!OPERATOR_TOKEN_PATTERN.test(token)) {
+  if (!operatorTokenSchema.safeParse(token).success) {
     throw new OperatorAdminError(
       OperatorAdminErrorKind.Credential,
       OperatorAdminErrorCode.CredentialInvalid
@@ -467,7 +489,7 @@ function requestInit(token: string, args: unknown[]): RequestInit {
     method: 'POST',
     headers: {
       accept: 'application/json',
-      authorization: `Bearer ${token}`,
+      authorization: operatorTokenAuthorization(token),
       'content-type': 'application/json',
     },
     body: JSON.stringify({ args }),
@@ -780,6 +802,33 @@ function printError(
   }
 }
 
+function tokenCommandFailure(
+  deps: OperatorAdminDependencies,
+  t: Translate,
+  reason: string,
+  json: boolean,
+  exitCode: OperatorAdminExitCode
+): OperatorAdminExitCode {
+  const message = t(`operatorAdmin.token.${reason}`)
+  const kind =
+    exitCode === OperatorAdminExitCode.Usage
+      ? 'usage'
+      : exitCode === OperatorAdminExitCode.Credential
+        ? 'credential'
+        : exitCode === OperatorAdminExitCode.Unavailable
+          ? 'unavailable'
+          : 'server'
+  deps.writeStderr(
+    json
+      ? JSON.stringify({
+          ok: false,
+          error: { code: `token.${reason}`, kind, message },
+        })
+      : message
+  )
+  return exitCode
+}
+
 export async function runOperatorAdmin(
   argv: readonly string[],
   options: OperatorAdminOptions = {}
@@ -815,6 +864,91 @@ export async function runOperatorAdmin(
       throw new ExtensionPairingTerminalError('ttyRequired')
     const token = await readOperatorToken(deps)
     const baseUrl = serverBaseUrl(deps.env)
+    if (command.operation === 'token-set') {
+      if (deps.env.MOTRIX_OPERATOR_TOKEN) {
+        return tokenCommandFailure(
+          deps,
+          t,
+          'managed',
+          json,
+          OperatorAdminExitCode.Credential
+        )
+      }
+      const newToken = command.stdin
+        ? await deps.readTokenStdin()
+        : await deps.readSecret(t('operatorAdmin.token.prompt'))
+      if (!operatorTokenSchema.safeParse(newToken).success) {
+        return tokenCommandFailure(
+          deps,
+          t,
+          'invalid',
+          json,
+          OperatorAdminExitCode.Usage
+        )
+      }
+      if (
+        !command.stdin &&
+        newToken !== (await deps.readSecret(t('operatorAdmin.token.confirm')))
+      ) {
+        return tokenCommandFailure(
+          deps,
+          t,
+          'mismatch',
+          json,
+          OperatorAdminExitCode.Usage
+        )
+      }
+      if (isWeakOperatorToken(newToken)) {
+        const message = t('operatorAdmin.token.weak')
+        deps.writeStderr(
+          json
+            ? JSON.stringify({ warning: { code: 'token.weak', message } })
+            : message
+        )
+      }
+      let response: Response
+      try {
+        response = await deps.fetch(`${baseUrl}/rpc/auth/token`, {
+          ...requestInit(token, []),
+          body: JSON.stringify({ currentToken: token, newToken }),
+          signal: AbortSignal.timeout(deps.mutationTimeoutMs),
+        })
+      } catch {
+        return tokenCommandFailure(
+          deps,
+          t,
+          'unknown',
+          json,
+          OperatorAdminExitCode.Unavailable
+        )
+      }
+      const result = changeOperatorTokenResultSchema.safeParse(
+        await parseJsonResponse(response).catch(() => undefined)
+      )
+      if (!result.success || !response.ok || !result.data.ok) {
+        const reason =
+          result.success && !result.data.ok
+            ? result.data.reason
+            : response.status === 429
+              ? 'rateLimited'
+              : response.status === 401 || response.status === 403
+                ? 'incorrectToken'
+                : 'unknown'
+        const exitCode =
+          reason === 'managed' || reason === 'incorrectToken'
+            ? OperatorAdminExitCode.Credential
+            : reason === 'rateLimited'
+              ? OperatorAdminExitCode.Unavailable
+              : OperatorAdminExitCode.Server
+        return tokenCommandFailure(deps, t, reason, json, exitCode)
+      }
+      deps.writeStdout(
+        command.json
+          ? JSON.stringify({ ok: true })
+          : t('operatorAdmin.token.saved')
+      )
+      return OperatorAdminExitCode.Success
+    }
     if (terminal) {
       const outcome = await runExtensionPairingTerminal({
         terminal,
@@ -846,6 +980,15 @@ export async function runOperatorAdmin(
     printDecision(deps, t, request, command.operation, command.json)
     return OperatorAdminExitCode.Success
   } catch (error) {
+    if (error instanceof OperatorTokenInputError) {
+      return tokenCommandFailure(
+        deps,
+        t,
+        error.reason,
+        json,
+        OperatorAdminExitCode.Usage
+      )
+    }
     if (error instanceof ExtensionPairingTerminalError) {
       deps.writeStderr(t(`operatorAdmin.extension.${error.reason}`))
       return error.reason === 'ttyRequired' ||

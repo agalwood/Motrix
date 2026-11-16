@@ -351,6 +351,35 @@ cat motrix-data/operator-token
 重启或替换镜像时会继续使用同一 token。也可以设置 `MOTRIX_OPERATOR_TOKEN`，
 但环境变量能从容器元数据中看到；单机部署默认使用生成文件更安全。
 
+登录 WebUI 后，可以在 **设置 → 高级 → 访问密码 → 修改密码** 中输入当前密码、
+新密码和确认值，然后点击“更新密码”。也可以在运行中的容器内使用 CLI，默认隐藏输入并要求再次输入：
+
+```bash
+docker compose exec server motrix-admin token set
+```
+
+脚本可以通过标准输入提供一行令牌，避免把令牌放入命令参数或 shell 历史：
+
+```bash
+docker compose exec -T server motrix-admin token set --stdin --json < /secure/new-token.txt
+```
+
+弱令牌只显示提醒，不阻止保存；不要求大小写、数字或符号组合，支持中文和含空格的
+短语。只拒绝空白值、控制字符和超过 1,024 个 UTF-16 代码单元的输入。
+CLI 会移除标准输入末尾的一个换行符，令牌本身的空格会保留。
+新令牌以 `0600` 权限原子写入原来的 `operator-token` 文件，立即生效并在重启后保留。
+旧令牌及其他登录会话失效；Web 修改时当前浏览器会话保持登录，CLI 修改时所有旧会话
+均退出。下载任务不会被删除或中断。若保存结果因断网无法确认，先读取主机上的令牌
+文件再重试；忘记令牌也可以从该文件找回，无须清空下载数据。
+
+若设置了 `MOTRIX_OPERATOR_TOKEN`，Web 和 CLI 会提示该凭据由部署配置管理；
+请修改环境变量并重启服务器。此设置始终优先于文件。飞牛和群晖原生版继续使用 NAS
+账号验证，不提供独立的管理员令牌设置。
+
+登录和 HTTP 凭据验证按连接来源 IP 限流：一分钟内失败 20 次后暂停验证，窗口结束后
+恢复。反向代理后的客户端可能共享同一来源 IP。普通 ASCII 令牌可继续使用 Bearer
+认证；含空格或非 ASCII 字符的令牌可使用空用户名的 HTTP Basic 认证，CLI 自动选择。
+
 当 Web 审批 URL 暂时不可用时，通过 SSH 连接的 operator 可以在运行中的容器
 里批准指定的 device code。该命令只通过容器 loopback 使用现有 operator
 credential，不会输出该 credential 或客户端 token：
@@ -634,7 +663,7 @@ secret-store 状态和 FFmpeg 探测结果。
 | 端口已分配 | 修改 `MOTRIX_HTTP_PORT` 或 `MOTRIX_MDXP_PUBLIC_PORT`；Web 端口变化时同步更新 `MOTRIX_PUBLIC_URL`。 |
 | Web 界面健康但连接 16801 被拒绝 | 查找 `bridge data ownership unavailable`，检查日志中的 `stage` 和 `reason` 字段。ownership 就绪时，再核对 MDXP 发布地址和四个远程 Extension 变量。 |
 | 外部 aria2 RPC 客户端无法连接 | 确认 `MOTRIX_ARIA2_RPC_LISTEN_ALL=true`、RPC secret 非空且匹配、16800（或自定义 RPC 端口）映射正确，并检查宿主 firewall。标准 Compose 文件不会发布该端口。 |
-| Web 能打开但无法解锁 | 读取当前持久化 `/data/operator-token`，不要使用另一套部署的 token。确认它是普通文件、内容为 base64url 文本且权限为 `0600`。 |
+| Web 能打开但无法解锁 | 读取当前持久化 `/data/operator-token`，不要使用另一套部署的 token。确认它是普通文件、内容为非空白单行令牌且权限为 `0600`；环境变量配置优先。尝试过多时等待一分钟再试。 |
 | 下载目录被拒绝或 NAS 共享目录中没有文件 | 使用 `MOTRIX_ALLOWED_SAVE_DIRS` 下的绝对容器路径；确认目标宿主目录正好挂载到该路径，并允许 runtime UID/GID 写入。 |
 | 插件安装失败 | 检查 `/api/diagnostics` 与日志，保留 `/data`，核实包/来源可信且网络/TLS 可达；显式挂载所有 `MOTRIX_PLUGIN_IMPORT_DIRS`。正常 `.moext`、URL 或 registry 安装不要开启 unmanaged plugins。 |
 | 升级后容器 unhealthy | 检查日志、诊断和两个挂载，然后回滚到已记录的不可变镜像及其配套 `/data` 备份。 |

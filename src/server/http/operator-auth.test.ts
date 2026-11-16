@@ -158,8 +158,7 @@ describe('operator auth gate', () => {
     expect(last).toBe(429)
   })
 
-  it('a correct token still logs in after the failure window is saturated (no DoS)', async () => {
-    // An attacker flooding wrong tokens must not lock out the operator.
+  it('throttles guesses before comparison without blocking a different client', async () => {
     for (let i = 0; i < 30; i++) {
       await app.inject({
         method: 'POST',
@@ -172,8 +171,14 @@ describe('operator auth gate', () => {
       url: '/rpc/auth/login',
       payload: { token: TOKEN },
     })
-    expect(ok.statusCode).toBe(200)
-    expect(ok.headers['set-cookie']).toBeDefined()
+    expect(ok.statusCode).toBe(429)
+    const other = await app.inject({
+      method: 'POST',
+      url: '/rpc/auth/login',
+      remoteAddress: '127.0.0.2',
+      payload: { token: TOKEN },
+    })
+    expect(other.statusCode).toBe(200)
   })
 })
 

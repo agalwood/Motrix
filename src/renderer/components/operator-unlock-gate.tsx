@@ -46,7 +46,7 @@ function WebGate({ children }: { children: ReactNode }) {
     (s) => s.status?.nasUnavailableDownloadRoots
   )
   const [token, setToken] = useState('')
-  const [error, setError] = useState(false)
+  const [error, setError] = useState<'invalid' | 'rateLimited' | null>(null)
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
@@ -103,11 +103,14 @@ function WebGate({ children }: { children: ReactNode }) {
     e.preventDefault()
     if (!token.trim() || busy) return
     setBusy(true)
-    setError(false)
-    const ok = await operatorLogin(token.trim())
+    setError(null)
+    let limited = false
+    const ok = await operatorLogin(token, (status) => {
+      limited = status === 429
+    })
     setBusy(false)
     if (ok) setToken('')
-    else setError(true)
+    else setError(limited ? 'rateLimited' : 'invalid')
   }
 
   return (
@@ -116,6 +119,12 @@ function WebGate({ children }: { children: ReactNode }) {
         onSubmit={onSubmit}
         className="w-full max-w-sm space-y-4 rounded-lg border border-border p-6"
       >
+        <input
+          type="hidden"
+          name="username"
+          autoComplete="username"
+          value="operator"
+        />
         <div className="space-y-1">
           <h1 className="text-lg font-semibold text-foreground">
             {t('operatorUnlock.title')}
@@ -125,16 +134,22 @@ function WebGate({ children }: { children: ReactNode }) {
           </p>
         </div>
         <input
+          id="operator-token"
+          name="operator-token"
           type="password"
           value={token}
           onChange={(e) => setToken(e.target.value)}
           placeholder={t('operatorUnlock.placeholder')}
-          autoComplete="off"
+          autoComplete="current-password"
           className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
         {error && (
           <p className="text-sm text-destructive">
-            {t('operatorUnlock.error')}
+            {t(
+              error === 'rateLimited'
+                ? 'operatorToken.rateLimited'
+                : 'operatorUnlock.error'
+            )}
           </p>
         )}
         <Button

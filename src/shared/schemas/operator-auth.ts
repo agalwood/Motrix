@@ -68,6 +68,7 @@ export const operatorStatusSchema = z.object({
   ]),
   username: z.string().optional(),
   canLogout: z.boolean(),
+  tokenSource: z.enum(['file', 'env']).optional(),
   eventOriginMatches: z.boolean().optional(),
   clientPairing: clientPairingCapabilitiesSchema.optional(),
   nasAuthDiagnostic: nasAuthDiagnosticSchema.optional(),

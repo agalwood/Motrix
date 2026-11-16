@@ -16,6 +16,8 @@ export function appLocaleProjection(
       delete catalog.operatorAdmin
       if (host === 'renderer')
         return { code: JSON.stringify(catalog), map: null }
+      // Password settings and their validation are rendered only in the Web UI.
+      delete catalog.operatorToken
       const creator = catalog.createTorrent as
         | Record<string, unknown>
         | undefined
