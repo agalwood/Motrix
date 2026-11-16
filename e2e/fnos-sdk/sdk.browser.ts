@@ -58,6 +58,8 @@ async function authorize(page: Page) {
     if (!redirectUri || !state)
       throw new Error('Missing authorization request fields')
     const callback = new URL(redirectUri, url.origin)
+    expect(callback.origin).toBe(new URL(page.url()).origin)
+    expect(callback.pathname).toBe(new URL(page.url()).pathname)
     callback.search = new URLSearchParams({
       method: 'pickSharedFile',
       appName: 'motrix',
@@ -96,7 +98,7 @@ test('reserves the authorization popup before real standalone SDK discovery comp
     window.open = (...args: Parameters<typeof window.open>) =>
       navigator.userActivation.isActive ? open(...args) : null
   })
-  await page.goto('/')
+  await page.goto('/app/motrix/')
   const opened = page.waitForEvent('popup')
   await page.getByRole('button', { name: 'Choose directory' }).click()
   const popup = await opened
@@ -113,7 +115,7 @@ test('extension host uses App Auth, rejects unsupported file actions and follows
   await extensionHost(page)
   const selected = await mockBackend(page)
   await authorize(page)
-  await page.goto('/')
+  await page.goto('/app/motrix/')
   await expect(page.locator('html')).toHaveClass(/light/)
   await emit(page, 'os/theme', 'dark')
   await expect(page.locator('html')).toHaveClass(/dark/)
