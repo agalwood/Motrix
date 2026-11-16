@@ -47,10 +47,10 @@ describe('OperatorUnlockGate', () => {
       .mockResolvedValueOnce(new Response('{}'))
       .mockResolvedValueOnce(reply(true))
     render(<OperatorUnlockGate>{child}</OperatorUnlockGate>)
-    fireEvent.change(await screen.findByPlaceholderText('Operator token'), {
+    fireEvent.change(await screen.findByPlaceholderText('Access password'), {
       target: { value: 'machine-token' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Unlock' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
     expect(await screen.findByTestId('app')).toBeTruthy()
     expect(fetchMock.mock.calls[1][1].body).toBe(
       JSON.stringify({ token: 'machine-token' })
@@ -61,11 +61,23 @@ describe('OperatorUnlockGate', () => {
       .mockResolvedValueOnce(reply(false))
       .mockResolvedValueOnce(new Response('{}', { status: 401 }))
     render(<OperatorUnlockGate>{child}</OperatorUnlockGate>)
-    fireEvent.change(await screen.findByPlaceholderText('Operator token'), {
+    fireEvent.change(await screen.findByPlaceholderText('Access password'), {
       target: { value: 'bad' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Unlock' }))
-    expect(await screen.findByText(/Invalid operator token/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+    expect(await screen.findByText(/Incorrect password/)).toBeTruthy()
+  })
+  it('explains rate limiting instead of reporting a correct token as invalid', async () => {
+    fetchMock
+      .mockResolvedValueOnce(reply(false))
+      .mockResolvedValueOnce(new Response('{}', { status: 429 }))
+    render(<OperatorUnlockGate>{child}</OperatorUnlockGate>)
+    fireEvent.change(await screen.findByPlaceholderText('Access password'), {
+      target: { value: 'test' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+    expect(await screen.findByText(/Too many attempts/)).toBeTruthy()
+    expect(screen.queryByTestId('app')).toBeNull()
   })
   it('offers retry for an unreachable server without pretending the session was revoked', async () => {
     fetchMock
@@ -98,5 +110,5 @@ it('shows a safe DSM failure code while keeping the app locked without requestin
     await screen.findByText('session / commandFailed / exit / 5')
   ).toBeTruthy()
   expect(screen.queryByTestId('app')).toBeNull()
-  expect(screen.queryByPlaceholderText('Operator token')).toBeNull()
+  expect(screen.queryByPlaceholderText('Access password')).toBeNull()
 })

@@ -3,6 +3,7 @@ import type {
   ClientPairingCapabilities,
   OperatorStatus,
 } from '@shared/schemas/operator-auth'
+import { changeOperatorTokenSchema } from '@shared/schemas/operator-token'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 
 /**
@@ -36,6 +37,8 @@ export interface OperatorAuthOptions {
    * and the control plane never depends on the (non-fatal) bridge bootstrap.
    */
   operatorToken: string
+  tokenSource?: 'file' | 'env'
+  persistToken?: (token: string) => Promise<void>
   /** Public operator URL advertised by MOTRIX_PUBLIC_URL. Cookie-authenticated
    * event WebSockets must present this exact URL origin; scripts using Bearer
    * authentication remain independent of browser Origin semantics. */
@@ -73,8 +76,13 @@ function parseCookies(header: string | undefined): Record<string, string> {
 
 function bearerToken(req: FastifyRequest): string | null {
   const h = req.headers.authorization
-  if (typeof h !== 'string' || !h.startsWith('Bearer ')) return null
-  return h.slice(7)
+  if (typeof h !== 'string') return null
+  if (h.startsWith('Bearer ')) return h.slice(7)
+  if (h.startsWith('Basic ')) {
+    const decoded = Buffer.from(h.slice(6), 'base64').toString('utf8')
+    if (decoded.startsWith(':')) return decoded.slice(1)
+  }
+  return null
 }
 
 function isSecure(req: FastifyRequest): boolean {
@@ -144,7 +152,12 @@ function deny(
   const isUpgrade = isWebSocketUpgrade(req)
   if (isUpgrade) {
     reply.hijack()
-    const text = code === 403 ? 'Forbidden' : 'Unauthorized'
+    const text =
+      code === 429
+        ? 'Too Many Requests'
+        : code === 403
+          ? 'Forbidden'
+          : 'Unauthorized'
     req.raw.socket.write(
       `HTTP/1.1 ${code} ${text}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`
     )
@@ -197,16 +210,43 @@ export function registerOperatorAuth(
   opts: OperatorAuthOptions
 ): OperatorSessionPolicy {
   const now = opts.now ?? Date.now
+  let operatorToken = opts.operatorToken
+  let generation = 0
+  let rotation: Promise<unknown> = Promise.resolve()
   const publicOrigin = configuredPublicOrigin(opts.publicUrl)
   const sessions = new Map<string, number>() // sessionId -> expiresAt
   const sessionSockets = new Map<string, Set<SessionSocket>>()
+  const bearerSockets = new Set<SessionSocket>()
   const revoke = (id: string): void => {
     sessions.delete(id)
     const sockets = sessionSockets.get(id)
     sessionSockets.delete(id)
     for (const socket of sockets ?? []) socket.close(4401, 'Session expired')
   }
-  let failedLogins: number[] = [] // timestamps of FAILED attempts only
+  // Weak custom credentials need throttling before comparison, including direct
+  // HTTP credentials. Bound memory and use the socket IP (not forwarded headers).
+  const failures = new Map<string, { count: number; until: number }>()
+  const limited = (req: FastifyRequest): boolean => {
+    for (const [ip, entry] of failures) {
+      if (entry.until <= now()) failures.delete(ip)
+    }
+    const entry = failures.get(req.ip)
+    return entry ? entry.count >= LOGIN_MAX : failures.size >= 256
+  }
+  const verify = (req: FastifyRequest, token: string): boolean => {
+    if (limited(req)) return false
+    if (token && safeEqual(token, operatorToken)) {
+      failures.delete(req.ip)
+      return true
+    }
+    const entry = failures.get(req.ip) ?? {
+      count: 0,
+      until: now() + LOGIN_WINDOW_MS,
+    }
+    entry.count += 1
+    failures.set(req.ip, entry)
+    return false
+  }
 
   const validSession = (id: string | undefined, renew = true): boolean => {
     if (!id) return false
@@ -222,7 +262,7 @@ export function registerOperatorAuth(
 
   const authenticate = (req: FastifyRequest): 'bearer' | 'cookie' | null => {
     const tok = bearerToken(req)
-    if (tok && safeEqual(tok, opts.operatorToken)) return 'bearer'
+    if (tok && verify(req, tok)) return 'bearer'
     return validSession(parseCookies(req.headers.cookie)[COOKIE])
       ? 'cookie'
       : null
@@ -264,7 +304,7 @@ export function registerOperatorAuth(
           expectedOrigin: expectedBrowserOrigin(req, publicOrigin),
           presentedOrigin: configuredPublicOrigin(req.headers.origin),
         })
-      return deny(req, reply, 401, 'unauthorized')
+      return deny(req, reply, limited(req) ? 429 : 401, 'unauthorized')
     }
     if (
       isWebSocketUpgrade(req) &&
@@ -286,10 +326,9 @@ export function registerOperatorAuth(
     async (req, reply) => {
       const t = now()
       const token = typeof req.body?.token === 'string' ? req.body.token : ''
-      // Verify FIRST: a correct token is NEVER blocked by the failure limiter,
-      // so a remote attacker flooding wrong tokens cannot lock out the operator.
-      // (Token is never logged — mirrors EndpointFileWriter's rule.)
-      if (token && safeEqual(token, opts.operatorToken)) {
+      if (limited(req))
+        return reply.code(429).send({ error: 'too many attempts' })
+      if (verify(req, token)) {
         const id = randomBytes(32).toString('base64url')
         sessions.set(id, t + SESSION_TTL_MS)
         const flags = [
@@ -303,16 +342,49 @@ export function registerOperatorAuth(
         reply.header('set-cookie', flags.join('; '))
         return { ok: true }
       }
-      // Rate-limit ONLY failed attempts (256-bit token → brute force is
-      // infeasible regardless; this just bounds log spam / probing).
-      failedLogins = failedLogins.filter((ts) => ts > t - LOGIN_WINDOW_MS)
-      if (failedLogins.length >= LOGIN_MAX) {
-        return reply.code(429).send({ error: 'too many attempts' })
-      }
-      failedLogins.push(t)
       return reply.code(401).send({ error: 'invalid token' })
     }
   )
+
+  app.post('/rpc/auth/token', { bodyLimit: 16_384 }, async (req, reply) => {
+    // Cookie mutations require an exact Origin. CLI requests use HTTP auth.
+    if (
+      authenticate(req) !== 'bearer' &&
+      !exactBrowserOrigin(req, publicOrigin)
+    ) {
+      return reply.code(403).send({ ok: false, reason: 'incorrectToken' })
+    }
+    const parsed = changeOperatorTokenSchema.safeParse(req.body)
+    if (!parsed.success)
+      return reply.code(400).send({ ok: false, reason: 'invalid' })
+    const change = async () => {
+      if (opts.tokenSource !== 'file' || !opts.persistToken) {
+        return reply.code(409).send({ ok: false, reason: 'managed' })
+      }
+      if (limited(req))
+        return reply.code(429).send({ ok: false, reason: 'rateLimited' })
+      if (!verify(req, parsed.data.currentToken)) {
+        return reply.code(403).send({ ok: false, reason: 'incorrectToken' })
+      }
+      try {
+        await opts.persistToken(parsed.data.newToken)
+      } catch {
+        return reply.code(503).send({ ok: false, reason: 'unavailable' })
+      }
+      operatorToken = parsed.data.newToken
+      generation += 1
+      const keep = parseCookies(req.headers.cookie)[COOKIE]
+      for (const id of sessions.keys()) if (id !== keep) revoke(id)
+      for (const socket of bearerSockets) socket.close(4401, 'Session expired')
+      bearerSockets.clear()
+      return reply.send({ ok: true })
+    }
+    // Recheck the old credential inside the queue, so simultaneous changes
+    // cannot both succeed and silently replace the first caller's new token.
+    const pending = rotation.then(change)
+    rotation = pending.catch(() => {})
+    return pending
+  })
 
   app.get('/rpc/auth/status', async (req): Promise<OperatorStatus> => {
     const mode = authenticate(req)
@@ -321,6 +393,9 @@ export function registerOperatorAuth(
       authed: mode !== null,
       mode: mode ?? 'unauthenticated',
       canLogout: mode === 'cookie',
+      ...(mode !== null && opts.tokenSource
+        ? { tokenSource: opts.tokenSource }
+        : {}),
       ...(mode !== null && opts.clientPairing
         ? { clientPairing: opts.clientPairing }
         : {}),
@@ -350,10 +425,11 @@ export function registerOperatorAuth(
   return {
     principal(req) {
       const mode = authenticate(req)
+      const issuedGeneration = generation
       if (mode === 'bearer')
         return {
-          id: `bearer:${sha256(opts.operatorToken).toString('hex')}`,
-          eligible: () => true,
+          id: `bearer:${sha256(operatorToken).toString('hex')}`,
+          eligible: () => issuedGeneration === generation,
         }
       const id = parseCookies(req.headers.cookie)[COOKIE]
       if (mode !== 'cookie' || !id) return undefined
@@ -364,6 +440,8 @@ export function registerOperatorAuth(
     },
     bindSocket(req, socket) {
       const mode = authenticate(req)
+      const issuedGeneration = generation
+      if (mode === 'bearer') bearerSockets.add(socket)
       const id =
         mode === 'cookie' ? parseCookies(req.headers.cookie)[COOKIE] : undefined
       if (id) {
@@ -373,8 +451,10 @@ export function registerOperatorAuth(
       }
       return {
         eligible: () =>
-          mode === 'bearer' || (mode === 'cookie' && validSession(id, false)),
+          (mode === 'bearer' && issuedGeneration === generation) ||
+          (mode === 'cookie' && validSession(id, false)),
         dispose: () => {
+          bearerSockets.delete(socket)
           if (!id) return
           const sockets = sessionSockets.get(id)
           sockets?.delete(socket)

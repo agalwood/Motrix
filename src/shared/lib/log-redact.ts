@@ -73,6 +73,8 @@ const SENSITIVE_VALUE_KEYS = new Set([
   'credentials',
   'rpcsecret',
   'token',
+  'currenttoken',
+  'newtoken',
   'authtoken',
   'accesstoken',
   'refreshtoken',

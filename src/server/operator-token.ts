@@ -1,8 +1,17 @@
 import { randomBytes } from 'node:crypto'
-import { chmod, lstat, mkdir, readFile, writeFile } from 'node:fs/promises'
+import {
+  chmod,
+  lstat,
+  mkdir,
+  open,
+  readFile,
+  rename,
+  rm,
+  writeFile,
+} from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 
-const FILE_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43,128}$/
+import { operatorTokenSchema } from '@shared/schemas/operator-token'
 
 export interface ProvisionedOperatorToken {
   token: string
@@ -63,9 +72,38 @@ async function readExistingToken(path: string): Promise<string | undefined> {
     throw new Error(`Operator token path is not a regular file: ${path}`)
   }
   const token = await readFile(path, 'utf8')
-  if (!FILE_TOKEN_PATTERN.test(token)) {
+  if (!operatorTokenSchema.safeParse(token).success) {
     throw new Error(`Operator token file is invalid: ${path}`)
   }
   await chmod(path, 0o600)
   return token
+}
+
+/** Keep the previous credential intact if writing the replacement fails. */
+export async function persistOperatorToken(
+  path: string,
+  token: string
+): Promise<void> {
+  operatorTokenSchema.parse(token)
+  const metadata = await lstat(path)
+  if (!metadata.isFile())
+    throw new Error('Operator token is not a regular file')
+  const temporary = `${path}.${randomBytes(12).toString('hex')}.tmp`
+  const file = await open(temporary, 'wx', 0o600)
+  try {
+    await file.writeFile(token, 'utf8')
+    await file.sync()
+    await file.close()
+    await rename(temporary, path)
+  } finally {
+    await file.close().catch(() => {})
+    await rm(temporary, { force: true }).catch(() => {})
+  }
+}
+
+/** Basic with an empty username carries Unicode/space-containing passphrases. */
+export function operatorTokenAuthorization(token: string): string {
+  return /^[\x21-\x7e]+$/.test(token)
+    ? `Bearer ${token}`
+    : `Basic ${Buffer.from(`:${token}`, 'utf8').toString('base64')}`
 }

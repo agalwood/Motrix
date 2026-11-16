@@ -21,6 +21,7 @@ interface Workflow {
       if?: string
       with?: Record<string, unknown>
       steps?: Step[]
+      container?: { image: string; options: string; volumes?: string[] }
     }
   >
 }
@@ -33,6 +34,16 @@ const release = load(
 ) as Workflow
 
 describe('Flatpak release gate', () => {
+  it('keeps SDK deployment updates off the container overlay without hiding preinstalled runtimes', () => {
+    // A bare destination creates a fresh Docker volume populated from the image;
+    // a host bind mount would instead hide its preinstalled SDK and remotes.
+    expect(flatpak.jobs.build?.container).toMatchObject({
+      image: expect.stringMatching(/@sha256:[a-f0-9]{64}$/),
+      options: '--privileged',
+      volumes: ['/var/lib/flatpak'],
+    })
+  })
+
   it('builds within the release run, after version preflight, and blocks assembly on failure', () => {
     expect(flatpak.on.workflow_call).toEqual({
       inputs: {

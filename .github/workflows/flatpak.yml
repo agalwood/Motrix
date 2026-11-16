@@ -206,6 +206,10 @@ jobs:
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-25.08@sha256:e3d9fbd75c7e5ce6241fb9114f59dce2156315f5977b594ea75fc97c3d364dfa
       options: --privileged
+      # SDK updates rename deployments, which can fail with EXDEV on overlayfs.
+      # Docker seeds this job-local volume with the image's installed runtimes.
+      volumes:
+        - /var/lib/flatpak
     timeout-minutes: 90
     strategy:
       fail-fast: false

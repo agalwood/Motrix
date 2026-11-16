@@ -1,15 +1,15 @@
 {
   "operatorUnlock": {
-    "title": "解鎖 Motrix",
-    "help": "此伺服器需要 Operator Token。請在主機上設定 MOTRIX_OPERATOR_TOKEN，或讀取 <dataDir>/operator-token 的 Token，然後貼到下方。",
-    "placeholder": "Operator Token",
-    "error": "Operator Token 無效。請確認主機上的 MOTRIX_OPERATOR_TOKEN 或 <dataDir>/operator-token，然後再試一次。",
-    "submit": "解鎖",
+    "title": "登入 Motrix",
+    "help": "首次登入或忘記密碼時，請向伺服器管理員取得存取密碼。",
+    "placeholder": "存取密碼",
+    "error": "密碼不正確，請再試一次。",
+    "submit": "登入",
     "nasSessionExpired": "無法驗證 NAS 管理員工作階段，請從 NAS 桌面重新開啟 Motrix。",
     "openDsm": "開啟 DSM 登入"
   },
   "operatorAdmin": {
-    "help": "用法：\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\n此命令只會透過容器 loopback 與正在執行的 Motrix 伺服器通訊。",
+    "help": "用法：\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\n此命令只會透過容器 loopback 與正在執行的 Motrix 伺服器通訊。\n\n  motrix-admin token set [--stdin] [--json]\n設定自訂管理員權杖；弱權杖僅提醒，不阻止儲存。",
     "errorPrefix": "motrix-admin: {{message}}",
     "usageHint": "執行「motrix-admin --help」查看用法。",
     "pending": {
@@ -71,6 +71,21 @@
       "cancelled": "已關閉配對碼檢視，未傳送核准或拒絕操作。",
       "invalidSelection": "請透過序號選擇一個清單中的請求。",
       "unavailable": "所選請求已過期、結束或發生變化，請在擴充功能中重新發起配對。"
+    },
+    "token": {
+      "weak": "此權杖可能容易被猜到，建議使用更長、獨特的片語。你仍然可以儲存。",
+      "invalid": "請輸入非空白權杖，最多 1,024 個字元，不能包含控制字元。",
+      "mismatch": "兩次輸入的新權杖不一致。",
+      "incorrectToken": "目前權杖不正確，請確認後再試。",
+      "managed": "此權杖由 MOTRIX_OPERATOR_TOKEN 管理，請變更部署環境變數並重新啟動伺服器。",
+      "unavailable": "無法儲存權杖，舊權杖仍然有效。請檢查伺服器儲存空間後再試。",
+      "rateLimited": "嘗試次數過多，請等待一分鐘後再試。",
+      "unknown": "無法確認變更結果，請先檢查伺服器上的權杖檔案再試。",
+      "prompt": "新權杖（輸入隱藏）：",
+      "confirm": "再次輸入新權杖：",
+      "saved": "權杖已更新，現有工作階段已登出，下載工作繼續執行。",
+      "ttyRequired": "請在互動式終端執行，或使用 token set --stdin 從標準輸入讀取權杖。",
+      "cancelled": "已取消權杖變更。"
     }
   },
   "common": {
@@ -3524,5 +3539,27 @@
     "invalidOptions": "每個清單最多 {{limit}} 個有效網址。私人種子至少需要一個 Tracker。",
     "menuLabel": "建立種子檔案…",
     "downloadRequested": "已要求下載 {{path}}"
+  },
+  "operatorToken": {
+    "title": "存取密碼",
+    "change": "變更密碼",
+    "effect": "變更後，其他裝置需要重新登入。",
+    "currentToken": "目前密碼",
+    "newToken": "新密碼",
+    "confirmation": "再次輸入新密碼",
+    "weak": "如需透過公網存取，建議設定更複雜的密碼。",
+    "invalid": "請移除換行等控制字元。",
+    "mismatch": "兩次輸入的密碼不一致。",
+    "incorrectToken": "目前密碼不正確，請再試一次。",
+    "managed": "此密碼由伺服器管理員管理。",
+    "unavailable": "無法儲存，原密碼仍然有效。請稍後再試。",
+    "rateLimited": "嘗試次數過多，請等待一分鐘後再試。",
+    "unknown": "連線中斷，暫時無法確認變更結果。",
+    "saved": "存取密碼已更新。",
+    "saving": "正在更新…",
+    "update": "更新密碼",
+    "requiredCurrent": "請輸入目前密碼。",
+    "requiredNew": "請輸入新密碼。",
+    "tooLong": "密碼過長，請縮短後再試。"
   }
 }

@@ -172,7 +172,7 @@ import { createApp } from './http/app'
 import { buildServerCommandHandlers } from './ipc/commands'
 import { buildServerQueryHandlers } from './ipc/queries'
 import { createServerMediaRuntime } from './media-runtime'
-import { provisionOperatorToken } from './operator-token'
+import { persistOperatorToken, provisionOperatorToken } from './operator-token'
 import { FnosAccountAuthority } from './platform/fnos/accounts'
 import { FnosFiles } from './platform/fnos/files'
 import { registerFnosRoutes } from './platform/fnos/routes'
@@ -1565,6 +1565,10 @@ async function main() {
       ? undefined
       : {
           operatorToken: operator.token,
+          tokenSource: operator.source,
+          persistToken: operator.path
+            ? (token) => persistOperatorToken(operator.path as string, token)
+            : undefined,
           publicUrl: process.env.MOTRIX_PUBLIC_URL,
           onEventSocketRejected: (detail) =>
             log.warn(detail, 'operator event connection rejected'),

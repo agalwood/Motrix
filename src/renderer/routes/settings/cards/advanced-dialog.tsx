@@ -56,6 +56,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import type { SettingsCardDialogProps } from './card-types'
+import { OperatorTokenSection } from './operator-token-section'
 import { SettingsFileSection } from './settings-file-section'
 import { advancedFormSchema } from './settings-form-schemas'
 
@@ -507,6 +508,7 @@ export function AdvancedDialog({
               </Form>
               <Separator className="my-4" />
               <SettingsFileSection />
+              {__MOTRIX_TARGET__ === 'web' && <OperatorTokenSection />}
               {__MOTRIX_TARGET__ === 'electron' && (
                 <>
                   <Separator className="my-4" />
