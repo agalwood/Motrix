@@ -108,8 +108,11 @@ export async function fnosRequest(
   return response
 }
 
-function hostRequiredError(): Error {
-  return new Error(i18n.t('panel.downloads.action.fnosHostRequired'))
+export class FnosHostRequiredError extends Error {
+  constructor() {
+    super(i18n.t('panel.downloads.action.fnosHostRequired'))
+    this.name = 'FnosHostRequiredError'
+  }
 }
 
 function unsupportedExtensionOperation(error: unknown): boolean {
@@ -126,7 +129,7 @@ export async function fnosFileAction(
   action: 'open' | 'reveal'
 ): Promise<void> {
   const sdk = await fnosSdk()
-  if (sdk.isStandaloneWeb) throw hostRequiredError()
+  if (sdk.isStandaloneWeb) throw new FnosHostRequiredError()
   const response = await fnosRequest('task-path', { taskId, action })
   const { path } = pathResponse.parse(await response.json())
   try {
@@ -142,7 +145,7 @@ export async function fnosFileAction(
     )
       throw new Error(i18n.t('panel.downloads.action.nasFileUnavailable'))
   } catch (error) {
-    if (unsupportedExtensionOperation(error)) throw hostRequiredError()
+    if (unsupportedExtensionOperation(error)) throw new FnosHostRequiredError()
     throw error
   }
 }
@@ -243,7 +246,8 @@ export async function pickFnosDirectory(): Promise<string | null> {
       try {
         response = await sdk.pickSharedFile()
       } catch (error) {
-        if (unsupportedExtensionOperation(error)) throw hostRequiredError()
+        if (unsupportedExtensionOperation(error))
+          throw new FnosHostRequiredError()
         throw error
       }
       if (response && response.code !== 0)
