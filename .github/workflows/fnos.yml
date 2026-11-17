@@ -2,6 +2,12 @@ name: fnOS native FPK
 
 on:
   workflow_dispatch:
+    inputs:
+      revision:
+        description: 'Non-negative fnOS package revision for upgrade acceptance'
+        type: string
+        default: '0'
+        required: false
   pull_request:
     branches: [main]
     paths:
@@ -93,12 +99,13 @@ jobs:
       - name: Build and verify native package
         env:
           MOTRIX_FNOS_BUILD: '1'
+          FNOS_PACKAGE_REVISION: ${{ inputs.revision || '0' }}
         run: |
           pnpm run fetch:engine -- --platform linux --arch '${{ matrix.arch }}'
           pnpm run build:server
           pnpm run check:third-party-notices
           pnpm run stage:server -- --platform linux --arch '${{ matrix.arch }}' --libc gnu --strict
-          pnpm run build:fnos -- --arch '${{ matrix.arch }}'
+          pnpm run build:fnos -- --arch '${{ matrix.arch }}' --revision "$FNOS_PACKAGE_REVISION"
       - name: Upload verified test packages
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
