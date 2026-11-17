@@ -18,7 +18,11 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { ReactFlowProps } from '@xyflow/react'
+import {
+  EdgeChangeset,
+  NodeChangeset,
+  type ReactFlowProps,
+} from '@xyflow/react'
 import type { ReactNode } from 'react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -87,9 +91,11 @@ vi.mock('@xyflow/react', async (importOriginal) => {
               data-position={`${node.position.x},${node.position.y}`}
               aria-pressed={Boolean(node.domAttributes?.['aria-pressed'])}
               onClick={(event) => {
-                props.onNodesChange?.([
-                  { id: node.id, type: 'select', selected: true },
-                ])
+                props.onNodesChange?.(
+                  new NodeChangeset([
+                    { id: node.id, type: 'select', selected: true },
+                  ])
+                )
                 props.onNodeClick?.(event, node)
               }}
             >
@@ -106,9 +112,11 @@ vi.mock('@xyflow/react', async (importOriginal) => {
             type="button"
             data-testid={`flow-edge-${edge.source}-to-${edge.target}`}
             onClick={(event) => {
-              props.onEdgesChange?.([
-                { id: edge.id, type: 'select', selected: true },
-              ])
+              props.onEdgesChange?.(
+                new EdgeChangeset([
+                  { id: edge.id, type: 'select', selected: true },
+                ])
+              )
               props.onEdgeClick?.(event, edge)
             }}
           >
@@ -395,7 +403,7 @@ describe('PluginDiagnosticsPage', () => {
     themeHarness.resolvedTheme = 'dark'
     await renderSuccess()
 
-    expect(flowHarness.props?.colorMode).toBe('dark')
+    expect(flowHarness.props?.forceColorMode).toBe('dark')
   })
 
   it('waits for graph and metadata before building and laying out the graph', async () => {

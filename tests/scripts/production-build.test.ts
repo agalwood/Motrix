@@ -11,9 +11,11 @@ const TARGETS = [
   { name: 'worker', initial: 48 * 1024, total: 48 * 1024 },
   // Native NAS strings in all 26 catalogs add ~60 KiB; the Web-only settings
   // dialog stays lazy and is excluded from Electron. Startup ceilings are unchanged.
-  { name: 'renderer', initial: 2.75 * MIB, total: 8 * MIB + 64 * 1024 },
+  // React Flow 13's compiled call graph adds ~65 KiB (~26 KiB gzip), entirely
+  // in lazy chunks. Reserve a further 64 KiB; retain the startup ceiling.
+  { name: 'renderer', initial: 2.75 * MIB, total: 8 * MIB + 128 * 1024 },
   // The lazy DSM storage recovery page and its localized controls add 9 KiB.
-  { name: 'renderer.web', initial: 2.75 * MIB, total: 8 * MIB + 108 * 1024 },
+  { name: 'renderer.web', initial: 2.75 * MIB, total: 8 * MIB + 172 * 1024 },
   // The shared operation runtime brings total server JS to ~5.01 MiB.
   { name: 'server', initial: 2 * MIB, total: 5.25 * MIB },
 ]

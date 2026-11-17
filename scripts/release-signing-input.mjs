@@ -20,7 +20,7 @@ const REPOSITORY_ROOT = path.resolve(
 )
 const SCHEMA_VERSION = 2
 const ELECTRON_BUILDER_VERSION = '26.18.1'
-const ELECTRON_VERSION = '45.3.2'
+const ELECTRON_VERSION = '45.3.3'
 const PLATFORMS = new Set(['darwin', 'win32'])
 const ARCHES = new Set(['arm64', 'x64'])
 
@@ -47,7 +47,7 @@ const TRUSTED_INPUT_SHA256 = Object.freeze({
   'scripts/sign-macos.mjs':
     '98bda5c77dce2a3e5d9c9a2f8211f4d5594d060bf9d2839326db50dc41f8c58b',
   'electron-builder.signing.json':
-    '132f31c454fd00432847453ebcd707b424b320748d19d6fb9f9f008a475b7ae7',
+    'd71f692771f9a93451426abe2acbd44610e25f4f61d3a9fd6618256e2a984142',
   'signing-build-resources/256x256.png':
     'dcc14074b89edd296147ccd427e204e592c873cb2710eef539fabf2184ad0031',
   'signing-build-resources/background.tiff':
