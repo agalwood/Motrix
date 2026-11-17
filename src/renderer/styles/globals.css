@@ -1,5 +1,8 @@
+@layer theme, base, xyflow, components, utilities;
+
 @import "./sidebar-color.css";
 @import "tailwindcss";
+@import "@xyflow/react/style.css";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/inter";

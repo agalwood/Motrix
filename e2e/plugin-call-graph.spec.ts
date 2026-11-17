@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { ElectronApplication, Page } from '@playwright/test'
+import { Commands } from '@shared/protocol/commands'
 import { expect, launchMotrix, test } from './fixtures/electron-app'
 
 const COMMANDS = {
@@ -221,6 +222,56 @@ async function readLegendGeometry(page: Page) {
 }
 
 test.describe('plugin diagnostics call graph', () => {
+  test('preserves node dragging and follows the application theme', async ({
+    userDataDir,
+    rpcPort,
+  }) => {
+    await seedCallGraph(userDataDir)
+    const app = await launchMotrix({ userDataDir, rpcPort })
+    try {
+      const page = await openMain(app)
+      await openCallGraph(page)
+      const graph = page.locator('.react-flow')
+      for (const theme of ['dark', 'light'] as const) {
+        await page.evaluate(
+          async ({ channel, theme }) => {
+            await window.motrix.invoke(channel, { app: { theme } })
+            window.dispatchEvent(new Event('focus'))
+          },
+          { channel: Commands.UpdateSettings, theme }
+        )
+        await expect(page.locator('html')).toHaveClass(
+          new RegExp(`\\b${theme}\\b`)
+        )
+        await expect(graph).toHaveCSS('color-scheme', theme)
+      }
+
+      const node = page.getByTestId('rf__node-motrix.filename-template')
+      await expect(node).toBeVisible()
+      const before = await node.boundingBox()
+      if (!before) throw new Error('Missing call graph node bounds')
+      await page.mouse.move(
+        before.x + before.width / 2,
+        before.y + before.height / 2
+      )
+      await page.mouse.down()
+      await page.mouse.move(
+        before.x + before.width / 2 + 40,
+        before.y + before.height / 2 + 30,
+        { steps: 6 }
+      )
+      await page.mouse.up()
+      await expect
+        .poll(async () => (await node.boundingBox())?.x ?? before.x)
+        .toBeGreaterThan(before.x + 20)
+      await expect
+        .poll(async () => (await node.boundingBox())?.y ?? before.y)
+        .toBeGreaterThan(before.y + 15)
+    } finally {
+      await app.close().catch(() => {})
+    }
+  })
+
   test('reads real audit data and supports graph, table, and filters', async ({
     userDataDir,
     rpcPort,

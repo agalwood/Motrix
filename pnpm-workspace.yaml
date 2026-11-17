@@ -140,3 +140,5 @@ minimumReleaseAgeExclude:
   - '@rolldown/binding-win32-x64-msvc@1.2.18'
   - proxy-chain@3.0.2
   - rolldown@1.2.18
+  - '@xyflow/react@13.0.1'
+  - '@xyflow/system@1.0.0'

@@ -2,7 +2,12 @@ import '@testing-library/jest-dom/vitest'
 import type { PluginCommandGraphEdge } from '@shared/types/plugin-command-graph'
 import { act, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { AriaLabelConfig, ReactFlowProps } from '@xyflow/react'
+import {
+  type AriaLabelConfig,
+  EdgeChangeset,
+  NodeChangeset,
+  type ReactFlowProps,
+} from '@xyflow/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CallGraphNodeLayout } from '../../lib/call-graph-layout'
@@ -56,9 +61,11 @@ vi.mock('@xyflow/react', async (importOriginal) => {
             aria-pressed={Boolean(node.domAttributes?.['aria-pressed'])}
             onClick={(event) => {
               event.stopPropagation()
-              props.onNodesChange?.([
-                { id: node.id, type: 'select', selected: true },
-              ])
+              props.onNodesChange?.(
+                new NodeChangeset([
+                  { id: node.id, type: 'select', selected: true },
+                ])
+              )
               props.onNodeClick?.(event, node)
             }}
             onMouseEnter={(event) => props.onNodeMouseEnter?.(event, node)}
@@ -77,9 +84,11 @@ vi.mock('@xyflow/react', async (importOriginal) => {
             data-dimmed={String(Boolean(edge.data?.dimmed))}
             onClick={(event) => {
               event.stopPropagation()
-              props.onEdgesChange?.([
-                { id: edge.id, type: 'select', selected: true },
-              ])
+              props.onEdgesChange?.(
+                new EdgeChangeset([
+                  { id: edge.id, type: 'select', selected: true },
+                ])
+              )
               props.onEdgeClick?.(event, edge)
             }}
             onMouseEnter={(event) => props.onEdgeMouseEnter?.(event, edge)}
@@ -500,9 +509,9 @@ describe('PluginCallGraph', () => {
     const edgeId = JSON.stringify(['plugin.alpha', 'plugin.beta'])
 
     act(() => {
-      flowHarness.props?.onEdgesChange?.([
-        { id: edgeId, type: 'select', selected: true },
-      ])
+      flowHarness.props?.onEdgesChange?.(
+        new EdgeChangeset([{ id: edgeId, type: 'select', selected: true }])
+      )
     })
 
     await waitFor(() =>
@@ -524,9 +533,9 @@ describe('PluginCallGraph', () => {
     ).toBe(true)
 
     act(() => {
-      flowHarness.props?.onEdgesChange?.([
-        { id: edgeId, type: 'select', selected: false },
-      ])
+      flowHarness.props?.onEdgesChange?.(
+        new EdgeChangeset([{ id: edgeId, type: 'select', selected: false }])
+      )
     })
 
     await waitFor(() =>
@@ -553,19 +562,21 @@ describe('PluginCallGraph', () => {
     const firstEdgeId = JSON.stringify(['plugin.alpha', 'plugin.beta'])
     const secondEdgeId = JSON.stringify(['plugin.beta', 'plugin.gamma'])
     act(() => {
-      flowHarness.props?.onEdgesChange?.([
-        { id: firstEdgeId, type: 'select', selected: true },
-      ])
+      flowHarness.props?.onEdgesChange?.(
+        new EdgeChangeset([{ id: firstEdgeId, type: 'select', selected: true }])
+      )
     })
     await waitFor(() => expect(onEdgeSelect).toHaveBeenCalledOnce())
     onEdgeSelect.mockClear()
     onSelectionChange.mockClear()
 
     act(() => {
-      flowHarness.props?.onEdgesChange?.([
-        { id: firstEdgeId, type: 'select', selected: false },
-        { id: secondEdgeId, type: 'select', selected: true },
-      ])
+      flowHarness.props?.onEdgesChange?.(
+        new EdgeChangeset([
+          { id: firstEdgeId, type: 'select', selected: false },
+          { id: secondEdgeId, type: 'select', selected: true },
+        ])
+      )
     })
 
     expect(onEdgeSelect).toHaveBeenCalledOnce()
@@ -625,9 +636,11 @@ describe('PluginCallGraph', () => {
     })
 
     act(() => {
-      flowHarness.props?.onNodesChange?.([
-        { id: 'plugin.alpha', type: 'select', selected: true },
-      ])
+      flowHarness.props?.onNodesChange?.(
+        new NodeChangeset([
+          { id: 'plugin.alpha', type: 'select', selected: true },
+        ])
+      )
     })
     await user.click(getByTestId('flow-node-plugin.alpha'))
     expect(onNodeSelect).toHaveBeenCalledOnce()
@@ -745,9 +758,9 @@ describe('PluginCallGraph', () => {
     })
 
     act(() => {
-      flowHarness.props?.onEdgesChange?.([
-        { id: edgeId, type: 'select', selected: true },
-      ])
+      flowHarness.props?.onEdgesChange?.(
+        new EdgeChangeset([{ id: edgeId, type: 'select', selected: true }])
+      )
     })
     await user.click(getByTestId(`flow-edge-${edgeId}`))
     expect(onEdgeSelect).toHaveBeenCalledOnce()
@@ -809,9 +822,11 @@ describe('PluginCallGraph', () => {
     onSelectionChange.mockClear()
 
     act(() => {
-      flowHarness.props?.onNodesChange?.([
-        { id: 'plugin.alpha', type: 'select', selected: true },
-      ])
+      flowHarness.props?.onNodesChange?.(
+        new NodeChangeset([
+          { id: 'plugin.alpha', type: 'select', selected: true },
+        ])
+      )
     })
     expect(onNodeSelect).not.toHaveBeenCalled()
     expect(onSelectionChange).not.toHaveBeenCalled()
@@ -899,9 +914,9 @@ describe('PluginCallGraph', () => {
     onSelectionChange.mockClear()
 
     act(() => {
-      flowHarness.props?.onEdgesChange?.([
-        { id: edgeId, type: 'select', selected: true },
-      ])
+      flowHarness.props?.onEdgesChange?.(
+        new EdgeChangeset([{ id: edgeId, type: 'select', selected: true }])
+      )
     })
     expect(onEdgeSelect).not.toHaveBeenCalled()
     expect(onSelectionChange).not.toHaveBeenCalled()
@@ -973,14 +988,16 @@ describe('PluginCallGraph', () => {
     flowHarness.fitView.mockClear()
 
     act(() => {
-      flowHarness.props?.onNodesChange?.([
-        {
-          type: 'position',
-          id: 'plugin.alpha',
-          position: { x: 777, y: 333 },
-          dragging: false,
-        },
-      ])
+      flowHarness.props?.onNodesChange?.(
+        new NodeChangeset([
+          {
+            type: 'position',
+            id: 'plugin.alpha',
+            position: { x: 777, y: 333 },
+            dragging: false,
+          },
+        ])
+      )
     })
     rerender(
       <PluginCallGraph {...graphProps(modelACountUpdate, layoutNodes)} />

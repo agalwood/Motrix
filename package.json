@@ -141,7 +141,7 @@
     "@resvg/resvg-wasm": "^2.6.2",
     "@tanstack/react-virtual": "^3.14.26",
     "@trimjs/web-app": "^0.6.0",
-    "@xyflow/react": "^12.12.1",
+    "@xyflow/react": "^13.0.1",
     "ajv": "^8.20.0",
     "better-sqlite3": "^13.2.0",
     "bittorrent-peerid": "^2.0.2",
