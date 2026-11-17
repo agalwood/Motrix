@@ -1,5 +1,18 @@
 type ShutdownAction = () => void | Promise<void>
 
+export function registerServerExitSignals(
+  requestExit: (code: number) => Promise<void>
+): void {
+  const shutdownAndExit = () => {
+    void requestExit(0)
+  }
+  // Keep ownership of the signal while asynchronous shutdown drains. A once
+  // listener disappears before signal-exit checks for application handlers and
+  // can make an in-flight atomic write re-raise the signal and abort cleanup.
+  process.on('SIGINT', shutdownAndExit)
+  process.on('SIGTERM', shutdownAndExit)
+}
+
 export interface ServerShutdownActions {
   releaseProcessOwnership?: ShutdownAction
   gateShellWork: () => Promise<void>

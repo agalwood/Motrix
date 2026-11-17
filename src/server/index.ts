@@ -216,6 +216,7 @@ import { ServerDirectoryService } from './server-directory-service'
 import {
   createServerExitCoordinator,
   createServerShutdown,
+  registerServerExitSignals,
   runServerStartup,
   type ServerShutdownActions,
 } from './shutdown'
@@ -287,11 +288,7 @@ async function main() {
     process.exit(Math.max(code, startupExitCode))
   })
   requestActiveServerExit = requestExit
-  const shutdownAndExit = () => {
-    void requestExit(0)
-  }
-  process.once('SIGINT', shutdownAndExit)
-  process.once('SIGTERM', shutdownAndExit)
+  registerServerExitSignals(requestExit)
 
   const runShellAsyncWork = (
     label: string,
