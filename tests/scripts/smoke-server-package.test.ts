@@ -3,6 +3,7 @@ import {
   cp,
   mkdir,
   mkdtemp,
+  readFile,
   realpath,
   rm,
   writeFile,
@@ -147,4 +148,22 @@ describe('smokeServerPackage', () => {
       })
     ).rejects.toThrow('aria2 binary is not a file')
   })
+
+  it('reports startup logs when the Server terminates without graceful shutdown', async () => {
+    const fixture = await createFixture()
+    const entry = path.join(fixture.stageRoot, 'dist/server/index.cjs')
+    const source = await readFile(entry, 'utf8')
+    await writeFile(
+      entry,
+      source.replace(
+        "process.once('SIGTERM', () => server.close(() => process.exit(0)))",
+        "console.log('fixture has no shutdown handler')"
+      )
+    )
+    await expect(
+      smokeServerPackage({ appDir: fixture.stageRoot, timeoutMs: 10_000 })
+    ).rejects.toThrow(
+      /signal=SIGTERM\); logs:[\s\S]*fixture has no shutdown handler/
+    )
+  }, 20_000)
 })
