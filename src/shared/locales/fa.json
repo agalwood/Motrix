@@ -927,7 +927,8 @@
         "downloadToDevice": "Download to this device",
         "revealInFileStation": "Show in File Station",
         "nasFileUnavailable": "File access could not be authorized. Check the account and folder permissions.",
-        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again."
+        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again.",
+        "fnosHostRequired": "برای استفاده از این عملیات فایل، Motrix را از دسکتاپ fnOS یا برنامهٔ موبایل باز کنید."
       },
       "column": {
         "connections": "اتصال‌ها",
@@ -2944,7 +2945,8 @@
       "urlsWithInvalid": "{{valid}} معتبر، {{invalid}} نامعتبر",
       "userAgent": "User-Agent",
       "validUrlCount": "{{count}} معتبر",
-      "selectNasTorrent": "Choose a torrent from the NAS"
+      "selectNasTorrent": "Choose a torrent from the NAS",
+      "fnosAuthorizationPopupBlocked": "پنجره‌های بازشو را برای این سایت مجاز کنید و پوشه را دوباره انتخاب کنید."
     },
     "detail": {
       "peers": "همتاها: {{count}}",

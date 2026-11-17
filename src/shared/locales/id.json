@@ -954,7 +954,8 @@
         "downloadToDevice": "Download to this device",
         "revealInFileStation": "Show in File Station",
         "nasFileUnavailable": "File access could not be authorized. Check the account and folder permissions.",
-        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again."
+        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again.",
+        "fnosHostRequired": "Buka Motrix dari desktop fnOS atau aplikasi seluler untuk menggunakan tindakan berkas ini."
       },
       "titleCount": "{{shown}} ditampilkan · {{total}} total",
       "type": {
@@ -1144,7 +1145,8 @@
       },
       "undoCorrection": "Urungkan koreksi URL",
       "submissionUnconfirmed": "Hasilnya belum terkonfirmasi. Saat dicoba lagi, permintaan awal akan diperiksa sebelum membuat tugas lain.",
-      "selectNasTorrent": "Choose a torrent from the NAS"
+      "selectNasTorrent": "Choose a torrent from the NAS",
+      "fnosAuthorizationPopupBlocked": "Izinkan pop-up untuk situs ini, lalu pilih folder lagi."
     },
     "detail": {
       "peers": "Peer: {{count}}",

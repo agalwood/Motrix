@@ -990,7 +990,8 @@
         "downloadToDevice": "Download to this device",
         "revealInFileStation": "Show in File Station",
         "nasFileUnavailable": "File access could not be authorized. Check the account and folder permissions.",
-        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again."
+        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again.",
+        "fnosHostRequired": "Откройте Motrix с рабочего стола fnOS или из мобильного приложения, чтобы выполнить это действие с файлом."
       },
       "titleCount": "Показано: {{shown}} · Всего: {{total}}",
       "type": {
@@ -1183,7 +1184,8 @@
       },
       "undoCorrection": "Отменить исправление URL",
       "submissionUnconfirmed": "Результат не подтверждён. При повторной попытке исходный запрос будет проверен перед созданием новой задачи.",
-      "selectNasTorrent": "Choose a torrent from the NAS"
+      "selectNasTorrent": "Choose a torrent from the NAS",
+      "fnosAuthorizationPopupBlocked": "Разрешите всплывающие окна для этого сайта и выберите папку ещё раз."
     },
     "detail": {
       "peers": "Пиры: {{count}}",

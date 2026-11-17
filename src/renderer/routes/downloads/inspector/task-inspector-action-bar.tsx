@@ -15,16 +15,14 @@ import { MagnetFileSelectionButton } from '@renderer/components/task/magnet-file
 import { Button } from '@renderer/components/ui/button'
 import { toast } from '@renderer/components/ui/toast'
 import { useModifierKeys } from '@renderer/hooks/use-modifier-keys'
-import { openTaskFile } from '@renderer/lib/open-task-file'
+import { openTaskFile, revealTaskFolder } from '@renderer/lib/open-task-file'
 import { rtlMirror } from '@renderer/lib/task-status-ui'
-import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
 import {
   hasHostFileActions,
   hostOpenFileLabelKey,
   hostRevealFolderLabelKey,
 } from '@renderer/platform/nas'
-import { Commands } from '@shared/protocol/commands'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
 import { canOpenTaskFile } from '@shared/types/task-actions'
@@ -148,9 +146,7 @@ function FinalizingActionBar({
         <Button
           size="xs"
           variant="outline"
-          onClick={() =>
-            transport.invoke(Commands.RevealInFolder, { taskId: task.id })
-          }
+          onClick={() => revealTaskFolder(task, t)}
         >
           <RevealFolderIcon />
           {t(hostRevealFolderLabelKey())}
@@ -336,11 +332,7 @@ export function TaskInspectorActionBar({
         <Button
           size="xs"
           variant="outline"
-          onClick={() =>
-            transport.invoke(Commands.RevealInFolder, {
-              taskId: single.id,
-            })
-          }
+          onClick={() => revealTaskFolder(single, t)}
         >
           <RevealFolderIcon />
           {t(hostRevealFolderLabelKey())}

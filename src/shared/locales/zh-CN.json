@@ -954,7 +954,8 @@
         "downloadToDevice": "下载到本机",
         "revealInFileStation": "在 File Station 中显示",
         "nasFileUnavailable": "无法授权访问文件，请检查当前账号和目录权限。",
-        "fileStationWindowBlocked": "浏览器阻止了 File Station 窗口，请允许此站点打开弹窗后重试。"
+        "fileStationWindowBlocked": "浏览器阻止了 File Station 窗口，请允许此站点打开弹窗后重试。",
+        "fnosHostRequired": "请从飞牛桌面或手机 App 打开 Motrix 后使用此文件操作。"
       },
       "titleCount": "{{shown}} 项 · 共 {{total}}",
       "type": {
@@ -1144,7 +1145,8 @@
       },
       "undoCorrection": "撤销 URL 修正",
       "submissionUnconfirmed": "结果尚未确认。再次提交时会先核对原请求，避免重复创建任务。",
-      "selectNasTorrent": "从 NAS 选择种子文件"
+      "selectNasTorrent": "从 NAS 选择种子文件",
+      "fnosAuthorizationPopupBlocked": "请允许此网站打开弹窗，然后重新选择目录。"
     },
     "detail": {
       "peers": "节点：{{count}}",

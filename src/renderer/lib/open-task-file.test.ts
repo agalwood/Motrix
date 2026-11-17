@@ -1,10 +1,11 @@
 import { toast } from '@renderer/components/ui/toast'
+import { FnosHostRequiredError } from '@renderer/platform/fnos'
 import { ErrorCode } from '@shared/errors'
 import { Commands } from '@shared/protocol/commands'
 import { TransportError } from '@shared/protocol/errors'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { i18n } from './i18n'
-import { openTaskFile } from './open-task-file'
+import { openTaskFile, revealTaskFolder } from './open-task-file'
 import { transport } from './transport'
 
 vi.mock('@renderer/components/ui/toast', () => ({ toast: { add: vi.fn() } }))
@@ -70,4 +71,31 @@ describe('openTaskFile', () => {
       })
     }
   )
+})
+
+it('shows the fnOS host requirement through the actual open-file error presenter', async () => {
+  const error = new FnosHostRequiredError()
+  vi.mocked(transport.invoke).mockRejectedValueOnce(error)
+  await openTaskFile('task-1', i18n.getFixedT('en-US'))
+  expect(toast.add).toHaveBeenCalledWith({
+    title: 'Could not open file',
+    description: error.message,
+    type: 'error',
+  })
+})
+
+it('handles reveal failures for both the context menu and inspector controls', async () => {
+  const error = new FnosHostRequiredError()
+  vi.mocked(transport.invoke).mockRejectedValueOnce(error)
+  await revealTaskFolder(
+    { id: 'task-1', name: 'file.iso' },
+    i18n.getFixedT('en-US')
+  )
+  expect(transport.invoke).toHaveBeenCalledWith(Commands.RevealInFolder, {
+    taskId: 'task-1',
+  })
+  expect(toast.add).toHaveBeenCalledWith({
+    title: expect.stringContaining(error.message),
+    type: 'error',
+  })
 })

@@ -954,7 +954,8 @@
         "downloadToDevice": "下載到此裝置",
         "revealInFileStation": "在 File Station 中顯示",
         "nasFileUnavailable": "無法授權存取檔案，請檢查目前帳號和目錄權限。",
-        "fileStationWindowBlocked": "瀏覽器封鎖了 File Station 視窗，請允許此網站開啟彈出式視窗後重試。"
+        "fileStationWindowBlocked": "瀏覽器封鎖了 File Station 視窗，請允許此網站開啟彈出式視窗後重試。",
+        "fnosHostRequired": "請從飛牛桌面或手機 App 開啟 Motrix 後使用此檔案操作。"
       },
       "titleCount": "顯示 {{shown}} 項 · 共 {{total}} 項",
       "type": {
@@ -1144,7 +1145,8 @@
       },
       "undoCorrection": "復原 URL 修正",
       "submissionUnconfirmed": "結果尚未確認。再次提交時會先核對原請求，避免重複建立任務。",
-      "selectNasTorrent": "從 NAS 選擇種子檔案"
+      "selectNasTorrent": "從 NAS 選擇種子檔案",
+      "fnosAuthorizationPopupBlocked": "請允許此網站開啟彈出視窗，然後重新選擇資料夾。"
     },
     "detail": {
       "peers": "對等節點：{{count}}",

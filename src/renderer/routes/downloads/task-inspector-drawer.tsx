@@ -27,10 +27,10 @@ import {
 } from '@renderer/components/ui/tabs'
 import { LegacyFreshDownload } from '@renderer/features/legacy-import/legacy-fresh-download'
 import { createTaskInspectorActivitySnapshotCache } from '@renderer/hooks/use-task-inspector-activity'
+import { revealTaskFolder } from '@renderer/lib/open-task-file'
 import { transport } from '@renderer/lib/transport'
 import { hasHostFileActions } from '@renderer/platform/nas'
 import { formatNativePath } from '@shared/lib/path-display'
-import { Commands } from '@shared/protocol/commands'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskType } from '@shared/types/task'
 import {
@@ -158,11 +158,7 @@ export function TaskInspectorDrawer({
                           variant="secondary"
                           size="xs"
                           dir="ltr"
-                          onClick={() =>
-                            transport.invoke(Commands.RevealInFolder, {
-                              taskId: single.id,
-                            })
-                          }
+                          onClick={() => revealTaskFolder(single, t)}
                         >
                           <DiskIcon className="me-1 size-3.5 shrink-0 text-muted-foreground" />
                           <MiddleEllipsis

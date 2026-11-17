@@ -26,7 +26,7 @@ import { OperationTaskMenuItems } from '@renderer/features/plugin-operations/ope
 import { useExitSnapshot } from '@renderer/hooks/use-exit-snapshot'
 import { openAddTaskDialog } from '@renderer/lib/open-add-task-dialog'
 import { openMagnetFileSelection } from '@renderer/lib/open-magnet-file-selection'
-import { openTaskFile } from '@renderer/lib/open-task-file'
+import { openTaskFile, revealTaskFolder } from '@renderer/lib/open-task-file'
 import { transport } from '@renderer/lib/transport'
 import {
   hasHostFileActions,
@@ -300,17 +300,7 @@ export function TaskActionsMenu({
           {single && hasHostFileActions() && canRevealTaskFolder(single) && (
             <DropdownMenuItem
               onClick={() => {
-                void transport
-                  .invoke(Commands.RevealInFolder, { taskId: single.id })
-                  .catch((error: unknown) =>
-                    toast.add({
-                      title: t('panel.downloads.action.singleTaskFailed', {
-                        name: single.name,
-                        reason: String(error),
-                      }),
-                      type: 'error',
-                    })
-                  )
+                void revealTaskFolder(single, t)
               }}
             >
               {t(hostRevealFolderLabelKey())}

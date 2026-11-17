@@ -954,7 +954,8 @@
         "downloadToDevice": "Download to this device",
         "revealInFileStation": "Show in File Station",
         "nasFileUnavailable": "File access could not be authorized. Check the account and folder permissions.",
-        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again."
+        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again.",
+        "fnosHostRequired": "이 파일 작업을 사용하려면 fnOS 데스크톱 또는 모바일 앱에서 Motrix를 여세요."
       },
       "titleCount": "{{shown}}개 표시 · 전체 {{total}}개",
       "type": {
@@ -1144,7 +1145,8 @@
       },
       "undoCorrection": "URL 수정 실행 취소",
       "submissionUnconfirmed": "결과가 확인되지 않았습니다. 다시 시도하면 새 작업을 만들기 전에 원래 요청의 처리 결과를 확인합니다.",
-      "selectNasTorrent": "Choose a torrent from the NAS"
+      "selectNasTorrent": "Choose a torrent from the NAS",
+      "fnosAuthorizationPopupBlocked": "이 사이트의 팝업을 허용한 다음 폴더를 다시 선택하세요."
     },
     "detail": {
       "peers": "피어: {{count}}",
