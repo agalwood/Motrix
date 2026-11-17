@@ -1,6 +1,7 @@
 import { RunMode } from '@shared/constants'
 import type { MotrixAppSettings } from '@shared/types/settings'
 import { z } from 'zod'
+import { autoCategorizeSettingsSchema } from './auto-categorize'
 import {
   byteUnitSystemSchema,
   DEFAULT_BYTE_UNIT_PREFERENCE,
@@ -48,6 +49,9 @@ export const appSettingsSchema = z.object({
   // absolute platform download directory on first load. The renderer never
   // observes '' because settings are loaded before the UI mounts.
   defaultSaveDir: z.string().catch(''),
+  // IDM-style extension → subfolder routing for tasks created without an
+  // explicit saveDir; see ./auto-categorize.ts.
+  autoCategorize: autoCategorizeSettingsSchema,
   fileDeletionMode: fileDeletionModeSchema.catch('trash'),
   directoryPreferences: DirectoryPreferencesSchema.catch({
     favorites: [],
