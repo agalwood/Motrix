@@ -68,6 +68,15 @@
   </screenshots>
 
   <releases>
+    <release version="2.4.3" date="2026-11-17">
+      <description>
+        <p>
+          Adds custom Server access passwords and persistent download statistics
+          beside task details. Improves progress, pause feedback and fnOS integration.
+          Updates Electron and translation dependencies.
+        </p>
+      </description>
+    </release>
     <release version="2.4.2" date="2026-11-15">
       <description>
         <p>
