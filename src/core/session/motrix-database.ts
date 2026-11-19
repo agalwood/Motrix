@@ -563,6 +563,17 @@ export class MotrixDatabase {
     }
   }
 
+  /** Insert a newly reserved task inside the caller's SQLite transaction.
+   * Keep the snapshot cache cold: the outer transaction can still roll back. */
+  insertReservedTask(payload: TaskWithInstances): void {
+    if (!this.db.inTransaction)
+      throw new Error('Reserved task insertion requires a transaction')
+    if (this.stmtGetTask.get(payload.task.motrixId))
+      throw new Error('Reserved task already exists')
+    this.writeRow(payload)
+    this.lastPersistedSig.delete(payload.task.motrixId)
+  }
+
   saveTaskWithInstances(payload: TaskWithInstances): void {
     this.db.transaction(() => {
       this.writeRow(payload)

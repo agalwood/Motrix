@@ -10,6 +10,7 @@ import { BridgeEventBus } from '@core/bridge/bridge-event-bus'
 import { BridgeOwnership } from '@core/bridge/bridge-ownership'
 import { DeviceCodeService } from '@core/bridge/device-code-service'
 import { EndpointFileWriter } from '@core/bridge/endpoint-file-writer'
+import type { ExtensionHandoffModule } from '@core/bridge/extension-handoff'
 import { recoverExtensionPairingProjectionWriterLock } from '@core/bridge/file-extension-pairing-projection-store'
 import { FilePairingStore } from '@core/bridge/file-pairing-store'
 import type { ReadHandlerDeps } from '@core/bridge/handlers/read-handlers'
@@ -91,6 +92,7 @@ export interface ServerExtensionReceiver {
 }
 
 export interface ServerBridgeOptions {
+  extensionHandoff?: ExtensionHandoffModule
   /** Couples NAS credential ownership and per-request account checks. The
    * composition root must provide a real vendor authority before enabling it. */
   nasAccounts?: NasAccountAuthority
@@ -299,6 +301,9 @@ export async function bootstrapBridgeForServer(
     )
 
     const server = new WebSocketBridgeServer({
+      ...(extensionReceiver && opts.extensionHandoff
+        ? { extensionHandoff: opts.extensionHandoff }
+        : {}),
       pairing,
       registry,
       motrixVersion: opts.motrixVersion,

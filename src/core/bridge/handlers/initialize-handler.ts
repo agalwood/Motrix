@@ -4,9 +4,11 @@ import {
   type InitializeResult,
   makeMdxpError,
 } from '@motrix/mdxp'
+import type { ExtensionHandoffModule } from '../extension-handoff'
 import type { MdxpSessionContext } from '../mdxp-session-context'
 
 export interface InitializeHandlerDeps {
+  handoffCapability?: ExtensionHandoffModule['capability']
   motrixVersion: string
   runtime: 'electron' | 'server'
   ffmpegAvailable: boolean | (() => Promise<boolean>)
@@ -90,6 +92,9 @@ async function buildResult(
       runtime: deps.runtime,
     },
     capabilities: {
+      ...(deps.handoffCapability
+        ? { downloadHandoff: deps.handoffCapability() }
+        : {}),
       ffmpegAvailable,
       selectionKinds: ffmpegAvailable
         ? ['direct', 'hls', 'dash', 'mux']

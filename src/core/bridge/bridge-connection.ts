@@ -1,3 +1,4 @@
+import type { ExtensionHandoffMethod } from './extension-handoff'
 // Installs the vscode-jsonrpc v9 Node runtime abstraction layer (RAL) into the
 // same vscode-jsonrpc instance mdxp's createMdxpConnection uses. Required before
 // any MessageConnection.listen(); side-effect import, kept adjacent to the
@@ -102,6 +103,15 @@ export class BridgeConnection {
   /** Register a typed request handler. */
   onRequest: MdxpConnection['onRequest'] = (method, handler) => {
     this.mdxp.onRequest(method, handler)
+  }
+
+  onRoutedRequest(
+    method:
+      | ExtensionHandoffMethod
+      | keyof import('@motrix/mdxp').MdxpRequestMap,
+    handler: (params: unknown) => Promise<unknown>
+  ): void {
+    this.mdxp.raw.onRequest(method, handler)
   }
 
   /** Register a typed notification handler. */

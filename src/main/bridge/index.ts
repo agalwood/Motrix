@@ -14,6 +14,7 @@ import {
 } from '@core/bridge/credential-store'
 import { DeviceCodeService } from '@core/bridge/device-code-service'
 import { EndpointFileWriter } from '@core/bridge/endpoint-file-writer'
+import type { ExtensionHandoffModule } from '@core/bridge/extension-handoff'
 import {
   createExtensionIdentityResolver,
   parseDevTrustedExtensions,
@@ -410,6 +411,7 @@ export async function syncNativeMessagingManifests(args: {
 }
 
 export async function bootstrapBridge(args: {
+  extensionHandoff?: ExtensionHandoffModule
   getMainWindow: () => Electron.BrowserWindow | null
   motrixVersion: string
   ffmpegAvailable: boolean | (() => Promise<boolean>)
@@ -700,6 +702,7 @@ export async function bootstrapBridge(args: {
     }
 
     server = new WebSocketBridgeServer({
+      extensionHandoff: args.extensionHandoff,
       pairing,
       registry,
       motrixVersion: args.motrixVersion,
