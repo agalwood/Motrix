@@ -37,7 +37,7 @@ export interface SpawnAria2Options {
 
 // Resolve the bundled binary path relative to the repo root.
 // `src/test-utils/` sits two levels below the repo root.
-const REPO_ROOT = path.resolve(__dirname, '../..')
+const REPO_ROOT = path.resolve(import.meta.dirname, '../..')
 const EXTRA_DIR = path.resolve(REPO_ROOT, 'extra')
 
 export function bundledAria2ExtraDir(): string {

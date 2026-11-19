@@ -21,6 +21,7 @@ import {
 } from '@core/plugin/finalize/reserved-identity'
 import type Database from 'better-sqlite3'
 import { z } from 'zod'
+import { durableSqliteWrite } from './durable-sqlite-write'
 import { TASK_DELETED_FINALIZE_REASON } from './finalize-journal-lifecycle'
 
 interface RawFinalizeJournal {
@@ -326,25 +327,7 @@ export class SqliteFinalizeJournalRepository
 
   /** Critical filesystem intents must reach the WAL before native mutation. */
   private durableTransaction<T>(run: () => T): T {
-    if (this.db.inTransaction)
-      throw new Error('finalize durability requires an outermost transaction')
-    const previous = this.db.pragma('synchronous', { simple: true }) as number
-    // Keep stronger caller settings; change this connection only, outside a
-    // transaction. No awaits or unrelated writes can enter this sync boundary.
-    const previousFull =
-      process.platform === 'darwin'
-        ? (this.db.pragma('fullfsync', { simple: true }) as number)
-        : undefined
-    try {
-      // SQLite's FULL synchronous level alone uses fsync on macOS. The WAL
-      // must reach stable storage before a mutation on a separate download disk.
-      if (previousFull === 0) this.db.pragma('fullfsync = ON')
-      if (previous < 2) this.db.pragma('synchronous = FULL')
-      return this.db.transaction(run)()
-    } finally {
-      if (previous < 2) this.db.pragma(`synchronous = ${previous}`)
-      if (previousFull === 0) this.db.pragma('fullfsync = OFF')
-    }
+    return durableSqliteWrite(this.db, run, 'finalize')
   }
 
   private requireRecord(journalId: string): FinalizeJournalRecord {
