@@ -44,6 +44,10 @@ import {
   transportIdentityForPrincipal,
 } from './credential-store'
 import type { DeviceCodeService } from './device-code-service'
+import {
+  type ExtensionHandoffModule,
+  extensionHandoffMethods,
+} from './extension-handoff'
 import { createInitializeHandler } from './handlers/initialize-handler'
 import {
   type ReadHandlerDeps,
@@ -89,6 +93,7 @@ export interface PairRequestArgs {
 }
 
 export interface BridgeServerOptions {
+  extensionHandoff?: ExtensionHandoffModule | undefined
   pairing: PairingService
   registry: TrustedExtensionRegistry
   motrixVersion: string
@@ -336,7 +341,10 @@ export type MethodHandlers = {
  * is deliberately excluded (extensions add via `download/submit`); it stays
  * reachable only over the agent-facing unary `POST /mdxp` transport.
  */
-const EXTENSION_WS_CONTROL_PLANE = [
+const EXTENSION_WS_METHODS = [
+  Methods.DownloadSubmit,
+  Methods.DownloadCancel,
+  ...extensionHandoffMethods,
   Methods.DownloadDirectories,
   Methods.TaskList,
   Methods.TaskGet,
@@ -630,12 +638,32 @@ export class WebSocketBridgeServer {
         }
       },
     })
+    const handoff = opts.extensionHandoff
+    if (handoff) {
+      for (const method of extensionHandoffMethods) {
+        const handler = handoff.methods[method]
+        this.dispatcher.register(method, handler.schema, (params, ctx) => {
+          if (
+            !ctx.isAuthorized() ||
+            !ctx.isReady() ||
+            ctx.identity.kind !== 'extension' ||
+            !ctx.sessionKey
+          )
+            throw makeMdxpError(
+              ErrorCodes.PermissionDenied,
+              'Authenticated extension session required'
+            )
+          return handler.handle(params, ctx)
+        })
+      }
+    }
     // `motrix/initialize` is always available; the shell registers domain
     // methods (download/*) later via setHandlers().
     this.dispatcher.register(
       'motrix/initialize',
       InitializeParamsSchema,
       createInitializeHandler({
+        ...(handoff ? { handoffCapability: () => handoff.capability() } : {}),
         motrixVersion: opts.motrixVersion,
         runtime: opts.runtime,
         ffmpegAvailable: opts.ffmpegAvailable,
@@ -1167,7 +1195,7 @@ export class WebSocketBridgeServer {
    * `engine/status`) on the dispatcher, backed by the shell's managers. Call
    * BEFORE start(), like setHandlers(). These methods are reachable both via
    * the unary `POST /mdxp` transport (agent-facing) AND — for the methods in
-   * `EXTENSION_WS_CONTROL_PLANE` — over the extension WebSocket for a paired
+   * `EXTENSION_WS_METHODS` — over the extension WebSocket for a paired
    * session. `download/add` remains `POST /mdxp` only.
    */
   registerReadMethods(deps: ReadHandlerDeps): void {
@@ -2531,31 +2559,14 @@ export class WebSocketBridgeServer {
           authorization
         ) as never
     )
-    if (this.dispatcher.has('download/submit')) {
-      conn.onRequest(
-        'download/submit',
-        (params) => authorizedDispatch('download/submit', params) as never
-      )
-    }
-    if (this.dispatcher.has('download/cancel')) {
-      conn.onRequest(
-        'download/cancel',
-        (params) => authorizedDispatch('download/cancel', params) as never
-      )
-    }
-    // Control-plane over WS: a paired session may drive task management + read
-    // stats/engine. Additive — handlers/schemas live on the shared dispatcher.
-    const wireDispatched = (
-      method: (typeof EXTENSION_WS_CONTROL_PLANE)[number]
-    ) => {
-      if (this.dispatcher.has(method)) {
-        conn.onRequest(
-          method,
-          (params) => authorizedDispatch(method, params) as never
+    // All domain requests use the same authorization and tracked-dispatch gate.
+    // The dispatcher contains handoff handlers only when a host installed them.
+    for (const method of EXTENSION_WS_METHODS) {
+      if (this.dispatcher.has(method))
+        conn.onRoutedRequest(method, (params) =>
+          authorizedDispatch(method, params)
         )
-      }
     }
-    for (const method of EXTENSION_WS_CONTROL_PLANE) wireDispatched(method)
     // system/ping is universal — wire it unconditionally.
     conn.onRequest('system/ping', (params) => ({
       sentAt: params.sentAt,

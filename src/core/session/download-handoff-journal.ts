@@ -129,6 +129,9 @@ export class DownloadHandoffJournal {
       return this.generation()
     })
   }
+  get acceptingNewOperations() {
+    return this.acceptingNew() && this.secrets.available()
+  }
   private write<T>(fn: () => T) {
     return durableSqliteWrite(this.db, fn, 'handoff', true)
   }
@@ -173,13 +176,16 @@ export class DownloadHandoffJournal {
   async prepare(
     key: HandoffKey,
     canonicalPayload: string,
-    saveDir: string,
-    ttlMs: number
+    directory: string | (() => Promise<string>),
+    ttlMs: number,
+    authorized: () => boolean = () => true
   ) {
     const hash = digest(canonicalPayload)
     const previous = this.write(() => result(this.read(key, hash)))
     if (previous.state !== 'not-found') return previous
     if (!this.acceptingNew()) throw new HandoffJournalRefusal('not-accepting')
+    const saveDir =
+      typeof directory === 'string' ? directory : await directory()
     if (
       !isAbsolute(saveDir) ||
       !Number.isSafeInteger(ttlMs) ||
@@ -189,6 +195,7 @@ export class DownloadHandoffJournal {
       throw new Error('Invalid handoff preparation')
     const sealed = await this.secrets.encrypt(canonicalPayload)
     return this.write(() => {
+      if (!authorized()) throw new Error('Handoff authorization changed')
       const stored = this.read(key, hash)
       if (stored) return result(stored)
       if (!this.acceptingNew()) throw new HandoffJournalRefusal('not-accepting')

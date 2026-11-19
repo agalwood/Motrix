@@ -270,3 +270,7 @@ MOTRIX_HANDOFF_SDK=/path/to/built/mdxp-checkout \
 父进程分别在 prepare 完成、commit 已写库但未回复，以及引擎已接受但尚未清理待启动记录时终止测试子进程。报告记录候选提交、任务 ID、引擎 GID、源站请求数和文件 SHA-256。对可能已经启动但查不到原 GID 的任务，账本保留待核对状态。生产能力声明、配对、浏览器确认和主机任务管理器的启动接线仍需单独验收。
 
 要由 Chromium 驱动同一笔事务，再将 `MOTRIX_EXTENSION_DIR` 指向已完成 Chromium 构建的扩展工作目录，并可通过 `CHROME_BINARY` 指定 Chrome for Testing。隔离扩展加载请求前点击监听器、确认服务、发行产物样式和确认表单。驱动填写文件名和请求头，点击“添加”；仅该扩展页面可用的测试绑定将冻结的选项交给本地候选 RPC 客户端。文件源拒绝第二次文件请求。报告同时记录确认时的请求数、浏览器下载项、宿主任务、引擎 GID 和文件摘要。本用例覆盖首次请求前的直链；生产 MBP1/WebSocket 能力协商及已创建浏览器下载项的停止时序仍需分别接入。
+
+### 本地配对浏览器验收
+
+从扩展仓库运行，将 `MOTRIX_HOST_DIR` 指向此仓库，`MOTRIX_HANDOFF_SDK` 指向已构建的候选 SDK，分别执行 `pnpm test:chromium-confirmation --paired-handoff` 和 `pnpm test:firefox-takeover --paired-handoff`。真实扩展 MBP1 客户端连接隔离的本机 WebSocket 桥，测试操作员从独立通道输入宿主生成的配对码。已接受任务由真实 aria2 下载；丢回执用例在 commit 后关闭连接，并通过重新认证的新连接查询原账本。测试宿主仅接收临时文件源和隔离目录。正常产品构建默认保持既有能力声明。
