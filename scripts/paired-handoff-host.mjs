@@ -4,7 +4,8 @@ import assert from 'node:assert/strict'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { mkdir, mkdtemp, readFile } from 'node:fs/promises'
 import path from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { ErrorCodes, makeMdxpError } from '@motrix/mdxp/node'
+import metadata from '../package.json' with { type: 'json' }
 import { Mbp1CredentialStore } from '../src/core/bridge/credential-store.ts'
 import { FilePairingStore } from '../src/core/bridge/file-pairing-store.ts'
 import { journalHandoffModule } from '../src/core/bridge/journal-handoff-module.ts'
@@ -20,9 +21,6 @@ import { TaskInstancePhase, TaskKind } from '../src/shared/types/task.ts'
 import { connectAdapter, spawnAria2ForTest } from '../src/test-utils/aria2.ts'
 import { makeInstanceRow, makeTaskRow } from '../src/test-utils/task-rows.ts'
 
-const sdk = await import(
-  pathToFileURL(path.resolve(process.env.MOTRIX_HANDOFF_SDK, 'dist/node.js'))
-)
 const root = path.resolve(import.meta.dirname, '../output/ci/paired-handoff')
 await mkdir(root, { recursive: true })
 const dir = await mkdtemp(path.join(root, 'run-'))
@@ -58,7 +56,7 @@ const history = []
 const operationKeys = new Map()
 let authenticated = 0
 let dropReply = false
-const module = journalHandoffModule(sdk, journal, {
+const module = journalHandoffModule(journal, {
   ttlMs: 120000,
   directory: async (download) => {
     const u = new URL(download.selection.primary.url)
@@ -71,8 +69,8 @@ const module = journalHandoffModule(sdk, journal, {
       ].includes(u.pathname)
     )
     if (u.pathname.endsWith('rejected'))
-      throw sdk.makeMdxpError(
-        sdk.ErrorCodes.InvalidParams,
+      throw makeMdxpError(
+        ErrorCodes.InvalidParams,
         'Fixture directory unavailable'
       )
     if (download.saveDir !== undefined) assert.equal(download.saveDir, dir)
@@ -152,8 +150,8 @@ for (const [method, binding] of Object.entries(module.methods)) {
 const server = new WebSocketBridgeServer({
   pairing,
   registry,
-  motrixVersion: '2.4.3',
-  appVersion: '2.4.3',
+  motrixVersion: metadata.version,
+  appVersion: metadata.version,
   runtime: 'electron',
   ffmpegAvailable: false,
   localToken: randomBytes(32).toString('hex'),

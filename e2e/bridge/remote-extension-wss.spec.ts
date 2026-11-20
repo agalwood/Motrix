@@ -132,47 +132,56 @@ async function addServerFromOptions(
 }
 
 async function submitFromExtension(page: Page): Promise<unknown> {
+  await page.bringToFront()
   return page.evaluate(async () => {
-    const extensionGlobal = globalThis as typeof globalThis & {
+    type PopupView = Window & {
+      chrome: { runtime: { sendMessage(message: unknown): Promise<unknown> } }
+    }
+    const { chrome } = globalThis as typeof globalThis & {
       chrome: {
-        runtime: {
-          sendMessage(message: unknown): Promise<unknown>
-        }
+        action: { openPopup(): Promise<void> }
+        extension: { getViews(filter: { type: 'popup' }): PopupView[] }
       }
     }
-    const response = await extensionGlobal.chrome.runtime.sendMessage({
-      kind: 'bg.submitDownload',
-      payload: {
-        source: {
-          pageUrl: 'https://example.com/watch',
-          pageTitle: 'Remote browser E2E',
-          detectedAt: Date.now(),
-        },
-        selection: {
-          kind: 'direct',
-          primary: {
-            url: 'https://cdn.example.com/video.mp4',
-            headers: {
-              Authorization: 'Bearer must-not-cross-without-consent',
-              Referer: 'https://example.com/watch',
-            },
-            cookies: [
-              {
-                name: 'session',
-                value: 'must-not-cross-without-consent',
-                domain: 'example.com',
+    await chrome.action.openPopup()
+    const [popup] = chrome.extension.getViews({ type: 'popup' })
+    if (!popup) throw new Error('Extension toolbar popup did not open')
+    try {
+      return await popup.chrome.runtime.sendMessage({
+        kind: 'bg.submitDownload',
+        payload: {
+          source: {
+            pageUrl: 'https://example.com/watch',
+            pageTitle: 'Remote browser E2E',
+            detectedAt: Date.now(),
+          },
+          selection: {
+            kind: 'direct',
+            primary: {
+              url: 'https://cdn.example.com/video.mp4',
+              headers: {
+                Authorization: 'Bearer must-not-cross-without-consent',
+                Referer: 'https://example.com/watch',
               },
-            ],
-            refererPolicy: 'strict-origin-when-cross-origin',
+              cookies: [
+                {
+                  name: 'session',
+                  value: 'must-not-cross-without-consent',
+                  domain: 'example.com',
+                },
+              ],
+              refererPolicy: 'strict-origin-when-cross-origin',
+            },
+          },
+          meta: {
+            suggestedFilename: 'video.mp4',
+            qualityLabel: 'source',
           },
         },
-        meta: {
-          suggestedFilename: 'video.mp4',
-          qualityLabel: 'source',
-        },
-      },
-    })
-    return response
+      })
+    } finally {
+      popup.close()
+    }
   })
 }
 
@@ -268,11 +277,10 @@ for (const routePrefix of [ROUTE_PREFIX, ''])
       await pairFromOptions(page, runtime)
 
       await expect(submitFromExtension(page)).resolves.toMatchObject({
-        error: expect.stringMatching(
-          /remote (?:download )?data boundary consent is required/i
-        ),
+        error: 'download.rejected',
       })
-      await page.getByRole('button', { name: 'Allow remote downloads' }).click()
+      expect(submissions).toHaveLength(0)
+      await page.getByRole('switch', { name: 'Remote downloads' }).click()
       await expect(
         page.getByRole('switch', { name: 'Send request headers' })
       ).toBeVisible()
@@ -427,7 +435,7 @@ test('real Chromium: local profile keeps two remote Servers paired and policy-is
     )
     await page.getByRole('button', { name: 'Use Server A' }).click()
     await pairFromOptions(page, runtimeA)
-    await page.getByRole('button', { name: 'Allow remote downloads' }).click()
+    await page.getByRole('switch', { name: 'Remote downloads' }).click()
     await page.reload()
     await page.getByRole('tab', { name: 'Integration' }).click()
     await expect(page.getByText('Connected')).toBeVisible()
@@ -443,12 +451,12 @@ test('real Chromium: local profile keeps two remote Servers paired and policy-is
     await page.getByRole('button', { name: 'Use Server B' }).click()
     await pairFromOptions(page, runtimeB)
     await expect(submitFromExtension(page)).resolves.toMatchObject({
-      error: expect.stringMatching(/remote (?:download )?data boundary/i),
+      error: 'download.rejected',
     })
     expect(submissionsA).toHaveLength(1)
     expect(submissionsB).toHaveLength(0)
 
-    await page.getByRole('button', { name: 'Allow remote downloads' }).click()
+    await page.getByRole('switch', { name: 'Remote downloads' }).click()
     await page.reload()
     await page.getByRole('tab', { name: 'Integration' }).click()
     await expect(page.getByText('Connected')).toBeVisible()
@@ -504,9 +512,9 @@ test('real Chromium: local profile keeps two remote Servers paired and policy-is
 
     await pairFromOptions(page, runtimeA)
     await expect(submitFromExtension(page)).resolves.toMatchObject({
-      error: expect.stringMatching(/remote (?:download )?data boundary/i),
+      error: 'download.rejected',
     })
-    await page.getByRole('button', { name: 'Allow remote downloads' }).click()
+    await page.getByRole('switch', { name: 'Remote downloads' }).click()
     await page.reload()
     await page.getByRole('tab', { name: 'Integration' }).click()
     await expect(page.getByText('Connected')).toBeVisible()
