@@ -533,6 +533,21 @@ describe('SessionManager', () => {
     vi.restoreAllMocks()
   })
 
+  it('leaves an unresolved handoff with its reserved owner when no engine task can be found', async () => {
+    const gid = 'abcd1234abcd1234'
+    seedAsPair(db, {
+      motrixId: 'handoff',
+      gid,
+      kind: TaskKind.Direct,
+      type: TaskType.Http,
+      status: TaskStatus.Queued,
+    })
+    await session.restore(undefined, undefined, new Map([['handoff', gid]]))
+    expect(taskManager.getById('handoff')?.engineTaskId).toBe(gid)
+    expect(taskManager.isEngineTaskIdRetired(gid)).toBe(true)
+    expect(adapter.createDownload).not.toHaveBeenCalled()
+  })
+
   describe('engine session quarantine', () => {
     const failed = {
       engineTaskId: '2222222222222222',

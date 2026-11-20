@@ -1,10 +1,9 @@
 import {
-  type Activation,
   type DownloadHandoffJournal,
   HandoffJournalRefusal,
   type HandoffKey,
+  type HandoffStatus,
 } from '@core/session/download-handoff-journal'
-import type { TaskWithInstances } from '@core/session/motrix-database'
 import {
   canonicalDownloadHandoffPayload,
   DownloadHandoffAbortParamsSchema,
@@ -29,11 +28,12 @@ export function journalHandoffModule(
       download: DownloadSubmitParams,
       ctx: MdxpSessionContext
     ) => Promise<string>
-    materialize: (
-      intent: Activation,
-      ctx: MdxpSessionContext
-    ) => TaskWithInstances
     committed: (taskId: string, ctx: MdxpSessionContext) => Promise<void>
+    commit: (
+      key: HandoffKey,
+      hash: string,
+      ctx: MdxpSessionContext
+    ) => Promise<HandoffStatus>
   }
 ): ExtensionHandoffModule {
   if (
@@ -128,14 +128,7 @@ export function journalHandoffModule(
       [Methods.DownloadHandoffCommit]: method(
         DownloadHandoffCommitParamsSchema,
         async (key, p, ctx) => {
-          const state = await journal.commit(key, p.payloadHash, (intent) => {
-            if (!ctx.isAuthorized() || !ctx.isReady())
-              throw makeMdxpError(
-                ErrorCodes.PermissionDenied,
-                'Extension no longer authorized'
-              )
-            return host.materialize(intent, ctx)
-          })
+          const state = await host.commit(key, p.payloadHash, ctx)
           if (state.state === 'committed')
             await host.committed(state.taskId, ctx)
           return state

@@ -32,29 +32,7 @@ export class DirectPipeline {
   constructor(private readonly deps: DirectPipelineDeps) {}
 
   async dispatch(adapted: AdaptedDirect): Promise<{ taskId: string }> {
-    // Keep Referer in the same header path as the download and plugin hooks,
-    // so metadata discovery can reconstruct the request without passthrough
-    // engine options. A supplied header takes precedence over the page URL.
-    const headers = Object.entries(adapted.sanitizedHeaders).map(
-      ([name, value]) => ({ name, value })
-    )
-    if (!headers.some(({ name }) => name.toLowerCase() === 'referer')) {
-      headers.push({ name: 'Referer', value: adapted.pageUrl })
-    }
-    const req = {
-      type: 'http' as const,
-      // uris is a top-level field on httpTaskRequestSchema; there is no
-      // `payload` for http tasks (that key is bt-only). Burying it under
-      // payload.uris made handleCreateTask's schema reject every direct
-      // submit ("uris: expected array, received undefined").
-      uris: [adapted.primaryUrl],
-      saveDir: adapted.saveDir,
-      ...(adapted.discoverFilename ? {} : { filename: adapted.finalName }),
-      // Match manual tasks by leaving the per-task override unset. Aria2 then
-      // inherits the app's global split and per-server connection settings.
-      headers,
-      proxy: undefined,
-    }
+    const req = directTaskRequest(adapted)
     const { taskId } = await this.deps
       .createTask(req, undefined, {
         source: 'bridge',
@@ -78,5 +56,31 @@ export class DirectPipeline {
 
   async cancel(taskId: string): Promise<void> {
     await this.deps.removeTask(taskId)
+  }
+}
+
+export function directTaskRequest(adapted: AdaptedDirect) {
+  // Keep Referer in the same header path as the download and plugin hooks,
+  // so metadata discovery can reconstruct the request without passthrough
+  // engine options. A supplied header takes precedence over the page URL.
+  const headers = Object.entries(adapted.sanitizedHeaders).map(
+    ([name, value]) => ({ name, value })
+  )
+  if (!headers.some(({ name }) => name.toLowerCase() === 'referer')) {
+    headers.push({ name: 'Referer', value: adapted.pageUrl })
+  }
+  return {
+    type: 'http' as const,
+    // uris is a top-level field on httpTaskRequestSchema; there is no
+    // `payload` for http tasks (that key is bt-only). Burying it under
+    // payload.uris made handleCreateTask's schema reject every direct
+    // submit ("uris: expected array, received undefined").
+    uris: [adapted.primaryUrl],
+    saveDir: adapted.saveDir,
+    ...(adapted.discoverFilename ? {} : { filename: adapted.finalName }),
+    // Match manual tasks by leaving the per-task override unset. Aria2 then
+    // inherits the app's global split and per-server connection settings.
+    headers,
+    proxy: undefined,
   }
 }

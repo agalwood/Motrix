@@ -68,11 +68,16 @@ import { RegistryClient } from '@core/plugin/registry/registry-client'
 import type { PluginHookRuntime } from '@core/plugin/runtime/plugin-hook-runtime'
 import { createPluginRuntime } from '@core/plugin/runtime/runtime-factory'
 import { PluginRuntimeStartupCoordinator } from '@core/plugin/runtime/startup-coordinator'
+import { LibsodiumSecretStore } from '@core/plugin/secret-store-libsodium'
 import { PluginSecurityService } from '@core/plugin/security/security-service'
 import { PluginStateStore } from '@core/plugin/state/plugin-state-store'
 import { BuiltinUpdater } from '@core/plugin/update/builtin-updater'
 import { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
 import { ProxyBridgeManager } from '@core/proxy/proxy-bridge-manager'
+import {
+  DownloadHandoffJournal,
+  readHandoffActivationOwners,
+} from '@core/session/download-handoff-journal'
 import type { DurableFinalizeRuntime } from '@core/session/durable-finalize-runtime'
 import { MotrixDatabase } from '@core/session/motrix-database'
 import { SessionManager } from '@core/session/session-manager'
@@ -164,6 +169,10 @@ import {
 } from 'electron'
 import { bootstrapBridge, createNativeMessagingInstaller } from './bridge'
 import { BridgeManager } from './bridge/bridge-manager'
+import {
+  activateDesktopHandoff,
+  desktopDownloadHandoff,
+} from './bridge/desktop-download-handoff'
 import { isPackagedLinuxFlatpak } from './bridge/flatpak-environment'
 import { resolvePackagedLinuxSnapEnvironment } from './bridge/snap-environment'
 import { CliToolService } from './cli/cli-tool-service'
@@ -563,6 +572,7 @@ let supervisor: EngineSupervisor
 let pluginHttpClient: PluginHttpClient | undefined
 let proxyBridge: ProxyBridgeManager
 let speedLimitController: SpeedLimitController
+let handoffJournal: DownloadHandoffJournal | undefined
 let sessionManager: SessionManager
 let completedEngineTaskCleanup: CompletedEngineTaskCleanup
 let pollingScheduler: PollingScheduler
@@ -1421,10 +1431,33 @@ async function startEngineAndRestore(
   try {
     await appliedDownloadProxyPolicy.runWithSnapshot(
       async (_snapshot, lease) => {
+        if (handoffJournal) {
+          const directories = createDownloadDirectories({
+            getSettings: () => settingsManager.getApp(),
+          })
+          for (const taskId of handoffJournal.pendingActivations()) {
+            try {
+              await activateDesktopHandoff(
+                handoffJournal,
+                motrixDb,
+                adapter,
+                taskId,
+                directories.resolveSelection
+              )
+            } catch {
+              log.warn(
+                { taskId },
+                'download handoff activation remains pending'
+              )
+            }
+          }
+        }
         await legacyBtActivationService?.recover()
         await legacyHttpActivationService?.recover()
-        await sessionManager.restore(lease.assertCurrent, (snapshot) =>
-          completedEngineTaskCleanup.observe(snapshot)
+        await sessionManager.restore(
+          lease.assertCurrent,
+          (snapshot) => completedEngineTaskCleanup.observe(snapshot),
+          readHandoffActivationOwners(motrixDb)
         )
         await sessionManager.recoverLegacyTaskLost(lease.assertCurrent)
       }
@@ -2111,6 +2144,27 @@ async function initializeMainProcess(): Promise<void> {
   )
 
   if (!legacyImportService) motrixDb.init()
+  try {
+    const enabled = process.env.MOTRIX_DOWNLOAD_HANDOFF === '1'
+    if (
+      enabled ||
+      motrixDb.database
+        .prepare(
+          "SELECT 1 FROM sqlite_master WHERE type='table' AND name='handoff_instance'"
+        )
+        .get()
+    ) {
+      handoffJournal = new DownloadHandoffJournal(
+        motrixDb,
+        await LibsodiumSecretStore.create({
+          userDataDir: platform.userDataDir,
+        }),
+        () => enabled
+      )
+    }
+  } catch {
+    log.warn('download handoff ledger unavailable')
+  }
   getLegacyBtActivationService()
   getLegacyHttpActivationService()
   legacyImportService?.setPersistenceLane((operation) =>
@@ -2874,6 +2928,16 @@ async function initializeMainProcess(): Promise<void> {
       getSettings: () => settingsManager.getApp(),
     })
     return bootstrapBridge({
+      ...(handoffJournal
+        ? {
+            extensionHandoff: desktopDownloadHandoff(
+              handoffJournal,
+              motrixDb,
+              sessionManager,
+              createTaskDeps
+            ),
+          }
+        : {}),
       mediaMetaStore,
       getMainWindow: () => windowManager?.get('main') ?? null,
       motrixVersion: app.getVersion(),
