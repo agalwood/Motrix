@@ -289,19 +289,18 @@ git worktree remove --force ../motrix-turbo-srv
 
 ## Local handoff candidate integration
 
-Build the candidate MDXP checkout first. Run the following from the Motrix checkout with a Node-compatible SQLite native module and the bundled aria2 binary available.
+Install the locked dependencies, then run the following from the Motrix checkout with a Node-compatible SQLite native module and the bundled aria2 binary available.
 
 ```sh
-MOTRIX_HANDOFF_SDK=/path/to/built/mdxp-checkout \
-  node --import tsx scripts/verify-local-download-handoff.mjs
+node --import tsx scripts/verify-local-download-handoff.mjs
 ```
 
-The test creates a new database and lockbox for each run under `output/ci/download-handoff/`. A synthetic authenticated extension session uses the candidate SDK over inherited JSON-RPC pipes. The fixture registers four methods on an isolated dispatcher and supplies a direct HTTP task snapshot. The SQLite journal, task storage, encryption and engine adapter are the shared host implementations.
+The test creates a new database and lockbox for each run under `output/ci/download-handoff/`. A synthetic authenticated extension session uses the installed SDK over inherited JSON-RPC pipes. The fixture registers four methods on an isolated dispatcher and supplies a direct HTTP task snapshot. The SQLite journal, task storage, encryption and engine adapter are the shared host implementations.
 
-The parent terminates its own peers after prepare, after commit but before its reply, and after engine acceptance but before activation cleanup. The report records the candidate revision, task and engine IDs, source request count and file SHA-256. An ambiguous engine start remains unresolved when the reserved ID cannot be found. Production capability advertisement, pairing, browser decisions and host task-manager startup are outside this harness.
+The parent terminates its own peers after prepare, after commit but before its reply, and after engine acceptance but before activation cleanup. The report records the installed SDK version, task and engine IDs, source request count and file SHA-256. An ambiguous engine start remains unresolved when the reserved ID cannot be found. Production capability advertisement, pairing, browser decisions and host task-manager startup are outside this harness.
 
 To drive the same transaction from Chromium, also set `MOTRIX_EXTENSION_DIR` to the local extension checkout with its Chromium build, and optionally `CHROME_BINARY` to Chrome for Testing. The isolated extension loads the release-click listener, confirmation service, packaged popup style and confirmation form. The driver enters a filename and request header and clicks Add. A binding on that extension page forwards the frozen download to the candidate RPC client. The file server rejects a second file request. Browser evidence is recorded alongside the task, engine and digest checks. This checks the pre-request link path; production MBP1/WebSocket negotiation and late native-download cancellation are separate integrations.
 
 ### Local paired browser acceptance
 
-From the extension checkout, set `MOTRIX_HOST_DIR` to this checkout and `MOTRIX_HANDOFF_SDK` to the built candidate SDK. Run `pnpm test:chromium-confirmation --paired-handoff` and `pnpm test:firefox-takeover --paired-handoff`. The extension drives the production MBP1 client against a separate loopback WebSocket bridge and the shared journal. An out-of-band test operator enters the host-generated code. Accepted transfers use a real aria2 engine; the lost-reply case closes the socket after commit and reconciles with status on a newly authenticated connection. The host fixture accepts only its generated loopback files and isolated output directory. Normal product builds do not advertise the candidate by default.
+From the extension checkout, set `MOTRIX_HOST_DIR` to this checkout and `MOTRIX_HANDOFF_SDK` to the installed SDK directory in the Motrix checkout (`node_modules/@motrix/mdxp`). Run `pnpm test:chromium-confirmation --paired-handoff` and `pnpm test:firefox-takeover --paired-handoff`. The extension drives the production MBP1 client against a separate loopback WebSocket bridge and the shared journal. An out-of-band test operator enters the host-generated code. Accepted transfers use a real aria2 engine; the lost-reply case closes the socket after commit and reconciles with status on a newly authenticated connection. The host fixture accepts only its generated loopback files and isolated output directory. Desktop registers the same module at startup. New preparations require MOTRIX_DOWNLOAD_HANDOFF=1. The desktop restart test also checks that a persisted operation drains with the gate off.

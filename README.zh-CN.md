@@ -19,12 +19,11 @@ Motrix 是一款界面简洁、功能丰富的桌面下载管理器，可处理 
 - **桌面应用**：可在 macOS、Windows 和 Linux 上运行；
 - **Headless server**：无需桌面环境，可直接使用 Node.js 运行或通过 Docker 部署，并提供 Web 界面，适合安装在 NAS 和家庭服务器上。
 
-## Motrix 2.4.3
+## Motrix 2.4.4
 
-支持自定义 Server 访问密码、在任务详情旁保留下载统计，并改进飞牛 fnOS 授权和主题集成。
-本版还优化下载进度与暂停反馈，更新运行时和国际化依赖。
-从 GitHub Releases 下载 [v2.4.3](https://github.com/agalwood/Motrix/releases/tag/v2.4.3)，
-并阅读[完整发布说明](./docs/release-notes/2.4.3.zh-CN.md)。
+Motrix 升级到 MDXP 0.10.0，并集成用于记录配对下载交接的 SQLite 账本。浏览器扩展 0.1.24 继续通过原有接口提交下载。
+从 GitHub Releases 下载 [v2.4.4](https://github.com/agalwood/Motrix/releases/tag/v2.4.4)，
+并阅读[完整发布说明](./docs/release-notes/2.4.4.zh-CN.md)。
 
 升级前请备份现有 Motrix 配置和下载文件。捆绑引擎会将 SQLite 数据库升级至
 schema 6，并保留升级前备份；旧引擎无法打开 schema 6，如需降级必须保留该备份。
@@ -175,7 +174,7 @@ npm install -g @motrix/cli
 ```bash
 mkdir -p motrix-data downloads
 sudo chown 1000:1000 motrix-data downloads
-export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.4.3'
+export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.4.4'
 export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
 docker compose pull server
 docker compose up -d --wait

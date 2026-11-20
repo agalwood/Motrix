@@ -1,32 +1,26 @@
 import {
-  type Activation,
   type DownloadHandoffJournal,
   HandoffJournalRefusal,
   type HandoffKey,
+  type HandoffStatus,
 } from '@core/session/download-handoff-journal'
-import type { TaskWithInstances } from '@core/session/motrix-database'
 import {
+  canonicalDownloadHandoffPayload,
+  DownloadHandoffAbortParamsSchema,
+  DownloadHandoffCommitParamsSchema,
+  type DownloadHandoffKey,
+  DownloadHandoffPrepareParamsSchema,
+  DownloadHandoffStatusParamsSchema,
   type DownloadSubmitParams,
   ErrorCodes,
+  Methods,
   makeMdxpError,
 } from '@motrix/mdxp'
 import type { ZodType } from 'zod'
 import type { ExtensionHandoffModule } from './extension-handoff'
 import type { MdxpSessionContext } from './mdxp-session-context'
 
-type Key = Pick<HandoffKey, 'instanceId' | 'operationId'>
-interface WireSdk {
-  DownloadHandoffPrepareParamsSchema: ZodType<
-    Key & { download: DownloadSubmitParams }
-  >
-  DownloadHandoffCommitParamsSchema: ZodType<Key & { payloadHash: string }>
-  DownloadHandoffStatusParamsSchema: ZodType<Key>
-  DownloadHandoffAbortParamsSchema: ZodType<Key>
-  canonicalDownloadHandoffPayload(value: unknown): string
-  ErrorCodes: { HandoffInstanceChanged: number; HandoffPayloadConflict: number }
-}
 export function journalHandoffModule(
-  sdk: WireSdk,
   journal: DownloadHandoffJournal,
   host: {
     ttlMs: number
@@ -34,11 +28,12 @@ export function journalHandoffModule(
       download: DownloadSubmitParams,
       ctx: MdxpSessionContext
     ) => Promise<string>
-    materialize: (
-      intent: Activation,
-      ctx: MdxpSessionContext
-    ) => TaskWithInstances
     committed: (taskId: string, ctx: MdxpSessionContext) => Promise<void>
+    commit: (
+      key: HandoffKey,
+      hash: string,
+      ctx: MdxpSessionContext
+    ) => Promise<HandoffStatus>
   }
 ): ExtensionHandoffModule {
   if (
@@ -48,7 +43,7 @@ export function journalHandoffModule(
   )
     throw new Error('Invalid handoff preparation lifetime')
   type Reply = ReturnType<DownloadHandoffJournal['status']>
-  function method<T extends Key>(
+  function method<T extends DownloadHandoffKey>(
     schema: ZodType<T>,
     run: (
       key: HandoffKey,
@@ -90,8 +85,8 @@ export function journalHandoffModule(
           if (error instanceof HandoffJournalRefusal)
             throw makeMdxpError(
               {
-                'instance-changed': sdk.ErrorCodes.HandoffInstanceChanged,
-                'payload-conflict': sdk.ErrorCodes.HandoffPayloadConflict,
+                'instance-changed': ErrorCodes.HandoffInstanceChanged,
+                'payload-conflict': ErrorCodes.HandoffPayloadConflict,
                 'not-accepting': ErrorCodes.CapabilityNotSupported,
               }[error.reason],
               error.message
@@ -109,10 +104,10 @@ export function journalHandoffModule(
       acceptingNew: journal.acceptingNewOperations,
     }),
     methods: {
-      'download/handoff.prepare': method(
-        sdk.DownloadHandoffPrepareParamsSchema,
+      [Methods.DownloadHandoffPrepare]: method(
+        DownloadHandoffPrepareParamsSchema,
         async (key, p, ctx) => {
-          const canonical = sdk.canonicalDownloadHandoffPayload(p.download)
+          const canonical = canonicalDownloadHandoffPayload(p.download)
           return journal.prepare(
             key,
             canonical,
@@ -122,25 +117,18 @@ export function journalHandoffModule(
           )
         }
       ),
-      'download/handoff.status': method(
-        sdk.DownloadHandoffStatusParamsSchema,
+      [Methods.DownloadHandoffStatus]: method(
+        DownloadHandoffStatusParamsSchema,
         (key) => journal.status(key)
       ),
-      'download/handoff.abort': method(
-        sdk.DownloadHandoffAbortParamsSchema,
+      [Methods.DownloadHandoffAbort]: method(
+        DownloadHandoffAbortParamsSchema,
         (key) => journal.abort(key)
       ),
-      'download/handoff.commit': method(
-        sdk.DownloadHandoffCommitParamsSchema,
+      [Methods.DownloadHandoffCommit]: method(
+        DownloadHandoffCommitParamsSchema,
         async (key, p, ctx) => {
-          const state = await journal.commit(key, p.payloadHash, (intent) => {
-            if (!ctx.isAuthorized() || !ctx.isReady())
-              throw makeMdxpError(
-                ErrorCodes.PermissionDenied,
-                'Extension no longer authorized'
-              )
-            return host.materialize(intent, ctx)
-          })
+          const state = await host.commit(key, p.payloadHash, ctx)
           if (state.state === 'committed')
             await host.committed(state.taskId, ctx)
           return state

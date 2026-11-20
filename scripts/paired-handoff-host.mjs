@@ -2,27 +2,30 @@
 // and engine. The inherited IPC channel is the isolated operator's display.
 import assert from 'node:assert/strict'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
+import { existsSync } from 'node:fs'
 import { mkdir, mkdtemp, readFile } from 'node:fs/promises'
 import path from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { ErrorCodes, makeMdxpError } from '@motrix/mdxp/node'
+import metadata from '../package.json' with { type: 'json' }
 import { Mbp1CredentialStore } from '../src/core/bridge/credential-store.ts'
 import { FilePairingStore } from '../src/core/bridge/file-pairing-store.ts'
-import { journalHandoffModule } from '../src/core/bridge/journal-handoff-module.ts'
 import { PairingPromptController } from '../src/core/bridge/pairing-prompt-controller.ts'
 import { PairingService } from '../src/core/bridge/pairing-service.ts'
 import { FileRegistryStoreAdapter } from '../src/core/bridge/registry-store-adapter.ts'
 import { TrustedExtensionRegistry } from '../src/core/bridge/trusted-extension-registry.ts'
 import { WebSocketBridgeServer } from '../src/core/bridge/web-socket-bridge-server.ts'
 import { LibsodiumSecretStore } from '../src/core/plugin/secret-store-libsodium.ts'
+import { AppliedDownloadProxyPolicy } from '../src/core/proxy/applied-download-proxy-policy.ts'
 import { DownloadHandoffJournal } from '../src/core/session/download-handoff-journal.ts'
 import { MotrixDatabase } from '../src/core/session/motrix-database.ts'
-import { TaskInstancePhase, TaskKind } from '../src/shared/types/task.ts'
+import { SessionManager } from '../src/core/session/session-manager.ts'
+import { FinalNamePickerImpl } from '../src/core/task/final-name-picker.ts'
+import { TaskManager } from '../src/core/task/task-manager.ts'
+import { desktopDownloadHandoff } from '../src/main/bridge/desktop-download-handoff.ts'
+import { DEFAULT_APP_SETTINGS } from '../src/shared/schemas/app-settings.ts'
+import { DEFAULT_ENGINE_SETTINGS } from '../src/shared/schemas/engine-settings.ts'
 import { connectAdapter, spawnAria2ForTest } from '../src/test-utils/aria2.ts'
-import { makeInstanceRow, makeTaskRow } from '../src/test-utils/task-rows.ts'
 
-const sdk = await import(
-  pathToFileURL(path.resolve(process.env.MOTRIX_HANDOFF_SDK, 'dist/node.js'))
-)
 const root = path.resolve(import.meta.dirname, '../output/ci/paired-handoff')
 await mkdir(root, { recursive: true })
 const dir = await mkdtemp(path.join(root, 'run-'))
@@ -53,87 +56,32 @@ const journal = new DownloadHandoffJournal(
   () => true
 )
 const engine = await spawnAria2ForTest({ baseDir: dir })
-const { adapter, disconnect } = await connectAdapter(engine)
+const { adapter, rpc, disconnect } = await connectAdapter(engine)
 const history = []
 const operationKeys = new Map()
 let authenticated = 0
-let dropReply = false
-const module = journalHandoffModule(sdk, journal, {
-  ttlMs: 120000,
-  directory: async (download) => {
-    const u = new URL(download.selection.primary.url)
-    assert.equal(u.origin, origin)
-    assert.ok(
-      [
-        '/download/paired-accept',
-        '/download/paired-rejected',
-        '/download/paired-lost',
-      ].includes(u.pathname)
-    )
-    if (u.pathname.endsWith('rejected'))
-      throw sdk.makeMdxpError(
-        sdk.ErrorCodes.InvalidParams,
-        'Fixture directory unavailable'
-      )
-    if (download.saveDir !== undefined) assert.equal(download.saveDir, dir)
-    return dir
+const taskManager = new TaskManager()
+const session = new SessionManager(taskManager, rpc, db, adapter)
+const proxy = new AppliedDownloadProxyPolicy()
+proxy.commit(null)
+const module = desktopDownloadHandoff(journal, db, session, {
+  adapter,
+  taskManager,
+  settingsManager: {
+    getApp: () => ({ ...DEFAULT_APP_SETTINGS, defaultSaveDir: dir }),
+    getEngine: () => DEFAULT_ENGINE_SETTINGS,
   },
-  materialize: ({ taskId, engineId, saveDir, canonicalPayload }) => {
-    assert.equal(saveDir, dir)
-    const u = new URL(JSON.parse(canonicalPayload).selection.primary.url)
-    const name = path.basename(u.pathname) + '.bin'
-    dropReply = u.pathname.endsWith('lost')
-    const file = path.join(dir, name)
-    return {
-      task: {
-        ...makeTaskRow(taskId, TaskKind.Direct),
-        source: 'bridge',
-        saveDir: dir,
-        name,
-        finalName: name,
-        finalPath: file,
-      },
-      instances: [
-        {
-          ...makeInstanceRow(
-            randomUUID(),
-            taskId,
-            engineId,
-            TaskInstancePhase.HttpDownload
-          ),
-          uris: [u.href],
-          diskPath: file,
-        },
-      ],
-    }
-  },
-  committed: async (taskId, ctx) => {
-    await journal.activate(taskId, {
-      contains: async (gid) => (await adapter.getTaskStatus(gid)) !== null,
-      start: (intent) => {
-        const input = JSON.parse(intent.canonicalPayload)
-        const u = new URL(input.selection.primary.url)
-        return adapter.createDownload({
-          gid: intent.engineId,
-          saveDir: intent.saveDir,
-          filename: path.basename(u.pathname) + '.bin',
-          uris: [u.href],
-          headers: input.selection.primary.headers,
-          connections: 1,
-        })
-      },
-    })
-    if (dropReply) {
-      dropReply = false
-      const session = server.getSession(ctx.sessionKey)
-      assert.ok(session)
-      session.envelope.close()
-    }
-  },
+  finalNamePicker: new FinalNamePickerImpl({
+    exists: async (file) => existsSync(file),
+  }),
+  directResourceProxyPolicy: proxy,
+  activityRecorder: { recordSubmitted() {} },
+  publishTaskUpdate() {},
 })
+let dropId
 for (const [method, binding] of Object.entries(module.methods)) {
   const handle = binding.handle
-  binding.handle = (params, ctx) => {
+  binding.handle = async (params, ctx) => {
     operationKeys.set(params.operationId, {
       instanceId: params.instanceId,
       operationId: params.operationId,
@@ -146,14 +94,30 @@ for (const [method, binding] of Object.entries(module.methods)) {
         .replace(/^./, (c) => c.toUpperCase()),
       id: params.operationId,
     })
-    return handle(params, ctx)
+    if (params.download) {
+      const url = new URL(params.download.selection.primary.url)
+      assert.equal(url.origin, origin)
+      assert.match(url.pathname, /^\/download\/paired-(accept|rejected|lost)$/)
+      if (url.pathname.endsWith('rejected'))
+        throw makeMdxpError(
+          ErrorCodes.InvalidParams,
+          'Fixture directory unavailable'
+        )
+      if (url.pathname.endsWith('lost')) dropId = params.operationId
+    }
+    const reply = await handle(params, ctx)
+    if (method.endsWith('.commit') && dropId === params.operationId) {
+      dropId = undefined
+      server.getSession(ctx.sessionKey).envelope.close()
+    }
+    return reply
   }
 }
 const server = new WebSocketBridgeServer({
   pairing,
   registry,
-  motrixVersion: '2.4.3',
-  appVersion: '2.4.3',
+  motrixVersion: metadata.version,
+  appVersion: metadata.version,
   runtime: 'electron',
   ffmpegAvailable: false,
   localToken: randomBytes(32).toString('hex'),
@@ -189,7 +153,13 @@ process.on('message', async (m) => {
   try {
     const name = m.name
     assert.match(name, /^paired-(accept|lost|rejected|cancel|browser)$/)
-    const tasks = db.getAllTasks().filter((t) => t.task.name === name + '.bin')
+    const tasks = db
+      .getAllTasks()
+      .filter((t) =>
+        t.instances[0]?.uris.some(
+          (uri) => new URL(uri).pathname === '/download/' + name
+        )
+      )
     let sha256 = null
     if (tasks.length) {
       const end = Date.now() + 8000
@@ -197,7 +167,7 @@ process.on('message', async (m) => {
         const status = await adapter.getTaskStatus(tasks[0].instances[0].gid)
         if (status?.status === 'completed') {
           sha256 = createHash('sha256')
-            .update(await readFile(tasks[0].task.finalPath))
+            .update(await readFile(tasks[0].instances[0].diskPath))
             .digest('hex')
           break
         }

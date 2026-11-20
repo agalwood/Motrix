@@ -229,6 +229,12 @@ export interface CreateTaskDeps {
 }
 
 export interface CreateTaskOptions {
+  /** Internal paired-bridge reservation. Only the host can supply this callback. */
+  handoff?: {
+    taskId: string
+    gid: string
+    commit: (task: DownloadTask, request: CreateDownloadParams) => Promise<void>
+  }
   source?: TaskSource // default 'user'
   sourceMeta?: SourceMeta // default null
   /** Ephemeral credentials; kept out of persisted task records and plugins. */
@@ -423,7 +429,7 @@ async function handleCreateTaskUnderAdmission(
     (deps.prepareSaveDir
       ? await deps.prepareSaveDir(requestedSaveDir)
       : requestedSaveDir)
-  const taskId = newTaskId()
+  const taskId = opts.handoff?.taskId ?? newTaskId()
 
   log.info(
     {
@@ -684,6 +690,7 @@ async function handleCreateTaskUnderAdmission(
     | undefined
   let pluginMetadataOps: readonly StagedMetadataOp[] = []
   let assertPluginPolicyCurrent: (() => void) | undefined
+  let handoffRequest: CreateDownloadParams | undefined
   let dispatchEngine: (reservedGid: string) => Promise<string>
   let directReplay: DirectReplayRecipe | null = null
   let canonicalUris = deriveUris(req)
@@ -973,6 +980,7 @@ async function handleCreateTaskUnderAdmission(
     // rewritten request must never probe the stale user-supplied target.
     // Manual names remain authoritative and skip filename discovery.
     if (
+      !opts.handoff &&
       !req.filename?.trim() &&
       params.uris.length === 1 &&
       metadataRequestProfile !== null &&
@@ -1022,6 +1030,7 @@ async function handleCreateTaskUnderAdmission(
     if (
       directReplay.replayability === 'uri-only' &&
       metadataRequestProfile !== null &&
+      !opts.handoff &&
       deps.directResourceValidator &&
       params.uris.length === 1
     ) {
@@ -1050,6 +1059,7 @@ async function handleCreateTaskUnderAdmission(
     }
     assertPluginPolicyCurrent?.()
     canonicalUris = [...params.uris]
+    if (opts.handoff) handoffRequest = params
     dispatchEngine = dispatchCreateDownload(params)
   } else if (req.payload.kind === 'torrent-base64') {
     // Torrent bytes were decoded earlier for name/private extraction; they
@@ -1134,7 +1144,8 @@ async function handleCreateTaskUnderAdmission(
     await deps.waitForEngineReady()
   }
 
-  const gid = newEngineTaskId(deps.createEngineTaskId, 'createTask')
+  const gid =
+    opts.handoff?.gid ?? newEngineTaskId(deps.createEngineTaskId, 'createTask')
   // 5. Build a fully-populated durable owner before engine dispatch.
   const isBtLike = isTorrentLikeType(taskType)
   const taskKind: TaskKind = isBtLike ? TaskKind.Bt : TaskKind.Direct
@@ -1206,6 +1217,16 @@ async function handleCreateTaskUnderAdmission(
     instances: [primaryInstance],
   })
   const createReservedTask = async (): Promise<TaskCreateSuccessResult> => {
+    if (opts.handoff) {
+      if (
+        !handoffRequest ||
+        pluginMetadataOps.length ||
+        assertPluginPolicyCurrent
+      )
+        throw new Error('Unsupported handoff creation policy')
+      await opts.handoff.commit(task, { ...handoffRequest, gid })
+      return { outcome: 'created', taskId, gid }
+    }
     deps.taskManager.reserveEngineTaskId(gid)
 
     const persistParent = async (): Promise<void> => {

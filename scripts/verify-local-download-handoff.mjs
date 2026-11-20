@@ -8,7 +8,7 @@ import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { Socket } from 'node:net'
 import path from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { fileURLToPath } from 'node:url'
 import { MdxpDispatcher } from '../src/core/bridge/mdxp-dispatcher.ts'
 import { LibsodiumSecretStore } from '../src/core/plugin/secret-store-libsodium.ts'
 import {
@@ -21,14 +21,7 @@ import { connectAdapter, spawnAria2ForTest } from '../src/test-utils/aria2.ts'
 import { makeInstanceRow, makeTaskRow } from '../src/test-utils/task-rows.ts'
 
 const root = path.resolve(import.meta.dirname, '..')
-const candidate = process.env.MOTRIX_HANDOFF_SDK
-if (!candidate)
-  throw new Error(
-    'Set MOTRIX_HANDOFF_SDK to the built local MDXP candidate checkout'
-  )
-const sdk = await import(
-  pathToFileURL(path.join(path.resolve(candidate), 'dist/node.js')).href
-)
+const sdk = await import('@motrix/mdxp/node')
 const methods = sdk.Methods
 const sha = (bytes) => createHash('sha256').update(bytes).digest('hex')
 const principal = 'local-fixture:installation'
@@ -253,16 +246,12 @@ if (process.argv.includes('--peer')) {
       cwd: root,
       encoding: 'utf8',
     }).trim(),
-    sdkVersion: (
-      await import(
-        pathToFileURL(path.join(path.resolve(candidate), 'package.json')).href,
-        { with: { type: 'json' } }
+    sdkVersion: JSON.parse(
+      await readFile(
+        new URL('../package.json', import.meta.resolve('@motrix/mdxp/node')),
+        'utf8'
       )
-    ).default.version,
-    sdkRevision: execFileSync('git', ['rev-parse', 'HEAD'], {
-      cwd: path.resolve(candidate),
-      encoding: 'utf8',
-    }).trim(),
+    ).version,
     checkpoints: [],
   }
   try {

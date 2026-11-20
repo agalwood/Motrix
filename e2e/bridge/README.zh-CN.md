@@ -258,19 +258,18 @@ git worktree remove --force ../motrix-turbo-srv
 
 ## 下载交接候选协议的本地集成
 
-先在候选 MDXP 工作目录构建 SDK，再从 Motrix 仓库运行下列命令。需要 Node ABI 的 SQLite 原生模块和仓库配套的 aria2。
+先安装 Motrix 锁文件指定的依赖，再从仓库根目录运行下列命令。需要 Node ABI 的 SQLite 原生模块和仓库配套的 aria2。
 
 ```sh
-MOTRIX_HANDOFF_SDK=/path/to/built/mdxp-checkout \
-  node --import tsx scripts/verify-local-download-handoff.mjs
+node --import tsx scripts/verify-local-download-handoff.mjs
 ```
 
-每次运行在 `output/ci/download-handoff/` 下创建独立数据库和密钥文件。测试使用合成的已认证扩展身份，通过继承的 JSON-RPC 管道调用候选 SDK。测试入口在隔离调度器上注册四个方法，并构造直接 HTTP 任务快照；SQLite 账本、任务存储、加密和引擎适配器均使用两端共享的主仓实现。
+每次运行在 `output/ci/download-handoff/` 下创建独立数据库和密钥文件。测试使用合成的已认证扩展身份，通过继承的 JSON-RPC 管道调用已安装的 SDK。测试入口在隔离调度器上注册四个方法，并构造直接 HTTP 任务快照；SQLite 账本、任务存储、加密和引擎适配器均使用两端共享的主仓实现。
 
-父进程分别在 prepare 完成、commit 已写库但未回复，以及引擎已接受但尚未清理待启动记录时终止测试子进程。报告记录候选提交、任务 ID、引擎 GID、源站请求数和文件 SHA-256。对可能已经启动但查不到原 GID 的任务，账本保留待核对状态。生产能力声明、配对、浏览器确认和主机任务管理器的启动接线仍需单独验收。
+父进程分别在 prepare 完成、commit 已写库但未回复，以及引擎已接受但尚未清理待启动记录时终止测试子进程。报告记录已安装的 SDK 版本、任务 ID、引擎 GID、源站请求数和文件 SHA-256。对可能已经启动但查不到原 GID 的任务，账本保留待核对状态。生产能力声明、配对、浏览器确认和主机任务管理器的启动接线仍需单独验收。
 
 要由 Chromium 驱动同一笔事务，再将 `MOTRIX_EXTENSION_DIR` 指向已完成 Chromium 构建的扩展工作目录，并可通过 `CHROME_BINARY` 指定 Chrome for Testing。隔离扩展加载请求前点击监听器、确认服务、发行产物样式和确认表单。驱动填写文件名和请求头，点击“添加”；仅该扩展页面可用的测试绑定将冻结的选项交给本地候选 RPC 客户端。文件源拒绝第二次文件请求。报告同时记录确认时的请求数、浏览器下载项、宿主任务、引擎 GID 和文件摘要。本用例覆盖首次请求前的直链；生产 MBP1/WebSocket 能力协商及已创建浏览器下载项的停止时序仍需分别接入。
 
 ### 本地配对浏览器验收
 
-从扩展仓库运行，将 `MOTRIX_HOST_DIR` 指向此仓库，`MOTRIX_HANDOFF_SDK` 指向已构建的候选 SDK，分别执行 `pnpm test:chromium-confirmation --paired-handoff` 和 `pnpm test:firefox-takeover --paired-handoff`。真实扩展 MBP1 客户端连接隔离的本机 WebSocket 桥，测试操作员从独立通道输入宿主生成的配对码。已接受任务由真实 aria2 下载；丢回执用例在 commit 后关闭连接，并通过重新认证的新连接查询原账本。测试宿主仅接收临时文件源和隔离目录。正常产品构建默认保持既有能力声明。
+从扩展仓库运行，将 `MOTRIX_HOST_DIR` 指向此仓库，`MOTRIX_HANDOFF_SDK` 指向 Motrix 工作目录中已安装的 SDK（`node_modules/@motrix/mdxp`），分别执行 `pnpm test:chromium-confirmation --paired-handoff` 和 `pnpm test:firefox-takeover --paired-handoff`。真实扩展 MBP1 客户端连接隔离的本机 WebSocket 桥，测试操作员从独立通道输入宿主生成的配对码。已接受任务由真实 aria2 下载；丢回执用例在 commit 后关闭连接，并通过重新认证的新连接查询原账本。测试宿主仅接收临时文件源和隔离目录。桌面端启动时注册同一个模块，新交接需设置 MOTRIX_DOWNLOAD_HANDOFF=1。桌面端重启测试还验证关闭开关后仍能完成先前已准备的交接。

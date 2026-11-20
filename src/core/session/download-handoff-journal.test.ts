@@ -10,6 +10,7 @@ import {
   type Activation,
   DownloadHandoffJournal,
   type HandoffKey,
+  readHandoffActivationOwners,
 } from './download-handoff-journal'
 import { MotrixDatabase } from './motrix-database'
 
@@ -67,6 +68,20 @@ describe('shared Desktop and Server handoff database', () => {
     db.close()
     rmSync(dir, { recursive: true, force: true })
   })
+  it('fences committed engine reservations without opening a secret store', async () => {
+    await journal.prepare(key, payload, dir, 1000)
+    const committed = await journal.commit(key, hash, snapshot)
+    if (committed.state !== 'committed')
+      throw new Error('expected committed handoff')
+    expect(readHandoffActivationOwners(db).get(committed.taskId)).toBe(
+      db.getTask(committed.taskId)?.instances[0]?.gid
+    )
+    db.database.exec('DROP TABLE handoff_instance')
+    expect(() => readHandoffActivationOwners(db)).toThrow(
+      'Incomplete handoff database'
+    )
+  })
+
   it('freezes preparation across restarts and commits the task and activation exactly once while draining', async () => {
     const first = await journal.prepare(key, payload, dir, 30000)
     if (first.state !== 'prepared') throw new Error('expected a reservation')

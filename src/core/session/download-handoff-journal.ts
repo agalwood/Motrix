@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { isAbsolute } from 'node:path'
+import type { CreateDownloadParams } from '@core/engine/engine-adapter'
 import { newEngineTaskId, newTaskId } from '@core/lib/ids'
 import type { SecretStore } from '@core/plugin/capabilities/secret-store'
 import {
@@ -34,7 +35,7 @@ export interface HandoffKey {
   instanceId: string
   operationId: string
 }
-type Status =
+export type HandoffStatus =
   | { state: 'not-found' | 'aborted' | 'expired' }
   | {
       state: 'prepared'
@@ -58,10 +59,29 @@ export interface Activation {
   engineId: string
   saveDir: string
   canonicalPayload: string
+  engineRequest?: CreateDownloadParams
 }
 const digest = (payload: string) =>
   createHash('sha256').update(payload, 'utf8').digest('hex')
 const TABLES = ['handoff_instance', 'handoff_operations', 'handoff_activations']
+/** Restore must fence outbox owners even when the host cannot open its secret store. */
+export function readHandoffActivationOwners(
+  storage: MotrixDatabase
+): Map<string, string> {
+  const db = storage.database
+  const tables = db
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name IN (?,?,?)"
+    )
+    .all(...TABLES)
+  if (!tables.length) return new Map()
+  if (tables.length !== TABLES.length)
+    throw new Error('Incomplete handoff database')
+  const rows = db
+    .prepare('SELECT task_id, engine_id FROM handoff_activations')
+    .all() as { task_id: string; engine_id: string }[]
+  return new Map(rows.map((row) => [row.task_id, row.engine_id]))
+}
 const schema = `
   CREATE TABLE handoff_instance (singleton INTEGER PRIMARY KEY CHECK(singleton=1), instance_id TEXT NOT NULL);
   CREATE TABLE handoff_operations (
@@ -77,7 +97,7 @@ const schema = `
     state TEXT NOT NULL CHECK(state IN ('pending','dispatching'))
   );
 `
-function result(row?: Row): Status {
+function result(row?: Row): HandoffStatus {
   if (!row) return { state: 'not-found' }
   if (
     row.state === 'prepared' &&
@@ -237,10 +257,30 @@ export class DownloadHandoffJournal {
       return result(this.read(key))
     })
   }
+  async withPrepared(
+    key: HandoffKey,
+    hash: string,
+    plan: (intent: Activation) => Promise<HandoffStatus>
+  ): Promise<HandoffStatus> {
+    const row = this.write(() => this.read(key, hash))
+    if (row?.state !== 'prepared') return result(row)
+    if (!row.sealed || !row.task_id || !row.engine_id || !row.save_dir)
+      throw new Error('Incomplete handoff reservation')
+    const canonicalPayload = await this.secrets.decrypt(row.sealed)
+    if (digest(canonicalPayload) !== hash)
+      throw new Error('Stored handoff payload mismatch')
+    return plan({
+      taskId: row.task_id,
+      engineId: row.engine_id,
+      saveDir: row.save_dir,
+      canonicalPayload,
+    })
+  }
   async commit(
     key: HandoffKey,
     hash: string,
-    materialize: (intent: Activation) => TaskWithInstances
+    materialize: (intent: Activation) => TaskWithInstances,
+    engineRequest?: CreateDownloadParams
   ) {
     const row = this.write(() => this.read(key, hash))
     if (row?.state !== 'prepared') return result(row)
@@ -248,6 +288,12 @@ export class DownloadHandoffJournal {
     const canonicalPayload = await this.secrets.decrypt(row.sealed)
     if (digest(canonicalPayload) !== hash)
       throw new Error('Stored handoff payload mismatch')
+    const launch = engineRequest
+      ? 'request:' +
+        (await this.secrets.encrypt(
+          JSON.stringify({ canonicalPayload, engineRequest })
+        ))
+      : row.sealed
     return this.write(() => {
       const current = this.read(key, hash)
       if (current?.state !== 'prepared') return result(current)
@@ -283,7 +329,7 @@ export class DownloadHandoffJournal {
       this.storage.insertReservedTask(snapshot)
       this.db
         .prepare("INSERT INTO handoff_activations VALUES(?,?,?,?,'pending')")
-        .run(taskId, engineId, saveDir, sealed)
+        .run(taskId, engineId, saveDir, launch)
       this.db
         .prepare(
           "UPDATE handoff_operations SET state='committed',sealed=NULL,save_dir=NULL,expires_at=NULL WHERE principal=? AND operation_id=?"
@@ -299,6 +345,7 @@ export class DownloadHandoffJournal {
     taskId: string,
     engine: {
       contains: (id: string) => Promise<boolean>
+      beforeStart?: (intent: Activation) => Promise<void>
       start: (intent: Activation) => Promise<string>
     }
   ): Promise<'activated' | 'unresolved' | 'absent'> {
@@ -324,9 +371,26 @@ export class DownloadHandoffJournal {
     if (exists && job.state === 'pending') return 'unresolved'
     if (!exists) {
       if (job.state === 'dispatching') return 'unresolved'
-      const canonicalPayload = await this.secrets.decrypt(job.sealed)
+      const planned = job.sealed.startsWith('request:')
+      const clear = await this.secrets.decrypt(
+        planned ? job.sealed.slice(8) : job.sealed
+      )
+      const { canonicalPayload, engineRequest } = planned
+        ? (JSON.parse(clear) as Pick<
+            Activation,
+            'canonicalPayload' | 'engineRequest'
+          >)
+        : { canonicalPayload: clear, engineRequest: undefined }
       if (digest(canonicalPayload) !== job.payload_hash)
         throw new Error('Stored activation payload mismatch')
+      const intent = {
+        taskId,
+        engineId: job.engine_id,
+        saveDir: job.save_dir,
+        canonicalPayload,
+        ...(engineRequest ? { engineRequest } : {}),
+      }
+      await engine.beforeStart?.(intent)
       const claim = this.write(() => {
         this.assertInstance()
         return (
@@ -338,14 +402,7 @@ export class DownloadHandoffJournal {
         )
       })
       if (!claim) return 'unresolved'
-      if (
-        (await engine.start({
-          taskId,
-          engineId: job.engine_id,
-          saveDir: job.save_dir,
-          canonicalPayload,
-        })) !== job.engine_id
-      )
+      if ((await engine.start(intent)) !== job.engine_id)
         throw new Error('Unexpected engine identity')
     }
     this.write(() => {

@@ -68,6 +68,11 @@
   </screenshots>
 
   <releases>
+    <release version="2.4.4" date="2026-11-20">
+      <description>
+        <p>Updates MDXP to 0.10.0 and adds a SQLite ledger for paired download handoffs. Existing browser extensions retain their download submission flow.</p>
+      </description>
+    </release>
     <release version="2.4.3" date="2026-11-17">
       <description>
         <p>
