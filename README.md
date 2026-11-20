@@ -19,12 +19,11 @@ The same core powers two ways to run Motrix:
 - **Desktop app:** Runs on macOS, Windows, and Linux
 - **Headless server:** Runs without a desktop environment, either directly on Node.js or in Docker, and includes a web UI for NAS devices and home servers
 
-## Motrix 2.4.4
+## Motrix 2.4.5
 
-Large multi-file torrents now use compact file selections and the updated aria2 engine.
-Motrix now uses MDXP 0.10.0 and includes the SQLite ledger for paired download handoffs. Browser Extension 0.1.24 continues to use the existing submission flow.
-Download [v2.4.4 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.4.4)
-and read the [full release notes](./docs/release-notes/2.4.4.md).
+Desktop supports local download handoffs with Browser Extension 0.1.25 by default. After a lost acknowledgement, the extension can reconnect and look up the original task.
+Download [v2.4.5 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.4.5)
+and read the [full release notes](./docs/release-notes/2.4.5.md).
 
 Back up your existing Motrix profile and downloads before upgrading. The bundled
 engine upgrades its SQLite database to schema 6 and keeps a pre-upgrade backup;
@@ -185,7 +184,7 @@ included `compose.yaml` keeps Server state separate from downloaded resources:
 ```bash
 mkdir -p motrix-data downloads
 sudo chown 1000:1000 motrix-data downloads
-export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.4.4'
+export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.4.5'
 export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
 docker compose pull server
 docker compose up -d --wait

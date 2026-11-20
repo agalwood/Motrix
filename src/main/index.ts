@@ -2145,7 +2145,8 @@ async function initializeMainProcess(): Promise<void> {
 
   if (!legacyImportService) motrixDb.init()
   try {
-    const enabled = process.env.MOTRIX_DOWNLOAD_HANDOFF === '1'
+    const override = process.env.MOTRIX_DOWNLOAD_HANDOFF
+    const enabled = override === undefined || override === '1'
     if (
       enabled ||
       motrixDb.database
