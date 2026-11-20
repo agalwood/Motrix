@@ -199,6 +199,9 @@ jobs:
   torrent-browser:
     name: Torrent / Chromium, Firefox, WebKit
     runs-on: ubuntu-24.04
+    # The system libraries and all three browser builds match the locked Playwright release.
+    container:
+      image: mcr.microsoft.com/playwright:v1.65.1-noble@sha256:1507cbfc550a63a6b7396791ca4f00df17beb56342d2447b3f106c306f525579
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -217,7 +220,7 @@ jobs:
           MOTRIX_SKIP_ELECTRON_REBUILD: '1'
           MOTRIX_SKIP_ENGINE_FETCH: '1'
       - name: Install torrent conformance browsers
-        run: pnpm exec playwright install --with-deps chromium firefox webkit
+        run: pnpm exec playwright install chromium firefox webkit
       - name: Torrent conformance on HTTP without WebCrypto
         run: pnpm test:browser:torrent
 
