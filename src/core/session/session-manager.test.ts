@@ -548,6 +548,57 @@ describe('SessionManager', () => {
     expect(adapter.createDownload).not.toHaveBeenCalled()
   })
 
+  describe('interrupted torrent creation cleanup', () => {
+    const gid = '123456789abcdef0'
+    const hash = 'a'.repeat(40)
+    function seed(markedGid = gid) {
+      seedAsPair(db, {
+        motrixId: 'failed-create',
+        gid,
+        kind: TaskKind.Bt,
+        infoHash: hash,
+        status: TaskStatus.Error,
+        payload: { unconfirmedTorrentCreateGid: markedGid },
+      })
+    }
+    it('removes the durable engine result even if its GID was evicted from memory', async () => {
+      seed()
+      vi.mocked(adapter.getTaskStatus).mockResolvedValue(null)
+      await session.restore()
+      expect(adapter.removeDownloadResult).toHaveBeenCalledWith(gid)
+      expect(adapter.forceRemoveTask).not.toHaveBeenCalled()
+      expect(db.getTask('failed-create')).toBeNull()
+    })
+    it('retains the failed owner on uncertain cleanup and does not resubmit', async () => {
+      seed()
+      vi.mocked(adapter.getTaskStatus).mockResolvedValue(null)
+      vi.mocked(adapter.removeDownloadResult).mockRejectedValue(
+        new Error('engine disconnected')
+      )
+      await session.restore()
+      expect(db.getTask('failed-create')?.task.aggStatus).toBe(TaskStatus.Error)
+      expect(taskManager.getById('failed-create')?.status).toBe(
+        TaskStatus.Error
+      )
+      expect(adapter.addTorrent).not.toHaveBeenCalled()
+    })
+    it('does not remove an engine task with another content identity', async () => {
+      seed()
+      vi.mocked(adapter.getTaskStatus).mockResolvedValue(
+        createTask({ infoHash: 'b'.repeat(40) })
+      )
+      await session.restore()
+      expect(adapter.removeDownloadResult).not.toHaveBeenCalled()
+      expect(adapter.forceRemoveTask).not.toHaveBeenCalled()
+    })
+    it('preserves a replacement instance after an explicit retry', async () => {
+      seed('different-reservation')
+      await session.restore()
+      expect(adapter.removeDownloadResult).not.toHaveBeenCalled()
+      expect(db.getTask('failed-create')).toBeTruthy()
+    })
+  })
+
   describe('engine session quarantine', () => {
     const failed = {
       engineTaskId: '2222222222222222',

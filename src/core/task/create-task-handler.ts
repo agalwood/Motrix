@@ -31,6 +31,7 @@ import {
 import type { SettingsManager } from '@core/settings/settings-manager'
 import { INCOMPLETE_SUFFIX } from '@shared/constants/incomplete'
 import { AppError, ErrorCode } from '@shared/errors'
+import { formatFileSelection } from '@shared/lib/file-selection-ranges'
 import type {
   TaskCreateRequest,
   TaskCreateSuccessResult,
@@ -452,7 +453,7 @@ async function handleCreateTaskUnderAdmission(
   if (req.type === 'bt' && req.payload.kind === 'torrent-base64') {
     torrentBytes = req.torrentBytes ?? decodeBase64ToBytes(req.payload.base64)
     try {
-      parsedBtLayout = await parseBtFileLayout(torrentBytes)
+      parsedBtLayout = await parseBtFileLayout(torrentBytes, req.selectedFiles)
       torrentInfoName = parsedBtLayout.torrentRootName
       isPrivateFromTorrent = parsedBtLayout.isPrivate
     } catch (err) {
@@ -1071,7 +1072,7 @@ async function handleCreateTaskUnderAdmission(
         : {}),
       saveDir: btStoragePlan?.saveDir ?? diskPath,
       // CREATE-PATH +1: req indices are 0-based; aria2 select-file is
-      // 1-based, and addTorrent serializes selectedFiles with a raw join.
+      // 1-based. The adapter compacts consecutive indices into ranges.
       selectedFiles: req.selectedFiles.map((i) => i + 1),
       outputFilePaths: btStoragePlan?.outputFilePaths,
       outputRoot: btStoragePlan?.outputRoot,
@@ -1088,12 +1089,13 @@ async function handleCreateTaskUnderAdmission(
       params.gid = reservedGid
       // Never log `params.metadata` itself: pino would expand the whole
       // torrent byte array into a multi-megabyte JSON line.
-      const { metadata, ...loggableParams } = params
+      const { metadata, selectedFiles, outputFilePaths } = params
       log.info(
         {
           method: 'addTorrent',
           metadataBytes: metadata.length,
-          params: loggableParams,
+          selectedFileCount: selectedFiles?.length,
+          mappedFileCount: outputFilePaths?.length,
         },
         'dispatching to engine'
       )
@@ -1105,9 +1107,10 @@ async function handleCreateTaskUnderAdmission(
     // dir=diskPath, no out) through createDownload + extraEngineOptions.
     const magnetEngineOpts: Record<string, string> = {}
     if (req.selectedFiles.length > 0) {
-      magnetEngineOpts['select-file'] = req.selectedFiles
-        .map((i) => i + 1)
-        .join(',')
+      magnetEngineOpts['select-file'] = formatFileSelection(
+        req.selectedFiles,
+        0
+      )
     }
     if (req.dlLimit !== undefined) {
       magnetEngineOpts['max-download-limit'] = String(req.dlLimit)
@@ -1159,7 +1162,7 @@ async function handleCreateTaskUnderAdmission(
     phase,
     status: TaskStatus.Queued,
     progress: 0,
-    totalBytes: 0,
+    totalBytes: parsedBtLayout?.totalBytes ?? 0,
     downloadedBytes: 0,
     uploadedBytes: 0,
     diskPath,
@@ -1200,6 +1203,13 @@ async function handleCreateTaskUnderAdmission(
     finalName,
     torrentMetaPath,
     infoHash: btInfoHash,
+    ...(parsedBtLayout
+      ? {
+          totalBytes: parsedBtLayout.totalBytes ?? 0,
+          sizeWhenDone: parsedBtLayout.totalBytes ?? 0,
+          fileCount: parsedBtLayout.files.length,
+        }
+      : {}),
     // For BT/Magnet, seed bt.isPrivate at creation time so SessionManager.save()
     // persists is_private to db. Other bt fields are filled in by the next poll
     // cycle via translateBtExtension; mergeEngineTask preserves this metadata
@@ -1352,6 +1362,20 @@ async function handleCreateTaskUnderAdmission(
       // The engine outcome or durable rollback is uncertain. Promote the silent
       // candidate to an ordinary owner so every live GID has the same public
       // task identity and recovery can reconcile it after restart.
+      if (parsedBtLayout) {
+        task.status = TaskStatus.Error
+        primaryInstance.status = TaskStatus.Error
+        primaryInstance.payload.unconfirmedTorrentCreateGid = gid
+        task.errorMessage = cause instanceof Error ? cause.message : null
+        try {
+          await deps.persistTask?.(task)
+        } catch (error) {
+          log.warn(
+            { err: error, taskId },
+            'could not persist uncertain torrent creation'
+          )
+        }
+      }
       deps.taskManager.add(task)
       announceOwnedTask()
       throw cause

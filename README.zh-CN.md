@@ -21,6 +21,7 @@ Motrix 是一款界面简洁、功能丰富的桌面下载管理器，可处理 
 
 ## Motrix 2.4.4
 
+修复了添加多文件大种子时下载引擎卡住的问题。
 Motrix 升级到 MDXP 0.10.0，并集成用于记录配对下载交接的 SQLite 账本。浏览器扩展 0.1.24 继续通过原有接口提交下载。
 从 GitHub Releases 下载 [v2.4.4](https://github.com/agalwood/Motrix/releases/tag/v2.4.4)，
 并阅读[完整发布说明](./docs/release-notes/2.4.4.zh-CN.md)。

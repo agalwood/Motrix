@@ -21,6 +21,7 @@ The same core powers two ways to run Motrix:
 
 ## Motrix 2.4.4
 
+Large multi-file torrents now use compact file selections and the updated aria2 engine.
 Motrix now uses MDXP 0.10.0 and includes the SQLite ledger for paired download handoffs. Browser Extension 0.1.24 continues to use the existing submission flow.
 Download [v2.4.4 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.4.4)
 and read the [full release notes](./docs/release-notes/2.4.4.md).

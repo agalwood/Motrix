@@ -12,6 +12,7 @@ import {
 import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { DEFAULT_TORRENT_RPC_BODY_LIMIT_BYTES } from '@shared/lib/torrent-meta'
 import { TaskStatus } from '@shared/types/task'
 import {
   type Aria2Handle,
@@ -67,6 +68,74 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
       await handle?.kill()
       if (root) await rm(root, { recursive: true, force: true })
     })
+
+    it('adds a large nested file list and preserves its selected paths', async () => {
+      root = await mkdtemp(path.join(tmpdir(), 'motrix-bt-library-'))
+      const count = 26_730
+      const length = 939_000
+      const pieceLength = 2 ** 19
+      const metadata = encode({
+        info: {
+          name: 'library',
+          'piece length': pieceLength,
+          pieces: Buffer.alloc(Math.ceil((count * length) / pieceLength) * 20),
+          files: Array.from({ length: count }, (_, i) => ({
+            length,
+            path: [
+              'collection',
+              String(i % 31),
+              `library-resource-item-${i}.bin`,
+            ],
+          })),
+        },
+      })
+      expect(metadata.length).toBeGreaterThan(2.8 * 1024 ** 2)
+      const output = path.join(root, 'Chosen folder')
+      const plan = createBtDirectStoragePlan(
+        output,
+        await parseBtFileLayout(metadata),
+        path.join(root, 'metadata.torrent')
+      )
+      const engineOptions = {
+        baseDir: root,
+        extraArgs: [
+          `--rpc-max-request-size=${DEFAULT_TORRENT_RPC_BODY_LIMIT_BYTES}`,
+          '--enable-sqlite3-persistence=true',
+          '--force-save=true',
+          `--sqlite3-db-path=${path.join(root, 'aria2.db')}`,
+        ],
+      }
+      handle = await spawnAria2ForTest(engineOptions)
+      let wired = await connectAdapter(handle)
+      disconnect = wired.disconnect
+      const gid = await wired.adapter.addTorrent({
+        ...plan,
+        metadata,
+        pause: true,
+        selectedFiles: Array.from({ length: count }, (_, i) => i + 1),
+      })
+      const files = await wired.adapter.getTaskFiles(gid)
+      expect(files).toHaveLength(count)
+      expect(files.every((f) => f.selected)).toBe(true)
+      expect(files.at(-1)?.path).toBe(
+        path.join(
+          output,
+          'collection',
+          String((count - 1) % 31),
+          `library-resource-item-${count - 1}.bin`
+        )
+      )
+      expect(await wired.adapter.getGlobalStats()).toBeDefined()
+      disconnect()
+      await handle.kill()
+      handle = await spawnAria2ForTest(engineOptions)
+      wired = await connectAdapter(handle)
+      disconnect = wired.disconnect
+      const restored = await wired.adapter.getTaskFiles(gid)
+      expect(restored.length).toBe(count)
+      expect(restored.at(-1)?.path).toBe(files.at(-1)?.path)
+      expect(restored.every((file) => file.selected)).toBe(true)
+    }, 30_000)
 
     it.each([false, true])(
       'checks and seeds final files with multiFile=%s',

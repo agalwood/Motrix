@@ -11,6 +11,7 @@ import {
 } from '@core/proxy/aria2-proxy-routing'
 import { admitDownloadSources } from '@core/task/source-admission'
 import { AppError, ErrorCode } from '@shared/errors'
+import { formatFileSelection } from '@shared/lib/file-selection-ranges'
 import type {
   LegacyCheckpointImport,
   LegacyCheckpointReconcile,
@@ -903,7 +904,7 @@ export class Aria2Adapter implements EngineAdapter {
       }
     }
     if (params.selectedFiles?.length) {
-      opts['select-file'] = params.selectedFiles.join(',')
+      opts['select-file'] = formatFileSelection(params.selectedFiles, 1)
     }
     if (params.outputRoot !== undefined && !path.isAbsolute(params.outputRoot))
       throw new TypeError('Torrent output root must be absolute')
@@ -989,7 +990,7 @@ export class Aria2Adapter implements EngineAdapter {
       Object.assign(opts, {
         dir: params.saveDir,
         pause: 'true',
-        'select-file': params.selectedFiles.join(','),
+        'select-file': formatFileSelection(params.selectedFiles, 1),
         'allow-overwrite': 'false',
         'auto-file-renaming': 'false',
         'remove-control-file': 'false',

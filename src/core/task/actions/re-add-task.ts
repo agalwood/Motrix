@@ -373,6 +373,8 @@ function withReservedGid(
     0,
     task.instances.findIndex((instance) => instance.gid === task.engineTaskId)
   )
+  const primaryPayload = { ...task.instances[primaryIndex]?.payload }
+  delete primaryPayload.unconfirmedTorrentCreateGid
   return {
     ...task,
     engineTaskId,
@@ -382,6 +384,7 @@ function withReservedGid(
         ? {
             ...instance,
             gid: engineTaskId,
+            payload: primaryPayload,
             uploadedBytes: 0,
             ...(status ? { status } : {}),
             updatedAt: now,

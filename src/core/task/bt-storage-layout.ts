@@ -123,6 +123,7 @@ export interface BtOutputFilePath {
 }
 
 export interface ParsedBtFileLayout {
+  totalBytes?: number
   /** Canonical lowercase hexadecimal BitTorrent content identity. */
   infoHash: string
   torrentRootName: string
@@ -144,7 +145,8 @@ export class UnsafeTorrentPathError extends Error {
  * mapped into the selected output directory.
  */
 export async function parseBtFileLayout(
-  metadata: Uint8Array
+  metadata: Uint8Array,
+  selectedFiles?: readonly number[]
 ): Promise<ParsedBtFileLayout> {
   const parsed = await parseTorrent(metadata)
   if (
@@ -159,6 +161,15 @@ export async function parseBtFileLayout(
     throw new UnsafeTorrentPathError('Torrent contains no files')
   }
 
+  const selected = selectedFiles?.length ? new Set(selectedFiles) : null
+  if (
+    selected &&
+    [...selected].some(
+      (index) =>
+        !Number.isInteger(index) || index < 0 || index >= parsedFiles.length
+    )
+  )
+    throw new Error('Torrent file selection is outside the file list')
   const multiFile = parsed.multiFile === true
   const files = parsedFiles.map((file, fileIndex) => {
     const components = file.pathComponents.map((component) =>
@@ -208,6 +219,11 @@ export async function parseBtFileLayout(
   }
 
   return {
+    totalBytes: parsedFiles.reduce(
+      (sum, file, index) =>
+        sum + (!selected || selected.has(index) ? file.length : 0),
+      0
+    ),
     infoHash: parsed.infoHash.toLowerCase(),
     torrentRootName,
     multiFile,
