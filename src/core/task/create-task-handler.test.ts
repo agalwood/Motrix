@@ -32,6 +32,7 @@ import { DIRECT_RESOURCE_METADATA_PROFILE } from '../engine/engine-adapter'
 import { verifyBtFiles } from './bt-file-verifier'
 import { parseBtFileLayout } from './bt-storage-layout'
 import { handleCreateTask } from './create-task-handler'
+import { mergeEngineTask } from './merge-engine-task'
 
 const sampleTorrentBase64 = storageTorrent([
   { name: 'a', data: 'a' },
@@ -3100,6 +3101,42 @@ describe('handleCreateTask reserved-GID ownership', () => {
     expect(deps.releaseEngineTaskIdReservation).not.toHaveBeenCalled()
     expect(deps.setReservedEngineTaskOwner).toHaveBeenCalledOnce()
     expect(deps.add).not.toHaveBeenCalled()
+  })
+
+  it('retains a failed torrent with known size and the reserved identity until cleanup can be confirmed', async () => {
+    const deps = makeDeps()
+    const error = new Error('addTorrent timed out')
+    deps.addTorrent.mockRejectedValue(error)
+    deps.forceRemove.mockRejectedValue(new Error('engine offline'))
+    deps.removeDownloadResult.mockRejectedValue(new Error('engine offline'))
+    const persistTask = vi.fn(async () => {})
+    await expect(
+      handleCreateTask(
+        {
+          type: 'bt',
+          payload: { kind: 'torrent-base64', base64: sampleTorrentBase64 },
+          selectedFiles: [0, 2],
+          saveDir: '/d',
+        },
+        { ...deps, persistTask, createEngineTaskId: () => reservedGid } as Deps
+      )
+    ).rejects.toBe(error)
+    const task = lastAddedTask(deps)
+    expect(task).toMatchObject({
+      status: TaskStatus.Error,
+      totalBytes: 2,
+      sizeWhenDone: 2,
+      fileCount: 3,
+      errorMessage: error.message,
+      engineTaskId: reservedGid,
+    })
+    expect(task.instances[0]?.payload.unconfirmedTorrentCreateGid).toBe(
+      reservedGid
+    )
+    expect(persistTask).toHaveBeenLastCalledWith(task)
+    expect(mergeEngineTask(task, { ...task, status: TaskStatus.Queued })).toBe(
+      task
+    )
   })
 
   it('publishes the durable candidate when post-dispatch cleanup is uncertain', async () => {

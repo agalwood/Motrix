@@ -954,6 +954,38 @@ describe('AddTaskForm', () => {
     }
   )
 
+  it('keeps a torrent creation timeout visible in the open dialog', async () => {
+    const user = userEvent.setup()
+    const onSubmitSuccess = vi.fn()
+    const { transport } = await import('@renderer/lib/transport')
+    vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+      if (channel === 'command:createTask')
+        throw new Error('aria2.addTorrent timed out')
+      return {}
+    })
+    renderForm({
+      onSubmitSuccess,
+      defaultValues: {
+        tab: 'torrent',
+        source: 'file',
+        base64: 'dG9ycmVudA==',
+        saveDir: '/custom',
+        selectedFiles: [0],
+        torrentMeta: {
+          name: 'library',
+          infoHash: 'a'.repeat(40),
+          totalSize: 1,
+          files: [
+            { index: 0, path: 'library.bin', size: 1, extension: '.bin' },
+          ],
+        },
+      },
+    })
+    await user.click(screen.getByRole('button', { name: /^download$|^add$/i }))
+    expect(await screen.findByText(/aria2\.addTorrent timed out/)).toBeVisible()
+    expect(onSubmitSuccess).not.toHaveBeenCalled()
+  })
+
   it('closes an external queue when the shell reports no valid next torrent', async () => {
     const onCancel = vi.fn()
     const user = userEvent.setup()

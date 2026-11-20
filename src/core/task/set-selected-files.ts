@@ -5,6 +5,7 @@ import { getLogger } from '@core/logger'
 import type { MotrixDatabase } from '@core/session/motrix-database'
 import type { TaskManager } from '@core/task/task-manager'
 import { AppError, ErrorCode } from '@shared/errors'
+import { formatFileSelection } from '@shared/lib/file-selection-ranges'
 import { Events } from '@shared/protocol/events'
 import { setSelectedFilesPayloadSchema } from '@shared/schemas/task-file-selection'
 import type { DownloadTask } from '@shared/types/task'
@@ -74,31 +75,5 @@ export function createSetSelectedFilesHandler(deps: Deps) {
 }
 
 export function formatRange(indices: number[]): string {
-  if (indices.length === 0) return ''
-  const sorted = [...indices].sort((a, b) => a - b).map((index) => index + 1)
-  const parts: string[] = []
-  let start = sorted[0] as number
-  let previous = start
-  const flush = () => {
-    const length = previous - start + 1
-    if (length >= 3) {
-      parts.push(`${start}-${previous}`)
-    } else {
-      for (let value = start; value <= previous; value++) {
-        parts.push(`${value}`)
-      }
-    }
-  }
-  for (let index = 1; index < sorted.length; index++) {
-    const current = sorted[index] as number
-    if (current === previous + 1) {
-      previous = current
-    } else {
-      flush()
-      start = current
-      previous = current
-    }
-  }
-  flush()
-  return parts.join(',')
+  return formatFileSelection(indices, 0)
 }

@@ -541,6 +541,7 @@ export function AddTaskForm({
       setSubmitting(true)
       try {
         form.clearErrors('urls')
+        form.clearErrors('root.torrentSubmission')
         const requests = formValuesToTaskCreateRequests(values)
         const lines = values.tab === 'links' ? parseUrlLines(values.urls) : []
         const validLines = lines.filter((line) => line.valid)
@@ -641,7 +642,17 @@ export function AddTaskForm({
                 : null
             )
         }
-        if (firstFailureReason)
+        if (failed > 0 && values.tab === 'torrent' && !blockedByConflict) {
+          form.setError('root.torrentSubmission', {
+            type: 'submission',
+            message: firstFailureReason
+              ? t('task.add.createFailedWithReason', {
+                  reason: firstFailureReason,
+                })
+              : t('task.add.createFailed'),
+          })
+        }
+        if (firstFailureReason && values.tab === 'links')
           form.setError('urls', {
             type: 'submission',
             message: unconfirmed
@@ -789,6 +800,12 @@ export function AddTaskForm({
               )}
               style={{ minWidth: '100%' }}
             >
+              {form.watch('tab') === 'torrent' &&
+                form.formState.errors.root?.torrentSubmission?.message && (
+                  <p role="alert" className="mb-2 text-sm text-destructive">
+                    {form.formState.errors.root.torrentSubmission.message}
+                  </p>
+                )}
               <RendererSubmissionNotice className="mb-3 mt-1" />
               {purpose === 'redownload' ? (
                 <LinksTabPanel advancedDefaultOpen />

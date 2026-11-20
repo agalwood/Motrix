@@ -23,6 +23,16 @@ export function mergeEngineTask(
 ): DownloadTask {
   if (existing.storageOperation) return existing
   if (
+    existing.status === TaskStatus.Error &&
+    existing.engineTaskId === engineTask.engineTaskId &&
+    existing.instances.some(
+      (instance) =>
+        instance.gid === existing.engineTaskId &&
+        instance.payload.unconfirmedTorrentCreateGid === instance.gid
+    )
+  )
+    return existing
+  if (
     existing.engineTaskId === engineTask.engineTaskId &&
     existing.status === TaskStatus.Error &&
     engineTask.status === TaskStatus.Paused &&

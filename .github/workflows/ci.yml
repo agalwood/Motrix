@@ -149,6 +149,12 @@ jobs:
           --outputFile=output/ci/reports/shard-${{ matrix.shard }}.json
         env:
           MOTRIX_REQUIRE_ELECTRON_PROXY_TEST: '1'
+      - name: Verify large torrent creation and SQLite recovery with the pinned Linux engine
+        if: matrix.shard == 1
+        run: |
+          node scripts/fetch-engine.mjs
+          test -x extra/linux/x64/aria2c
+          pnpm exec vitest run src/core/task/bt-direct-storage.integration.test.ts -t 'adds a large nested file list'
       - name: Upload test partition report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -193,6 +199,10 @@ jobs:
   torrent-browser:
     name: Torrent / Chromium, Firefox, WebKit
     runs-on: ubuntu-24.04
+    # The system libraries and all three browser builds match the locked Playwright release.
+    container:
+      image: mcr.microsoft.com/playwright:v1.65.1-noble@sha256:1507cbfc550a63a6b7396791ca4f00df17beb56342d2447b3f106c306f525579
+      options: --user pwuser
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -211,7 +221,7 @@ jobs:
           MOTRIX_SKIP_ELECTRON_REBUILD: '1'
           MOTRIX_SKIP_ENGINE_FETCH: '1'
       - name: Install torrent conformance browsers
-        run: pnpm exec playwright install --with-deps chromium firefox webkit
+        run: pnpm exec playwright install chromium firefox webkit
       - name: Torrent conformance on HTTP without WebCrypto
         run: pnpm test:browser:torrent
 
