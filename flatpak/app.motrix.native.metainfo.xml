@@ -68,6 +68,9 @@
   </screenshots>
 
   <releases>
+    <release version="2.4.5" date="2026-11-20">
+      <description><p>Enable recoverable handoff for paired local browser downloads by default.</p></description>
+    </release>
     <release version="2.4.4" date="2026-11-20">
       <description>
         <p>Fixes stalls when adding torrents with many files. Updates MDXP to 0.10.0 and adds a SQLite ledger for paired download handoffs. Existing browser extensions retain their download submission flow.</p>

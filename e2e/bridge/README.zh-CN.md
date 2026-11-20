@@ -272,4 +272,4 @@ node --import tsx scripts/verify-local-download-handoff.mjs
 
 ### 本地配对浏览器验收
 
-从扩展仓库运行，将 `MOTRIX_HOST_DIR` 指向此仓库，`MOTRIX_HANDOFF_SDK` 指向 Motrix 工作目录中已安装的 SDK（`node_modules/@motrix/mdxp`），分别执行 `pnpm test:chromium-confirmation --paired-handoff` 和 `pnpm test:firefox-takeover --paired-handoff`。真实扩展 MBP1 客户端连接隔离的本机 WebSocket 桥，测试操作员从独立通道输入宿主生成的配对码。已接受任务由真实 aria2 下载；丢回执用例在 commit 后关闭连接，并通过重新认证的新连接查询原账本。测试宿主仅接收临时文件源和隔离目录。桌面端启动时注册同一个模块，新交接需设置 MOTRIX_DOWNLOAD_HANDOFF=1。桌面端重启测试还验证关闭开关后仍能完成先前已准备的交接。
+从扩展仓库运行，将 `MOTRIX_HOST_DIR` 指向此仓库，分别执行 `pnpm test:chromium-confirmation --paired-handoff` 和 `pnpm test:firefox-takeover --paired-handoff`。真实扩展 MBP1 客户端连接隔离的本机 WebSocket 桥，测试操作员从独立通道输入宿主生成的配对码。已接受任务由真实 aria2 下载；丢回执用例在 commit 后关闭连接，并通过重新认证的新连接查询原账本。测试宿主仅接收临时文件源和隔离目录。桌面端启动时注册同一个模块，新配置默认接受交接，MOTRIX_DOWNLOAD_HANDOFF=0 可关闭新交接。桌面端重启测试还验证关闭开关后仍能完成先前已准备的交接。

@@ -21,7 +21,7 @@ import {
 } from '../fixtures/electron-app'
 
 test.use({ trace: 'off', screenshot: 'off' })
-test('desktop resumes a prepared handoff after restart with new handoffs disabled', async ({
+test('desktop accepts handoffs by default and drains an existing one after opt-out', async ({
   userDataDir,
   rpcPort,
 }) => {
@@ -42,11 +42,11 @@ test('desktop resumes a prepared handoff after restart with new handoffs disable
   const url = `http://127.0.0.1:${endpoint.port}/desktop.bin`
   await mkdir(path.join(userDataDir, 'downloads'), { recursive: true })
   let app: ElectronApplication | undefined
-  async function launch(enabled: boolean) {
+  async function launch(override?: '0') {
     app = await launchMotrix({
       userDataDir,
       rpcPort,
-      extraEnv: { MOTRIX_DOWNLOAD_HANDOFF: enabled ? '1' : '0' },
+      extraEnv: { MOTRIX_DOWNLOAD_HANDOFF: override },
     })
     const page = await app.firstWindow()
     await waitForEngineReady(page)
@@ -56,7 +56,7 @@ test('desktop resumes a prepared handoff after restart with new handoffs disable
     return { app, page, port }
   }
   try {
-    const first = await launch(true)
+    const first = await launch()
     const attempt = await startPair({
       port: first.port,
       origin,
@@ -113,7 +113,7 @@ test('desktop resumes a prepared handoff after restart with new handoffs disable
     attempt.wire.ws.close()
     await first.app.close()
     app = undefined
-    const second = await launch(false)
+    const second = await launch('0')
     const peer = await reconnect({
       port: second.port,
       origin,
