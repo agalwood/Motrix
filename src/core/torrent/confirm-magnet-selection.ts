@@ -195,7 +195,11 @@ async function confirmMagnetSelectionUnderMutation(
   // indexed paths when metadata is valid, and durable `.torrent` bytes.
   let parsedBtLayout: ParsedBtFileLayout | null = null
   try {
-    parsedBtLayout = await parseBtFileLayout(torrentBytes, undefined, parsedMetadata)
+    parsedBtLayout = await parseBtFileLayout(
+      torrentBytes,
+      undefined,
+      parsedMetadata
+    )
   } catch (err) {
     if (err instanceof AppError) throw err
     throw new AppError(

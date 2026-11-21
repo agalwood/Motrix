@@ -13,6 +13,8 @@ import {
   runPake,
   startPair,
 } from '../../src/core/bridge/__tests__/mbp1-client'
+import { Queries } from '../../src/shared/protocol/queries'
+import { type DownloadTask, TaskStatus } from '../../src/shared/types/task'
 import {
   expect,
   launchMotrix,
@@ -29,9 +31,9 @@ test('desktop accepts handoffs by default and drains an existing one after opt-o
   const id = 'lggbokfckofcgjndaboioakcmincinpo'
   const origin = 'chrome-extension://' + id
   const file = Buffer.from('same committed desktop handoff')
-  const requests: string[] = []
+  const requests: Array<{ method: string; range: string | undefined }> = []
   const server = createServer((req, res) => {
-    requests.push(req.method ?? '')
+    requests.push({ method: req.method ?? '', range: req.headers.range })
     res.writeHead(200, { 'Content-Length': file.length }).end(file)
   })
   server.listen(0, '127.0.0.1')
@@ -167,7 +169,24 @@ test('desktop accepts handoffs by default and drains an existing one after opt-o
         )?.toString()
       )
       .toBe(file.toString())
-    expect(requests).toEqual(['GET'])
+    // taiji may probe range support before the one full payload transfer.
+    // Repeated commits must not create another transfer or another task.
+    expect(requests.filter((request) => request.range === undefined)).toEqual([
+      { method: 'GET', range: undefined },
+    ])
+    const probes = requests.filter((request) => request.range !== undefined)
+    expect(probes.length).toBeLessThanOrEqual(1)
+    for (const probe of probes)
+      expect(probe).toEqual({ method: 'GET', range: 'bytes=0-0' })
+    await expect
+      .poll(async () => {
+        const tasks = (await second.page.evaluate(
+          (channel) => window.motrix.invoke(channel),
+          Queries.ListTasks
+        )) as DownloadTask[]
+        return tasks.map((task) => ({ id: task.id, status: task.status }))
+      })
+      .toEqual([{ id: prepared.taskId, status: TaskStatus.Completed }])
     resumed.dispose()
     peer.wire.ws.close()
   } finally {

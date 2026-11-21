@@ -466,6 +466,7 @@ async function cleanupReservedOutputs(
   const parsed = metadata
     ? await parseBtFileLayout(
         metadata,
+        undefined,
         verifiedManifest
           ? manifestToEngineTorrent(verifiedManifest.manifest)
           : undefined

@@ -228,7 +228,7 @@ modules:
       # Generated from the lockfiles in the exact application source commit.
       - type: git
         url: https://github.com/motrixapp/taiji.git
-        commit: cc5157eb5e5ad099ff7e5ab14f768929276bb035
+        commit: 1a4cee34257fa3410df2347b0bdd6d6e71f6d1b3
         dest: taiji-source
       - generated-sources.json
       - cargo-sources.json

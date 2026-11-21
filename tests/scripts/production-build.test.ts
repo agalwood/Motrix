@@ -6,8 +6,9 @@ const MIB = 1024 * 1024
 const ROOT = path.resolve(import.meta.dirname, '../..')
 const TARGETS = [
   // Keep the 2 MiB startup ceiling and bound the complete lazy-loaded output.
-  // Account for desktop handoff, NAT integration and native HTTP publication.
-  { name: 'main', initial: 2 * MIB, total: 5.5 * MIB + 36 * 1024 },
+  // Handoff plus taiji manifest/replay integration measures 5,817,095 bytes.
+  // Allow 16 KiB over the combined earlier budget; keep startup at 2 MiB.
+  { name: 'main', initial: 2 * MIB, total: 5.5 * MIB + 52 * 1024 },
   { name: 'preload', initial: 80 * 1024, total: 80 * 1024 },
   { name: 'worker', initial: 48 * 1024, total: 48 * 1024 },
   // Native NAS strings in all 26 catalogs add ~60 KiB; the Web-only settings

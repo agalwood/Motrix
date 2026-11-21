@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { encode } from '@motrix/torrent'
+import { parseEngineTorrent } from '@shared/lib/engine-torrent'
 import { createBtStoragePlan } from '@test-utils/legacy-bt-storage'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
@@ -28,6 +29,19 @@ function singleFileTorrent(name: string): Uint8Array {
 }
 
 describe('legacy BT indexed storage layout', () => {
+  it('uses verified metadata while accounting only for selected payload bytes', async () => {
+    const manifest = await parseEngineTorrent(readFileSync(FIXTURE_PATH))
+    if (!manifest.files) throw new Error('Fixture must contain file metadata')
+    const parsed = await parseBtFileLayout(new Uint8Array(), [1], manifest)
+    expect(parsed.infoHash).toBe(manifest.infoHash)
+    expect(parsed.totalBytes).toBe(manifest.files[1].length)
+    expect(parsed.files).toHaveLength(manifest.files.length)
+    expect(parsed.files[1]).toEqual({
+      fileIndex: 1,
+      pathInsideRoot: 'readme.txt',
+    })
+  })
+
   it('maps a multi-file torrent below one short payload entry', async () => {
     const parsed = await parseBtFileLayout(
       new Uint8Array(readFileSync(FIXTURE_PATH))

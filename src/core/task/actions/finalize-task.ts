@@ -1071,6 +1071,7 @@ async function finalizeBtAfterRename(
       storageLayout || directLayout?.torrentRootName
         ? await parseBtFileLayout(
             bytes,
+            undefined,
             verifiedManifest
               ? manifestToEngineTorrent(verifiedManifest.manifest)
               : undefined

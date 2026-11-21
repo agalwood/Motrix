@@ -30,6 +30,8 @@ export {
 
 import { projectRoot, readEngineSource, sha256Hex } from './engine-source.mjs'
 
+const BUILD_CACHE_LAYOUT = 'source-digest-v1'
+
 function execute(command, args, options = {}) {
   return execFileSync(command, args, { encoding: 'utf8', ...options })
 }
@@ -263,6 +265,7 @@ export async function buildTaiji(options = {}) {
       if (
         receipt.version === info.lock.version &&
         receipt.sourceDigest === info.sourceDigest &&
+        receipt.buildCacheLayout === BUILD_CACHE_LAYOUT &&
         receipt.profile === profile &&
         receipt.digestAlgorithm === ENGINE_DIGEST_ALGORITHM &&
         /^[a-f0-9]{64}$/.test(receipt.nativePayloadSha256 ?? '') &&
@@ -288,7 +291,9 @@ export async function buildTaiji(options = {}) {
           options.source ?? process.env.MOTRIX_TAIJI_SOURCE,
           root
         )
-  const targetDir = path.join(root, 'output/taiji-build')
+  // Distinct source pins can share a SemVer and binary name. Keep their Cargo
+  // artifacts separate so a cached build cannot copy another checkout's binary.
+  const targetDir = path.join(root, 'output/taiji-build', info.sourceDigest)
   const buildEnv = taijiBuildEnvironment(rustTarget)
   if (process.platform === 'linux' && rustTarget.includes('musl')) {
     const host = execute('rustc', ['-vV']).match(/^host: (\S+)$/m)?.[1]
@@ -411,6 +416,7 @@ export async function buildTaiji(options = {}) {
       {
         version: info.lock.version,
         sourceDigest: info.sourceDigest,
+        buildCacheLayout: BUILD_CACHE_LAYOUT,
         revision: info.source.revision,
         cargoLockSha256: info.source.cargoLockSha256,
         profile,

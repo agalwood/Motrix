@@ -56,6 +56,7 @@ async function fixture() {
   const record = {
     version: lock.version,
     sourceDigest,
+    buildCacheLayout: 'source-digest-v1',
     profile: 'release',
     digestAlgorithm: 'native-content-v1',
     nativePayloadSha256: sha256Hex('test binary'),
@@ -125,6 +126,20 @@ describe('pinned taiji build', () => {
     await expect(
       buildTaiji({ root: f.root, platform: 'darwin', arch: 'arm64' })
     ).rejects.toThrow('Invalid taiji source lock')
+    expect(await readFile(f.binary, 'utf8')).toBe('test binary')
+  })
+  it('does not reuse binaries from the former shared Cargo target directory', async () => {
+    const f = await fixture()
+    const { buildCacheLayout: _layout, ...record } = f.record
+    await writeFile(f.receipt, JSON.stringify(record))
+    await expect(
+      buildTaiji({
+        root: f.root,
+        platform: 'darwin',
+        arch: 'arm64',
+        source: path.join(f.root, 'missing-source'),
+      })
+    ).rejects.toThrow()
     expect(await readFile(f.binary, 'utf8')).toBe('test binary')
   })
   it('fetches the exact upstream source and rejects modified cached files', async () => {

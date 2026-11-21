@@ -1,3 +1,4 @@
+import { formatFileSelection } from '@shared/lib/file-selection-ranges'
 import { z } from 'zod'
 
 const selectionSchema = z
@@ -41,7 +42,7 @@ export function toTaijiSelection(
   })
   if (!mapped.length)
     throw new TypeError('Select at least one torrent payload file')
-  return mapped.join(',')
+  return formatFileSelection(mapped, 1)
 }
 
 export function taijiFilePadding(files: unknown): boolean[] {

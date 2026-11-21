@@ -17,6 +17,7 @@ import {
   type CreateTaskDeps,
   handleCreateTask,
 } from '@core/task/create-task-handler'
+import { toTempPath } from '@core/task/paths'
 import { admitTaskCookies } from '@core/task/task-cookie-admission'
 import { taskRowToDownloadTask } from '@core/task/task-row-to-download-task'
 import {
@@ -74,7 +75,11 @@ export async function activateDesktopHandoff(
         !request.filename ||
         path.basename(request.filename) !== request.filename ||
         path.join(intent.saveDir, request.filename) !==
-          row.instances[0]?.diskPath ||
+          (request.deferFilePublication
+            ? row.task.finalPath
+            : row.instances[0]?.diskPath) ||
+        (request.deferFilePublication &&
+          row.instances[0]?.diskPath !== toTempPath(row.task.finalPath)) ||
         (await resolveDirectory(intent.saveDir)) !== intent.saveDir
       )
         throw new Error('Invalid desktop handoff activation')
