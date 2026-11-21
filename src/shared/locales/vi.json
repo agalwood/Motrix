@@ -1264,6 +1264,17 @@
         "failed": "Motrix could not access or move the files. Check the folder, available space, and permission to use it.",
         "cancelled": "Check cancelled."
       }
+    },
+    "sources": {
+      "title": "Nguồn tải xuống",
+      "description": "Mỗi dòng một URL. Tất cả phải cung cấp cùng một tệp. Thay đổi sẽ kết nối lại tác vụ và giữ nguyên tiến độ.",
+      "webseedDescription": "Mỗi dòng một URL HTTP(S), phù hợp với cấu trúc tệp torrent. Để trống để chỉ dùng các máy ngang hàng.",
+      "invalid": "Nhập URL hợp lệ cho tác vụ này (tối đa 128).",
+      "changed": "Nguồn đã thay đổi. Hãy tải lại trước khi chỉnh sửa.",
+      "unavailable": "Không thể chỉnh sửa nguồn ở trạng thái hiện tại của tác vụ.",
+      "failed": "Không thể tải hoặc cập nhật nguồn.",
+      "webSeeds": "Web seed",
+      "edit": "Sửa"
     }
   },
   "settings": {

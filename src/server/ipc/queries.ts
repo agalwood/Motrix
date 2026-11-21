@@ -39,6 +39,7 @@ import { createGetTaskPiecesHandler } from '@core/task/get-task-pieces'
 import type { MediaMetaStore } from '@core/task/media-meta-store'
 import { slimTasksForBroadcast } from '@core/task/slim-task-for-broadcast'
 import type { TaskManager } from '@core/task/task-manager'
+import { createTaskSourcesHandlers } from '@core/task/task-sources'
 import type { TrackerManager } from '@core/tracker'
 import type { SupportedLocale } from '@shared/constants/locales'
 import { publicSettings } from '@shared/lib/public-settings'
@@ -221,6 +222,11 @@ export function buildServerQueryHandlers(
 
     [Queries.GetTaskHttpRetryAvailability]:
       createGetTaskHttpRetryAvailabilityHandler(taskManager, engineAdapter),
+    [Queries.GetTaskSources]: createTaskSourcesHandlers({
+      taskManager,
+      engine: engineAdapter,
+    }).get,
+
     [Queries.GetTaskFiles]: createGetTaskFilesHandler({
       mediaMetaStore: ctx.mediaMetaStore,
       db: motrixDatabase,

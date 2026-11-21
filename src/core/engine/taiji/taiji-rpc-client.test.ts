@@ -30,6 +30,63 @@ function fixture() {
 }
 
 describe('native taiji RPC boundary', () => {
+  it('edits a task-level source ledger in the native namespace and invalidates file metadata', async () => {
+    const { rpc, protocol } = fixture()
+    protocol.call.mockResolvedValue([1, 2])
+    const invalidate = vi.fn()
+    const unsubscribe = rpc.onTaskMetadataChanged(invalidate)
+    try {
+      await rpc.replaceUris(
+        'gid',
+        ['https://old.test/file'],
+        ['https://one.test/file', 'https://two.test/file']
+      )
+      expect(protocol.call).toHaveBeenCalledWith(
+        'taiji.changeUri',
+        [
+          'token:secret',
+          'gid',
+          1,
+          ['https://old.test/file'],
+          ['https://one.test/file', 'https://two.test/file'],
+          0,
+        ],
+        undefined
+      )
+      expect(invalidate).toHaveBeenCalledWith('gid')
+    } finally {
+      unsubscribe()
+    }
+  })
+
+  it('rejects no-op receipts and refreshes metadata even when the reply is lost', async () => {
+    const { rpc, protocol } = fixture()
+    const invalidate = vi.fn()
+    const unsubscribe = rpc.onTaskMetadataChanged(invalidate)
+    try {
+      protocol.call
+        .mockResolvedValueOnce([0, 0])
+        .mockRejectedValueOnce(new Error('timeout'))
+      await expect(
+        rpc.replaceUris(
+          'gid',
+          ['https://old.test/file'],
+          ['https://new.test/file']
+        )
+      ).rejects.toThrow('task.sources.changed')
+      await expect(
+        rpc.replaceUris(
+          'gid',
+          ['https://old.test/file'],
+          ['https://new.test/file']
+        )
+      ).rejects.toThrow('timeout')
+      expect(invalidate).toHaveBeenCalledTimes(2)
+    } finally {
+      unsubscribe()
+    }
+  })
+
   it('delivers native metadata readiness without status or feature queries', () => {
     const { rpc, protocol, notify } = fixture()
     const adapter = new TaijiAdapter(rpc)

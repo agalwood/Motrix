@@ -3090,6 +3090,17 @@
         "failed": "Motrix could not access or move the files. Check the folder, available space, and permission to use it.",
         "cancelled": "Check cancelled."
       }
+    },
+    "sources": {
+      "title": "Fonts de baixada",
+      "description": "Un URL per línia. Tots han de proporcionar el mateix fitxer. Els canvis reconnecten la tasca i conserven el progrés.",
+      "webseedDescription": "Un URL HTTP(S) per línia, d’acord amb l’estructura de fitxers del torrent. Deixeu-ho buit per utilitzar només parells.",
+      "invalid": "Introduïu URL vàlids per a aquesta tasca (màxim 128).",
+      "changed": "Les fonts han canviat. Torneu-les a carregar abans d’editar-les.",
+      "unavailable": "No es poden editar les fonts en l’estat actual de la tasca.",
+      "failed": "No s’han pogut carregar o actualitzar les fonts.",
+      "webSeeds": "Web seeds",
+      "edit": "Editar"
     }
   },
   "trackers": {

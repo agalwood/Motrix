@@ -1278,6 +1278,17 @@
         "failed": "Motrix could not access or move the files. Check the folder, available space, and permission to use it.",
         "cancelled": "Check cancelled."
       }
+    },
+    "sources": {
+      "title": "Download sources",
+      "description": "One URL per line. All URLs must serve the same file. Changes reconnect the task and preserve progress.",
+      "webseedDescription": "One HTTP(S) URL per line, matching the torrent’s file layout. Leave empty to use peers only.",
+      "invalid": "Enter valid URLs for this task (maximum 128).",
+      "changed": "Sources changed. Reload them before applying your edits.",
+      "unavailable": "Sources cannot be edited in the current task state.",
+      "failed": "Could not load or update sources.",
+      "webSeeds": "Web seeds",
+      "edit": "Edit"
     }
   },
   "settings": {

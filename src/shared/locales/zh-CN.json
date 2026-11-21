@@ -1264,6 +1264,17 @@
         "failed": "无法访问或移动文件，请检查文件夹、可用空间和访问权限。",
         "cancelled": "已取消检查。"
       }
+    },
+    "sources": {
+      "title": "下载源",
+      "description": "每行一个 URL，所有 URL 必须提供同一个文件。应用后任务会重新连接，保留已有进度。",
+      "webseedDescription": "每行一个 HTTP(S) URL，须匹配种子文件的目录结构。留空则仅从节点下载。",
+      "invalid": "请输入适用于此任务的有效 URL，最多 128 个。",
+      "changed": "下载源已变化，请重新加载后再修改。",
+      "unavailable": "当前任务状态不支持编辑下载源。",
+      "failed": "无法加载或更新下载源。",
+      "webSeeds": "Web 种子",
+      "edit": "编辑"
     }
   },
   "settings": {

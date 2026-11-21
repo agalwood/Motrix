@@ -31,6 +31,38 @@ const FORK_ONLY_METHODS = new Set([
 
 /** Native taiji RPC; never enables the daemon's aria2 compatibility mode. */
 export class TaijiRpcClient extends Aria2RpcClient {
+  async replaceUris(
+    gid: string,
+    previous: readonly string[],
+    next: readonly string[]
+  ): Promise<void> {
+    try {
+      const counts = z
+        .tuple([z.number().int().nonnegative(), z.number().int().nonnegative()])
+        .parse(await this.call('taiji.changeUri', [gid, 1, previous, next, 0]))
+      if (counts[0] !== previous.length || counts[1] !== next.length)
+        throw new AppError(
+          ErrorCode.EngineProtocolError,
+          'task.sources.changed'
+        )
+    } finally {
+      // A lost reply can still mean the source edit was applied.
+      this.invalidateTaskMetadata(gid)
+    }
+  }
+
+  async addTrackers(gid: string, urls: readonly string[]) {
+    return z
+      .object({ added: z.number().int().nonnegative(), removed: z.literal(0) })
+      .parse(await this.call('taiji.addTracker', [gid, urls]))
+  }
+
+  async removeTrackers(gid: string, urls: readonly string[]) {
+    return z
+      .object({ removed: z.number().int().nonnegative(), added: z.literal(0) })
+      .parse(await this.call('taiji.removeTracker', [gid, urls]))
+  }
+
   constructor(
     transport: WebSocketTransport,
     protocol: JsonRpcProtocol,

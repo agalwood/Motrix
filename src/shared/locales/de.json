@@ -1278,6 +1278,17 @@
         "failed": "Motrix could not access or move the files. Check the folder, available space, and permission to use it.",
         "cancelled": "Check cancelled."
       }
+    },
+    "sources": {
+      "title": "Downloadquellen",
+      "description": "Eine URL pro Zeile. Alle URLs müssen dieselbe Datei liefern. Änderungen verbinden die Aufgabe neu und erhalten den Fortschritt.",
+      "webseedDescription": "Eine HTTP(S)-URL pro Zeile, passend zur Dateistruktur des Torrents. Leer lassen, um nur Peers zu verwenden.",
+      "invalid": "Gültige URLs für diese Aufgabe eingeben (maximal 128).",
+      "changed": "Die Quellen wurden geändert. Vor dem Bearbeiten neu laden.",
+      "unavailable": "Im aktuellen Aufgabenstatus können Quellen nicht bearbeitet werden.",
+      "failed": "Quellen konnten nicht geladen oder aktualisiert werden.",
+      "webSeeds": "Web-Seeds",
+      "edit": "Bearbeiten"
     }
   },
   "settings": {

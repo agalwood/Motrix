@@ -56,6 +56,8 @@ export type DirectResourceMetadataProfile =
   typeof DIRECT_RESOURCE_METADATA_PROFILE
 
 export interface AddTorrentParams {
+  /** Exact task webseed override; undefined keeps metainfo defaults, [] clears them. */
+  webSeeds?: readonly string[]
   /** Bound to the exact stored bytes; used only for an engine-verified replay. */
   verifiedManifest?: TorrentManifestRecord
   /** Internal migration path: keeps original trackers and pins verification/no-seeding options. */
@@ -247,6 +249,7 @@ export interface EngineAdapter {
   /** Prove exact native BT ownership, selection and safe restoration options. */
   verifyLegacyBtBinding?(input: LegacyBtBindingProof): Promise<boolean>
   configureBtTrackerPolicy?(policy: BtTrackerPolicy): void
+  /** Replace supplemental trackers while preserving original torrent announce tiers. */
   setTaskBtTracker(engineTaskId: string, trackers: string[]): Promise<void>
   connect(): Promise<void>
   disconnect(): Promise<void>
@@ -325,6 +328,14 @@ export interface EngineAdapter {
   getTaskStatus(engineTaskId: string): Promise<DownloadTask | null>
   getTaskFiles(engineTaskId: string): Promise<TaskFile[]>
 
+  /** Task-level download sources or BT webseeds; wire file indices stay in the adapter. */
+  getTaskSources?(engineTaskId: string): Promise<string[]>
+  replaceTaskSources?(
+    engineTaskId: string,
+    previous: readonly string[],
+    next: readonly string[]
+  ): Promise<void>
+
   /** Apply zero-based file selection. The engine handles wire indexing and padding. */
   setSelectedFiles(
     engineTaskId: string,
@@ -360,8 +371,8 @@ export interface EngineAdapter {
   addTorrent(params: AddTorrentParams): Promise<string>
 
   /**
-   * Fetch the per-task bt-tracker option from the engine.
-   * Returns the tracker URLs as an array; empty array if not set.
+   * Read a task’s supplemental tracker addresses. Original metainfo tiers
+   * remain owned by the torrent and are not editable through this method.
    */
   getTaskBtTracker(engineTaskId: string): Promise<string[]>
 

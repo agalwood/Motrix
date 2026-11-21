@@ -1278,6 +1278,17 @@
         "failed": "Motrix could not access or move the files. Check the folder, available space, and permission to use it.",
         "cancelled": "Check cancelled."
       }
+    },
+    "sources": {
+      "title": "Letöltési források",
+      "description": "Soronként egy URL. Mindegyiknek ugyanazt a fájlt kell szolgáltatnia. A módosítás újracsatlakoztatja a feladatot, megőrizve az előrehaladást.",
+      "webseedDescription": "Soronként egy, a torrent fájlszerkezetének megfelelő HTTP(S) URL. Hagyja üresen, ha csak partnereket szeretne használni.",
+      "invalid": "Adjon meg érvényes URL-eket a feladathoz (legfeljebb 128).",
+      "changed": "A források megváltoztak. Szerkesztés előtt töltse be újra őket.",
+      "unavailable": "A feladat jelenlegi állapotában a források nem szerkeszthetők.",
+      "failed": "A források betöltése vagy frissítése sikertelen.",
+      "webSeeds": "Web seedek",
+      "edit": "Szerkesztés"
     }
   },
   "settings": {

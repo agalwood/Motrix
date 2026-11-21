@@ -1,5 +1,6 @@
 import type { TaskInstanceRow, TaskRow } from '@core/session/motrix-database'
 import { legacyTaskMetadataSchema } from '@shared/schemas/legacy-import'
+import { sourceUrisSchema } from '@shared/schemas/task-sources'
 import {
   type DownloadTask,
   makeDefaultBtExtension,
@@ -54,6 +55,7 @@ export function taskRowToDownloadTask(
         trackers: task.trackers.flat(),
         announceList: task.trackers,
         isPrivate: task.isPrivate,
+        webSeeds: sourceUrisSchema.safeParse(primary?.payload.webSeeds).data,
       })
     : undefined
 

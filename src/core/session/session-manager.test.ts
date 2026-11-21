@@ -4782,7 +4782,7 @@ it('re-adds an interrupted indexed BT download with its original payload mapping
       torrentMetaPath: metadata,
       diskPath: plan.layout.workspacePath,
       finalPath: path.join(root, 'movie.mkv'),
-      payload: btStoragePayload(plan.layout),
+      payload: { ...btStoragePayload(plan.layout), webSeeds: [] },
     })
     await new SessionManager(tm, createMockRpc(), db, adapter).restore()
     expect(adapter.addTorrent).toHaveBeenCalledWith(
@@ -4791,6 +4791,7 @@ it('re-adds an interrupted indexed BT download with its original payload mapping
         outputFilePaths: [{ fileIndex: 0, relativePath: 'p' }],
         pause: true,
         checkIntegrity: true,
+        webSeeds: [],
       })
     )
     expect(tm.getById('readd-layout')?.saveDir).toBe(root)

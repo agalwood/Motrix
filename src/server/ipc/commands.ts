@@ -76,6 +76,7 @@ import {
 } from '@core/task/source-admission'
 import { createTaskDirectoryHistory } from '@core/task/task-directory-history'
 import type { TaskManager } from '@core/task/task-manager'
+import { createTaskSourcesHandlers } from '@core/task/task-sources'
 import type { TorrentMetaStore } from '@core/task/torrent-meta-store'
 import { confirmMagnetSelection } from '@core/torrent/confirm-magnet-selection'
 import type { MagnetTracker } from '@core/torrent/magnet-tracker'
@@ -822,6 +823,15 @@ export function buildServerCommandHandlers(
       await removeTask(taskId, { deleteWithFiles }, removeDeps)
       return { ok: true }
     },
+
+    [Commands.SetTaskSources]: createTaskSourcesHandlers({
+      taskManager,
+      engine: adapter,
+      runTaskMutation,
+      persistTask,
+      publishTaskUpdate,
+      authorizeTaskWrite: ctx.authorizeTaskWrite,
+    }).update,
 
     [Commands.SetSelectedFiles]: createSetSelectedFilesHandler({
       authorizeTaskWrite: ctx.authorizeTaskWrite,

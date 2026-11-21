@@ -446,3 +446,41 @@ describe('classifyTerminalError', () => {
     })
   })
 })
+
+it('keeps BT webseeds out of task provenance for full and compact snapshots', () => {
+  const webSeeds = ['https://seed.example/file', 'https://seed.example/file']
+  const raw = makeRaw({
+    bittorrent: {
+      announceList: [],
+      mode: 'single',
+      info: { name: 'sample.bin' },
+    },
+  })
+  raw.files[0].uris = webSeeds.map((uri) => ({ uri, status: 'used' }))
+  const full = translateRawToTask(raw)
+  expect(full.uris).toEqual([])
+  expect(full.bt?.webSeeds).toEqual(webSeeds)
+  const { files, ...status } = raw
+  const compact = translateRawToTask({
+    ...status,
+    fileMetadata: {
+      firstFile: files[0],
+      fileCount: 1,
+      uris: webSeeds,
+      selectedFiles: [0],
+    },
+  })
+  expect(compact.uris).toEqual([])
+  expect(compact.bt?.webSeeds).toEqual(webSeeds)
+})
+
+it('preserves the ordered single-file source ledger, including repeated URLs', () => {
+  const raw = makeRaw()
+  const uris = [
+    'https://a.test/file',
+    'https://b.test/file',
+    'https://a.test/file',
+  ]
+  raw.files[0].uris = uris.map((uri) => ({ uri, status: 'waiting' }))
+  expect(translateRawToTask(raw).uris).toEqual(uris)
+})

@@ -3,6 +3,7 @@ import type { DownloadTask, TaskInstance } from '@shared/types/task'
 import {
   makeDefaultBtExtension,
   TaskInstancePhase,
+  TaskKind,
   TaskStatus,
   TaskType,
   TransitionPhase,
@@ -407,4 +408,48 @@ it('keeps share ratio cumulative when a new GID starts from zero upload', () => 
   })
   expect(existing.bt?.ratio).toBe(1.5)
   expect(incoming.bt?.ratio).toBe(0.2)
+})
+
+it('persists edited HTTP sources on the current replay instance', () => {
+  const existing = baseTask({
+    kind: TaskKind.Direct,
+    type: TaskType.Http,
+    instances: [instance(TaskStatus.Downloading)],
+  })
+  const uris = ['https://mirror.example/file']
+  const merged = mergeEngineTask(existing, { ...existing, uris })
+  expect(merged.uris).toEqual(uris)
+  expect(merged.instances[0].uris).toEqual(uris)
+  expect(merged.instances[0].uriHash).not.toBeNull()
+  expect(existing.instances[0].uris).toEqual(['https://example.com/a'])
+})
+
+it('retains BT provenance and persists an explicitly emptied webseed ledger', () => {
+  const uri = 'magnet:?xt=urn:btih:original'
+  const primary = {
+    ...instance(TaskStatus.Downloading),
+    phase: TaskInstancePhase.BtDownload,
+    uris: [uri],
+    payload: { webSeeds: ['https://old.example/file'] },
+  }
+  const existing = baseTask({
+    kind: TaskKind.Bt,
+    type: TaskType.Bt,
+    uris: [uri],
+    bt: makeDefaultBtExtension({ webSeeds: primary.payload.webSeeds }),
+    instances: [primary],
+  })
+  const merged = mergeEngineTask(existing, {
+    ...existing,
+    uris: [],
+    bt: makeDefaultBtExtension({ webSeeds: [] }),
+  })
+  expect(merged.uris).toEqual([uri])
+  expect(merged.bt?.webSeeds).toEqual([])
+  expect(merged.instances[0].payload.webSeeds).toEqual([])
+  const compact = mergeEngineTask(merged, {
+    ...merged,
+    bt: makeDefaultBtExtension({ peers: 1 }),
+  })
+  expect(compact.bt?.webSeeds).toEqual([])
 })

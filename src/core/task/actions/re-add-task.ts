@@ -3,6 +3,7 @@ import { assertLegacyTaskNotRecreated } from '@core/legacy-import/legacy-task-po
 import { newEngineTaskId } from '@core/lib/ids'
 import type { AppliedDownloadProxyPolicyReader } from '@core/proxy/applied-download-proxy-policy'
 import { admitDownloadSources } from '@core/task/source-admission'
+import { taskWebSeeds } from '@core/task/task-source-state'
 import {
   refreshTorrentArtifact,
   verifiedTorrentRecord,
@@ -177,6 +178,7 @@ async function reAddBt(
   const selectedFiles = task.bt?.selectedFiles
   return deps.adapter.addTorrent({
     metadata,
+    webSeeds: taskWebSeeds(task),
     ...(verifiedManifest ? { verifiedManifest } : {}),
     saveDir: directLayout
       ? buildBtDirectOutputPaths(

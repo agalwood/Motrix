@@ -260,3 +260,14 @@ describe('persisted save directory', () => {
     expect(task.saveDir).toBe('/Downloads')
   })
 })
+
+it.each([{ webSeeds: [] }, { webSeeds: ['https://seed.example/file'] }])(
+  'restores the explicit webseed override $webSeeds',
+  ({ webSeeds }) => {
+    const primary = makeInstance(TaskInstancePhase.BtDownload)
+    primary.payload = { webSeeds }
+    expect(
+      taskRowToDownloadTask(makeTaskRow(), [primary]).bt?.webSeeds
+    ).toEqual(webSeeds)
+  }
+)

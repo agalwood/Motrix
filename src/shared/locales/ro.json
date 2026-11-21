@@ -3090,6 +3090,17 @@
         "failed": "Motrix could not access or move the files. Check the folder, available space, and permission to use it.",
         "cancelled": "Check cancelled."
       }
+    },
+    "sources": {
+      "title": "Surse de descărcare",
+      "description": "Un URL pe linie. Toate trebuie să furnizeze același fișier. Modificările reconectează sarcina și păstrează progresul.",
+      "webseedDescription": "Un URL HTTP(S) pe linie, corespunzător structurii fișierelor torrentului. Lăsați gol pentru a utiliza doar parteneri.",
+      "invalid": "Introduceți URL-uri valide pentru această sarcină (maximum 128).",
+      "changed": "Sursele s-au schimbat. Reîncărcați-le înainte de editare.",
+      "unavailable": "Sursele nu pot fi editate în starea actuală a sarcinii.",
+      "failed": "Sursele nu au putut fi încărcate sau actualizate.",
+      "webSeeds": "Web seed-uri",
+      "edit": "Editează"
     }
   },
   "trackers": {

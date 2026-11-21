@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { createHash } from 'node:crypto'
+import { existsSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -10,12 +11,7 @@ import {
   TaskStatus,
   TaskType,
 } from '@shared/types/task'
-import {
-  bundledAria2Exists,
-  canBindLoopbackTcp,
-  connectAdapter,
-  spawnAria2ForTest,
-} from '@test-utils/aria2'
+import { bundled, start } from '@test-utils/taiji'
 import { makeDownloadTask } from '@test-utils/task'
 import Database from 'better-sqlite3'
 import { describe, expect, it, vi } from 'vitest'
@@ -60,20 +56,12 @@ const metadata = (isPrivate: boolean) =>
     },
   })
 
-describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
-  'task Tracker lifecycle with real aria2 and SQLite',
+describe.skipIf(!process.env.MOTRIX_TAIJI_BIN && !existsSync(bundled))(
+  'task Tracker lifecycle with real taiji and SQLite',
   () => {
     it('replaces only owned supplements, preserves exclusions over re-add, protects private and unknown tasks', async () => {
       const root = await mkdtemp(path.join(tmpdir(), 'motrix-trackers-'))
-      const handle = await spawnAria2ForTest({
-        baseDir: root,
-        extraArgs: [
-          '--enable-dht=false',
-          '--enable-dht6=false',
-          '--bt-enable-lpd=false',
-        ],
-      })
-      const wired = await connectAdapter(handle)
+      const wired = await start(root)
       const db = new Database(':memory:')
       db.pragma('foreign_keys = ON')
       migrate(db)
@@ -147,6 +135,7 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
           []
         )
         await wired.adapter.forceRemoveTask(task.engineTaskId)
+        await wired.adapter.removeDownloadResult(task.engineTaskId)
         task.engineTaskId = '2234567890abcdef'
         tasks.set(task.id, task)
         await wired.adapter.addTorrent({
@@ -180,6 +169,7 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
         ).toEqual([])
         await service.edit('private', privateTask.engineTaskId, [manual])
         await wired.adapter.forceRemoveTask(privateTask.engineTaskId)
+        await wired.adapter.removeDownloadResult(privateTask.engineTaskId)
         privateTask.engineTaskId = '5234567890abcdef'
         tasks.set(privateTask.id, privateTask)
         await wired.adapter.addTorrent({
@@ -194,15 +184,10 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
         ).toEqual([manual])
         expect(repository.get('private')?.managed).toEqual([])
         expect(
-          (await wired.rpc.getOption(privateTask.engineTaskId))[
-            'bt-exclude-tracker'
-          ]
-        ).toBe('')
-        expect(
-          (await wired.rpc.getOption(privateTask.engineTaskId))[
-            'enable-peer-exchange'
-          ]
-        ).toBe('false')
+          (
+            await wired.adapter.getTaskStatus(privateTask.engineTaskId)
+          )?.bt?.announceList.flat()
+        ).toContain(native)
         const magnet = make('magnet', '4234567890abcdef')
         await wired.adapter.createDownload({
           gid: magnet.engineTaskId,
@@ -221,8 +206,7 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
         expect(actions.pauseTask).not.toHaveBeenCalled()
       } finally {
         await service.stopAndDrain()
-        wired.disconnect()
-        await handle.kill()
+        await wired.close()
         db.close()
         await rm(root, { recursive: true, force: true })
       }

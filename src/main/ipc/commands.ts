@@ -91,6 +91,7 @@ import {
 } from '@core/task/source-admission'
 import { createTaskDirectoryHistory } from '@core/task/task-directory-history'
 import type { TaskManager } from '@core/task/task-manager'
+import { createTaskSourcesHandlers } from '@core/task/task-sources'
 import type { TorrentMetaStore } from '@core/task/torrent-meta-store'
 import { confirmMagnetSelection } from '@core/torrent/confirm-magnet-selection'
 import { MagnetSelectionTimeout } from '@core/torrent/magnet-selection-timeout'
@@ -933,6 +934,14 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       await reAddTask(taskId, reAddDeps, sha256)
       return { ok: true }
     },
+
+    [Commands.SetTaskSources]: createTaskSourcesHandlers({
+      taskManager,
+      engine: adapter,
+      runTaskMutation,
+      persistTask,
+      publishTaskUpdate,
+    }).update,
 
     [Commands.SetSelectedFiles]: createSetSelectedFilesHandler({
       taskManager,

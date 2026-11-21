@@ -3090,6 +3090,17 @@
         "failed": "Motrix could not access or move the files. Check the folder, available space, and permission to use it.",
         "cancelled": "Check cancelled."
       }
+    },
+    "sources": {
+      "title": "Sources de téléchargement",
+      "description": "Une URL par ligne. Toutes les URL doivent fournir le même fichier. Les modifications reconnectent la tâche sans perdre sa progression.",
+      "webseedDescription": "Une URL HTTP(S) par ligne, correspondant à la structure des fichiers du torrent. Laissez vide pour utiliser uniquement les pairs.",
+      "invalid": "Saisissez des URL valides pour cette tâche (128 maximum).",
+      "changed": "Les sources ont changé. Rechargez-les avant de les modifier.",
+      "unavailable": "Les sources ne peuvent pas être modifiées dans cet état de la tâche.",
+      "failed": "Impossible de charger ou de mettre à jour les sources.",
+      "webSeeds": "Web seeds",
+      "edit": "Modifier"
     }
   },
   "trackers": {

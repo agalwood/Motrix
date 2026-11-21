@@ -1264,6 +1264,17 @@
         "failed": "無法存取或移動檔案，請檢查資料夾、可用空間和存取權限。",
         "cancelled": "已取消檢查。"
       }
+    },
+    "sources": {
+      "title": "下載來源",
+      "description": "每行一個 URL，所有 URL 必須提供同一個檔案。套用後工作會重新連線，保留既有進度。",
+      "webseedDescription": "每行一個 HTTP(S) URL，須符合種子檔案的目錄結構。留空則僅從節點下載。",
+      "invalid": "請輸入適用於此工作的有效 URL，最多 128 個。",
+      "changed": "下載來源已變更，請重新載入後再修改。",
+      "unavailable": "目前工作狀態不支援編輯下載來源。",
+      "failed": "無法載入或更新下載來源。",
+      "webSeeds": "Web 種子",
+      "edit": "編輯"
     }
   },
   "settings": {

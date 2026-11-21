@@ -246,10 +246,13 @@ export class TrackerManager {
     this.reselect()
     const revision = this.curated.revision
     try {
-      await this.rpc.changeGlobalOption({
-        'bt-tracker': this.curated.effective.join(','),
-        'bt-exclude-tracker': '',
-      })
+      // Owned tasks receive defaults at creation and explicit preview/apply.
+      // A native global tracker update would also change active tasks.
+      if (!this.taskTrackers)
+        await this.rpc.changeGlobalOption({
+          'bt-tracker': this.curated.effective.join(','),
+          'bt-exclude-tracker': '',
+        })
       if (!this.isCurrent(generation)) return
       if (revision === this.curated.revision)
         this.curated.pendingEngineApply = false

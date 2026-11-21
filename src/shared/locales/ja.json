@@ -1264,6 +1264,17 @@
         "failed": "Motrix could not access or move the files. Check the folder, available space, and permission to use it.",
         "cancelled": "Check cancelled."
       }
+    },
+    "sources": {
+      "title": "ダウンロード元",
+      "description": "1 行に 1 つの URL を入力してください。すべて同じファイルを提供する必要があります。変更後は進捗を保持して再接続します。",
+      "webseedDescription": "トレントのファイル構成に対応する HTTP(S) URL を 1 行に 1 つ入力してください。空欄の場合はピアのみを使用します。",
+      "invalid": "このタスクに対応する有効な URL を入力してください（最大 128 件）。",
+      "changed": "ダウンロード元が変更されました。再読み込みしてから編集してください。",
+      "unavailable": "現在のタスク状態ではダウンロード元を編集できません。",
+      "failed": "ダウンロード元を読み込むか更新することができませんでした。",
+      "webSeeds": "Web シード",
+      "edit": "編集"
     }
   },
   "settings": {

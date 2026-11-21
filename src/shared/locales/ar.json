@@ -3156,6 +3156,17 @@
         "failed": "Motrix could not access or move the files. Check the folder, available space, and permission to use it.",
         "cancelled": "Check cancelled."
       }
+    },
+    "sources": {
+      "title": "مصادر التنزيل",
+      "description": "عنوان URL واحد في كل سطر. يجب أن توفر جميع العناوين الملف نفسه. تعيد التغييرات الاتصال بالمهمة مع الاحتفاظ بالتقدم.",
+      "webseedDescription": "عنوان HTTP(S) واحد في كل سطر، مطابق لبنية ملفات التورنت. اتركه فارغًا لاستخدام النظراء فقط.",
+      "invalid": "أدخل عناوين URL صالحة لهذه المهمة (128 كحد أقصى).",
+      "changed": "تغيرت المصادر. أعد تحميلها قبل تعديلها.",
+      "unavailable": "لا يمكن تعديل المصادر في حالة المهمة الحالية.",
+      "failed": "تعذر تحميل المصادر أو تحديثها.",
+      "webSeeds": "البذور الشبكية",
+      "edit": "تحرير"
     }
   },
   "trackers": {

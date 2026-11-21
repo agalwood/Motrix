@@ -248,7 +248,12 @@ export function extractName(raw: Aria2TaskStatus): string {
 }
 
 export function extractUris(raw: Aria2TaskStatus): string[] {
-  if ('fileMetadata' in raw) return raw.fileMetadata.uris
+  if ('fileMetadata' in raw)
+    return raw.bittorrent
+      ? raw.fileMetadata.uris.filter((uri) => /^magnet:/i.test(uri))
+      : raw.fileMetadata.uris
+  if (!raw.bittorrent && raw.files?.length === 1)
+    return raw.files[0].uris.map(({ uri }) => uri)
   const seen = new Set<string>()
   const uris: string[] = []
   for (const file of raw.files ?? []) {
@@ -259,7 +264,8 @@ export function extractUris(raw: Aria2TaskStatus): string[] {
       }
     }
   }
-  return uris
+  // BT file-entry URIs are webseeds, not the task's original magnet/source.
+  return raw.bittorrent ? uris.filter((uri) => /^magnet:/i.test(uri)) : uris
 }
 
 // ─── BT Extension ────────────────────────────────────────────
@@ -269,7 +275,17 @@ export function translateBtExtension(
 ): BtExtension | undefined {
   if (!raw.bittorrent) return undefined
 
+  const first =
+    'fileMetadata' in raw ? raw.fileMetadata.firstFile : raw.files?.[0]
+  const webSeeds =
+    first && !first.uris.some((entry) => /^magnet:/i.test(entry.uri))
+      ? first.uris
+          .map((entry) => entry.uri)
+          .filter((uri) => /^https?:/i.test(uri))
+      : undefined
+
   return {
+    ...(webSeeds === undefined ? {} : { webSeeds }),
     peers: Number(raw.connections) || 0,
     seeds: Number(raw.numSeeders) || 0,
     ratio: shareRatio(Number(raw.uploadLength), Number(raw.totalLength)),

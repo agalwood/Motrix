@@ -416,7 +416,7 @@ describe('TrackerManager', () => {
     it('cancels the pending initial sync on shutdown', async () => {
       withTracker({ autoSync: true })
       manager.applySyncScheduleChange()
-      await manager.stopAndDrain()
+      await manager.dispose()
       await vi.advanceTimersByTimeAsync(3_000)
       expect(syncer.fetch).not.toHaveBeenCalled()
     })
@@ -1246,4 +1246,36 @@ describe('TrackerManager engine-ready cache push', () => {
     })
     mgr.dispose()
   })
+})
+
+it('keeps source changes behind task ownership instead of hot-pushing global trackers', async () => {
+  const rpc = createMockRpcClient()
+  const events = createMockEventBus()
+  const policy = vi.fn()
+  const manager = new TrackerManager(
+    createMockSettingsManager() as never,
+    rpc as never,
+    events as never,
+    createMockSyncer() as never,
+    createMockProber() as never,
+    createMockStore() as never,
+    { pauseTask: vi.fn(), resumeTask: vi.fn() }
+  )
+  manager.configureTaskTracking(
+    { configureBtTrackerPolicy: policy } as never,
+    { getAll: () => [], getByEngineTaskId: () => undefined } as never,
+    { pendingTaskIds: () => [] } as never
+  )
+  try {
+    await manager.init()
+    events.emit(Events.EngineRecovered)
+    await manager.syncAndCurate()
+    await manager.applySelectionChange()
+    expect(policy).toHaveBeenCalledOnce()
+    expect(rpc.changeGlobalOption).not.toHaveBeenCalled()
+    expect(manager.getCuratedList().effective.length).toBeGreaterThan(0)
+    expect(manager.getCuratedList().pendingEngineApply).toBe(false)
+  } finally {
+    await manager.dispose()
+  }
 })

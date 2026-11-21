@@ -3068,6 +3068,17 @@
         "failed": "Motrix could not access or move the files. Check the folder, available space, and permission to use it.",
         "cancelled": "Check cancelled."
       }
+    },
+    "sources": {
+      "title": "Nedlastingskilder",
+      "description": "Én URL per linje. Alle må levere samme fil. Endringer kobler oppgaven til på nytt og beholder fremdriften.",
+      "webseedDescription": "Én HTTP(S)-URL per linje som samsvarer med torrentens filstruktur. La feltet stå tomt for bare å bruke likemenn.",
+      "invalid": "Skriv inn gyldige URL-er for oppgaven (maksimalt 128).",
+      "changed": "Kildene er endret. Last dem inn på nytt før redigering.",
+      "unavailable": "Kilder kan ikke redigeres i oppgavens nåværende tilstand.",
+      "failed": "Kunne ikke laste inn eller oppdatere kildene.",
+      "webSeeds": "Web-frø",
+      "edit": "Rediger"
     }
   },
   "trackers": {

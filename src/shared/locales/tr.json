@@ -1278,6 +1278,17 @@
         "failed": "Motrix could not access or move the files. Check the folder, available space, and permission to use it.",
         "cancelled": "Check cancelled."
       }
+    },
+    "sources": {
+      "title": "İndirme kaynakları",
+      "description": "Her satıra bir URL girin. Tüm URL’ler aynı dosyayı sunmalıdır. Değişiklikler ilerlemeyi koruyarak görevi yeniden bağlar.",
+      "webseedDescription": "Torrent dosya düzeniyle eşleşen her HTTP(S) URL’sini ayrı satıra yazın. Yalnızca eşleri kullanmak için boş bırakın.",
+      "invalid": "Bu görev için geçerli URL’ler girin (en fazla 128).",
+      "changed": "Kaynaklar değişti. Düzenlemeden önce yeniden yükleyin.",
+      "unavailable": "Görevin mevcut durumunda kaynaklar düzenlenemez.",
+      "failed": "Kaynaklar yüklenemedi veya güncellenemedi.",
+      "webSeeds": "Web tohumları",
+      "edit": "Düzenle"
     }
   },
   "settings": {

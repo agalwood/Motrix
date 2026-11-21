@@ -19,11 +19,13 @@ import {
   admitDownloadSources,
   DownloadSourceError,
 } from '@core/task/source-admission'
+import { taskWebSeeds } from '@core/task/task-source-state'
 import {
   confirmPendingTorrentSelection,
   hasPendingTorrentSelection,
 } from '@core/torrent/pending-torrent-selection'
 import { parseDirectReplayRecipe } from '@shared/schemas/direct-replay-recipe'
+import { sourceUrisSchema } from '@shared/schemas/task-sources'
 import type { DownloadTask } from '@shared/types/task'
 import {
   makeDefaultBtExtension,
@@ -682,6 +684,21 @@ export class SessionManager {
           task.instances.map((inst) => ({ ...inst, motrixId: task.id }))
         : [synthesizePrimaryInstance(task, now)]
 
+    if (!hasLegacyImport(task)) {
+      for (const instance of instances) {
+        if (instance.gid !== task.engineTaskId) continue
+        if (task.kind === TaskKind.Bt && task.bt?.webSeeds !== undefined)
+          instance.payload = { ...instance.payload, webSeeds: task.bt.webSeeds }
+        else if (
+          task.kind === TaskKind.Direct &&
+          (task.type === TaskType.Http || task.type === TaskType.Ftp) &&
+          task.uris.length > 0
+        ) {
+          instance.uris = task.uris
+          instance.uriHash = computeUriHash(task.uris)
+        }
+      }
+    }
     return { task: taskRow, instances }
   }
 
@@ -1634,6 +1651,7 @@ export class SessionManager {
       }
     } else if (taskPart.infoHash || taskPart.torrentMetaPath) {
       bt = makeDefaultBtExtension({
+        webSeeds: sourceUrisSchema.safeParse(primary?.payload.webSeeds).data,
         trackers: taskPart.trackers.flat(),
         announceList: taskPart.trackers,
         isPrivate: taskPart.isPrivate,
@@ -1661,8 +1679,19 @@ export class SessionManager {
 
     const updatedInstances = pair.instances.map((inst) => {
       if (matchedInstance && inst.instanceId === matchedInstance.instanceId) {
+        const sources = extractUris(aria2)
         return {
           ...inst,
+          ...(!hasLegacyImport(pair) &&
+          taskPart.kind === TaskKind.Direct &&
+          (taskPart.taskType === TaskType.Http ||
+            taskPart.taskType === TaskType.Ftp) &&
+          sources.length
+            ? { uris: sources, uriHash: computeUriHash(sources) }
+            : {}),
+          ...(!hasLegacyImport(pair) && bt?.webSeeds !== undefined
+            ? { payload: { ...inst.payload, webSeeds: bt.webSeeds } }
+            : {}),
           gid: aria2.gid,
           status,
           progress:
@@ -1756,6 +1785,7 @@ export class SessionManager {
       newGid !== primary?.gid ? uploadedBytes : taskPart.uploadedBytesBaseline
     const bt = isBtLike
       ? makeDefaultBtExtension({
+          webSeeds: sourceUrisSchema.safeParse(primary?.payload.webSeeds).data,
           ratio:
             taskPart.totalBytes > 0 ? uploadedBytes / taskPart.totalBytes : 0,
           trackers: taskPart.trackers.flat(),
@@ -1869,6 +1899,7 @@ export class SessionManager {
         return this.dispatchRecoveryCandidate(pair, (gid) =>
           this.adapter.addTorrent({
             metadata: bytes,
+            webSeeds: taskWebSeeds(restored),
             gid,
             saveDir: directLayout
               ? buildBtDirectOutputPaths(

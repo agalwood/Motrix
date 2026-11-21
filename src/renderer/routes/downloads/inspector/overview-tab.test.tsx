@@ -144,7 +144,7 @@ describe('OverviewTab', () => {
 
   it('copies the raw info hash', async () => {
     renderOverviewTab(task)
-    await userEvent.click(screen.getByRole('button'))
+    await userEvent.click(screen.getByRole('button', { name: 'Copy' }))
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('abc')
   })
 

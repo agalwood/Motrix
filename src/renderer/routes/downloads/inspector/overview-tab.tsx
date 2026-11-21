@@ -33,6 +33,7 @@ import { StatusPill } from '../status-pill'
 import { getTaskEta, getTaskSpeed } from '../task-column-values'
 import { TaskTimestamp } from '../task-timestamp'
 import { SeedingDuration } from './seeding-duration'
+import { TaskSourcesCard } from './task-sources-card'
 import { useTaskActions } from './use-task-actions'
 
 function Card({
@@ -330,6 +331,7 @@ export function OverviewTab({
                   <CopyButton
                     variant="ghost"
                     className="has-[>svg]:px-0 p-0 h-[18px] w-[18px] rounded-md [&_svg:not([class*='size-'])]:size-3"
+                    aria-label={t('menu.edit.copy')}
                     content={task.infoHash}
                   />
                 </div>
@@ -355,6 +357,14 @@ export function OverviewTab({
           )}
         </Card>
       </div>
+      {!media &&
+        task.engineTaskId &&
+        (isBt || task.type === TaskType.Http || task.type === TaskType.Ftp) && (
+          <TaskSourcesCard
+            key={`${task.id}:${task.engineTaskId}`}
+            task={task}
+          />
+        )}
     </div>
   )
 }

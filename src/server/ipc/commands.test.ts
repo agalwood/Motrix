@@ -2360,3 +2360,56 @@ describe('BT storage command contract', () => {
     })
   })
 })
+
+describe('server task source editing', () => {
+  it('checks directory write permission before replacing sources and persists the same task', async () => {
+    const task = makeDownloadTask({
+      id: 'source-task',
+      engineTaskId: 'source-gid',
+      type: TaskType.Http,
+      kind: TaskKind.Direct,
+      status: TaskStatus.Paused,
+      uris: ['https://old.example/file'],
+    })
+    const manager = new TaskManager()
+    manager.set(task.id, task)
+    const persistTask = vi.fn(async () => {})
+    const authorizeTaskWrite = vi.fn(async () => {})
+    const ctx = {
+      ...makeFakeCtx(),
+      taskManager: manager,
+      persistTask,
+      authorizeTaskWrite,
+    }
+    ctx.adapter.getTaskSources = vi.fn(async () => task.uris)
+    ctx.adapter.replaceTaskSources = vi.fn(async () => {})
+    const handlers = buildServerCommandHandlers(ctx as ServerCommandContext)
+    const input = {
+      taskId: task.id,
+      engineTaskId: task.engineTaskId,
+      previous: task.uris,
+      uris: ['https://new.example/file'],
+    }
+    authorizeTaskWrite.mockRejectedValueOnce(new Error('directory denied'))
+    await expect(handlers[Commands.SetTaskSources]?.(input)).rejects.toThrow(
+      'directory denied'
+    )
+    expect(ctx.adapter.replaceTaskSources).not.toHaveBeenCalled()
+    await expect(
+      handlers[Commands.SetTaskSources]?.(input)
+    ).resolves.toMatchObject({ uris: input.uris })
+    expect(ctx.adapter.replaceTaskSources).toHaveBeenCalledWith(
+      task.engineTaskId,
+      task.uris,
+      input.uris
+    )
+    expect(ctx.runTaskMutation).toHaveBeenCalledWith(
+      [task.id],
+      expect.any(Function)
+    )
+    expect(persistTask).toHaveBeenCalledWith(
+      expect.objectContaining({ id: task.id, uris: input.uris })
+    )
+    expect(ctx.publishTaskUpdate).toHaveBeenCalled()
+  })
+})

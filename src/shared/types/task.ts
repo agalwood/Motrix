@@ -152,6 +152,8 @@ export interface DownloadTask {
 }
 
 export interface BtExtension {
+  /** Known task-level webseed ledger; absent until the engine exposes it. */
+  webSeeds?: string[]
   peers: number
   seeds: number
   ratio: number

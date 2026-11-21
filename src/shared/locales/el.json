@@ -3068,6 +3068,17 @@
         "failed": "Motrix could not access or move the files. Check the folder, available space, and permission to use it.",
         "cancelled": "Check cancelled."
       }
+    },
+    "sources": {
+      "title": "Πηγές λήψης",
+      "description": "Ένα URL ανά γραμμή. Όλα πρέπει να παρέχουν το ίδιο αρχείο. Οι αλλαγές επανασυνδέουν την εργασία και διατηρούν την πρόοδο.",
+      "webseedDescription": "Ένα URL HTTP(S) ανά γραμμή που αντιστοιχεί στη δομή αρχείων του torrent. Αφήστε κενό για χρήση μόνο ομότιμων.",
+      "invalid": "Εισαγάγετε έγκυρα URL για αυτή την εργασία (έως 128).",
+      "changed": "Οι πηγές άλλαξαν. Επαναφορτώστε τις πριν τις επεξεργαστείτε.",
+      "unavailable": "Οι πηγές δεν μπορούν να τροποποιηθούν στην τρέχουσα κατάσταση της εργασίας.",
+      "failed": "Δεν ήταν δυνατή η φόρτωση ή ενημέρωση των πηγών.",
+      "webSeeds": "Web seeds",
+      "edit": "Επεξεργασία"
     }
   },
   "trackers": {

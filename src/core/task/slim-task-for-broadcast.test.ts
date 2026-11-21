@@ -16,6 +16,7 @@ function makeBtTask() {
     announceList: [['udp://a:1/announce'], ['udp://b:1/announce']],
     magnetUri: 'magnet:?xt=urn:btih:abc',
     peers: 7,
+    webSeeds: ['https://seed.example/file'],
   })
   return task
 }
@@ -30,6 +31,7 @@ describe('slimTaskForBroadcast', () => {
     expect(slim.bt?.announceList).toEqual([])
     expect(slim.bt?.magnetUri).toBeNull()
     expect(slim.bt?.peers).toBe(7)
+    expect(slim.bt?.webSeeds).toBeUndefined()
   })
 
   it('never mutates the stored task', () => {

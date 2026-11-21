@@ -10,6 +10,7 @@ import { FinalizeSourceVerificationError } from '@core/plugin/finalize/finalize-
 import type { HookAuditLog } from '@core/plugin/hooks/audit-log'
 import type { HookOrchestrator } from '@core/plugin/hooks/hook-orchestrator'
 import type { StagedMetadataOp } from '@core/plugin/hooks/staged-effects'
+import { taskWebSeeds } from '@core/task/task-source-state'
 import {
   refreshTorrentArtifact,
   verifiedTorrentRecord,
@@ -1079,6 +1080,7 @@ async function finalizeBtAfterRename(
         : null
     const actualGid = await deps.adapter.addTorrent({
       metadata: bytes,
+      webSeeds: taskWebSeeds(task),
       ...(verifiedManifest ? { verifiedManifest } : {}),
       // aria2 lays files out at `<dir>/<info.name>/...` (multi-file) or
       // `<dir>/<info.name>` (single-file). The original task wrote into

@@ -60,6 +60,7 @@ export const Queries = {
   // hook chain for "rank #2 of 4" UI display.
   GetPluginHookRank: 'query:getPluginHookRank',
   GetTaskFiles: 'query:getTaskFiles',
+  GetTaskSources: 'query:getTaskSources',
   GetTaskPieces: 'query:getTaskPieces',
   GetTaskPeers: 'query:getTaskPeers',
   GetEngineTaskOptions: 'query:getEngineTaskOptions',

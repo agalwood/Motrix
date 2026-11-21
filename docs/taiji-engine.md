@@ -90,6 +90,27 @@ used for its network namespaces and firewall; host routing is unchanged. Evidenc
 and packet captures are saved under `output/taiji-nat-lab/`. This covers the tested
 SNAT topology, not every router or symmetric-NAT configuration.
 
+## Editing download sources
+
+The task inspector’s Overview tab lets you edit HTTP/FTP sources and BitTorrent
+Web Seeds. Enter one URL per line. HTTP/FTP tasks need at least one source serving
+the same file; clearing a torrent’s Web Seeds leaves peer downloads enabled.
+Changes keep the task identity and reconnect an active transfer. HTTP checkpoints
+are reused only after the engine verifies the resource and output identity.
+
+The edited list survives restart and task recovery. A cleared Web Seed list stays
+empty when a torrent is re-added; its original metadata and infohash do not change.
+Magnet `ws=` sources carry into the torrent after metadata resolves. Editing is
+available after metadata has resolved and while the task is queued, paused,
+downloading or seeding. Imported quarantined tasks and completed history are
+read-only. If another client changes the list, reload it before applying again.
+Desktop and Server use the same behavior; Server requires permission to write the
+task’s download directory.
+
+Tracker editing preserves the torrent’s original announce tiers, manual additions
+and excluded supplements. Magnet file selection installs the approved supplemental
+trackers before payload downloading starts.
+
 ## Building from source
 
 Install the Node.js and pnpm versions required by the project, Git, Rust 1.94.1 or

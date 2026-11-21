@@ -20,13 +20,20 @@ export function slimTaskForBroadcast(task: DownloadTask): DownloadTask {
   if (
     bt.trackers.length === 0 &&
     bt.announceList.length === 0 &&
-    bt.magnetUri === null
+    bt.magnetUri === null &&
+    bt.webSeeds === undefined
   ) {
     return task
   }
   return {
     ...task,
-    bt: { ...bt, trackers: [], announceList: [], magnetUri: null },
+    bt: {
+      ...bt,
+      trackers: [],
+      announceList: [],
+      magnetUri: null,
+      webSeeds: undefined,
+    },
   }
 }
 

@@ -3112,6 +3112,17 @@
         "failed": "Motrix could not access or move the files. Check the folder, available space, and permission to use it.",
         "cancelled": "Check cancelled."
       }
+    },
+    "sources": {
+      "title": "Джерела завантаження",
+      "description": "По одному URL у рядку. Усі URL мають надавати той самий файл. Зміни перепідключають завдання зі збереженням прогресу.",
+      "webseedDescription": "По одному HTTP(S) URL у рядку відповідно до структури файлів торента. Залиште порожнім для завантаження лише з пірів.",
+      "invalid": "Введіть дійсні URL для цього завдання (не більше 128).",
+      "changed": "Джерела змінилися. Перезавантажте їх перед редагуванням.",
+      "unavailable": "У поточному стані завдання джерела не можна змінити.",
+      "failed": "Не вдалося завантажити або оновити джерела.",
+      "webSeeds": "Web-сіди",
+      "edit": "Редагувати"
     }
   },
   "trackers": {

@@ -1,4 +1,5 @@
 import { hasLegacyImport } from '@core/legacy-import/legacy-task-policy'
+import { computeUriHash } from '@core/session/content-key'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus, TaskType, TransitionPhase } from '@shared/types/task'
 import { hasRetainedHttpRequestContext } from '@shared/types/task-actions'
@@ -123,6 +124,9 @@ export function mergeEngineTask(
     bt: bt
       ? {
           ...bt,
+          webSeeds: hasLegacyImport(existing)
+            ? existing.bt?.webSeeds
+            : (bt.webSeeds ?? existing.bt?.webSeeds),
           // Privacy comes from torrent metadata; engine polling may not report
           // it. Retain it across download, finalize and restored seeding polls.
           isPrivate: existing.bt?.isPrivate ?? bt.isPrivate,
@@ -138,12 +142,39 @@ export function mergeEngineTask(
       : undefined,
     updatedAt: now,
   }
+  if (!hasLegacyImport(existing)) {
+    const sourcesChanged =
+      (merged.type === TaskType.Http || merged.type === TaskType.Ftp) &&
+      !sameValues(existing.uris, merged.uris)
+    const webSeedsChanged =
+      merged.bt?.webSeeds !== undefined &&
+      !sameValues(existing.bt?.webSeeds, merged.bt.webSeeds)
+    if (sourcesChanged || webSeedsChanged)
+      merged.instances = existing.instances.map((instance) =>
+        instance.gid === merged.engineTaskId
+          ? {
+              ...instance,
+              ...(sourcesChanged
+                ? { uris: merged.uris, uriHash: computeUriHash(merged.uris) }
+                : {}),
+              ...(webSeedsChanged
+                ? {
+                    payload: {
+                      ...instance.payload,
+                      webSeeds: merged.bt?.webSeeds,
+                    },
+                  }
+                : {}),
+            }
+          : instance
+      )
+  }
   if (
     merged.status === TaskStatus.Completed ||
     merged.status === TaskStatus.Error
   ) {
     // The candidate must not mutate live instances before persistence succeeds.
-    merged.instances = existing.instances.map((instance) => ({ ...instance }))
+    merged.instances = merged.instances.map((instance) => ({ ...instance }))
     syncTerminalInstanceStatus(merged, merged.status)
   }
   return merged
@@ -173,6 +204,7 @@ export function hasEngineTaskDelta(
     !sameValues(before.uris, after.uris) ||
     !sameValues(before.bt?.selectedFiles, after.bt?.selectedFiles) ||
     !sameValues(before.bt?.trackers, after.bt?.trackers) ||
+    !sameValues(before.bt?.webSeeds, after.bt?.webSeeds) ||
     before.bt?.comment !== after.bt?.comment ||
     before.bt?.peers !== after.bt?.peers ||
     before.bt?.seeds !== after.bt?.seeds ||

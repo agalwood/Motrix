@@ -28,6 +28,7 @@ import { taijiFilePadding, toTaijiSelection } from './taiji-file-selection'
 import { taijiDownloadOptions } from './taiji-request-options'
 import type { TaijiRpcClient } from './taiji-rpc-client'
 import { taijiProxyOptions, taijiRuntimeSettings } from './taiji-settings'
+import { TaijiTrackers } from './taiji-trackers'
 
 /**
  * Reuses the compatible task/status translation, with native identity and
@@ -35,6 +36,21 @@ import { taijiProxyOptions, taijiRuntimeSettings } from './taiji-settings'
  * Process start/stop remains the EngineSupervisor's responsibility.
  */
 export class TaijiAdapter extends Aria2Adapter {
+  async getTaskSources(gid: string): Promise<string[]> {
+    return z
+      .array(z.object({ uri: z.string() }))
+      .parse(await this.taijiRpc.getUris(gid))
+      .map((entry) => entry.uri)
+  }
+
+  async replaceTaskSources(
+    gid: string,
+    previous: readonly string[],
+    next: readonly string[]
+  ): Promise<void> {
+    await this.taijiRpc.replaceUris(gid, previous, next)
+  }
+
   private metadataReadySubscribed = false
 
   private prepareDiscovery(): void {
@@ -60,6 +76,15 @@ export class TaijiAdapter extends Aria2Adapter {
       | undefined = () => undefined
   ) {
     super(taijiRpc, undefined, nativeSeedingDefaults)
+    this.trackerLedger = new TaijiTrackers(taijiRpc)
+  }
+
+  private readonly trackerLedger: TaijiTrackers
+  override getTaskBtTracker(gid: string): Promise<string[]> {
+    return this.trackerLedger.read(gid)
+  }
+  override setTaskBtTracker(gid: string, trackers: string[]): Promise<void> {
+    return this.trackerLedger.replace(gid, trackers)
   }
 
   private nativeTrackerPolicy?: BtTrackerPolicy
@@ -164,6 +189,7 @@ export class TaijiAdapter extends Aria2Adapter {
   }
 
   private clearCapabilities(): void {
+    this.trackerLedger.clear()
     this.nativeCapabilities = {
       http: false,
       ftp: false,
@@ -252,7 +278,13 @@ export class TaijiAdapter extends Aria2Adapter {
           verified.manifest.isPrivate,
           verified.manifest.isPrivate
         )
-        await this.taijiRpc.changeOption(engineTaskId, policyOptions)
+        const trackers = (policyOptions['bt-tracker'] ?? '')
+          .split(',')
+          .filter(Boolean)
+        delete policyOptions['bt-tracker']
+        if (Object.keys(policyOptions).length)
+          await this.taijiRpc.changeOption(engineTaskId, policyOptions)
+        await this.trackerLedger.replace(engineTaskId, trackers)
       }
     }
     const gid = await this.taijiRpc.confirmTorrentSelection(engineTaskId, {
@@ -418,13 +450,30 @@ export class TaijiAdapter extends Aria2Adapter {
       verified?.manifest.isPrivate
     )
     await mkdir(root, { recursive: true })
+    const trackers = String(options['bt-tracker'] ?? '')
+      .split(',')
+      .filter(Boolean)
+    delete options['bt-tracker']
+    const configureBeforeStart =
+      params.webSeeds !== undefined || trackers.length > 0
+    const restoreRunning = configureBeforeStart && options.pause !== 'true'
+    if (configureBeforeStart) options.pause = 'true'
     const gid = await this.taijiRpc.addTorrent(
       Buffer.from(params.metadata).toString('base64'),
-      [],
+      params.webSeeds ? [...params.webSeeds] : [],
       options
     )
     if (params.gid && gid.toLowerCase() !== params.gid.toLowerCase())
       throw new Error('Engine changed the reserved task ID')
+    await this.trackerLedger.add(gid, trackers)
+    if (params.webSeeds !== undefined) {
+      // A retry must not resurrect url-list entries the user removed. Install
+      // the exact ledger while paused before any webseed can fetch payload.
+      const current = await this.getTaskSources(gid)
+      if (JSON.stringify(current) !== JSON.stringify(params.webSeeds))
+        await this.replaceTaskSources(gid, current, params.webSeeds)
+    }
+    if (restoreRunning) await this.taijiRpc.unpause(gid)
     return gid
   }
 

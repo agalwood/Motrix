@@ -3046,6 +3046,17 @@
         "failed": "Motrix could not access or move the files. Check the folder, available space, and permission to use it.",
         "cancelled": "Check cancelled."
       }
+    },
+    "sources": {
+      "title": "แหล่งดาวน์โหลด",
+      "description": "หนึ่ง URL ต่อบรรทัด ทุก URL ต้องให้ไฟล์เดียวกัน การเปลี่ยนแปลงจะเชื่อมต่องานใหม่โดยเก็บความคืบหน้าไว้",
+      "webseedDescription": "หนึ่ง HTTP(S) URL ต่อบรรทัด โดยตรงกับโครงสร้างไฟล์ทอร์เรนต์ เว้นว่างเพื่อใช้เพียร์เท่านั้น",
+      "invalid": "ป้อน URL ที่ถูกต้องสำหรับงานนี้ (สูงสุด 128 รายการ)",
+      "changed": "แหล่งดาวน์โหลดเปลี่ยนแล้ว โปรดโหลดใหม่ก่อนแก้ไข",
+      "unavailable": "ไม่สามารถแก้ไขแหล่งดาวน์โหลดในสถานะงานปัจจุบันได้",
+      "failed": "ไม่สามารถโหลดหรืออัปเดตแหล่งดาวน์โหลดได้",
+      "webSeeds": "Web seed",
+      "edit": "แก้ไข"
     }
   },
   "trackers": {

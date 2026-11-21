@@ -27,6 +27,10 @@ const activityHookState = vi.hoisted(() => ({
   calls: [] as unknown[][],
 }))
 
+vi.mock('./inspector/task-sources-card', () => ({
+  TaskSourcesCard: () => null,
+}))
+
 vi.mock('@renderer/hooks/use-task-pieces', () => ({
   useTaskPieces: () => ({ pieces: null }),
 }))

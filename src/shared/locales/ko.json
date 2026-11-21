@@ -1264,6 +1264,17 @@
         "failed": "Motrix could not access or move the files. Check the folder, available space, and permission to use it.",
         "cancelled": "Check cancelled."
       }
+    },
+    "sources": {
+      "title": "다운로드 소스",
+      "description": "줄마다 URL 하나를 입력하세요. 모든 URL은 같은 파일을 제공해야 합니다. 변경하면 진행 상황을 유지한 채 다시 연결합니다.",
+      "webseedDescription": "토렌트 파일 구조에 맞는 HTTP(S) URL을 줄마다 하나씩 입력하세요. 비워 두면 피어만 사용합니다.",
+      "invalid": "이 작업에 유효한 URL을 입력하세요(최대 128개).",
+      "changed": "소스가 변경되었습니다. 다시 불러온 후 편집하세요.",
+      "unavailable": "현재 작업 상태에서는 소스를 편집할 수 없습니다.",
+      "failed": "소스를 불러오거나 업데이트할 수 없습니다.",
+      "webSeeds": "웹 시드",
+      "edit": "편집"
     }
   },
   "settings": {

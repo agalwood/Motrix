@@ -3068,6 +3068,17 @@
         "failed": "Motrix could not access or move the files. Check the folder, available space, and permission to use it.",
         "cancelled": "Check cancelled."
       }
+    },
+    "sources": {
+      "title": "Downloadbronnen",
+      "description": "Eén URL per regel. Alle URL’s moeten hetzelfde bestand aanbieden. Wijzigingen verbinden de taak opnieuw en behouden de voortgang.",
+      "webseedDescription": "Eén HTTP(S)-URL per regel, passend bij de bestandsstructuur van de torrent. Laat leeg om alleen peers te gebruiken.",
+      "invalid": "Voer geldige URL’s voor deze taak in (maximaal 128).",
+      "changed": "De bronnen zijn gewijzigd. Laad ze opnieuw voordat u ze bewerkt.",
+      "unavailable": "Bronnen kunnen in de huidige taakstatus niet worden bewerkt.",
+      "failed": "Bronnen konden niet worden geladen of bijgewerkt.",
+      "webSeeds": "Web seeds",
+      "edit": "Bewerken"
     }
   },
   "trackers": {

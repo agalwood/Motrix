@@ -57,12 +57,18 @@ it.skipIf(!process.env.MOTRIX_TAIJI_BIN && !existsSync(bundled))(
         (await engine.adapter.getTorrentMetadata(gid)).awaitingSelection
       ).toBe(true)
       expect(peer.payloadRequests()).toEqual([])
+      const supplemental = `http://127.0.0.1:${port}/supplement`
+      engine.adapter.configureBtTrackerPolicy(async () => ({
+        trackers: [supplemental],
+        isPrivate: false,
+      }))
       await engine.adapter.confirmTorrentSelection(gid, {
         saveDir: path.join(directory, 'selected'),
         selectedFiles: [0],
         outputFilePaths: [{ fileIndex: 0, relativePath: 'selected.bin' }],
       })
       expect((await engine.rpc.tellStatus(gid)).status).toBe('waiting')
+      expect(await engine.adapter.getTaskBtTracker(gid)).toEqual([supplemental])
       expect(peer.payloadRequests()).toEqual([])
       await engine.adapter.removeTask(blocker)
       await expect

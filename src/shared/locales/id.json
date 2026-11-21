@@ -1264,6 +1264,17 @@
         "failed": "Motrix could not access or move the files. Check the folder, available space, and permission to use it.",
         "cancelled": "Check cancelled."
       }
+    },
+    "sources": {
+      "title": "Sumber unduhan",
+      "description": "Satu URL per baris. Semua URL harus menyediakan berkas yang sama. Perubahan menyambungkan ulang tugas tanpa menghapus progres.",
+      "webseedDescription": "Satu URL HTTP(S) per baris, sesuai dengan struktur berkas torrent. Kosongkan untuk hanya menggunakan peer.",
+      "invalid": "Masukkan URL yang valid untuk tugas ini (maksimal 128).",
+      "changed": "Sumber telah berubah. Muat ulang sebelum mengedit.",
+      "unavailable": "Sumber tidak dapat diedit dalam status tugas saat ini.",
+      "failed": "Tidak dapat memuat atau memperbarui sumber.",
+      "webSeeds": "Web seed",
+      "edit": "Edit"
     }
   },
   "settings": {

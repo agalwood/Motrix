@@ -1292,6 +1292,17 @@
         "failed": "Motrix could not access or move the files. Check the folder, available space, and permission to use it.",
         "cancelled": "Check cancelled."
       }
+    },
+    "sources": {
+      "title": "Fonti di download",
+      "description": "Un URL per riga. Tutti devono fornire lo stesso file. Le modifiche riconnettono il processo e mantengono i progressi.",
+      "webseedDescription": "Un URL HTTP(S) per riga, corrispondente alla struttura dei file del torrent. Lascia vuoto per usare solo i peer.",
+      "invalid": "Inserisci URL validi per questo processo (massimo 128).",
+      "changed": "Le fonti sono cambiate. Ricaricale prima di modificarle.",
+      "unavailable": "Le fonti non possono essere modificate nello stato attuale del processo.",
+      "failed": "Impossibile caricare o aggiornare le fonti.",
+      "webSeeds": "Web seed",
+      "edit": "Modifica"
     }
   },
   "settings": {

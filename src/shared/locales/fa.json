@@ -3068,6 +3068,17 @@
         "failed": "Motrix could not access or move the files. Check the folder, available space, and permission to use it.",
         "cancelled": "Check cancelled."
       }
+    },
+    "sources": {
+      "title": "منابع دانلود",
+      "description": "در هر خط یک نشانی URL وارد کنید. همه باید همان فایل را ارائه کنند. تغییرات اتصال کار را با حفظ پیشرفت برقرار می‌کند.",
+      "webseedDescription": "در هر خط یک نشانی HTTP(S) مطابق ساختار فایل‌های تورنت وارد کنید. برای استفاده فقط از همتاها خالی بگذارید.",
+      "invalid": "نشانی‌های معتبر برای این کار وارد کنید (حداکثر ۱۲۸).",
+      "changed": "منابع تغییر کرده‌اند. پیش از ویرایش دوباره بارگیری کنید.",
+      "unavailable": "در وضعیت فعلی کار نمی‌توان منابع را ویرایش کرد.",
+      "failed": "بارگیری یا به‌روزرسانی منابع ممکن نشد.",
+      "webSeeds": "وب‌سیدها",
+      "edit": "ویرایش"
     }
   },
   "trackers": {
