@@ -327,6 +327,13 @@ export interface EngineAdapter {
 
   getTaskStatus(engineTaskId: string): Promise<DownloadTask | null>
   getTaskFiles(engineTaskId: string): Promise<TaskFile[]>
+  /** Resolve only after the engine has committed its new file view. */
+  renameTaskFile?(
+    engineTaskId: string,
+    fileIndex: number,
+    oldPath: string,
+    newPath: string
+  ): Promise<TaskFile[]>
 
   /** Task-level download sources or BT webseeds; wire file indices stay in the adapter. */
   getTaskSources?(engineTaskId: string): Promise<string[]>

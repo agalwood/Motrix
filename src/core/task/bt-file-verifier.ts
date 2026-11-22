@@ -4,6 +4,7 @@ import { lstat, open, realpath } from 'node:fs/promises'
 import path from 'node:path'
 import { parseEngineTorrent as parseTorrent } from '@shared/lib/engine-torrent'
 import type { BtVerificationResult } from '@shared/schemas/bt-storage'
+import type { BtFilePaths } from '@shared/schemas/task-file-rename'
 import { parseBtFileLayout, UnsafeTorrentPathError } from './bt-storage-layout'
 
 const READ_BYTES = 1024 * 1024
@@ -13,6 +14,7 @@ export interface VerifyBtFilesInput {
   metadata: Uint8Array
   /** Exact payload file or torrent root directory, not its parent. */
   payloadPath: string
+  filePaths?: BtFilePaths
   selectedFiles?: readonly number[]
   signal?: AbortSignal
   onProgress?: (checkedPieces: number, totalPieces: number) => void
@@ -24,7 +26,7 @@ export async function verifyBtFiles(
 ): Promise<BtVerificationResult> {
   input.signal?.throwIfAborted()
   const [layout, parsed] = await Promise.all([
-    parseBtFileLayout(input.metadata),
+    parseBtFileLayout(input.metadata, undefined, undefined, input.filePaths),
     parseTorrent(input.metadata),
   ])
   const files = parsed.files ?? []

@@ -3,6 +3,7 @@ import type { EngineAdapter } from '@core/engine/engine-adapter'
 import { getLogger } from '@core/logger'
 import type { MotrixDatabase } from '@core/session/motrix-database'
 import {
+  getBtDirectStorageLayout,
   getBtPayloadPath,
   getBtStorageLayout,
 } from '@core/task/bt-storage-layout'
@@ -25,6 +26,10 @@ interface Deps {
   mediaMetaStore?: Pick<MediaMetaStore, 'read'>
   db: Pick<MotrixDatabase, 'getTaskFiles'>
   taskManager: Pick<TaskManager, 'getById'>
+  reconcileTaskFiles?: (
+    task: DownloadTask,
+    files: readonly TaskFile[]
+  ) => Promise<DownloadTask>
   engine: Pick<EngineAdapter, 'getTaskFiles'>
 }
 
@@ -84,18 +89,26 @@ export function createGetTaskFilesHandler(deps: Deps) {
       for (const file of base) file.completedBytes = file.size
       return base
     }
-    if (!ACTIVE_STATES.has(task.status) && !needsStructure) return base
+    const directBt =
+      task.kind === TaskKind.Bt && getBtDirectStorageLayout(task) !== null
+    if (!ACTIVE_STATES.has(task.status) && !needsStructure && !directBt)
+      return base
     if (!task.engineTaskId) return base
 
     try {
       const live = await deps.engine.getTaskFiles(task.engineTaskId)
-      if (needsStructure && live.length > 0) {
+      if ((needsStructure || directBt) && live.length > 0) {
+        const current =
+          directBt && deps.reconcileTaskFiles
+            ? await deps.reconcileTaskFiles(task, live)
+            : task
         return live.map((file) => ({
           index: file.index,
-          path: toDisplayPath(file.path, task),
+          path: toDisplayPath(file.path, current),
           size: file.size,
           selected: file.selected,
           completedBytes: file.completedBytes,
+          ...(file.padding ? { padding: true } : {}),
         }))
       }
       const byIndex = new Map(

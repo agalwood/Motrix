@@ -474,3 +474,25 @@ describe('native taiji RPC boundary', () => {
     adapter.dispose()
   })
 })
+
+it('keeps a lost rename reply unconfirmed and invalidates cached paths', async () => {
+  const { rpc, protocol } = fixture()
+  const adapter = new TaijiAdapter(rpc)
+  const invalidated = vi.fn()
+  const unsubscribe = rpc.onTaskMetadataChanged(invalidated)
+  protocol.call.mockRejectedValueOnce(new Error('RPC request timed out'))
+  try {
+    await expect(
+      adapter.renameTaskFile('gid', 0, '/data/old', '/data/new')
+    ).rejects.toThrow('task.fileRename.pending')
+    expect(protocol.call).toHaveBeenCalledWith(
+      'taiji.renameFile',
+      ['token:secret', 'gid', '/data/old', '/data/new'],
+      undefined
+    )
+    expect(invalidated).toHaveBeenCalledWith('gid')
+  } finally {
+    unsubscribe()
+    adapter.dispose()
+  }
+})

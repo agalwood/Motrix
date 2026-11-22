@@ -1275,6 +1275,16 @@
       "failed": "Tidak dapat memuat atau memperbarui sumber.",
       "webSeeds": "Web seed",
       "edit": "Edit"
+    },
+    "fileRename": {
+      "title": "Ganti nama berkas",
+      "description": "Ganti nama berkas tanpa mengubah identitas torrent dan kemajuan unduhan.",
+      "invalid": "Masukkan nama berkas yang valid tanpa jalur folder.",
+      "changed": "Berkas telah berubah. Muat ulang daftar lalu coba lagi.",
+      "unavailable": "Nama berkas tidak dapat diubah pada status tugas saat ini.",
+      "conflict": "Nama berkas tersebut sudah digunakan.",
+      "pending": "Mesin belum mengonfirmasi perubahan nama. Muat ulang daftar berkas sebelum mencoba lagi.",
+      "failed": "Nama berkas tidak dapat diubah."
     }
   },
   "settings": {

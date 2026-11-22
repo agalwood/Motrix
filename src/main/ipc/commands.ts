@@ -84,7 +84,9 @@ import { DirectResourceValidatorService } from '@core/task/direct-resource-valid
 import type { FileCleanupService } from '@core/task/file-cleanup-service'
 import type { FinalNamePicker } from '@core/task/final-name-picker'
 import type { MediaMetaStore } from '@core/task/media-meta-store'
+import type { NativeArtifactMutation } from '@core/task/native-artifact-mutation'
 import type { OccurrenceDispatcher } from '@core/task/occurrences/occurrence-dispatcher'
+import { createRenameTaskFileHandler } from '@core/task/rename-task-file'
 import {
   admitTaskCreateRequest,
   taskCreateSourceFailure,
@@ -142,7 +144,7 @@ import {
 import { EngineRecoveryAction, EngineState } from '@shared/types/engine'
 import type { PluginInstallCompatibilityFailure } from '@shared/types/plugin-install'
 import type { ProxySettings } from '@shared/types/settings'
-import type { DownloadTask } from '@shared/types/task'
+import type { DownloadTask, TaskFile } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
 import { canRetryMagnetMetadata } from '@shared/types/task-actions'
 import type { TaskActivityRecorder } from '@shared/types/task-activity'
@@ -190,6 +192,7 @@ const cliInstallRequestSchema = z
   .strict()
 
 export interface CommandContext {
+  nativeFileMutation?: NativeArtifactMutation
   btStorageRuntime?: Pick<
     DurableFinalizeRuntime,
     'commit' | 'withArtifactLease' | 'hasPendingFinalization'
@@ -258,6 +261,10 @@ export interface CommandContext {
   bridgeManager: BridgeManager
   magnetTracker: MagnetTracker
   activityRecorder: TaskActivityRecorder
+  persistTaskFiles?: (
+    task: DownloadTask,
+    files: readonly TaskFile[]
+  ) => Promise<void>
   persistTask: NonNullable<TaskActionDeps['persistTask']>
   persistTaskWithPluginMetadata?: NonNullable<
     CreateTaskDeps['persistTaskWithPluginMetadata']
@@ -934,6 +941,19 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       await reAddTask(taskId, reAddDeps, sha256)
       return { ok: true }
     },
+
+    [Commands.RenameTaskFile]: createRenameTaskFileHandler({
+      nativeFileMutation: ctx.nativeFileMutation,
+      taskManager,
+      engine: adapter,
+      runTaskMutation,
+      persistTask,
+      persistTaskFiles: ctx.persistTaskFiles,
+      runtime: ctx.btStorageRuntime,
+      publishTaskUpdate: () => publishTaskUpdateNow?.(),
+      publishFiles: (taskId) =>
+        eventBus.emit(Events.TaskFilesUpdated, { taskId }),
+    }),
 
     [Commands.SetTaskSources]: createTaskSourcesHandlers({
       taskManager,

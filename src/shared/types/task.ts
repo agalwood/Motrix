@@ -278,6 +278,8 @@ export interface BridgeSourceMeta {
 export type SourceMeta = BridgeSourceMeta | null
 
 export interface TaskFile {
+  /** Transfer-only padding is never a user-editable file. */
+  padding?: boolean
   /** Engine-neutral 0-based file index. */
   index: number
   path: string

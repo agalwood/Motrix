@@ -112,6 +112,7 @@ import {
   hasEngineTaskDelta,
   mergeEngineTask,
 } from '@core/task/merge-engine-task'
+import { createNativeArtifactMutation } from '@core/task/native-artifact-mutation'
 import { createFailureLogConsumer } from '@core/task/occurrences/log-consumer'
 import { OccurrenceDispatcher } from '@core/task/occurrences/occurrence-dispatcher'
 import { reconcileHttpOutputs } from '@core/task/reconcile-http-outputs'
@@ -2478,6 +2479,8 @@ async function initializeMainProcess(): Promise<void> {
       extraResourceDir: platform.extraResourceDir,
       isDev: platform.isDev,
     }),
+    acquireTaskMutationLease: (taskId) =>
+      activeTaskInspectorActivityRuntime.acquireTaskMutationLease(taskId),
     assertEngineQuiesced: async (taskId) => {
       const task = taskManager.getById(taskId)
       if (!task) return
@@ -3160,7 +3163,15 @@ async function initializeMainProcess(): Promise<void> {
   })
 
   const disposeCommandHandlers = registerCommandHandlers({
+    nativeFileMutation: createNativeArtifactMutation({
+      acquireTaskMutationLease: (taskId) =>
+        activeTaskInspectorActivityRuntime.acquireTaskMutationLease(taskId),
+      quiesceArtifactWriters: (taskId) =>
+        activePluginHost.quiesceArtifactWriters(taskId),
+    }),
     btStorageRuntime: pluginRuntime.finalize,
+    persistTaskFiles: (task, files) =>
+      sessionManager.persistTaskFiles(task, files),
     persistBtStorage: (task, source, target) =>
       sessionManager.persistBtStorage(task, source, target),
     rendererRecovery,
@@ -3257,6 +3268,21 @@ async function initializeMainProcess(): Promise<void> {
     settingsManager,
     natManager,
     trackerManager,
+    reconcileTaskFiles: (snapshot, files) =>
+      activeTaskInspectorActivityRuntime.runTaskMutation(
+        [snapshot.id],
+        async () => {
+          const result = await sessionManager.reconcileTaskFilePaths(
+            snapshot,
+            files
+          )
+          if (result.changed) {
+            publishTaskUpdateNow()
+            eventBus.emit(Events.TaskFilesUpdated, { taskId: snapshot.id })
+          }
+          return result.task
+        }
+      ),
     engineAdapter: adapter,
     motrixDatabase: motrixDb,
     geoipManager,

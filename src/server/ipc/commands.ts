@@ -68,7 +68,9 @@ import { DirectResourceValidatorService } from '@core/task/direct-resource-valid
 import type { FileCleanupService } from '@core/task/file-cleanup-service'
 import type { FinalNamePicker } from '@core/task/final-name-picker'
 import type { MediaMetaStore } from '@core/task/media-meta-store'
+import type { NativeArtifactMutation } from '@core/task/native-artifact-mutation'
 import type { OccurrenceDispatcher } from '@core/task/occurrences/occurrence-dispatcher'
+import { createRenameTaskFileHandler } from '@core/task/rename-task-file'
 import { createSetSelectedFilesHandler } from '@core/task/set-selected-files'
 import {
   admitTaskCreateRequest,
@@ -104,7 +106,7 @@ import {
 import { EngineRecoveryAction } from '@shared/types/engine'
 import type { PluginInstallCompatibilityFailure } from '@shared/types/plugin-install'
 import type { ProxySettings } from '@shared/types/settings'
-import type { DownloadTask } from '@shared/types/task'
+import type { DownloadTask, TaskFile } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
 import { canRetryMagnetMetadata } from '@shared/types/task-actions'
 import type { TaskActivityRecorder } from '@shared/types/task-activity'
@@ -120,6 +122,7 @@ import type { ServerDirectoryService } from '../server-directory-service'
 import { unsupportedLegacyImportCommands } from './legacy-import'
 
 export interface ServerCommandContext {
+  nativeFileMutation?: NativeArtifactMutation
   updateService: Pick<ServerUpdateService, 'check' | 'setChannel'>
   userDataDir: string
   trackAsyncWork?: <T>(operation: () => Promise<T>) => Promise<T>
@@ -185,6 +188,10 @@ export interface ServerCommandContext {
   hookOrchestrator?: HookOrchestrator
   magnetTracker: MagnetTracker
   activityRecorder: TaskActivityRecorder
+  persistTaskFiles?: (
+    task: DownloadTask,
+    files: readonly TaskFile[]
+  ) => Promise<void>
   persistTask?: NonNullable<TaskActionDeps['persistTask']>
   persistTaskWithPluginMetadata?: NonNullable<
     CreateTaskDeps['persistTaskWithPluginMetadata']
@@ -823,6 +830,22 @@ export function buildServerCommandHandlers(
       await removeTask(taskId, { deleteWithFiles }, removeDeps)
       return { ok: true }
     },
+
+    [Commands.RenameTaskFile]: createRenameTaskFileHandler({
+      nativeFileMutation: ctx.nativeFileMutation,
+      taskManager,
+      engine: adapter,
+      runTaskMutation,
+      persistTask,
+      persistTaskFiles: ctx.persistTaskFiles,
+      runtime: ctx.btStorageRuntime,
+      authorizeTaskWrite: ctx.authorizeTaskWrite,
+      authorizeOutputWrite: ctx.authorizeOutputWrite,
+      prepareStorageBinding: ctx.prepareStorageBinding,
+      publishTaskUpdate: () => publishTaskUpdateNow?.(),
+      publishFiles: (taskId) =>
+        eventBus.emit(Events.TaskFilesUpdated, { taskId }),
+    }),
 
     [Commands.SetTaskSources]: createTaskSourcesHandlers({
       taskManager,

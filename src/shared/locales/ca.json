@@ -3101,6 +3101,16 @@
       "failed": "No s’han pogut carregar o actualitzar les fonts.",
       "webSeeds": "Web seeds",
       "edit": "Editar"
+    },
+    "fileRename": {
+      "title": "Canvia el nom del fitxer",
+      "description": "El canvi de nom conserva la identitat del torrent i el progrés de la baixada.",
+      "invalid": "Introduïu un nom vàlid sense el camí de la carpeta.",
+      "changed": "El fitxer ha canviat. Actualitzeu la llista i torneu-ho a provar.",
+      "unavailable": "No es pot canviar el nom del fitxer en l’estat actual de la tasca.",
+      "conflict": "Aquest nom de fitxer ja s’utilitza.",
+      "pending": "El motor encara no ha confirmat el canvi. Actualitzeu la llista abans de tornar-ho a provar.",
+      "failed": "No s’ha pogut canviar el nom del fitxer."
     }
   },
   "trackers": {

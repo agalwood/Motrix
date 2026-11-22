@@ -51,6 +51,21 @@ export class TaijiRpcClient extends Aria2RpcClient {
     }
   }
 
+  invalidateFiles(gid: string): void {
+    this.invalidateTaskMetadata(gid)
+  }
+
+  async renameFile(
+    gid: string,
+    oldPath: string,
+    newPath: string
+  ): Promise<void> {
+    z.literal('OK').parse(
+      await this.call('taiji.renameFile', [gid, oldPath, newPath])
+    )
+    this.invalidateTaskMetadata(gid)
+  }
+
   async addTrackers(gid: string, urls: readonly string[]) {
     return z
       .object({ added: z.number().int().nonnegative(), removed: z.literal(0) })

@@ -3101,6 +3101,16 @@
       "failed": "Impossible de charger ou de mettre à jour les sources.",
       "webSeeds": "Web seeds",
       "edit": "Modifier"
+    },
+    "fileRename": {
+      "title": "Renommer le fichier",
+      "description": "Renommer ce fichier en conservant l’identité du torrent et la progression du téléchargement.",
+      "invalid": "Saisissez un nom de fichier valide sans chemin de dossier.",
+      "changed": "Le fichier a changé. Actualisez la liste et réessayez.",
+      "unavailable": "Ce fichier ne peut pas être renommé dans l’état actuel de la tâche.",
+      "conflict": "Ce nom de fichier est déjà utilisé.",
+      "pending": "Le moteur n’a pas encore confirmé le renommage. Actualisez la liste avant de réessayer.",
+      "failed": "Impossible de renommer le fichier."
     }
   },
   "trackers": {

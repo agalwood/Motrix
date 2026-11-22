@@ -3101,6 +3101,16 @@
       "failed": "Sursele nu au putut fi încărcate sau actualizate.",
       "webSeeds": "Web seed-uri",
       "edit": "Editează"
+    },
+    "fileRename": {
+      "title": "Redenumește fișierul",
+      "description": "Redenumirea păstrează identitatea torrentului și progresul descărcării.",
+      "invalid": "Introdu un nume valid fără calea dosarului.",
+      "changed": "Fișierul s-a schimbat. Actualizează lista și încearcă din nou.",
+      "unavailable": "Fișierul nu poate fi redenumit în starea actuală a sarcinii.",
+      "conflict": "Acest nume de fișier este deja folosit.",
+      "pending": "Motorul nu a confirmat încă redenumirea. Actualizează lista înainte de a reîncerca.",
+      "failed": "Fișierul nu a putut fi redenumit."
     }
   },
   "trackers": {

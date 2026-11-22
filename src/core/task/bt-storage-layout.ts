@@ -3,6 +3,10 @@ import path from 'node:path'
 import { containsOnlyVideoFiles } from '@shared/constants/file-types'
 import type { EngineTorrent } from '@shared/lib/engine-torrent'
 import { parseEngineTorrent as parseTorrent } from '@shared/lib/engine-torrent'
+import {
+  type BtFilePaths,
+  btFilePathsSchema,
+} from '@shared/schemas/task-file-rename'
 import type { DownloadTask } from '@shared/types/task'
 import { outputNameIdentity } from './output-path-identity'
 
@@ -26,6 +30,8 @@ export interface BtDirectStorageLayout {
   torrentRootName: string | null
   multiFile: boolean | null
   finalized: boolean
+  /** Only explicitly renamed file indices are tracked; metadata stays immutable. */
+  filePaths?: BtFilePaths
 }
 
 export function createBtDirectStoragePlan(
@@ -148,7 +154,8 @@ export class UnsafeTorrentPathError extends Error {
 export async function parseBtFileLayout(
   metadata: Uint8Array,
   selectedFiles?: readonly number[],
-  verifiedManifest?: EngineTorrent
+  verifiedManifest?: EngineTorrent,
+  filePaths?: BtFilePaths
 ): Promise<ParsedBtFileLayout> {
   const parsed = verifiedManifest ?? (await parseTorrent(metadata))
   if (
@@ -200,6 +207,23 @@ export async function parseBtFileLayout(
       pathInsideRoot: path.join(...components.slice(1)),
     }
   })
+
+  if (multiFile && filePaths) {
+    for (const [rawIndex, relative] of Object.entries(
+      btFilePathsSchema.parse(filePaths)
+    )) {
+      const index = Number(rawIndex)
+      const entry = files[index]
+      if (!entry || parsedFiles[index].padding)
+        throw new UnsafeTorrentPathError('Invalid renamed torrent file index')
+      const components = relative.split(/[\\/]/u)
+      entry.pathInsideRoot = path.join(
+        ...components.map((component) =>
+          validatePathComponent(component, 'renamed file path')
+        )
+      )
+    }
+  }
 
   const mapped = new Map<string, (typeof parsedFiles)[number]>()
   for (const [index, entry] of files.entries()) {

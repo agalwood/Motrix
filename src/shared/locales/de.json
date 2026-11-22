@@ -1289,6 +1289,16 @@
       "failed": "Quellen konnten nicht geladen oder aktualisiert werden.",
       "webSeeds": "Web-Seeds",
       "edit": "Bearbeiten"
+    },
+    "fileRename": {
+      "title": "Datei umbenennen",
+      "description": "Datei umbenennen und Torrent-Identität sowie Downloadfortschritt beibehalten.",
+      "invalid": "Gib einen gültigen Dateinamen ohne Ordnerpfad ein.",
+      "changed": "Die Datei wurde geändert. Aktualisiere die Liste und versuche es erneut.",
+      "unavailable": "Die Datei kann im aktuellen Aufgabenstatus nicht umbenannt werden.",
+      "conflict": "Dieser Dateiname wird bereits verwendet.",
+      "pending": "Die Engine hat die Umbenennung noch nicht bestätigt. Aktualisiere zuerst die Dateiliste.",
+      "failed": "Die Datei konnte nicht umbenannt werden."
     }
   },
   "settings": {

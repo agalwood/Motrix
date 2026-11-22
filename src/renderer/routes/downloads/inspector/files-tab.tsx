@@ -1,14 +1,19 @@
 import { FileList } from '@renderer/components/file-list/file-list'
+import { EditIcon } from '@renderer/components/icons'
 import { Button } from '@renderer/components/ui/button'
+import { taskWritesAvailable } from '@renderer/features/application-menu/task-context'
 import { useByteFormat } from '@renderer/hooks/use-byte-format'
 import { useTaskFiles } from '@renderer/hooks/use-task-files'
 import { formatProgressPercent } from '@renderer/lib/format'
+import { useOperatorSession } from '@renderer/lib/operator-auth'
 import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import type { DownloadTask, TaskFile } from '@shared/types/task'
 import { TaskKind, TaskStatus, TaskType } from '@shared/types/task'
+import { canRenameTaskFiles } from '@shared/types/task-actions'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { TaskFileRenameDialog } from './task-file-rename-dialog'
 
 const ACTIVE_DOWNLOAD = new Set<TaskStatus>([
   TaskStatus.Downloading,
@@ -34,11 +39,19 @@ export function FilesTab({ task }: { task: DownloadTask }) {
   const { formatBytes } = useByteFormat()
   const isMedia = task.kind === TaskKind.Hls || task.kind === TaskKind.Mux
   const isActive = ACTIVE_DOWNLOAD.has(task.status)
-  const { files } = useTaskFiles(
+  const { files, refetch } = useTaskFiles(
     task.id,
     isActive && task.status !== TaskStatus.Seeding,
     task.engineTaskId
   )
+  useOperatorSession()
+  const writable = transport.platform !== 'web' || taskWritesAvailable()
+  const canRename = writable && canRenameTaskFiles(task)
+  const [renaming, setRenaming] = useState<{
+    taskId: string
+    engineTaskId: string
+    file: TaskFile
+  } | null>(null)
   const initial = task.bt?.selectedFiles ?? []
   const [draft, setDraft] = useState<number[]>(initial)
   // Direct HTTP/FTP and single-file tasks have no file selection to make.
@@ -76,6 +89,27 @@ export function FilesTab({ task }: { task: DownloadTask }) {
         selectedIndices={selectedIndices}
         onSelectionChange={isReadOnly ? undefined : setDraft}
         readOnly={isReadOnly}
+        renderRowActions={
+          canRename
+            ? (file) =>
+                !file.padding && (
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    aria-label={`${t('task.fileRename.title')}: ${file.path}`}
+                    onClick={() =>
+                      setRenaming({
+                        taskId: task.id,
+                        engineTaskId: task.engineTaskId,
+                        file,
+                      })
+                    }
+                  >
+                    <EditIcon />
+                  </Button>
+                )
+            : undefined
+        }
         renderRowSize={
           isMedia ? (f) => (f.size > 0 ? formatBytes(f.size) : '—') : undefined
         }
@@ -115,6 +149,15 @@ export function FilesTab({ task }: { task: DownloadTask }) {
           )
         }
       />
+      {renaming?.taskId === task.id &&
+        renaming.engineTaskId === task.engineTaskId && (
+          <TaskFileRenameDialog
+            task={task}
+            file={renaming.file}
+            onClose={() => setRenaming(null)}
+            onRenamed={refetch}
+          />
+        )}
     </div>
   )
 }

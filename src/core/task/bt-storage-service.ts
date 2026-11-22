@@ -32,7 +32,11 @@ import {
   hasBtControlFile,
   hasReservedTaskOutput,
 } from './bt-output-reservation'
-import { btStoragePayload, parseBtFileLayout } from './bt-storage-layout'
+import {
+  btStoragePayload,
+  getBtDirectStorageLayout,
+  parseBtFileLayout,
+} from './bt-storage-layout'
 import { settleBtUpload } from './bt-upload-settlement'
 import { outputPathIdentity } from './output-path-identity'
 import {
@@ -173,7 +177,13 @@ export class BtStorageService {
     if ((await deps.authorizeDirectory(directory)) !== directory)
       throw new StorageFault('destination')
     const metadata = await deps.torrentMetaStore.read(original.torrentMetaPath)
-    const layout = await parseBtFileLayout(metadata)
+    const filePaths = getBtDirectStorageLayout(original)?.filePaths
+    const layout = await parseBtFileLayout(
+      metadata,
+      undefined,
+      undefined,
+      filePaths
+    )
     if (layout.infoHash !== normalizeBtInfoHash(original.infoHash ?? ''))
       throw new StorageFault('unavailable')
     const sourcePath = original.finalPath || original.diskPath
@@ -319,6 +329,7 @@ export class BtStorageService {
         throw new StorageFault('destination')
       const result = await (deps.verify ?? verifyBtFiles)({
         metadata,
+        filePaths,
         payloadPath,
         selectedFiles: stopped.bt?.selectedFiles,
         signal: running.controller.signal,
@@ -362,6 +373,7 @@ export class BtStorageService {
         torrentRootName: layout.torrentRootName,
         multiFile: layout.multiFile,
         finalized: true,
+        ...(filePaths ? { filePaths } : {}),
       }),
     }
     // Failed output reservations are not permissions to delete earlier locations.

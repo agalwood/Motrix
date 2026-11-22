@@ -58,6 +58,7 @@ import {
   type CliToolStatus,
 } from '@shared/types/cli-tool'
 import type { GetTransferStatsParams } from '@shared/types/stats'
+import type { DownloadTask, TaskFile } from '@shared/types/task'
 import type { GetTaskActivityParams } from '@shared/types/task-activity'
 import { z } from 'zod'
 import type { ServerUpdateService } from '../app-update-service'
@@ -110,6 +111,10 @@ const UNSUPPORTED_APPIMAGE_INTEGRATION: AppImageIntegrationView = {
 }
 
 export interface ServerQueryContext {
+  reconcileTaskFiles?: (
+    task: DownloadTask,
+    files: readonly TaskFile[]
+  ) => Promise<DownloadTask>
   updateService: Pick<ServerUpdateService, 'getState'>
   getResolvedLanguage: () => SupportedLocale
   taskManager: TaskManager
@@ -228,6 +233,7 @@ export function buildServerQueryHandlers(
     }).get,
 
     [Queries.GetTaskFiles]: createGetTaskFilesHandler({
+      reconcileTaskFiles: ctx.reconcileTaskFiles,
       mediaMetaStore: ctx.mediaMetaStore,
       db: motrixDatabase,
       taskManager,

@@ -380,3 +380,28 @@ export function isLegacyImportInactive(
     )
   })
 }
+
+/** Native file renaming is available once direct BT metadata has been selected. */
+export function canRenameTaskFiles(task: DownloadTask): boolean {
+  return (
+    !hasLegacyImport(task) &&
+    task.type === TaskType.Bt &&
+    !task.storageOperation &&
+    task.transitionPhase === TransitionPhase.Idle &&
+    [
+      TaskStatus.Queued,
+      TaskStatus.Paused,
+      TaskStatus.Downloading,
+      TaskStatus.Seeding,
+    ].includes(task.status) &&
+    task.instances.some((instance) => {
+      const layout = instance.payload.btStorageLayout
+      return (
+        layout &&
+        typeof layout === 'object' &&
+        'strategy' in layout &&
+        layout.strategy === 'direct'
+      )
+    })
+  )
+}

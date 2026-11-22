@@ -3079,6 +3079,16 @@
       "failed": "Kunne ikke laste inn eller oppdatere kildene.",
       "webSeeds": "Web-frø",
       "edit": "Rediger"
+    },
+    "fileRename": {
+      "title": "Gi filen nytt navn",
+      "description": "Endre filnavnet og behold torrentidentiteten og nedlastingsframdriften.",
+      "invalid": "Skriv inn et gyldig filnavn uten mappebane.",
+      "changed": "Filen er endret. Oppdater listen og prøv igjen.",
+      "unavailable": "Filen kan ikke gis nytt navn i oppgavens nåværende tilstand.",
+      "conflict": "Dette filnavnet er allerede i bruk.",
+      "pending": "Motoren har ikke bekreftet navneendringen ennå. Oppdater fillisten før du prøver igjen.",
+      "failed": "Kunne ikke gi filen nytt navn."
     }
   },
   "trackers": {

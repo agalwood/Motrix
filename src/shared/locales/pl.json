@@ -1317,6 +1317,16 @@
       "failed": "Nie udało się wczytać lub zaktualizować źródeł.",
       "webSeeds": "Web seedy",
       "edit": "Edytuj"
+    },
+    "fileRename": {
+      "title": "Zmień nazwę pliku",
+      "description": "Zmiana nazwy zachowuje tożsamość torrenta i postęp pobierania.",
+      "invalid": "Wpisz prawidłową nazwę pliku bez ścieżki folderu.",
+      "changed": "Plik się zmienił. Odśwież listę i spróbuj ponownie.",
+      "unavailable": "W obecnym stanie zadania nie można zmienić nazwy pliku.",
+      "conflict": "Ta nazwa pliku jest już używana.",
+      "pending": "Silnik nie potwierdził jeszcze zmiany nazwy. Odśwież listę przed ponowną próbą.",
+      "failed": "Nie udało się zmienić nazwy pliku."
     }
   },
   "settings": {

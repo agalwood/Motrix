@@ -166,7 +166,8 @@ async function reAddBt(
           undefined,
           verifiedManifest
             ? manifestToEngineTorrent(verifiedManifest.manifest)
-            : undefined
+            : undefined,
+          directLayout?.filePaths
         )
       : null
   const completed = task.status === TaskStatus.Completed

@@ -1303,6 +1303,16 @@
       "failed": "No se pudieron cargar o actualizar las fuentes.",
       "webSeeds": "Web seeds",
       "edit": "Editar"
+    },
+    "fileRename": {
+      "title": "Renombrar archivo",
+      "description": "Renombra el archivo conservando la identidad del torrent y el progreso de descarga.",
+      "invalid": "Introduce un nombre válido sin una ruta de carpeta.",
+      "changed": "El archivo ha cambiado. Actualiza la lista e inténtalo de nuevo.",
+      "unavailable": "No se puede renombrar el archivo en el estado actual de la tarea.",
+      "conflict": "Ese nombre de archivo ya está en uso.",
+      "pending": "El motor aún no ha confirmado el cambio. Actualiza la lista antes de volver a intentarlo.",
+      "failed": "No se pudo renombrar el archivo."
     }
   },
   "settings": {

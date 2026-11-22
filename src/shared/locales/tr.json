@@ -1289,6 +1289,16 @@
       "failed": "Kaynaklar yüklenemedi veya güncellenemedi.",
       "webSeeds": "Web tohumları",
       "edit": "Düzenle"
+    },
+    "fileRename": {
+      "title": "Dosyayı yeniden adlandır",
+      "description": "Torrent kimliğini ve indirme ilerlemesini koruyarak dosyanın adını değiştirin.",
+      "invalid": "Klasör yolu içermeyen geçerli bir dosya adı girin.",
+      "changed": "Dosya değişti. Listeyi yenileyip tekrar deneyin.",
+      "unavailable": "Geçerli görev durumunda dosya yeniden adlandırılamaz.",
+      "conflict": "Bu dosya adı zaten kullanılıyor.",
+      "pending": "Motor yeniden adlandırmayı henüz onaylamadı. Tekrar denemeden önce dosya listesini yenileyin.",
+      "failed": "Dosya yeniden adlandırılamadı."
     }
   },
   "settings": {

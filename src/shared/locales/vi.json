@@ -1275,6 +1275,16 @@
       "failed": "Không thể tải hoặc cập nhật nguồn.",
       "webSeeds": "Web seed",
       "edit": "Sửa"
+    },
+    "fileRename": {
+      "title": "Đổi tên tệp",
+      "description": "Đổi tên tệp nhưng giữ nguyên định danh torrent và tiến độ tải xuống.",
+      "invalid": "Nhập tên tệp hợp lệ, không bao gồm đường dẫn thư mục.",
+      "changed": "Tệp đã thay đổi. Hãy làm mới danh sách rồi thử lại.",
+      "unavailable": "Không thể đổi tên tệp trong trạng thái tác vụ hiện tại.",
+      "conflict": "Tên tệp này đã được sử dụng.",
+      "pending": "Bộ máy chưa xác nhận đổi tên. Hãy làm mới danh sách tệp trước khi thử lại.",
+      "failed": "Không thể đổi tên tệp."
     }
   },
   "settings": {

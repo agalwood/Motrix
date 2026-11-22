@@ -1303,6 +1303,16 @@
       "failed": "Não foi possível carregar ou atualizar as fontes.",
       "webSeeds": "Web seeds",
       "edit": "Editar"
+    },
+    "fileRename": {
+      "title": "Renomear arquivo",
+      "description": "Renomeie o arquivo mantendo a identidade do torrent e o progresso do download.",
+      "invalid": "Insira um nome válido sem o caminho da pasta.",
+      "changed": "O arquivo mudou. Atualize a lista e tente novamente.",
+      "unavailable": "Não é possível renomear o arquivo no estado atual da tarefa.",
+      "conflict": "Esse nome de arquivo já está em uso.",
+      "pending": "O mecanismo ainda não confirmou a alteração. Atualize a lista antes de tentar novamente.",
+      "failed": "Não foi possível renomear o arquivo."
     }
   },
   "settings": {

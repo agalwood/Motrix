@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { isNotFoundError } from '@core/engine/aria2/error-utils'
+import { translateRawFile } from '@core/engine/aria2/translate'
 import {
   getLegacyQuarantinedGids,
   hasLegacyImport,
@@ -16,6 +17,10 @@ import {
 } from '@core/plugin/post/delivery-observability'
 import type { PostDeliveryAdmissionSummary } from '@core/plugin/post/delivery-retention'
 import {
+  reconcileBtFilePaths,
+  trackedBtFilePaths,
+} from '@core/task/bt-file-paths'
+import {
   admitDownloadSources,
   DownloadSourceError,
 } from '@core/task/source-admission'
@@ -26,7 +31,7 @@ import {
 } from '@core/torrent/pending-torrent-selection'
 import { parseDirectReplayRecipe } from '@shared/schemas/direct-replay-recipe'
 import { sourceUrisSchema } from '@shared/schemas/task-sources'
-import type { DownloadTask } from '@shared/types/task'
+import type { DownloadTask, TaskFile } from '@shared/types/task'
 import {
   makeDefaultBtExtension,
   makeDownloadTask,
@@ -460,6 +465,62 @@ export class SessionManager {
       this.db.saveTaskWithInstances(
         await this.buildTaskPayload(task, Date.now())
       )
+    })
+  }
+
+  /** Called under the task mutation lane when a file panel observes a late commit. */
+  async reconcileTaskFilePaths(
+    snapshot: DownloadTask,
+    files: readonly TaskFile[]
+  ) {
+    const task = this.taskManager.getById(snapshot.id)
+    if (
+      !task ||
+      task.engineTaskId !== snapshot.engineTaskId ||
+      task.storageOperation ||
+      JSON.stringify(trackedBtFilePaths(task)) !==
+        JSON.stringify(trackedBtFilePaths(snapshot))
+    )
+      return { task: task ?? snapshot, changed: false }
+    const paths = trackedBtFilePaths(task)
+    if (!paths) return { task, changed: false }
+    const updated = reconcileBtFilePaths(task, files)
+    const changed = updated !== task
+    if (
+      changed ||
+      files.some(
+        (file) =>
+          file.index in paths &&
+          this.db.getTaskFilePath(task.id, file.index) !== file.path
+      )
+    ) {
+      this.taskManager.set(task.id, updated)
+      try {
+        await this.persistTaskFiles(updated, files)
+      } catch (error) {
+        log.warn(
+          { err: error, taskId: task.id },
+          'file path cache repair will retry'
+        )
+      }
+    }
+    return { task: updated, changed }
+  }
+
+  persistTaskFiles(
+    task: DownloadTask,
+    files: readonly TaskFile[]
+  ): Promise<void> {
+    return this.runExclusivePersistence(async () => {
+      this.db.saveTaskWithInstancesAndFiles({
+        ...(await this.buildTaskPayload(task, Date.now())),
+        files: files.map((file) => ({
+          fileIndex: file.index,
+          path: file.path,
+          size: file.size,
+          selected: file.selected,
+        })),
+      })
     })
   }
 
@@ -1160,7 +1221,12 @@ export class SessionManager {
             continue
           }
         }
-        const task = this.mergeTaskFromPair(parent, matchedInstance, aria2)
+        let task = this.mergeTaskFromPair(parent, matchedInstance, aria2)
+        if (trackedBtFilePaths(task) && aria2.files?.length) {
+          const files = aria2.files.map(translateRawFile)
+          task = reconcileBtFilePaths(task, files)
+          await this.persistTaskFiles(task, files)
+        }
         // Merging a persisted non-terminal task with aria2's stopped row can
         // settle it into Completed/Error. That is a real terminal transition
         // and owes an occurrence, not just an in-memory status flip that the
@@ -1893,7 +1959,12 @@ export class SessionManager {
         const directLayout = getBtDirectStorageLayout(restored)
         const parsed =
           layout || directLayout?.torrentRootName
-            ? await parseBtFileLayout(bytes)
+            ? await parseBtFileLayout(
+                bytes,
+                undefined,
+                undefined,
+                directLayout?.filePaths
+              )
             : null
         const alreadyRenamed = restored.diskPath === restored.finalPath
         return this.dispatchRecoveryCandidate(pair, (gid) =>

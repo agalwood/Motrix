@@ -1289,6 +1289,16 @@
       "failed": "A források betöltése vagy frissítése sikertelen.",
       "webSeeds": "Web seedek",
       "edit": "Szerkesztés"
+    },
+    "fileRename": {
+      "title": "Fájl átnevezése",
+      "description": "A fájl átnevezése megőrzi a torrent azonosítóját és a letöltés állapotát.",
+      "invalid": "Adjon meg érvényes fájlnevet mappaútvonal nélkül.",
+      "changed": "A fájl megváltozott. Frissítse a listát, majd próbálja újra.",
+      "unavailable": "A feladat jelenlegi állapotában a fájl nem nevezhető át.",
+      "conflict": "Ez a fájlnév már foglalt.",
+      "pending": "A motor még nem erősítette meg az átnevezést. Újrapróbálás előtt frissítse a fájllistát.",
+      "failed": "Nem sikerült átnevezni a fájlt."
     }
   },
   "settings": {

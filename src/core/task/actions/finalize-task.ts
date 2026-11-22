@@ -1075,7 +1075,8 @@ async function finalizeBtAfterRename(
             undefined,
             verifiedManifest
               ? manifestToEngineTorrent(verifiedManifest.manifest)
-              : undefined
+              : undefined,
+            directLayout?.filePaths
           )
         : null
     const actualGid = await deps.adapter.addTorrent({

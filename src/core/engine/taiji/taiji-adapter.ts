@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
+import { setTimeout as delay } from 'node:timers/promises'
 import { TaskCookieError } from '@core/engine/task-cookie-error'
 import { getLogger } from '@core/logger'
 import type { DownloadProxyOptions } from '@core/proxy/serializers'
@@ -23,6 +24,7 @@ import { Aria2Adapter } from '../aria2/aria2-adapter'
 import { isNotFoundError } from '../aria2/error-utils'
 import type { RpcDownloadParams, RpcTorrentParams } from '../aria2/task-options'
 import { encodeFileSelection } from '../aria2/task-options'
+import { translateRawFile } from '../aria2/translate'
 import type { AddTorrentParams, BtTrackerPolicy } from '../engine-adapter'
 import { taijiFilePadding, toTaijiSelection } from './taiji-file-selection'
 import { taijiDownloadOptions } from './taiji-request-options'
@@ -49,6 +51,81 @@ export class TaijiAdapter extends Aria2Adapter {
     next: readonly string[]
   ): Promise<void> {
     await this.taijiRpc.replaceUris(gid, previous, next)
+  }
+
+  override async getTaskFiles(gid: string) {
+    const files = await this.taijiRpc.getFiles(gid)
+    const padding = taijiFilePadding(files)
+    return files.map((file, index) => ({
+      ...translateRawFile(file),
+      ...(padding[index] ? { padding: true } : {}),
+    }))
+  }
+
+  async renameTaskFile(
+    gid: string,
+    fileIndex: number,
+    oldPath: string,
+    newPath: string
+  ) {
+    let accepted = false
+    try {
+      await this.taijiRpc.renameFile(gid, oldPath, newPath)
+      accepted = true
+      const deadline = Date.now() + 30_000
+      let wait = 100
+      do {
+        const files = await this.getTaskFiles(gid)
+        if (
+          files.some(
+            (file) =>
+              file.index === fileIndex &&
+              path.normalize(file.path) === path.normalize(newPath)
+          )
+        )
+          return files
+        await delay(wait)
+        wait = Math.min(wait * 2, 1000)
+      } while (Date.now() < deadline)
+      throw new AppError(
+        ErrorCode.EngineProtocolError,
+        'task.fileRename.pending'
+      )
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      if (/destination.*exists|already in use|overlap/i.test(message))
+        throw new AppError(
+          ErrorCode.InvalidSelection,
+          'task.fileRename.conflict',
+          error
+        )
+      if (/no file matches/i.test(message))
+        throw new AppError(
+          ErrorCode.InvalidSelection,
+          'task.fileRename.changed',
+          error
+        )
+      if (/Cannot rename file|rename already in flight/i.test(message))
+        throw new AppError(
+          ErrorCode.InvalidSelection,
+          'task.fileRename.unavailable',
+          error
+        )
+      if (
+        accepted ||
+        /timed out|timeout|connection.*(?:lost|closed)|disconnected/i.test(
+          message
+        )
+      )
+        throw new AppError(
+          ErrorCode.EngineProtocolError,
+          'task.fileRename.pending',
+          error
+        )
+      throw error
+    } finally {
+      this.taijiRpc.invalidateFiles(gid)
+    }
   }
 
   private metadataReadySubscribed = false

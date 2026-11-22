@@ -23,6 +23,7 @@ interface FileListProps<T extends BaseFileRow = BaseFileRow> {
   renderRowTrailing?: (file: T) => ReactNode
   rowTrailingLabel?: string
   renderRowSize?: (file: T) => ReactNode
+  renderRowActions?: (file: T) => ReactNode
 }
 
 export function FileList<T extends BaseFileRow = BaseFileRow>({
@@ -38,6 +39,7 @@ export function FileList<T extends BaseFileRow = BaseFileRow>({
   renderRowTrailing,
   rowTrailingLabel,
   renderRowSize,
+  renderRowActions,
 }: FileListProps<T>) {
   const { formatBytes } = useByteFormat()
 
@@ -166,6 +168,9 @@ export function FileList<T extends BaseFileRow = BaseFileRow>({
               <span className="w-14 shrink-0 truncate text-end">
                 {renderRowTrailing(file)}
               </span>
+            )}
+            {renderRowActions && (
+              <div className="shrink-0">{renderRowActions(file)}</div>
             )}
           </div>
         )

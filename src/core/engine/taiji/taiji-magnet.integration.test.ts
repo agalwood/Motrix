@@ -260,7 +260,12 @@ describe.skipIf(!process.env.MOTRIX_TAIJI_BIN && !existsSync(bundled))(
               .toBe('active')
             if (mode === 'task-after')
               await engine.rpc.changeOption(gid, { 'bt-tracker': url })
-            else await engine.rpc.changeGlobalOption({ 'bt-tracker': url })
+            else {
+              await engine.rpc.changeGlobalOption({
+                'bt-tracker-apply-existing': 'true',
+              })
+              await engine.rpc.changeGlobalOption({ 'bt-tracker': url })
+            }
           }
           await expect
             .poll(async () => (await engine!.rpc.tellStatus(gid)).status, {

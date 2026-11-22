@@ -17,7 +17,8 @@ function filesEqual(a: TaskFile[], b: TaskFile[]): boolean {
         file.size === other.size &&
         file.completedBytes === other.completedBytes &&
         file.selected === other.selected &&
-        file.progress === other.progress
+        file.progress === other.progress &&
+        file.padding === other.padding
       )
     })
   )

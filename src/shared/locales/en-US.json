@@ -1289,6 +1289,16 @@
       "failed": "Could not load or update sources.",
       "webSeeds": "Web seeds",
       "edit": "Edit"
+    },
+    "fileRename": {
+      "title": "Rename file",
+      "description": "Rename this file while keeping torrent identity and download progress.",
+      "invalid": "Enter a valid filename without a folder path.",
+      "changed": "The file changed. Refresh the list and try again.",
+      "unavailable": "This file cannot be renamed in the current task state.",
+      "conflict": "That filename is already in use.",
+      "pending": "The engine has not confirmed the rename yet. Refresh the file list before trying again.",
+      "failed": "Could not rename the file."
     }
   },
   "settings": {

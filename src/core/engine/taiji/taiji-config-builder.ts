@@ -51,6 +51,8 @@ export class TaijiConfigBuilder {
       `--rpc-listen-port=${settings.rpcPort}`,
       `--rpc-listen-all=${this.options.rpcListenAll ?? false}`,
       '--bt-save-metadata=true',
+      // Motrix owns per-task tracker defaults and explicit synchronization.
+      '--bt-tracker-apply-existing=false',
       `--save-session-interval=${settings.sessionSaveInterval}`,
       '--rpc-aria2-compat=false',
       `--rpc-max-request-size=${this.rpcMaxRequestSizeBytes}`,

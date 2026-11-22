@@ -6,20 +6,20 @@ const MIB = 1024 * 1024
 const ROOT = path.resolve(import.meta.dirname, '../..')
 const TARGETS = [
   // Keep the 2 MiB startup ceiling and bound the complete lazy-loaded output.
-  // Source editing, replay persistence and translations measure 5,843,106 bytes.
+  // File renaming and its translations measure 5,870,355 bytes.
   // Add 32 KiB to the total budget; keep startup at 2 MiB.
-  { name: 'main', initial: 2 * MIB, total: 5.5 * MIB + 84 * 1024 },
+  { name: 'main', initial: 2 * MIB, total: 5.5 * MIB + 116 * 1024 },
   { name: 'preload', initial: 80 * 1024, total: 80 * 1024 },
   { name: 'worker', initial: 48 * 1024, total: 48 * 1024 },
   // Native NAS strings in all 26 catalogs add ~60 KiB; the Web-only settings
   // dialog stays lazy and is excluded from Electron. Startup ceilings are unchanged.
   // React Flow 13's compiled call graph adds ~65 KiB (~26 KiB gzip), entirely
   // in lazy chunks. Reserve a further 64 KiB; retain the startup ceiling.
-  // Source editing measures 8,521,681 / 8,567,340 bytes (desktop / web).
+  // File renaming measures 8,541,645 / 8,587,304 bytes (desktop / web).
   // Add 16 KiB per total budget; retain both startup ceilings.
-  { name: 'renderer', initial: 2.75 * MIB, total: 8 * MIB + 144 * 1024 },
+  { name: 'renderer', initial: 2.75 * MIB, total: 8 * MIB + 160 * 1024 },
   // The lazy DSM storage recovery page and its localized controls add 9 KiB.
-  { name: 'renderer.web', initial: 2.75 * MIB, total: 8 * MIB + 188 * 1024 },
+  { name: 'renderer.web', initial: 2.75 * MIB, total: 8 * MIB + 204 * 1024 },
   // The shared operation runtime brings total server JS to ~5.01 MiB.
   { name: 'server', initial: 2 * MIB, total: 5.25 * MIB },
 ]

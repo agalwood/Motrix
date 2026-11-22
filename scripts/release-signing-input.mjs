@@ -41,9 +41,9 @@ const TRUSTED_INPUT_SHA256 = Object.freeze({
   'scripts/verify-engine-artifact.mjs':
     'b19e1de3c247cfb6f41d57fbea32bf2c05dc84420808c5858daeb854fcc41ded',
   'scripts/engine.lock.json':
-    'dcbb1508ada3d721afe09410ba09a153b5da13c82811ebdbf71961e4e90fdd63',
+    '8142b4911ee68f82af3d9227e4c2b3dc32d769cbdbacabb2416e0b565636128e',
   'scripts/taiji-source.lock.json':
-    '6f8fea15b944f83d8985868058625c800529a84813c8173a485b6326ed8a01b1',
+    '818aebef67f9c3780ce5cd1b7cc1665fb9a840d8bdd527e9a32cb42315a4fcc3',
 
   'signing-build-resources/Motrix.icon/icon.json':
     'd50dd058b74140104544837c4da56e501f6a4c3b948cd99e4f33f8d9ca95e095',

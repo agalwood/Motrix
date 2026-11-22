@@ -111,6 +111,24 @@ Tracker editing preserves the torrent’s original announce tiers, manual additi
 and excluded supplements. Magnet file selection installs the approved supplemental
 trackers before payload downloading starts.
 
+## Renaming torrent files
+
+In a torrent task’s Files tab, choose Rename file beside a payload file. Rename
+is available for queued, paused, downloading and seeding tasks. Active transfers
+briefly reconnect; their task identity, torrent metadata and downloaded pieces
+are preserved. Padding entries and tasks awaiting file selection are not editable.
+Completed history is read-only; start seeding again to rename its files.
+
+Enter a filename without a folder path. The engine refuses occupied destinations.
+Motrix shows success after the engine confirms the new file path. The names survive
+restart, retry and reseeding, including recovery after an interrupted app response.
+The same controls work in Server, subject to its operator and directory permissions.
+Use the existing storage controls to move a torrent’s whole output folder.
+
+Motrix uses task-owned tracker defaults and disables taiji’s global tracker hot
+updates with `bt-tracker-apply-existing=false`. The engine’s private-torrent
+exemption remains active.
+
 ## Building from source
 
 Install the Node.js and pnpm versions required by the project, Git, Rust 1.94.1 or

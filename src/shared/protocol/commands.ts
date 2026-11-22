@@ -60,6 +60,7 @@ export const Commands = {
   RetryTasks: 'command:retryTasks',
   StopSeedingTasks: 'command:stopSeedingTasks',
   SetSelectedFiles: 'command:setSelectedFiles',
+  RenameTaskFile: 'command:renameTaskFile',
   SetTaskSources: 'command:setTaskSources',
   MutateDirectoryPreferences: 'command:mutateDirectoryPreferences',
   SaveGeneralSettings: 'command:saveGeneralSettings',

@@ -108,6 +108,7 @@ import {
   hasEngineTaskDelta,
   mergeEngineTask,
 } from '@core/task/merge-engine-task'
+import { createNativeArtifactMutation } from '@core/task/native-artifact-mutation'
 import { createFailureLogConsumer } from '@core/task/occurrences/log-consumer'
 import { OccurrenceDispatcher } from '@core/task/occurrences/occurrence-dispatcher'
 import { reconcileHttpOutputs } from '@core/task/reconcile-http-outputs'
@@ -1393,10 +1394,18 @@ async function main() {
     authorizeOutputWrite: nasTaskAccess?.authorizeOutputWrite,
     authorizeTaskWrite: nasTaskAccess?.authorizeWrite,
     authorizeTaskRemoval: nasTaskAccess?.authorizeRemoval,
+    nativeFileMutation: createNativeArtifactMutation({
+      acquireTaskMutationLease: (taskId) =>
+        taskInspectorActivityRuntime.acquireTaskMutationLease(taskId),
+      quiesceArtifactWriters: (taskId) =>
+        pluginHost.quiesceArtifactWriters(taskId),
+    }),
     btStorageRuntime: durableFinalizeRuntime,
     authorizeRecheck: dsmTaskFiles?.checkDirectory.bind(dsmTaskFiles),
     prepareStorageBinding:
       dsmTaskFiles?.prepareStorageBinding.bind(dsmTaskFiles),
+    persistTaskFiles: (task, files) =>
+      sessionManager.persistTaskFiles(task, files),
     persistBtStorage: (task, source, target) =>
       sessionManager.persistBtStorage(task, source, target),
     operationService: pluginRuntime.operations,
@@ -1499,6 +1508,18 @@ async function main() {
     settingsManager,
     geoipManager: activeGeoipManager,
     trackerManager,
+    reconcileTaskFiles: (snapshot, files) =>
+      taskInspectorActivityRuntime.runTaskMutation([snapshot.id], async () => {
+        const result = await sessionManager.reconcileTaskFilePaths(
+          snapshot,
+          files
+        )
+        if (result.changed) {
+          publishTaskUpdateNow()
+          eventBus.emit(Events.TaskFilesUpdated, { taskId: snapshot.id })
+        }
+        return result.task
+      }),
     engineAdapter: adapter,
     motrixDatabase: db,
     notificationCenter,

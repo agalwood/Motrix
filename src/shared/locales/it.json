@@ -1303,6 +1303,16 @@
       "failed": "Impossibile caricare o aggiornare le fonti.",
       "webSeeds": "Web seed",
       "edit": "Modifica"
+    },
+    "fileRename": {
+      "title": "Rinomina file",
+      "description": "Rinomina il file conservando l’identità del torrent e l’avanzamento del download.",
+      "invalid": "Inserisci un nome valido senza il percorso della cartella.",
+      "changed": "Il file è cambiato. Aggiorna l’elenco e riprova.",
+      "unavailable": "Il file non può essere rinominato nello stato attuale dell’attività.",
+      "conflict": "Questo nome file è già in uso.",
+      "pending": "Il motore non ha ancora confermato la rinomina. Aggiorna l’elenco prima di riprovare.",
+      "failed": "Impossibile rinominare il file."
     }
   },
   "settings": {

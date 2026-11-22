@@ -3079,6 +3079,16 @@
       "failed": "Bronnen konden niet worden geladen of bijgewerkt.",
       "webSeeds": "Web seeds",
       "edit": "Bewerken"
+    },
+    "fileRename": {
+      "title": "Bestand hernoemen",
+      "description": "Hernoem het bestand met behoud van de torrentidentiteit en downloadvoortgang.",
+      "invalid": "Voer een geldige bestandsnaam zonder mappad in.",
+      "changed": "Het bestand is gewijzigd. Vernieuw de lijst en probeer het opnieuw.",
+      "unavailable": "Het bestand kan in de huidige taakstatus niet worden hernoemd.",
+      "conflict": "Deze bestandsnaam is al in gebruik.",
+      "pending": "De engine heeft de wijziging nog niet bevestigd. Vernieuw eerst de bestandenlijst.",
+      "failed": "Het bestand kon niet worden hernoemd."
     }
   },
   "trackers": {

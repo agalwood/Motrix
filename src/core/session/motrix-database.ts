@@ -255,6 +255,7 @@ export class MotrixDatabase {
   // ── file-level statements ─────────────────────────────
   private stmtInsertFile!: BetterSqlite3.Statement
   private stmtDeleteFiles!: BetterSqlite3.Statement
+  private stmtGetFilePath!: BetterSqlite3.Statement
   private stmtGetFiles!: BetterSqlite3.Statement
   // ── occurrence-outbox statements ──────────────────────
   private stmtInsertOccurrenceOrIgnore!: BetterSqlite3.Statement
@@ -427,6 +428,11 @@ export class MotrixDatabase {
     this.stmtInsertFile = this.db.prepare(
       'INSERT INTO task_files (motrix_id, file_index, path, size, selected) VALUES (?, ?, ?, ?, ?)'
     )
+    this.stmtGetFilePath = this.db
+      .prepare(
+        'SELECT path FROM task_files WHERE motrix_id = ? AND file_index = ?'
+      )
+      .pluck()
     this.stmtGetFiles = this.db.prepare(
       'SELECT file_index, path, size, selected FROM task_files WHERE motrix_id = ? ORDER BY file_index ASC'
     )
@@ -782,6 +788,10 @@ export class MotrixDatabase {
       this.writeTaskFiles(motrixId, rows)
     )
     tx(files)
+  }
+
+  getTaskFilePath(motrixId: string, index: number): string | undefined {
+    return this.stmtGetFilePath.get(motrixId, index) as string | undefined
   }
 
   getTaskFiles(motrixId: string): TaskFileRow[] {

@@ -53,6 +53,7 @@ import { PluginLogRequestSchema } from '@shared/schemas/plugin-logs'
 import { parseTaskInspectorActivitySnapshot } from '@shared/schemas/task-inspector-activity'
 import { taskTrackerRequestSchema } from '@shared/schemas/task-tracker'
 import type { GetTransferStatsParams } from '@shared/types/stats'
+import type { DownloadTask, TaskFile } from '@shared/types/task'
 import type { GetTaskActivityParams } from '@shared/types/task-activity'
 import { ipcMain, session } from 'electron'
 import { getAppImageNativeHost } from '../bridge/appimage-native-host-electron'
@@ -72,6 +73,10 @@ const SYSTEM_PROXY_PROBE_PARTITION = 'motrix-system-proxy-probe'
 const SYSTEM_PROXY_PROBE_URL = 'https://example.com'
 
 export interface QueryContext {
+  reconcileTaskFiles?: (
+    task: DownloadTask,
+    files: readonly TaskFile[]
+  ) => Promise<DownloadTask>
   getResolvedLanguage: () => SupportedLocale
   cliToolService: Pick<CliToolService, 'getStatus'>
   taskManager: TaskManager
@@ -243,6 +248,7 @@ export function buildQueryHandlers(ctx: QueryContext): QueryHandlerMap {
     }).get,
 
     [Queries.GetTaskFiles]: createGetTaskFilesHandler({
+      reconcileTaskFiles: ctx.reconcileTaskFiles,
       mediaMetaStore: ctx.mediaMetaStore,
       db: motrixDatabase,
       taskManager,
