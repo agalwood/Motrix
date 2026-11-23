@@ -99,6 +99,30 @@ test.describe('application menu', () => {
       await mainWindow.evaluate(() => window.getSelection()?.toString())
     ).toBe('')
 
+    if (process.platform === 'darwin') {
+      // CDP can type into an inactive app. AppKit sends Edit menu actions
+      // to the key window's first responder, so acquire focus before editing.
+      const nativeMain = await electronApp.browserWindow(mainWindow)
+      await electronApp.evaluate(({ app }, win) => {
+        if (!app.isActive()) app.focus({ steal: true })
+        win.focus()
+      }, nativeMain)
+      await expect
+        .poll(() =>
+          nativeMain.evaluate(
+            (win) => win.isFocused() && win.webContents.isFocused()
+          )
+        )
+        .toBe(true)
+    }
+
+    await grid.locator('[data-task-id="menu-selection-1"]').click()
+    const selectedRows = grid.locator('[data-task-id][aria-selected="true"]')
+    await expect(selectedRows).toHaveAttribute(
+      'data-task-id',
+      'menu-selection-1'
+    )
+
     await mainWindow
       .getByRole('button', { name: 'Search downloads', exact: true })
       .click()
@@ -112,32 +136,29 @@ test.describe('application menu', () => {
         exact: true,
       })
     ).toBeVisible()
+    const selectedText = () =>
+      input.evaluate((element: HTMLInputElement) =>
+        element.value.slice(
+          element.selectionStart ?? 0,
+          element.selectionEnd ?? 0
+        )
+      )
     await input.press(`${modifier}+a`)
-    await expect
-      .poll(() =>
-        input.evaluate((element: HTMLInputElement) =>
-          element.value.slice(
-            element.selectionStart ?? 0,
-            element.selectionEnd ?? 0
-          )
-        )
-      )
-      .toBe('Menu task')
-    await expect(
-      grid.locator('[data-task-id][aria-selected="true"]')
-    ).toHaveCount(2)
+    await expect.poll(selectedText).toBe('Menu task')
+    await expect(selectedRows).toHaveAttribute(
+      'data-task-id',
+      'menu-selection-1'
+    )
+
     await input.press('ArrowRight')
+    await expect(input).toBeFocused()
+    await expect.poll(selectedText).toBe('')
     await clickNativeItem('menubar.edit.selectAll')
-    await expect
-      .poll(() =>
-        input.evaluate((element: HTMLInputElement) =>
-          element.value.slice(
-            element.selectionStart ?? 0,
-            element.selectionEnd ?? 0
-          )
-        )
-      )
-      .toBe('Menu task')
+    await expect.poll(selectedText).toBe('Menu task')
+    await expect(selectedRows).toHaveAttribute(
+      'data-task-id',
+      'menu-selection-1'
+    )
     await mainWindow.keyboard.press('Escape')
 
     await mainWindow
