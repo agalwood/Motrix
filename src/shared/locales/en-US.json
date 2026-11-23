@@ -1808,6 +1808,8 @@
       "defaultDownloadFolder": "Default download folder",
       "autofillFromClipboard": "Autofill links from clipboard",
       "fillInLinksWhenOpeningNewTask": "Paste copied links when opening a new task.",
+      "openingView": "When opening Downloads, show",
+      "rememberLastSelection": "Remember last selection",
       "saveFolders": "Save folders",
       "description": "Files, download speed and connections"
     },

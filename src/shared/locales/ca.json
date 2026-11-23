@@ -2203,6 +2203,8 @@
         "userAgent": "User-Agent",
         "userAgentDesc": "Identifica l'aplicació als llocs web. Canvieu-lo si un lloc en necessita un de diferent."
       },
+      "openingView": "En obrir les baixades, mostra",
+      "rememberLastSelection": "Recorda l’última selecció",
       "saveFolders": "Carpetes de destinació",
       "speedLimit": {
         "adaptiveEnabled": "Reservar amplada de banda per a altres aplicacions",

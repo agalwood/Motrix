@@ -29,6 +29,7 @@ import { FnosEntry } from '@renderer/platform/fnos-entry'
 import { PlatformServicesProvider } from '@renderer/platform/services'
 import { webServices } from '@renderer/platform/web-services'
 import type { RouteHandle } from '@renderer/router-types'
+import { useDownloadsOpeningView } from '@renderer/routes/downloads/downloads-entry'
 import { RedownloadOverwriteDialogHost } from '@renderer/routes/downloads/inspector/redownload-overwrite-dialog-host'
 import { RemoveTasksDialogHost } from '@renderer/routes/downloads/inspector/remove-tasks-dialog-host'
 import { RetryParametersDialogHost } from '@renderer/routes/downloads/inspector/retry-parameters-dialog-host'
@@ -66,7 +67,8 @@ export function AppLayout() {
 
   const navigate = useNavigate()
   const location = useLocation()
-  const outlet = useOutlet()
+  const openingView = useDownloadsOpeningView()
+  const outlet = useOutlet(openingView)
   const migrationActive = location.pathname === LEGACY_MIGRATION_ROUTE
   const settingsActive = /^\/settings(?:\/|$)/.test(location.pathname)
   const retainedSettings = useRef<ReactNode>(null)
@@ -78,7 +80,7 @@ export function AppLayout() {
   useIpcEvent(Events.NavigateTo, (...args) => {
     const path = args[0]
     if (typeof path !== 'string' || !path) return
-    if (isDownloadsListRoute(path)) {
+    if (path === '/downloads' || isDownloadsListRoute(path)) {
       // List navigation must not retain a previous task selection or inspector.
       useDownloadsView.getState().setInspectorVisible(false)
       useDownloadsSelection.getState().clearSelection()

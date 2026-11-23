@@ -1794,6 +1794,8 @@
       "defaultDownloadFolder": "既定のダウンロードフォルダー",
       "autofillFromClipboard": "クリップボードからリンクを自動入力",
       "fillInLinksWhenOpeningNewTask": "新規タスクを開くと、コピーしたリンクを貼り付けます。",
+      "openingView": "ダウンロード画面を開いたときの表示",
+      "rememberLastSelection": "前回の選択を記憶",
       "saveFolders": "保存フォルダー",
       "description": "ファイル、ダウンロード速度、接続"
     },

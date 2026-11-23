@@ -1,21 +1,28 @@
 import { useEffect } from 'react'
-import { useLocation } from 'react-router'
+import { useLocation, useNavigationType } from 'react-router'
 
-let destination: string | null = null
-export function requestMenuNavigationFocus(path: string): void {
-  destination = path
-}
 export function MenuNavigationFocus() {
-  const location = useLocation()
+  const { pathname, state } = useLocation()
+  const action = useNavigationType()
   useEffect(() => {
-    if (!destination || location.pathname !== destination) return
-    destination = null
-    const target = document.querySelector<HTMLElement>(
-      '[data-downloads-grid], [role="dialog"] h2, main h1'
+    if (
+      !state?.menuNavigationFocus ||
+      action === 'POP' ||
+      pathname === '/downloads'
     )
-    if (!target || target.closest('[inert]')) return
+      return
+    // The layout retains hidden settings and migration panels across navigation.
+    const visible = (selector: string) =>
+      Array.from(document.querySelectorAll<HTMLElement>(selector)).find(
+        (element) => !element.closest('[hidden], [inert]')
+      )
+    const target =
+      visible('[role="dialog"] h2') ??
+      visible('[data-downloads-grid]') ??
+      visible('main h1')
+    if (!target) return
     if (!target.hasAttribute('tabindex')) target.tabIndex = -1
     target.focus({ preventScroll: true })
-  }, [location.pathname])
+  }, [pathname, state, action])
   return null
 }

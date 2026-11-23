@@ -1794,6 +1794,8 @@
       "defaultDownloadFolder": "默认保存位置",
       "autofillFromClipboard": "自动填入剪贴板链接",
       "fillInLinksWhenOpeningNewTask": "新建任务时，自动填入已复制的链接。",
+      "openingView": "打开下载页时显示",
+      "rememberLastSelection": "记住上次选择",
       "saveFolders": "保存位置",
       "description": "文件、下载速度与连接"
     },

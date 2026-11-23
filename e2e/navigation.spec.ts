@@ -1,4 +1,5 @@
-import { expect, test } from './fixtures/electron-app'
+import type { Page } from '@playwright/test'
+import { expect, launchMotrix, test } from './fixtures/electron-app'
 
 // Hash router routes — must mirror src/renderer/router.tsx.
 // Labels match the explicit en-US preference seeded by the Electron fixture.
@@ -34,4 +35,60 @@ test.describe('navigation', () => {
       ).toHaveAttribute('aria-current', 'page')
     }
   })
+})
+
+test('opens the remembered or fixed downloads view from the sidebar after restarting', async ({
+  userDataDir,
+  rpcPort,
+}) => {
+  const visit = (page: Page, name: string) =>
+    page.getByRole('link', { name, exact: true }).click()
+  const chooseTab = async (page: Page, from: string, to: string) => {
+    await page.getByRole('button', { name: from, exact: true }).click()
+    await page.getByRole('menuitem', { name: new RegExp(to) }).click()
+  }
+
+  let app = await launchMotrix({ userDataDir, rpcPort })
+  try {
+    let page = await app.firstWindow()
+    await visit(page, 'Downloads')
+    await chooseTab(page, 'All Downloads', 'Active')
+    await visit(page, 'Dashboard')
+    await visit(page, 'Downloads')
+    await expect(
+      page.getByRole('heading', { name: 'Active Downloads' })
+    ).toBeVisible()
+
+    await app.close()
+    app = await launchMotrix({ userDataDir, rpcPort })
+    page = await app.firstWindow()
+    await visit(page, 'Downloads')
+    await expect(
+      page.getByRole('heading', { name: 'Active Downloads' })
+    ).toBeVisible()
+
+    await visit(page, 'Settings')
+    await page
+      .getByRole('button', { name: /Concurrency, bandwidth limits/ })
+      .click()
+    const preference = page.getByRole('combobox', {
+      name: 'When opening Downloads, show',
+    })
+    await expect(preference).toHaveText('Remember last selection')
+    await preference.click()
+    await page.getByRole('option', { name: 'Completed', exact: true }).click()
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
+    await expect(preference).toBeHidden()
+    await visit(page, 'Downloads')
+    await chooseTab(page, 'Completed Downloads', 'Error')
+    await app.close()
+    app = await launchMotrix({ userDataDir, rpcPort })
+    page = await app.firstWindow()
+    await visit(page, 'Downloads')
+    await expect(
+      page.getByRole('heading', { name: 'Completed Downloads' })
+    ).toBeVisible()
+  } finally {
+    await app.close().catch(() => {})
+  }
 })

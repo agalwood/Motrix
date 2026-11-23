@@ -1836,6 +1836,8 @@
       "defaultDownloadFolder": "Domyślny folder pobierania",
       "autofillFromClipboard": "Automatycznie wstawiaj linki ze schowka",
       "fillInLinksWhenOpeningNewTask": "Wklejaj skopiowane linki przy otwieraniu nowego zadania.",
+      "openingView": "Po otwarciu pobrań pokaż",
+      "rememberLastSelection": "Zapamiętaj ostatni wybór",
       "saveFolders": "Foldery zapisu",
       "description": "Pliki, prędkość pobierania i połączenia"
     },

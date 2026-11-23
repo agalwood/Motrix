@@ -2203,6 +2203,8 @@
         "userAgent": "User-Agent",
         "userAgentDesc": "Identifică aplicația pentru site-uri. Schimbă-l dacă un site cere altul."
       },
+      "openingView": "La deschiderea descărcărilor, afișează",
+      "rememberLastSelection": "Reține ultima selecție",
       "saveFolders": "Dosare de salvare",
       "speedLimit": {
         "adaptiveEnabled": "Rezervă lățime de bandă pentru alte aplicații",

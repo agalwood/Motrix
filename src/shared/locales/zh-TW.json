@@ -1794,6 +1794,8 @@
       "defaultDownloadFolder": "預設儲存位置",
       "autofillFromClipboard": "自動填入剪貼簿連結",
       "fillInLinksWhenOpeningNewTask": "新增任務時，自動填入已複製的連結。",
+      "openingView": "開啟下載頁面時顯示",
+      "rememberLastSelection": "記住上次選擇",
       "saveFolders": "儲存位置",
       "description": "檔案、下載速度與連線"
     },

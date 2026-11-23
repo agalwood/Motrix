@@ -22,6 +22,7 @@ describe('desktop main locale projection', () => {
       expect(result.operatorAdmin).toBeUndefined()
       expect(result.operatorToken).toBeUndefined()
       expect(result.settings.integration.browser).toBeUndefined()
+      expect(result.settings.downloads).toBeUndefined()
       expect(result.task.add.duplicate).toBeUndefined()
       expect(result.task.storage).toEqual({
         incomplete: original.task.storage.incomplete,
@@ -32,6 +33,7 @@ describe('desktop main locale projection', () => {
       delete original.operatorToken
       original.createTorrent = { menuLabel: original.createTorrent.menuLabel }
       delete original.settings.integration.browser
+      delete original.settings.downloads
       delete original.task.add.duplicate
       original.task.storage = {
         incomplete: original.task.storage.incomplete,
@@ -61,6 +63,7 @@ describe('desktop main locale projection', () => {
     delete original.operatorAdmin
     expect(projected).toEqual(original)
     expect(projected.createTorrent.seedAfter).toBeTruthy()
+    expect(projected.settings.downloads.openingView).toBeTruthy()
     expect(projected.operatorToken).toEqual(original.operatorToken)
   })
 

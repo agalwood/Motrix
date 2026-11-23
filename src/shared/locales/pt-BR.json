@@ -1822,6 +1822,8 @@
       "defaultDownloadFolder": "Pasta de download padrão",
       "autofillFromClipboard": "Preencher links da área de transferência",
       "fillInLinksWhenOpeningNewTask": "Cola os links copiados ao abrir uma nova tarefa.",
+      "openingView": "Ao abrir os downloads, mostrar",
+      "rememberLastSelection": "Lembrar a última seleção",
       "saveFolders": "Pastas de destino",
       "description": "Arquivos, velocidade de download e conexões"
     },

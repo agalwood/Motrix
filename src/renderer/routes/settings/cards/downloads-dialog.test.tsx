@@ -118,6 +118,18 @@ describe('<DownloadsDialog>', () => {
   })
 
   it('defaults desktop deletion to trash and saves only the chosen mode with a warning', async () => {
+    // A previous host omits openingView. Other saves must still send only dirty fields.
+    const snapshot = downloadsSettingsResult(FIXTURE)
+    const { downloadsOpeningView: _legacyMissing, ...legacyApp } =
+      snapshot.value.settings.app
+    vi.mocked(transport.invoke).mockResolvedValue({
+      ...snapshot,
+      value: {
+        ...snapshot.value,
+        settings: { ...snapshot.value.settings, app: legacyApp },
+      },
+    })
+
     render(
       <DownloadsDialog
         open

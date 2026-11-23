@@ -23,6 +23,8 @@ export function appLocaleProjection(
         | undefined
       if (creator) catalog.createTorrent = { menuLabel: creator.menuLabel }
       const settings = catalog.settings as Record<string, unknown> | undefined
+      // The Downloads settings dialog renders exclusively in the renderer.
+      if (settings) delete settings.downloads
       const integration = settings?.integration as
         | Record<string, unknown>
         | undefined

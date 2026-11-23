@@ -2203,6 +2203,8 @@
         "userAgent": "User-Agent",
         "userAgentDesc": "Identifie l’application auprès des sites. Modifiez-le si un site exige une autre valeur."
       },
+      "openingView": "À l’ouverture des téléchargements, afficher",
+      "rememberLastSelection": "Mémoriser le dernier choix",
       "saveFolders": "Dossiers de destination",
       "speedLimit": {
         "adaptiveEnabled": "Réserver de la bande passante aux autres applications",

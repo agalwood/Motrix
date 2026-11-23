@@ -1836,6 +1836,8 @@
       "defaultDownloadFolder": "Папка загрузок по умолчанию",
       "autofillFromClipboard": "Автоматически вставлять ссылки из буфера обмена",
       "fillInLinksWhenOpeningNewTask": "Вставлять скопированные ссылки при открытии новой задачи.",
+      "openingView": "При открытии загрузок показывать",
+      "rememberLastSelection": "Запоминать последний выбор",
       "saveFolders": "Папки сохранения",
       "description": "Файлы, скорость загрузки и подключения"
     },

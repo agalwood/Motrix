@@ -17,6 +17,12 @@ import { DEFAULT_TRAY_ICON_COLOR, trayIconColorSchema } from './tray-icon-color'
 import { windowMinimumDimensionSchema } from './window-bounds'
 
 export const appUpdateChannelSchema = z.enum(['stable', 'beta'])
+export const DOWNLOADS_TABS = ['all', 'active', 'completed', 'error'] as const
+export const downloadsOpeningViewSchema = z.enum([
+  'remember',
+  ...DOWNLOADS_TABS,
+])
+export type DownloadsOpeningView = z.infer<typeof downloadsOpeningViewSchema>
 export const fileDeletionModeSchema = z.enum(['trash', 'permanent'])
 export type FileDeletionMode = z.infer<typeof fileDeletionModeSchema>
 export const notificationBadgeStyleSchema = z.enum(['count', 'dot', 'hidden'])
@@ -48,6 +54,7 @@ export const appSettingsSchema = z.object({
   // absolute platform download directory on first load. The renderer never
   // observes '' because settings are loaded before the UI mounts.
   defaultSaveDir: z.string().catch(''),
+  downloadsOpeningView: downloadsOpeningViewSchema.catch('remember'),
   fileDeletionMode: fileDeletionModeSchema.catch('trash'),
   directoryPreferences: DirectoryPreferencesSchema.catch({
     favorites: [],

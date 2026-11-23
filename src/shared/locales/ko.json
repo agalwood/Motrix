@@ -1794,6 +1794,8 @@
       "defaultDownloadFolder": "기본 다운로드 폴더",
       "autofillFromClipboard": "클립보드에서 링크 자동 입력",
       "fillInLinksWhenOpeningNewTask": "새 작업을 열 때 복사한 링크를 붙여넣습니다.",
+      "openingView": "다운로드를 열 때 표시할 항목",
+      "rememberLastSelection": "마지막 선택 기억",
       "saveFolders": "저장 폴더",
       "description": "파일, 다운로드 속도 및 연결"
     },

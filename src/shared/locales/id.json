@@ -1794,6 +1794,8 @@
       "defaultDownloadFolder": "Folder unduhan bawaan",
       "autofillFromClipboard": "Isi tautan dari papan klip secara otomatis",
       "fillInLinksWhenOpeningNewTask": "Tautan yang disalin akan diisi secara otomatis saat membuka tugas baru.",
+      "openingView": "Saat membuka unduhan, tampilkan",
+      "rememberLastSelection": "Ingat pilihan terakhir",
       "saveFolders": "Folder penyimpanan",
       "description": "Berkas, kecepatan unduh, dan koneksi"
     },

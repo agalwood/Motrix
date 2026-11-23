@@ -47,6 +47,7 @@ export const ForwardableEvents = [
   Events.ReducedMotionChanged,
   Events.LiquidGlassChanged,
   Events.SidebarColorChanged,
+  Events.DownloadsOpeningViewChanged,
   Events.StatsBarVisibilityChanged,
   Events.SystemAccentColorChanged,
   Events.ByteUnitSystemChanged,

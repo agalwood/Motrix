@@ -1794,6 +1794,8 @@
       "defaultDownloadFolder": "Thư mục tải xuống mặc định",
       "autofillFromClipboard": "Tự điền liên kết từ bảng nhớ tạm",
       "fillInLinksWhenOpeningNewTask": "Tự dán liên kết đã sao chép khi mở tác vụ mới.",
+      "openingView": "Khi mở trang tải xuống, hiển thị",
+      "rememberLastSelection": "Ghi nhớ lựa chọn gần nhất",
       "saveFolders": "Thư mục lưu",
       "description": "Tệp, tốc độ tải xuống và kết nối"
     },

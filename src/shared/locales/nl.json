@@ -2184,6 +2184,8 @@
         "userAgent": "User-Agent",
         "userAgentDesc": "Identificeert de app bij websites. Wijzig deze als een website een andere vereist."
       },
+      "openingView": "Bij het openen van downloads tonen",
+      "rememberLastSelection": "Laatste keuze onthouden",
       "saveFolders": "Opslagmappen",
       "speedLimit": {
         "adaptiveEnabled": "Bandbreedte reserveren voor andere apps",

@@ -7,7 +7,6 @@ import { Commands } from '@shared/protocol/commands'
 import type { BulkTaskCommandResult } from '@shared/types/task-actions'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router'
-import { requestMenuNavigationFocus } from './navigation-focus'
 import {
   focusDownloadsList,
   menuActionEnabled,
@@ -29,12 +28,10 @@ export function useMenuCommand(
     try {
       switch (id) {
         case CommandIds.AppShowAbout:
-          requestMenuNavigationFocus('/settings/about')
-          navigate('/settings/about')
+          navigate('/settings/about', { state: { menuNavigationFocus: true } })
           return
         case CommandIds.AppOpenPreferences:
-          requestMenuNavigationFocus('/settings')
-          navigate('/settings')
+          navigate('/settings', { state: { menuNavigationFocus: true } })
           return
         case CommandIds.TaskNew:
           await openAddTaskDialog({ tab: 'links' })
@@ -44,8 +41,7 @@ export function useMenuCommand(
           return
         case CommandIds.NavigateTaskList:
           if (!location.pathname.startsWith('/downloads')) {
-            requestMenuNavigationFocus('/downloads/all')
-            navigate('/downloads/all')
+            navigate('/downloads', { state: { menuNavigationFocus: true } })
           } else focusDownloadsList()
           return
         case CommandIds.TaskSelectAll:

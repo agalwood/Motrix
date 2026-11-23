@@ -2184,6 +2184,8 @@
         "userAgent": "User-Agent",
         "userAgentDesc": "Identifiserer appen overfor nettsteder. Endre verdien hvis et nettsted krever en annen."
       },
+      "openingView": "Vis når nedlastinger åpnes",
+      "rememberLastSelection": "Husk siste valg",
       "saveFolders": "Lagringsmapper",
       "speedLimit": {
         "adaptiveEnabled": "Reserver båndbredde til andre apper",
