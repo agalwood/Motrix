@@ -14,8 +14,9 @@ import {
 import { VIDEO_FILE_EXTENSIONS } from '@shared/constants/file-types'
 import type { AddTaskFormValues } from '@shared/schemas/add-task'
 import type { ReactNode } from 'react'
-import { useFormContext, useWatch } from 'react-hook-form'
+import { useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { useTorrentFileSelection } from './use-torrent-file-selection'
 
 const FILTERS: Array<{
   id: 'video' | 'audio' | 'image' | 'doc'
@@ -46,7 +47,7 @@ const FILTERS: Array<{
 
 export function FileTypeFilters() {
   const { t } = useTranslation()
-  const { setValue } = useFormContext<AddTaskFormValues>()
+  const selectFiles = useTorrentFileSelection()
   const meta = useWatch<AddTaskFormValues, 'torrentMeta'>({
     name: 'torrentMeta',
   })
@@ -62,10 +63,7 @@ export function FileTypeFilters() {
       .filter((f) => extSet.has(f.extension.toLowerCase()))
       .map((f) => f.index)
     const merged = Array.from(new Set([...(selected ?? []), ...matching]))
-    setValue('selectedFiles', merged, {
-      shouldDirty: true,
-      shouldValidate: true,
-    })
+    selectFiles(merged)
   }
 
   return (

@@ -3125,7 +3125,12 @@
       "fileSelected_zero": "الملفات المحددة: {{count}}",
       "image": "صورة",
       "selectAll": "تحديد الكل",
-      "video": "فيديو"
+      "video": "فيديو",
+      "searchFiles": "البحث في مسارات الملفات",
+      "expandAll": "توسيع الكل",
+      "collapseAll": "طي الكل",
+      "selectMatching": "تحديد الملفات المطابقة",
+      "noMatchingFiles": "لا توجد ملفات مطابقة"
     },
     "storage": {
       "move": "Move files…",

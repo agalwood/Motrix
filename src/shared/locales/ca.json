@@ -3059,7 +3059,12 @@
       "fileSelected_other": "{{count}} fitxers seleccionats",
       "image": "Imatge",
       "selectAll": "Seleccionar-los tots",
-      "video": "Vídeo"
+      "video": "Vídeo",
+      "searchFiles": "Cerca per ruta de fitxer",
+      "expandAll": "Desplega-ho tot",
+      "collapseAll": "Replega-ho tot",
+      "selectMatching": "Selecciona els fitxers coincidents",
+      "noMatchingFiles": "No hi ha fitxers coincidents"
     },
     "storage": {
       "move": "Move files…",

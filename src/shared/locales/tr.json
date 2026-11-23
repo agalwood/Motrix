@@ -1177,7 +1177,12 @@
       "video": "Video",
       "audio": "Ses",
       "image": "Görsel",
-      "doc": "Belge"
+      "doc": "Belge",
+      "searchFiles": "Dosya yollarında ara",
+      "expandAll": "Tümünü genişlet",
+      "collapseAll": "Tümünü daralt",
+      "selectMatching": "Eşleşen dosyaları seç",
+      "noMatchingFiles": "Eşleşen dosya yok"
     },
     "remove": {
       "title": "Görev listeden kaldırılsın mı?",

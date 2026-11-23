@@ -1163,7 +1163,12 @@
       "video": "Video",
       "audio": "Audio",
       "image": "Gambar",
-      "doc": "Dokumen"
+      "doc": "Dokumen",
+      "searchFiles": "Cari jalur berkas",
+      "expandAll": "Perluas semua",
+      "collapseAll": "Ciutkan semua",
+      "selectMatching": "Pilih berkas yang cocok",
+      "noMatchingFiles": "Tidak ada berkas yang cocok"
     },
     "remove": {
       "title": "Hapus tugas dari daftar?",

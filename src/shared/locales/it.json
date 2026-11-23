@@ -1191,7 +1191,12 @@
       "video": "Video",
       "audio": "Audio",
       "image": "Immagine",
-      "doc": "Documento"
+      "doc": "Documento",
+      "searchFiles": "Cerca nei percorsi dei file",
+      "expandAll": "Espandi tutto",
+      "collapseAll": "Comprimi tutto",
+      "selectMatching": "Seleziona i file corrispondenti",
+      "noMatchingFiles": "Nessun file corrispondente"
     },
     "remove": {
       "title": "Rimuovere l’attività?",

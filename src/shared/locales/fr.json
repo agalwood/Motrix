@@ -3059,7 +3059,12 @@
       "fileSelected_other": "{{count}} fichiers sélectionnés",
       "image": "Image",
       "selectAll": "Tout sélectionner",
-      "video": "Vidéo"
+      "video": "Vidéo",
+      "searchFiles": "Rechercher dans les chemins",
+      "expandAll": "Tout développer",
+      "collapseAll": "Tout réduire",
+      "selectMatching": "Sélectionner les fichiers correspondants",
+      "noMatchingFiles": "Aucun fichier correspondant"
     },
     "storage": {
       "move": "Move files…",

@@ -1,3 +1,4 @@
+import '@test-utils/dom-animations'
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
 import { getInspectorSnapHeights } from '@renderer/components/desktop-kit/inspector-drawer'
@@ -21,6 +22,15 @@ import { useState } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { TaskInspectorDrawer } from './task-inspector-drawer'
 import { useDownloadsView } from './view-preferences'
+
+vi.stubGlobal(
+  'ResizeObserver',
+  class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+)
 
 const activityHookState = vi.hoisted(() => ({
   current: null as unknown,

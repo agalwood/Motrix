@@ -1,13 +1,29 @@
+import '@test-utils/dom-animations'
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
 import type { TorrentFileInfo } from '@shared/types/torrent'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
+import { useState } from 'react'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { FileList } from './file-list'
 
 // Make the virtualizer think the scroll container is 600px tall so all
 // rows (32px each) are within the visible window and actually rendered.
 beforeAll(() => {
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+  )
   Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
     configurable: true,
     value() {
@@ -17,7 +33,7 @@ beforeAll(() => {
         bottom: 600,
         right: 800,
         width: 800,
-        height: 600,
+        height: this.classList.contains('sticky') ? 64 : 600,
       }
     },
   })
@@ -44,6 +60,178 @@ const makeFiles = (): TorrentFileInfo[] => [
 ]
 
 describe('FileList', () => {
+  const nested = [
+    { index: 12, path: 'Film/movie.mkv', size: 100 },
+    { index: 7, path: 'Film/subs/en.srt', size: 10 },
+    { index: 42, path: 'notes.txt', size: 5 },
+    { index: 2, path: '.pad/0', size: 100, padding: true },
+  ]
+
+  function ControlledTree() {
+    const [selected, setSelected] = useState([42])
+    return (
+      <FileList
+        files={nested}
+        selectedIndices={selected}
+        onSelectionChange={setSelected}
+      />
+    )
+  }
+
+  it('selects folders with original indices, reports mixed state and excludes padding', () => {
+    const changed = vi.fn()
+    render(
+      <FileList
+        files={nested}
+        selectedIndices={[7]}
+        onSelectionChange={changed}
+      />
+    )
+    expect(screen.queryByTitle('.pad/0')).not.toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: 'Film' })).toHaveAttribute(
+      'aria-checked',
+      'mixed'
+    )
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Film' }))
+    expect(changed).toHaveBeenCalledWith([7, 12])
+  })
+
+  it('searches paths, expands matching ancestors and selects only matching files', async () => {
+    render(<ControlledTree />)
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse all' }))
+    expect(screen.queryByTitle('Film/subs/en.srt')).not.toBeInTheDocument()
+    fireEvent.change(screen.getByRole('searchbox'), {
+      target: { value: '.srt' },
+    })
+    await screen.findByTitle('Film/subs/en.srt')
+    expect(screen.queryByTitle('Film/movie.mkv')).not.toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: 'Select matching files' })
+    )
+    expect(screen.getByText(/2 files selected/)).toHaveTextContent('15 B')
+    expect(screen.getByRole('checkbox', { name: 'Film' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    )
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: '' } })
+    await screen.findByRole('checkbox', { name: 'Select all' })
+    expect(screen.getByRole('checkbox', { name: 'notes.txt' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    )
+    expect(screen.queryByTitle('Film/subs/en.srt')).not.toBeInTheDocument()
+    fireEvent.change(screen.getByRole('searchbox'), {
+      target: { value: 'absent' },
+    })
+    expect(await screen.findByText('No matching files')).toBeInTheDocument()
+  })
+
+  it('supports keyboard expansion, navigation and folder selection in the virtual tree', () => {
+    render(<ControlledTree />)
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse all' }))
+    const tree = screen.getByRole('tree')
+    tree.focus()
+    fireEvent.keyDown(tree, { key: 'ArrowRight' })
+    expect(screen.getByTitle('Film/movie.mkv')).toBeInTheDocument()
+    fireEvent.keyDown(tree, { key: ' ' })
+    expect(screen.getByText(/3 files selected/)).toBeInTheDocument()
+    fireEvent.keyDown(tree, { key: 'End' })
+    expect(
+      document.getElementById(tree.getAttribute('aria-activedescendant')!)
+    ).toHaveAttribute('aria-label', 'notes.txt')
+    fireEvent.keyDown(tree, { key: ' ' })
+    expect(screen.getByText(/2 files selected/)).toBeInTheDocument()
+    const row = screen.getByRole('treeitem', { name: 'notes.txt' })
+    row.focus()
+    fireEvent.keyDown(row, { key: 'Home' })
+    expect(tree).toHaveFocus()
+    expect(
+      document.getElementById(tree.getAttribute('aria-activedescendant')!)
+    ).toHaveAttribute('aria-label', 'Film')
+  })
+
+  it('keeps search Enter from submitting New Task and consumes Escape to clear the filter', () => {
+    const parentKeyDown = vi.fn()
+    render(
+      <form onKeyDown={parentKeyDown}>
+        <ControlledTree />
+      </form>
+    )
+    const search = screen.getByRole('searchbox')
+    fireEvent.change(search, { target: { value: '.srt' } })
+    expect(fireEvent.keyDown(search, { key: 'Enter' })).toBe(false)
+    parentKeyDown.mockClear()
+    fireEvent.keyDown(search, { key: 'Escape' })
+    expect(search).toHaveValue('')
+    expect(parentKeyDown).not.toHaveBeenCalled()
+  })
+
+  it('keeps expansion across progress snapshots and presents committed rename paths', async () => {
+    const rows = nested.map((file) => ({ ...file, progress: 0 }))
+    const props = {
+      selectedIndices: [7],
+      renderRowTrailing: (file: (typeof rows)[number]) => `${file.progress}%`,
+    }
+    const view = render(<FileList files={rows} {...props} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Film/subs' }))
+    view.rerender(
+      <FileList
+        files={rows.map((file) => ({ ...file, progress: 50 }))}
+        {...props}
+      />
+    )
+    expect(screen.queryByTitle('Film/subs/en.srt')).not.toBeInTheDocument()
+    expect(screen.getAllByText('50%')).toHaveLength(2)
+    view.rerender(
+      <FileList
+        files={rows.map((file) =>
+          file.index === 12 ? { ...file, path: 'Film/renamed.mkv' } : file
+        )}
+        {...props}
+      />
+    )
+    expect(await screen.findByTitle('Film/renamed.mkv')).toBeInTheDocument()
+    expect(screen.queryByTitle('Film/movie.mkv')).not.toBeInTheDocument()
+    expect(screen.queryByTitle('Film/subs/en.srt')).not.toBeInTheDocument()
+  })
+
+  it('keeps a large manifest virtual and cancels superseded background builds', async () => {
+    const files = Array.from({ length: 10_000 }, (_, index) => ({
+      index,
+      path: `folder/${index}.bin`,
+      size: 1,
+    }))
+    const view = render(
+      <FileList files={files} selectedIndices={[]} readOnly />
+    )
+    await waitFor(() =>
+      expect(screen.getByRole('tree')).toHaveAttribute('aria-busy', 'false')
+    )
+    expect(screen.getAllByRole('treeitem')).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Expand all' }))
+    expect(screen.getAllByRole('treeitem').length).toBeLessThan(30)
+    view.rerender(
+      <FileList
+        files={files.map((file) => ({ ...file, path: `new/${file.path}` }))}
+        selectedIndices={[]}
+        readOnly
+      />
+    )
+    view.rerender(
+      <FileList
+        files={[{ index: 88, path: 'replacement.bin', size: 8 }]}
+        selectedIndices={[]}
+        readOnly
+      />
+    )
+    expect(await screen.findByTitle('replacement.bin')).toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.getByRole('tree')).toHaveAttribute('aria-busy', 'false')
+    )
+    expect(screen.queryByTitle('new')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('treeitem')).toHaveLength(1)
+  })
+
   it('can hide column headers while keeping file types and selection controls', () => {
     const onSelectionChange = vi.fn()
     render(

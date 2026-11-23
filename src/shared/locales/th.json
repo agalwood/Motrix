@@ -3015,7 +3015,12 @@
       "fileSelected_other": "เลือก {{count}} ไฟล์แล้ว",
       "image": "รูปภาพ",
       "selectAll": "เลือกทั้งหมด",
-      "video": "วิดีโอ"
+      "video": "วิดีโอ",
+      "searchFiles": "ค้นหาเส้นทางไฟล์",
+      "expandAll": "ขยายทั้งหมด",
+      "collapseAll": "ยุบทั้งหมด",
+      "selectMatching": "เลือกไฟล์ที่ตรงกัน",
+      "noMatchingFiles": "ไม่พบไฟล์ที่ตรงกัน"
     },
     "storage": {
       "move": "Move files…",

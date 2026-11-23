@@ -17,9 +17,11 @@ const TARGETS = [
   // in lazy chunks. Reserve a further 64 KiB; retain the startup ceiling.
   // File renaming measures 8,541,645 / 8,587,304 bytes (desktop / web).
   // Add 16 KiB per total budget; retain both startup ceilings.
-  { name: 'renderer', initial: 2.75 * MIB, total: 8 * MIB + 160 * 1024 },
+  // Virtual file trees and 26-locale search/disclosure controls add ~13 KiB.
+  // Use 4 KiB more total headroom; startup ceilings remain unchanged.
+  { name: 'renderer', initial: 2.75 * MIB, total: 8 * MIB + 164 * 1024 },
   // The lazy DSM storage recovery page and its localized controls add 9 KiB.
-  { name: 'renderer.web', initial: 2.75 * MIB, total: 8 * MIB + 204 * 1024 },
+  { name: 'renderer.web', initial: 2.75 * MIB, total: 8 * MIB + 208 * 1024 },
   // The shared operation runtime brings total server JS to ~5.01 MiB.
   { name: 'server', initial: 2 * MIB, total: 5.25 * MIB },
 ]

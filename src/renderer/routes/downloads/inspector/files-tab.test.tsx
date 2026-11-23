@@ -1,3 +1,4 @@
+import '@test-utils/dom-animations'
 import '@testing-library/jest-dom/vitest'
 import '@renderer/lib/i18n'
 import type { DownloadTask } from '@shared/types/task'
@@ -23,6 +24,14 @@ import { useTaskFiles } from '@renderer/hooks/use-task-files'
 import { FilesTab } from './files-tab'
 
 beforeAll(() => {
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+  )
   Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
     configurable: true,
     value() {
@@ -32,7 +41,7 @@ beforeAll(() => {
         bottom: 600,
         right: 800,
         width: 800,
-        height: 600,
+        height: this.classList.contains('sticky') ? 64 : 600,
       }
     },
   })

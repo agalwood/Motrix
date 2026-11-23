@@ -1163,7 +1163,12 @@
       "video": "影片",
       "audio": "音訊",
       "image": "圖片",
-      "doc": "文件"
+      "doc": "文件",
+      "searchFiles": "搜尋檔案路徑",
+      "expandAll": "全部展開",
+      "collapseAll": "全部收合",
+      "selectMatching": "選取符合的檔案",
+      "noMatchingFiles": "沒有符合的檔案"
     },
     "remove": {
       "title": "移除任務？",

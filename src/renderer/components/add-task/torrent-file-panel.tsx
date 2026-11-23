@@ -2,12 +2,12 @@ import { DirectoryPicker } from '@renderer/components/desktop-kit/directory-pick
 import { FileList } from '@renderer/components/file-list/file-list'
 import type { AddTaskFormValues } from '@shared/schemas/add-task'
 import type { TorrentFileInfo } from '@shared/types/torrent'
-import { useCallback } from 'react'
-import { useFormContext, useWatch } from 'react-hook-form'
+import { useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { AdvancedPanel } from './advanced-panel'
 import { FileTypeFilters } from './file-type-filters'
 import { TorrentInfoHeader } from './torrent-info-header'
+import { useTorrentFileSelection } from './use-torrent-file-selection'
 
 interface TorrentFilePanelProps {
   onClear: () => void
@@ -15,23 +15,13 @@ interface TorrentFilePanelProps {
 
 export function TorrentFilePanel({ onClear }: TorrentFilePanelProps) {
   const { t } = useTranslation()
-  const { setValue } = useFormContext<AddTaskFormValues>()
+  const handleSelection = useTorrentFileSelection()
   const meta = useWatch<AddTaskFormValues, 'torrentMeta'>({
     name: 'torrentMeta',
   })
   const selected = useWatch<AddTaskFormValues, 'selectedFiles'>({
     name: 'selectedFiles',
   })
-
-  const handleSelection = useCallback(
-    (ids: number[]) => {
-      setValue('selectedFiles' as never, ids as never, {
-        shouldDirty: true,
-        shouldValidate: true,
-      })
-    },
-    [setValue]
-  )
 
   if (!meta) return null
 
@@ -41,6 +31,7 @@ export function TorrentFilePanel({ onClear }: TorrentFilePanelProps) {
 
       <div className="flex min-h-50 max-h-[calc(100vh-380px)] min-w-0 overflow-hidden rounded-md border border-border **:data-[slot=scroll-area-viewport]:focus-visible:ring-0">
         <FileList<TorrentFileInfo>
+          key={meta.infoHash}
           scrollbar="custom"
           showColumnHeaders={false}
           files={meta.files}

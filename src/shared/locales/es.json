@@ -1191,7 +1191,12 @@
       "audio": "Audio",
       "image": "Imagen",
       "doc": "Documento",
-      "fileSelected_many": "{{count}} archivos seleccionados"
+      "fileSelected_many": "{{count}} archivos seleccionados",
+      "searchFiles": "Buscar rutas de archivos",
+      "expandAll": "Expandir todo",
+      "collapseAll": "Contraer todo",
+      "selectMatching": "Seleccionar archivos coincidentes",
+      "noMatchingFiles": "No hay archivos coincidentes"
     },
     "remove": {
       "title": "¿Quitar la tarea?",

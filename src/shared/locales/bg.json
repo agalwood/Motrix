@@ -3037,7 +3037,12 @@
       "fileSelected_other": "Избрани са {{count}} файла",
       "image": "Изображение",
       "selectAll": "Избиране на всички",
-      "video": "Видео"
+      "video": "Видео",
+      "searchFiles": "Търсене по път на файл",
+      "expandAll": "Разгъване на всички",
+      "collapseAll": "Свиване на всички",
+      "selectMatching": "Избиране на съвпадащите файлове",
+      "noMatchingFiles": "Няма съвпадащи файлове"
     },
     "storage": {
       "move": "Move files…",

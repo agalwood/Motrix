@@ -1163,7 +1163,12 @@
       "video": "動画",
       "audio": "音声",
       "image": "画像",
-      "doc": "文書"
+      "doc": "文書",
+      "searchFiles": "ファイルパスを検索",
+      "expandAll": "すべて展開",
+      "collapseAll": "すべて折りたたむ",
+      "selectMatching": "一致するファイルを選択",
+      "noMatchingFiles": "一致するファイルがありません"
     },
     "remove": {
       "title": "タスクを削除しますか？",

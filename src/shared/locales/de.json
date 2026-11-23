@@ -1177,7 +1177,12 @@
       "video": "Video",
       "audio": "Audio",
       "image": "Bild",
-      "doc": "Dokument"
+      "doc": "Dokument",
+      "searchFiles": "Dateipfade durchsuchen",
+      "expandAll": "Alle ausklappen",
+      "collapseAll": "Alle einklappen",
+      "selectMatching": "Passende Dateien auswählen",
+      "noMatchingFiles": "Keine passenden Dateien"
     },
     "remove": {
       "title": "Aufgabe entfernen?",

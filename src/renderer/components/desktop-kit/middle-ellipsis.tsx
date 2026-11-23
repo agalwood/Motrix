@@ -7,11 +7,14 @@ export function MiddleEllipsis({
   className,
   maxChars = 64,
   dir = 'ltr',
+  fullText = text,
 }: {
   text: string
   className?: string
   maxChars?: number
   dir?: 'ltr' | 'rtl' | 'auto'
+  /** Full path for tooltips/copy when the visible tree label is a basename. */
+  fullText?: string
 }) {
   const { start, ellipsis, end } = getPathDisplayParts(text, maxChars)
 
@@ -19,9 +22,9 @@ export function MiddleEllipsis({
     <span
       data-slot="middle-ellipsis"
       dir={dir}
-      title={text}
+      title={fullText}
       onCopy={(event) => {
-        event.clipboardData.setData('text/plain', text)
+        event.clipboardData.setData('text/plain', fullText)
         event.preventDefault()
       }}
       className={cn(

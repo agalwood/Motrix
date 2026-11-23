@@ -1191,7 +1191,12 @@
       "video": "Vídeo",
       "audio": "Áudio",
       "image": "Imagem",
-      "doc": "Documento"
+      "doc": "Documento",
+      "searchFiles": "Buscar caminhos de arquivos",
+      "expandAll": "Expandir tudo",
+      "collapseAll": "Recolher tudo",
+      "selectMatching": "Selecionar arquivos correspondentes",
+      "noMatchingFiles": "Nenhum arquivo correspondente"
     },
     "remove": {
       "title": "Remover tarefa?",

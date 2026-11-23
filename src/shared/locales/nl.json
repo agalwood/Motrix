@@ -3037,7 +3037,12 @@
       "fileSelected_other": "{{count}} bestanden geselecteerd",
       "image": "Afbeelding",
       "selectAll": "Alles selecteren",
-      "video": "Video"
+      "video": "Video",
+      "searchFiles": "Bestandspaden doorzoeken",
+      "expandAll": "Alles uitvouwen",
+      "collapseAll": "Alles invouwen",
+      "selectMatching": "Overeenkomende bestanden selecteren",
+      "noMatchingFiles": "Geen overeenkomende bestanden"
     },
     "storage": {
       "move": "Move files…",

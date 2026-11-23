@@ -1163,7 +1163,12 @@
       "video": "비디오",
       "audio": "오디오",
       "image": "이미지",
-      "doc": "문서"
+      "doc": "문서",
+      "searchFiles": "파일 경로 검색",
+      "expandAll": "모두 펼치기",
+      "collapseAll": "모두 접기",
+      "selectMatching": "일치하는 파일 선택",
+      "noMatchingFiles": "일치하는 파일 없음"
     },
     "remove": {
       "title": "작업을 제거하시겠습니까?",

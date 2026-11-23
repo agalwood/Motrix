@@ -1205,7 +1205,12 @@
       "video": "Wideo",
       "audio": "Dźwięk",
       "image": "Obraz",
-      "doc": "Dokument"
+      "doc": "Dokument",
+      "searchFiles": "Szukaj w ścieżkach plików",
+      "expandAll": "Rozwiń wszystko",
+      "collapseAll": "Zwiń wszystko",
+      "selectMatching": "Zaznacz pasujące pliki",
+      "noMatchingFiles": "Brak pasujących plików"
     },
     "remove": {
       "title": "Usunąć zadanie z listy?",

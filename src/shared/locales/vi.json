@@ -1163,7 +1163,12 @@
       "video": "Video",
       "audio": "Âm thanh",
       "image": "Hình ảnh",
-      "doc": "Tài liệu"
+      "doc": "Tài liệu",
+      "searchFiles": "Tìm trong đường dẫn tệp",
+      "expandAll": "Mở rộng tất cả",
+      "collapseAll": "Thu gọn tất cả",
+      "selectMatching": "Chọn tệp phù hợp",
+      "noMatchingFiles": "Không có tệp phù hợp"
     },
     "remove": {
       "title": "Xóa tác vụ khỏi danh sách?",

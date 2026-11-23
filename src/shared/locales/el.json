@@ -3037,7 +3037,12 @@
       "fileSelected_other": "Επιλέχθηκαν {{count}} αρχεία",
       "image": "Εικόνα",
       "selectAll": "Επιλογή όλων",
-      "video": "Βίντεο"
+      "video": "Βίντεο",
+      "searchFiles": "Αναζήτηση διαδρομών αρχείων",
+      "expandAll": "Ανάπτυξη όλων",
+      "collapseAll": "Σύμπτυξη όλων",
+      "selectMatching": "Επιλογή αντίστοιχων αρχείων",
+      "noMatchingFiles": "Δεν βρέθηκαν αντίστοιχα αρχεία"
     },
     "storage": {
       "move": "Move files…",

@@ -1177,7 +1177,12 @@
       "video": "Videó",
       "audio": "Hang",
       "image": "Kép",
-      "doc": "Dokumentum"
+      "doc": "Dokumentum",
+      "searchFiles": "Keresés fájlútvonalakban",
+      "expandAll": "Összes kibontása",
+      "collapseAll": "Összes összecsukása",
+      "selectMatching": "Egyező fájlok kijelölése",
+      "noMatchingFiles": "Nincs egyező fájl"
     },
     "remove": {
       "title": "Eltávolítod a feladatot?",

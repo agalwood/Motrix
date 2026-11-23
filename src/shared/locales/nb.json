@@ -3037,7 +3037,12 @@
       "fileSelected_other": "{{count}} filer valgt",
       "image": "Bilde",
       "selectAll": "Velg alle",
-      "video": "Video"
+      "video": "Video",
+      "searchFiles": "Søk i filbaner",
+      "expandAll": "Utvid alle",
+      "collapseAll": "Skjul alle",
+      "selectMatching": "Velg samsvarende filer",
+      "noMatchingFiles": "Ingen samsvarende filer"
     },
     "storage": {
       "move": "Move files…",

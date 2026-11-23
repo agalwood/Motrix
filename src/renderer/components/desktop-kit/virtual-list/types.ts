@@ -25,6 +25,8 @@ export interface VirtualListProps<T> {
     HTMLAttributes<HTMLDivElement>,
     'children' | 'className' | 'style'
   >
+  /** Semantics/focus for the virtual body, excluding toolbar/header controls. */
+  contentProps?: HTMLAttributes<HTMLDivElement>
 }
 
 export interface RowRenderProps<T> {

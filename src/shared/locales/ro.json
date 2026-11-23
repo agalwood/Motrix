@@ -3059,7 +3059,12 @@
       "fileSelected_other": "{{count}} de fișiere selectate",
       "image": "Imagine",
       "selectAll": "Selectează tot",
-      "video": "Video"
+      "video": "Video",
+      "searchFiles": "Caută în căile fișierelor",
+      "expandAll": "Extinde tot",
+      "collapseAll": "Restrânge tot",
+      "selectMatching": "Selectează fișierele potrivite",
+      "noMatchingFiles": "Niciun fișier potrivit"
     },
     "storage": {
       "move": "Move files…",

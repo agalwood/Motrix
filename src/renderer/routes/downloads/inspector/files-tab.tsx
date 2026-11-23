@@ -11,7 +11,7 @@ import { Commands } from '@shared/protocol/commands'
 import type { DownloadTask, TaskFile } from '@shared/types/task'
 import { TaskKind, TaskStatus, TaskType } from '@shared/types/task'
 import { canRenameTaskFiles } from '@shared/types/task-actions'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { TaskFileRenameDialog } from './task-file-rename-dialog'
 
@@ -27,11 +27,13 @@ const READ_ONLY_STATES = new Set<TaskStatus>([
   TaskStatus.Removed,
 ])
 
-function arraysEqualSorted(a: number[], b: number[]): boolean {
+const EMPTY_SELECTION: number[] = []
+
+function sameSelection(a: number[], b: number[]): boolean {
+  if (a === b) return true
   if (a.length !== b.length) return false
-  const sa = [...a].sort((x, y) => x - y)
-  const sb = [...b].sort((x, y) => x - y)
-  return sa.every((v, i) => v === sb[i])
+  const set = new Set(a)
+  return b.every((index) => set.has(index))
 }
 
 export function FilesTab({ task }: { task: DownloadTask }) {
@@ -52,7 +54,7 @@ export function FilesTab({ task }: { task: DownloadTask }) {
     engineTaskId: string
     file: TaskFile
   } | null>(null)
-  const initial = task.bt?.selectedFiles ?? []
+  const initial = task.bt?.selectedFiles ?? EMPTY_SELECTION
   const [draft, setDraft] = useState<number[]>(initial)
   // Direct HTTP/FTP and single-file tasks have no file selection to make.
   // Media tasks require the entire segment plan, so their list is read-only
@@ -64,12 +66,19 @@ export function FilesTab({ task }: { task: DownloadTask }) {
     files.length <= 1
   const isReadOnly =
     READ_ONLY_STATES.has(task.status) || isStructurallyImmutable
+  const immutableSelection = useMemo(
+    () =>
+      isStructurallyImmutable
+        ? files.filter((file) => !file.padding).map((file) => file.index)
+        : EMPTY_SELECTION,
+    [files, isStructurallyImmutable]
+  )
   const selectedIndices = isStructurallyImmutable
-    ? files.map((file) => file.index)
+    ? immutableSelection
     : isReadOnly
       ? initial
       : draft
-  const dirty = !arraysEqualSorted(draft, initial)
+  const dirty = useMemo(() => !sameSelection(draft, initial), [draft, initial])
   const canSave = dirty && draft.length > 0
 
   async function onSave() {
@@ -82,6 +91,11 @@ export function FilesTab({ task }: { task: DownloadTask }) {
   return (
     <div className="flex min-h-26 flex-1 flex-col gap-2 border border-border rounded-md">
       <FileList<TaskFile>
+        key={`${task.id}:${task.engineTaskId}`}
+        hierarchical={
+          !isMedia &&
+          (task.type === TaskType.Bt || task.type === TaskType.Magnet)
+        }
         scrollbar="custom"
         showColumnHeaders={false}
         className="max-h-60"

@@ -1163,7 +1163,12 @@
       "video": "视频",
       "audio": "音频",
       "image": "图片",
-      "doc": "文档"
+      "doc": "文档",
+      "searchFiles": "搜索文件路径",
+      "expandAll": "全部展开",
+      "collapseAll": "全部收起",
+      "selectMatching": "选择匹配的文件",
+      "noMatchingFiles": "没有匹配的文件"
     },
     "remove": {
       "title": "移除任务？",

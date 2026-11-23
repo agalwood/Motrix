@@ -1,3 +1,4 @@
+import '@test-utils/dom-animations'
 import { invalidateTaskList } from '@renderer/hooks/use-task-list'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -12,6 +13,15 @@ import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
 import { holdExitAnimation } from '@test-utils/hold-exit-animation'
 import { AddTaskForm } from './add-task-form'
+
+vi.stubGlobal(
+  'ResizeObserver',
+  class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+)
 
 const { recordRecentMock, invokeMock } = vi.hoisted(() => ({
   recordRecentMock: vi.fn().mockResolvedValue(undefined),

@@ -6,4 +6,6 @@ export interface BaseFileRow {
   index: number
   path: string
   size: number
+  /** Native torrent padding entries are not user-selectable files. */
+  padding?: boolean
 }

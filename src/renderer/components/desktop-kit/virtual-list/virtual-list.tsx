@@ -41,6 +41,7 @@ function VirtualListInner<T>(
     style,
     activeIndex,
     containerProps,
+    contentProps,
   } = props
 
   const internalRef = useRef<HTMLDivElement>(null)
@@ -101,6 +102,7 @@ function VirtualListInner<T>(
         renderEmpty()
       ) : (
         <div
+          {...contentProps}
           style={{
             height: virtualizer.getTotalSize(),
             width: '100%',

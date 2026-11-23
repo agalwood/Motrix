@@ -3037,7 +3037,12 @@
       "fileSelected_other": "{{count}} فایل انتخاب شده",
       "image": "تصویر",
       "selectAll": "انتخاب همه",
-      "video": "ویدیو"
+      "video": "ویدیو",
+      "searchFiles": "جستجو در مسیر فایل‌ها",
+      "expandAll": "باز کردن همه",
+      "collapseAll": "بستن همه",
+      "selectMatching": "انتخاب فایل‌های مطابق",
+      "noMatchingFiles": "فایل مطابقی پیدا نشد"
     },
     "storage": {
       "move": "Move files…",
