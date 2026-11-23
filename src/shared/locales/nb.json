@@ -2134,21 +2134,21 @@
         "learnMore": "Les mer",
         "maxConcurrentDownloads": "Samtidige nedlastinger",
         "maxConcurrentDownloadsDesc": "Oppgaver utover denne grensen venter i køen.",
-        "maxConnectionPerServer": "Maks. tilkoblinger per server",
-        "maxConnectionPerServerDesc": "Tilkoblingsgrense per fil for én server.",
+        "maxConnectionPerServer": "Samtidighetsgrense per server",
+        "maxConnectionPerServerDesc": "Grense for samtidige forespørsler per fil og server; HTTP/2 bruker parallelle strømmer.",
         "metrics": {
           "cache": "Diskbuffer",
           "connections": "Maks. tilkoblinger",
           "minimum": "Min. segment",
           "perServer": "Grense per server"
         },
-        "minSplitSize": "Min. segmentstørrelse ({{unit}})",
-        "minSplitSizeDesc": "Segmenter under det dobbelte av denne størrelsen deles ikke opp.",
+        "minSplitSize": "Referansestørrelse for segmenter ({{unit}})",
+        "minSplitSizeDesc": "Referanse for dynamiske segmenter; små nedlastinger kan bruke mindre segmenter.",
         "profile": "Nedlastingsytelse",
         "profileDesc": "Balanser nedlastingshastighet og ressursbruk.",
         "profiles": {
           "auto": {
-            "desc": "Tilpasses lagringsenheten og filstørrelsen. Verdiene nedenfor er standardverdier.",
+            "desc": "Motoren justerer samtidigheten under overføringen. Verdiene angir start og grenser.",
             "label": "Automatisk"
           },
           "balanced": {
@@ -2156,20 +2156,20 @@
             "label": "Balansert"
           },
           "custom": {
-            "desc": "Angi tilkoblinger, segmentstørrelse og buffer.",
+            "desc": "Angi innledende samtidighet, grenser og segmentstørrelse.",
             "label": "Egendefinert"
           },
           "high": {
-            "desc": "Bruker flere tilkoblinger for raskere nedlastinger.",
+            "desc": "Starter flere forespørsler parallelt.",
             "label": "Høy hastighet"
           },
           "maximum": {
-            "desc": "Bruker flere tilkoblinger. Noen servere kan begrense dem.",
+            "desc": "Starter ved samtidighetsgrensen; noen servere kan begrense forespørsler.",
             "label": "Maksimal"
           }
         },
-        "split": "Maks. tilkoblinger per fil",
-        "splitDesc": "Tilkoblinger som brukes til å laste ned én fil.",
+        "split": "Innledende samtidighet",
+        "splitDesc": "Startmål for dynamisk planlegging, begrenset av samtidighetsgrensen.",
         "title": "Ytelse"
       },
       "reliability": {
@@ -2178,9 +2178,9 @@
         "lowestSpeedLimit": "Minste tilkoblingshastighet ({{unit}})",
         "lowestSpeedLimitDesc": "Koble fra under denne hastigheten. 0 = deaktivert.",
         "maxTries": "Maksimalt antall forsøk",
-        "maxTriesDesc": "Inkluderer første forsøk. 0 = ubegrenset.",
+        "maxTriesDesc": "Maksimalt antall forsøk per segment; 0 betyr ubegrenset.",
         "retryWait": "Ventetid før nytt forsøk (s)",
-        "retryWaitDesc": "Vent så lenge før et nytt forsøk.",
+        "retryWaitDesc": "Innledende ventetid dobles etter feil, opptil 30 sekunder.",
         "socketTimeout": "Tidsgrense uten data (s)",
         "socketTimeoutDesc": "Hvor lenge det skal ventes når ingen data kommer.",
         "title": "Tilkoblinger og nye forsøk",

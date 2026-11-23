@@ -1648,7 +1648,7 @@
         "profiles": {
           "auto": {
             "label": "自動",
-            "desc": "依磁碟和檔案大小自動調整，下方為預設值。"
+            "desc": "引擎在傳輸時調整並行數，下方設定初始值和上限。"
           },
           "balanced": {
             "label": "均衡",
@@ -1656,25 +1656,25 @@
           },
           "high": {
             "label": "高速",
-            "desc": "增加連線數，提升下載速度。"
+            "desc": "以較高的並行目標開始下載。"
           },
           "maximum": {
             "label": "極限",
-            "desc": "使用更多連線，部分伺服器可能會限制連線數。"
+            "desc": "從並行上限開始下載，部分伺服器可能限流。"
           },
           "custom": {
             "label": "自訂",
-            "desc": "設定連線數、分段大小和快取。"
+            "desc": "設定初始並行數、上限和區段大小。"
           }
         },
         "maxConcurrentDownloads": "同時下載任務數",
         "maxConcurrentDownloadsDesc": "超出的任務會排隊等候。",
-        "maxConnectionPerServer": "每台伺服器的連線數上限",
-        "maxConnectionPerServerDesc": "每個檔案對同一伺服器的連線上限。",
-        "split": "單一檔案連線數上限",
-        "splitDesc": "下載單一檔案時使用的連線數。",
-        "minSplitSize": "最小分段大小（{{unit}}）",
-        "minSplitSizeDesc": "小於此值兩倍的分段不再拆分。"
+        "maxConnectionPerServer": "單伺服器並行上限",
+        "maxConnectionPerServerDesc": "每個檔案對同一伺服器的請求並行上限；HTTP/2 對應並行串流。",
+        "split": "初始下載並行數",
+        "splitDesc": "動態排程的初始並行目標，不超過並行上限。",
+        "minSplitSize": "區段參考大小 ({{unit}})",
+        "minSplitSizeDesc": "動態區段的參考大小；小檔案可能使用更小的區段。"
       },
       "reliability": {
         "title": "連線與重試",
@@ -1685,9 +1685,9 @@
         "socketTimeout": "資料等候時間（秒）",
         "socketTimeoutDesc": "連線後未收到資料的最長等候時間。",
         "maxTries": "最多嘗試次數",
-        "maxTriesDesc": "包含首次嘗試；0 表示不限次數。",
+        "maxTriesDesc": "每個區段的嘗試次數上限；0 表示不限次數。",
         "retryWait": "重試間隔（秒）",
-        "retryWaitDesc": "失敗後等多久再試。",
+        "retryWaitDesc": "重試的初始等待時間，失敗後逐次加倍，最多 30 秒。",
         "lowestSpeedLimit": "最低連線速度（{{unit}}）",
         "lowestSpeedLimitDesc": "低於此速度時中斷連線；0 表示關閉。"
       },

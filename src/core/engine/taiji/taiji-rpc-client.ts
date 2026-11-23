@@ -6,6 +6,7 @@ import { Aria2RpcClient } from '../aria2/aria2-rpc-client'
 import type { JsonRpcProtocol } from '../aria2/json-rpc-protocol'
 import type { WebSocketTransport } from '../aria2/web-socket-transport'
 import type { HttpOutput } from '../engine-adapter'
+import { parseTaijiCapabilities } from './taiji-capabilities'
 
 const versionSchema = z.object({
   version: z.string().regex(/^taiji\/\d+\.\d+\.\d+(?:[-+].*)?$/),
@@ -31,6 +32,10 @@ const FORK_ONLY_METHODS = new Set([
 
 /** Native taiji RPC; never enables the daemon's aria2 compatibility mode. */
 export class TaijiRpcClient extends Aria2RpcClient {
+  async getNativeCapabilities() {
+    return parseTaijiCapabilities(await this.call('taiji.getCapabilities', []))
+  }
+
   async replaceUris(
     gid: string,
     previous: readonly string[],

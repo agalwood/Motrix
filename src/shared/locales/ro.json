@@ -2153,21 +2153,21 @@
         "learnMore": "Află mai multe",
         "maxConcurrentDownloads": "Descărcări simultane",
         "maxConcurrentDownloadsDesc": "Sarcinile suplimentare așteaptă în coadă.",
-        "maxConnectionPerServer": "Conexiuni maxime per server",
-        "maxConnectionPerServerDesc": "Limita conexiunilor pentru un fișier de pe același server.",
+        "maxConnectionPerServer": "Limită simultană per server",
+        "maxConnectionPerServerDesc": "Limită de cereri simultane per fișier și server; HTTP/2 utilizează fluxuri simultane.",
         "metrics": {
           "cache": "Cache pe disc",
           "connections": "Conexiuni maxime",
           "minimum": "Segment minim",
           "perServer": "Limită per server"
         },
-        "minSplitSize": "Dimensiunea minimă a segmentului ({{unit}})",
-        "minSplitSizeDesc": "Segmentele mai mici decât dublul acestei dimensiuni nu sunt împărțite.",
+        "minSplitSize": "Dimensiune de referință a segmentului ({{unit}})",
+        "minSplitSizeDesc": "Referință pentru segmente dinamice; descărcările mici pot folosi segmente mai mici.",
         "profile": "Performanța descărcării",
         "profileDesc": "Echilibrează viteza de descărcare și consumul de resurse.",
         "profiles": {
           "auto": {
-            "desc": "Se adaptează la disc și la dimensiunea fișierului. Valorile de mai jos sunt cele implicite.",
+            "desc": "Motorul ajustează concurența în timpul transferului. Valorile stabilesc începutul și limitele.",
             "label": "Automat"
           },
           "balanced": {
@@ -2175,20 +2175,20 @@
             "label": "Echilibrat"
           },
           "custom": {
-            "desc": "Setează conexiunile, dimensiunea segmentelor și memoria cache.",
+            "desc": "Setați concurența inițială, limitele și dimensiunea segmentului.",
             "label": "Personalizat"
           },
           "high": {
-            "desc": "Folosește mai multe conexiuni pentru descărcări mai rapide.",
+            "desc": "Pornește mai multe cereri în paralel.",
             "label": "Viteză mare"
           },
           "maximum": {
-            "desc": "Folosește mai multe conexiuni. Unele servere le pot limita.",
+            "desc": "Pornește la limita concurenței; unele servere pot limita cererile.",
             "label": "Maxim"
           }
         },
-        "split": "Conexiuni maxime per fișier",
-        "splitDesc": "Conexiunile folosite pentru descărcarea unui fișier.",
+        "split": "Concurență inițială",
+        "splitDesc": "Ținta inițială a planificării dinamice, în limita concurenței.",
         "title": "Performanță"
       },
       "reliability": {
@@ -2197,9 +2197,9 @@
         "lowestSpeedLimit": "Viteza minimă a conexiunii ({{unit}})",
         "lowestSpeedLimitDesc": "Deconectează sub această viteză. 0 = dezactivat.",
         "maxTries": "Număr maxim de încercări",
-        "maxTriesDesc": "Include prima încercare. 0 = nelimitat.",
+        "maxTriesDesc": "Număr maxim de încercări per segment; 0 înseamnă nelimitat.",
         "retryWait": "Pauză înainte de reîncercare (s)",
-        "retryWaitDesc": "Așteaptă atât timp înainte de o nouă încercare.",
+        "retryWaitDesc": "Așteptarea inițială se dublează după erori, până la 30 de secunde.",
         "socketTimeout": "Timp-limită fără date (s)",
         "socketTimeoutDesc": "Cât timp se așteaptă când nu sosesc date.",
         "title": "Conexiuni și reîncercări",

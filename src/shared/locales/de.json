@@ -1662,7 +1662,7 @@
         "profiles": {
           "auto": {
             "label": "Automatisch",
-            "desc": "Passt sich an Laufwerk und Dateigröße an. Die Werte unten sind Standardwerte."
+            "desc": "Die Engine passt die Parallelität während der Übertragung an. Die Werte bestimmen Start und Grenzen."
           },
           "balanced": {
             "label": "Ausgewogen",
@@ -1670,25 +1670,25 @@
           },
           "high": {
             "label": "Hohe Geschwindigkeit",
-            "desc": "Verwendet mehr Verbindungen für schnellere Downloads."
+            "desc": "Startet mehr Anfragen parallel."
           },
           "maximum": {
             "label": "Maximum",
-            "desc": "Verwendet mehr Verbindungen. Manche Server begrenzen deren Anzahl."
+            "desc": "Startet am Parallelitätslimit; manche Server können Anfragen drosseln."
           },
           "custom": {
             "label": "Benutzerdefiniert",
-            "desc": "Verbindungen, Segmentgröße und Cache festlegen."
+            "desc": "Anfängliche Parallelität, Grenzen und Segmentgröße festlegen."
           }
         },
         "maxConcurrentDownloads": "Gleichzeitige Downloads",
         "maxConcurrentDownloadsDesc": "Weitere Aufgaben warten in der Warteschlange.",
-        "maxConnectionPerServer": "Max. Verbindungen pro Server",
-        "maxConnectionPerServerDesc": "Verbindungslimit je Datei zu einem Server.",
-        "split": "Max. Verbindungen pro Datei",
-        "splitDesc": "Verbindungen zum Herunterladen einer Datei.",
-        "minSplitSize": "Min. Segmentgröße ({{unit}})",
-        "minSplitSizeDesc": "Segmente kleiner als das Doppelte dieses Werts werden nicht aufgeteilt."
+        "maxConnectionPerServer": "Parallelitätslimit pro Server",
+        "maxConnectionPerServerDesc": "Limit gleichzeitiger Anfragen je Datei und Server; bei HTTP/2 sind es parallele Streams.",
+        "split": "Anfängliche Parallelität",
+        "splitDesc": "Anfangsziel der dynamischen Planung, begrenzt durch das Parallelitätslimit.",
+        "minSplitSize": "Referenzgröße für Segmente ({{unit}})",
+        "minSplitSizeDesc": "Referenz für dynamische Segmente; kleine Downloads können kleinere Segmente verwenden."
       },
       "reliability": {
         "title": "Verbindungen und Wiederholungen",
@@ -1699,9 +1699,9 @@
         "socketTimeout": "Zeitlimit ohne Daten (s)",
         "socketTimeoutDesc": "Wartezeit, wenn keine Daten eingehen.",
         "maxTries": "Maximale Versuche",
-        "maxTriesDesc": "Einschließlich des ersten Versuchs. 0 = unbegrenzt.",
+        "maxTriesDesc": "Maximale Versuche je Segment; 0 bedeutet unbegrenzt.",
         "retryWait": "Wartezeit vor Wiederholung (s)",
-        "retryWaitDesc": "So lange vor einem erneuten Versuch warten.",
+        "retryWaitDesc": "Anfängliche Wartezeit; nach Fehlern verdoppelt, höchstens 30 Sekunden.",
         "lowestSpeedLimit": "Minimale Verbindungsgeschwindigkeit ({{unit}})",
         "lowestSpeedLimitDesc": "Verbindung unterhalb dieser Geschwindigkeit trennen. 0 = deaktiviert."
       },

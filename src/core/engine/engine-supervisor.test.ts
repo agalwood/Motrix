@@ -155,6 +155,7 @@ function createMockTrustStore(): Aria2TrustStore {
 
 function createMockAdapter(): EngineRuntimeControl {
   return {
+    getFeatureReport: vi.fn(() => FEATURE_REPORT),
     connect: vi.fn().mockResolvedValue(undefined),
     applySettings: vi.fn().mockResolvedValue(undefined),
     setSpeedLimits: vi.fn().mockResolvedValue(undefined),
@@ -563,6 +564,13 @@ describe('EngineSupervisor', () => {
     it('caches feature report after successful start', async () => {
       await supervisor.start('/usr/bin/aria2c')
       expect(supervisor.getFeatureReport()).toEqual(FEATURE_REPORT)
+    })
+
+    it('publishes authenticated runtime capabilities instead of the binary probe defaults', async () => {
+      const runtimeReport = { ...FEATURE_REPORT, hasMoveStorage: true }
+      vi.mocked(adapter.getFeatureReport).mockReturnValue(runtimeReport)
+      await supervisor.start('/usr/bin/aria2c')
+      expect(supervisor.getFeatureReport()).toEqual(runtimeReport)
     })
 
     it('injects the probed feature report into the adapter before Ready', async () => {

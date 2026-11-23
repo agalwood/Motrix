@@ -6,6 +6,7 @@ import { BDictionary, decode, encode, parseTorrent } from '@motrix/torrent'
 /** Independent BEP52 peer with real Merkle proofs and an explicit proof gate. */
 export async function startV2MetadataPeer(options: {
   pieceLength: number
+  name?: string
   pieces: number
   proofs?: boolean
   corruptProofs?: boolean
@@ -33,11 +34,13 @@ export async function startV2MetadataPeer(options: {
   const root = layers[layers.length - 1][0]
   const info = Buffer.from(
     encode({
-      name: 'payload.bin',
+      name: options.name ?? 'payload.bin',
       'meta version': 2,
       'piece length': options.pieceLength,
       'file tree': {
-        'payload.bin': { '': { length: payload.length, 'pieces root': root } },
+        [options.name ?? 'payload.bin']: {
+          '': { length: payload.length, 'pieces root': root },
+        },
       },
       ...(options.private ? { private: 1 } : {}),
       ...(options.hybrid

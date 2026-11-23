@@ -8,6 +8,7 @@ import type { DownloadProxyOptions } from '../proxy/serializers'
 import type { DirectResourceMetadataProfile } from './engine-adapter'
 
 export interface EngineRuntimeControl {
+  getFeatureReport(): EngineFeatureReport
   applySettings(
     settings: EngineSettings,
     previous?: EngineSettings

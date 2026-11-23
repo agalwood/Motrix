@@ -1,8 +1,8 @@
 {
   "engine": "taiji",
   "repo": "motrixapp/taiji",
-  "tag": "v0.9.0",
-  "version": "0.9.0",
+  "tag": "v0.9.1",
+  "version": "0.9.1",
   "assets": {
     "darwin-arm64": {
       "bin": "taiji",

@@ -1662,7 +1662,7 @@
         "profiles": {
           "auto": {
             "label": "Automatic",
-            "desc": "Adjusts to your drive and file size. Values below are defaults."
+            "desc": "The engine adjusts concurrency during transfers. Values below set the starting point and limits."
           },
           "balanced": {
             "label": "Balanced",
@@ -1670,25 +1670,25 @@
           },
           "high": {
             "label": "High speed",
-            "desc": "Uses more connections for faster downloads."
+            "desc": "Starts more requests in parallel."
           },
           "maximum": {
             "label": "Maximum",
-            "desc": "Uses more connections. Some servers may limit them."
+            "desc": "Starts at the concurrency limit; some servers may throttle requests."
           },
           "custom": {
             "label": "Custom",
-            "desc": "Set connections, segment size, and cache."
+            "desc": "Set initial concurrency, limits, and segment size."
           }
         },
         "maxConcurrentDownloads": "Simultaneous downloads",
         "maxConcurrentDownloadsDesc": "Additional tasks wait in the queue.",
-        "maxConnectionPerServer": "Max connections per server",
-        "maxConnectionPerServerDesc": "Per-file connection limit for one server.",
-        "split": "Max connections per file",
-        "splitDesc": "Connections used to download one file.",
-        "minSplitSize": "Min segment size ({{unit}})",
-        "minSplitSizeDesc": "Segments below 2× this size won’t split."
+        "maxConnectionPerServer": "Concurrency limit per server",
+        "maxConnectionPerServerDesc": "Per-file request concurrency limit for one server; HTTP/2 uses concurrent streams.",
+        "split": "Initial concurrency",
+        "splitDesc": "Initial target for dynamic scheduling, bounded by the concurrency limit.",
+        "minSplitSize": "Segment size reference ({{unit}})",
+        "minSplitSizeDesc": "Reference size for dynamic segments; small downloads may split below this size."
       },
       "reliability": {
         "title": "Connections and retries",
@@ -1699,9 +1699,9 @@
         "socketTimeout": "No-data timeout (s)",
         "socketTimeoutDesc": "How long to wait when no data arrives.",
         "maxTries": "Maximum attempts",
-        "maxTriesDesc": "Includes the first attempt. 0 = unlimited.",
+        "maxTriesDesc": "Maximum attempts per segment; 0 means unlimited.",
         "retryWait": "Retry delay (s)",
-        "retryWaitDesc": "Wait this long before trying again.",
+        "retryWaitDesc": "Initial retry delay, doubled after failures up to 30 seconds.",
         "lowestSpeedLimit": "Minimum connection speed ({{unit}})",
         "lowestSpeedLimitDesc": "Disconnect below this speed. 0 = disabled."
       },

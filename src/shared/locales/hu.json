@@ -1662,7 +1662,7 @@
         "profiles": {
           "auto": {
             "label": "Automatikus",
-            "desc": "A meghajtóhoz és a fájlmérethez igazodik. Alább az alapértékek láthatók."
+            "desc": "A motor átvitel közben módosítja a párhuzamosságot. Az értékek a kezdetet és a korlátokat adják meg."
           },
           "balanced": {
             "label": "Kiegyensúlyozott",
@@ -1670,25 +1670,25 @@
           },
           "high": {
             "label": "Nagy sebesség",
-            "desc": "Több kapcsolatot használ a gyorsabb letöltésekhez."
+            "desc": "Több kérést indít párhuzamosan."
           },
           "maximum": {
             "label": "Maximális",
-            "desc": "Több kapcsolatot használ. Egyes szerverek korlátozhatják ezeket."
+            "desc": "A párhuzamossági korláton indul; egyes kiszolgálók korlátozhatják a kéréseket."
           },
           "custom": {
             "label": "Egyéni",
-            "desc": "A kapcsolatok, a szegmensméret és a gyorsítótár beállítása."
+            "desc": "Kezdeti párhuzamosság, korlátok és szegmensméret beállítása."
           }
         },
         "maxConcurrentDownloads": "Párhuzamos letöltések",
         "maxConcurrentDownloadsDesc": "A további feladatok a várólistára kerülnek.",
-        "maxConnectionPerServer": "Szerverenkénti maximális kapcsolatszám",
-        "maxConnectionPerServerDesc": "Egy szerverhez indítható kapcsolatok fájlonkénti korlátja.",
-        "split": "Fájlonkénti maximális kapcsolatszám",
-        "splitDesc": "Egy fájl letöltéséhez használt kapcsolatok száma.",
-        "minSplitSize": "Minimális szegmensméret ({{unit}})",
-        "minSplitSizeDesc": "Az érték kétszeresénél kisebb szegmenseket nem bontja tovább."
+        "maxConnectionPerServer": "Kiszolgálónkénti párhuzamossági korlát",
+        "maxConnectionPerServerDesc": "Fájlonkénti és kiszolgálónkénti párhuzamos kérések korlátja; HTTP/2 esetén párhuzamos adatfolyamok.",
+        "split": "Kezdeti párhuzamosság",
+        "splitDesc": "A dinamikus ütemezés kezdeti célja a párhuzamossági korláton belül.",
+        "minSplitSize": "Szegmensméret referenciaértéke ({{unit}})",
+        "minSplitSizeDesc": "Dinamikus szegmensek referenciaértéke; a kis letöltések kisebb szegmensekre is oszthatók."
       },
       "reliability": {
         "title": "Kapcsolatok és újrapróbálkozások",
@@ -1699,9 +1699,9 @@
         "socketTimeout": "Adatvárakozási időkorlát (mp)",
         "socketTimeoutDesc": "Mennyi ideig várjon, ha nem érkezik adat.",
         "maxTries": "Próbálkozások maximális száma",
-        "maxTriesDesc": "Az első próbálkozást is tartalmazza. 0 = korlátlan.",
+        "maxTriesDesc": "Szegmensenkénti próbálkozási korlát; 0 esetén korlátlan.",
         "retryWait": "Várakozás újrapróbálkozás előtt (mp)",
-        "retryWaitDesc": "Ennyi ideig várjon az újabb próbálkozás előtt.",
+        "retryWaitDesc": "A kezdeti várakozás hibák után megduplázódik, legfeljebb 30 másodpercig.",
         "lowestSpeedLimit": "Minimális kapcsolati sebesség ({{unit}})",
         "lowestSpeedLimitDesc": "Az ennél kisebb sebességű kapcsolatokat bontja. 0 = kikapcsolva."
       },

@@ -7,6 +7,7 @@ import { getLogger } from '@core/logger'
 import type { DownloadProxyOptions } from '@core/proxy/serializers'
 import { admitDownloadSources } from '@core/task/source-admission'
 import { parseTorrent } from '@motrix/torrent'
+import { isVideoFilePath } from '@shared/constants/file-types'
 import { AppError, ErrorCode } from '@shared/errors'
 import { MAX_TORRENT_FILE_SIZE } from '@shared/lib/torrent-meta'
 import { torrentManifestRecordSchema } from '@shared/schemas/torrent-manifest'
@@ -232,14 +233,22 @@ export class TaijiAdapter extends Aria2Adapter {
     this.clearCapabilities()
     // Identity/authentication failure must propagate; an unknown daemon is
     // never admitted as a usable native engine.
-    const { version, enabledFeatures } = await this.taijiRpc.getVersion()
+    const [{ version, enabledFeatures }, capabilities] = await Promise.all([
+      this.taijiRpc.getVersion(),
+      this.taijiRpc.getNativeCapabilities(),
+    ])
+    if (capabilities.version !== version)
+      throw new AppError(
+        ErrorCode.EngineProtocolError,
+        'Inconsistent taiji identity and capability reports'
+      )
     this.setFeatureReport({
       version,
       features: enabledFeatures,
       hasSqlitePersistence: true,
       hasBtSeedUnverified: false,
       hasBtSaveMetadata: enabledFeatures.includes('BitTorrent'),
-      hasMoveStorage: false,
+      hasMoveStorage: capabilities.rpcExtensions.includes('taiji.moveStorage'),
     })
     this.nativeCapabilities = {
       http: enabledFeatures.includes('HTTP'),
@@ -344,8 +353,13 @@ export class TaijiAdapter extends Aria2Adapter {
     )
     if (Object.keys(paths).length !== selection.outputFilePaths.length)
       throw new TypeError('Duplicate torrent output mapping')
+    const verified = await this.taijiRpc.getTorrentManifest(engineTaskId)
+    // The validated manifest contains payload files; inspect leaf names without
+    // copying a large file list or rebuilding full paths.
+    const preview = verified.manifest.files.every(
+      (file) => file.padding || isVideoFilePath(file.components.at(-1) ?? '')
+    )
     if (this.nativeTrackerPolicy) {
-      const verified = await this.taijiRpc.getTorrentManifest(engineTaskId)
       if (verified.awaitingSelection) {
         const policyOptions: Record<string, string> = {}
         await this.applyTrackerPolicy(
@@ -371,6 +385,7 @@ export class TaijiAdapter extends Aria2Adapter {
         padding
       ),
       'motrix-output-paths': JSON.stringify(paths),
+      ...(preview ? { 'bt-prioritize-piece': 'head=10M,tail=10M' } : {}),
     })
     if (gid !== engineTaskId)
       throw new AppError(

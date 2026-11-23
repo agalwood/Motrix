@@ -2134,21 +2134,21 @@
         "learnMore": "Meer informatie",
         "maxConcurrentDownloads": "Gelijktijdige downloads",
         "maxConcurrentDownloadsDesc": "Extra taken wachten in de wachtrij.",
-        "maxConnectionPerServer": "Maximaal aantal verbindingen per server",
-        "maxConnectionPerServerDesc": "Verbindingslimiet per bestand voor één server.",
+        "maxConnectionPerServer": "Gelijktijdigheidslimiet per server",
+        "maxConnectionPerServerDesc": "Limiet voor gelijktijdige verzoeken per bestand en server; HTTP/2 gebruikt parallelle streams.",
         "metrics": {
           "cache": "Schijfcache",
           "connections": "Max. verbindingen",
           "minimum": "Min. segmentgrootte",
           "perServer": "Limiet per server"
         },
-        "minSplitSize": "Minimale segmentgrootte ({{unit}})",
-        "minSplitSizeDesc": "Segmenten kleiner dan 2× deze grootte worden niet gesplitst.",
+        "minSplitSize": "Referentiegrootte van segmenten ({{unit}})",
+        "minSplitSizeDesc": "Referentie voor dynamische segmenten; kleine downloads kunnen kleinere segmenten gebruiken.",
         "profile": "Downloadprestaties",
         "profileDesc": "Vind een balans tussen downloadsnelheid en het gebruik van systeembronnen.",
         "profiles": {
           "auto": {
-            "desc": "Past zich aan je schijf en bestandsgrootte aan. De onderstaande waarden zijn standaardwaarden.",
+            "desc": "De engine past de gelijktijdigheid tijdens de overdracht aan. Deze waarden bepalen het begin en de limieten.",
             "label": "Automatisch"
           },
           "balanced": {
@@ -2156,20 +2156,20 @@
             "label": "Gebalanceerd"
           },
           "custom": {
-            "desc": "Stel verbindingen, segmentgrootte en cache in.",
+            "desc": "Stel aanvankelijke gelijktijdigheid, limieten en segmentgrootte in.",
             "label": "Aangepast"
           },
           "high": {
-            "desc": "Gebruikt meer verbindingen voor snellere downloads.",
+            "desc": "Begint met meer parallelle verzoeken.",
             "label": "Hoge snelheid"
           },
           "maximum": {
-            "desc": "Gebruikt meer verbindingen. Sommige servers kunnen deze beperken.",
+            "desc": "Begint op de gelijktijdigheidslimiet; sommige servers kunnen verzoeken beperken.",
             "label": "Maximaal"
           }
         },
-        "split": "Maximaal aantal verbindingen per bestand",
-        "splitDesc": "Verbindingen die worden gebruikt om één bestand te downloaden.",
+        "split": "Aanvankelijke gelijktijdigheid",
+        "splitDesc": "Begindoel voor dynamische planning, begrensd door de gelijktijdigheidslimiet.",
         "title": "Prestaties"
       },
       "reliability": {
@@ -2178,9 +2178,9 @@
         "lowestSpeedLimit": "Minimale verbindingssnelheid ({{unit}})",
         "lowestSpeedLimitDesc": "Verbreek de verbinding onder deze snelheid. 0 = uitgeschakeld.",
         "maxTries": "Maximaal aantal pogingen",
-        "maxTriesDesc": "Inclusief de eerste poging. 0 = onbeperkt.",
+        "maxTriesDesc": "Maximaal aantal pogingen per segment; 0 betekent onbeperkt.",
         "retryWait": "Wachttijd voor nieuwe poging (s)",
-        "retryWaitDesc": "Wacht zo lang voordat opnieuw wordt geprobeerd.",
+        "retryWaitDesc": "Aanvankelijke wachttijd, verdubbeld na fouten tot maximaal 30 seconden.",
         "socketTimeout": "Time-out zonder gegevens (s)",
         "socketTimeoutDesc": "Hoelang wordt gewacht als er geen gegevens binnenkomen.",
         "title": "Verbindingen en nieuwe pogingen",

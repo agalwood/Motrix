@@ -1676,7 +1676,7 @@
         "profiles": {
           "auto": {
             "label": "Automático",
-            "desc": "Se adapta a la unidad y al tamaño del archivo. Los valores de abajo son los predeterminados."
+            "desc": "El motor ajusta la concurrencia durante la transferencia. Estos valores fijan el inicio y los límites."
           },
           "balanced": {
             "label": "Equilibrado",
@@ -1684,25 +1684,25 @@
           },
           "high": {
             "label": "Alta velocidad",
-            "desc": "Usa más conexiones para descargar más rápido."
+            "desc": "Inicia más solicitudes en paralelo."
           },
           "maximum": {
             "label": "Máximo",
-            "desc": "Usa más conexiones. Algunos servidores podrían limitarlas."
+            "desc": "Inicia en el límite de concurrencia; algunos servidores pueden limitar las solicitudes."
           },
           "custom": {
             "label": "Personalizado",
-            "desc": "Define las conexiones, el tamaño de segmento y la caché."
+            "desc": "Configurar concurrencia inicial, límites y tamaño de segmento."
           }
         },
         "maxConcurrentDownloads": "Descargas simultáneas",
         "maxConcurrentDownloadsDesc": "Las tareas adicionales esperan en la cola.",
-        "maxConnectionPerServer": "Máximo de conexiones por servidor",
-        "maxConnectionPerServerDesc": "Límite de conexiones a un servidor por archivo.",
-        "split": "Máximo de conexiones por archivo",
-        "splitDesc": "Conexiones usadas para descargar un archivo.",
-        "minSplitSize": "Tamaño mínimo de segmento ({{unit}})",
-        "minSplitSizeDesc": "Los segmentos menores que el doble de este tamaño no se dividen."
+        "maxConnectionPerServer": "Límite simultáneo por servidor",
+        "maxConnectionPerServerDesc": "Límite de solicitudes simultáneas por archivo y servidor; HTTP/2 usa flujos simultáneos.",
+        "split": "Concurrencia inicial",
+        "splitDesc": "Objetivo inicial de la planificación dinámica, sujeto al límite de concurrencia.",
+        "minSplitSize": "Tamaño de referencia del segmento ({{unit}})",
+        "minSplitSizeDesc": "Referencia para segmentos dinámicos; las descargas pequeñas pueden usar segmentos menores."
       },
       "reliability": {
         "title": "Conexiones y reintentos",
@@ -1713,9 +1713,9 @@
         "socketTimeout": "Tiempo de espera sin datos (s)",
         "socketTimeoutDesc": "Tiempo máximo de espera cuando no llegan datos.",
         "maxTries": "Número máximo de intentos",
-        "maxTriesDesc": "Incluye el primer intento. 0 = sin límite.",
+        "maxTriesDesc": "Máximo de intentos por segmento; 0 significa sin límite.",
         "retryWait": "Espera entre reintentos (s)",
-        "retryWaitDesc": "Tiempo de espera antes de volver a intentarlo.",
+        "retryWaitDesc": "Espera inicial, duplicada tras cada fallo hasta 30 segundos.",
         "lowestSpeedLimit": "Velocidad mínima de conexión ({{unit}})",
         "lowestSpeedLimitDesc": "Desconecta si la velocidad es inferior. 0 = desactivado."
       },

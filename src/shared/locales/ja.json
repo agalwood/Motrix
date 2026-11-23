@@ -1648,7 +1648,7 @@
         "profiles": {
           "auto": {
             "label": "自動",
-            "desc": "ドライブとファイルサイズに応じて調整します。以下は既定値です。"
+            "desc": "転送中にエンジンが同時実行数を調整します。以下は初期値と上限です。"
           },
           "balanced": {
             "label": "バランス",
@@ -1656,25 +1656,25 @@
           },
           "high": {
             "label": "高速",
-            "desc": "接続数を増やしてダウンロードを高速化します。"
+            "desc": "より多くの同時リクエストで開始します。"
           },
           "maximum": {
             "label": "最大",
-            "desc": "より多くの接続を使用します。サーバーによっては接続数を制限される場合があります。"
+            "desc": "同時実行上限から開始します。サーバーによっては制限される場合があります。"
           },
           "custom": {
             "label": "カスタム",
-            "desc": "接続数、セグメントサイズ、キャッシュを設定します。"
+            "desc": "初期同時実行数、上限、セグメントサイズを設定します。"
           }
         },
         "maxConcurrentDownloads": "同時ダウンロード数",
         "maxConcurrentDownloadsDesc": "上限を超えるタスクはキューで待機します。",
-        "maxConnectionPerServer": "サーバーあたりの最大接続数",
-        "maxConnectionPerServerDesc": "1 つのサーバーに対する、ファイルごとの接続数の上限です。",
-        "split": "ファイルあたりの最大接続数",
-        "splitDesc": "1 つのファイルのダウンロードに使用する接続数です。",
-        "minSplitSize": "最小セグメントサイズ（{{unit}}）",
-        "minSplitSizeDesc": "このサイズの 2 倍未満のセグメントは分割しません。"
+        "maxConnectionPerServer": "サーバーごとの同時実行上限",
+        "maxConnectionPerServerDesc": "ファイルごとの同一サーバーへの同時リクエスト上限。HTTP/2 では同時ストリーム数です。",
+        "split": "初期同時実行数",
+        "splitDesc": "動的スケジューリングの初期目標値。同時実行上限を超えません。",
+        "minSplitSize": "セグメントサイズの目安 ({{unit}})",
+        "minSplitSizeDesc": "動的セグメントの目安。小さいファイルでは、これより小さく分割される場合があります。"
       },
       "reliability": {
         "title": "接続と再試行",
@@ -1685,9 +1685,9 @@
         "socketTimeout": "データ未受信のタイムアウト（秒）",
         "socketTimeoutDesc": "データが届かない場合に待機する時間です。",
         "maxTries": "最大試行回数",
-        "maxTriesDesc": "初回の試行を含みます。0 = 無制限。",
+        "maxTriesDesc": "セグメントごとの最大試行回数。0 は無制限です。",
         "retryWait": "再試行までの待機時間（秒）",
-        "retryWaitDesc": "再試行するまで、この時間だけ待機します。",
+        "retryWaitDesc": "再試行の初期待機時間。失敗のたびに倍増し、最大 30 秒です。",
         "lowestSpeedLimit": "最低接続速度（{{unit}}）",
         "lowestSpeedLimitDesc": "この速度を下回ると切断します。0 = 無効。"
       },

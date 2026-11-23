@@ -1648,7 +1648,7 @@
         "profiles": {
           "auto": {
             "label": "Otomatis",
-            "desc": "Menyesuaikan dengan drive dan ukuran berkas. Nilai di bawah adalah nilai bawaan."
+            "desc": "Mesin menyesuaikan konkurensi selama transfer. Nilai ini menentukan awal dan batasnya."
           },
           "balanced": {
             "label": "Seimbang",
@@ -1656,25 +1656,25 @@
           },
           "high": {
             "label": "Kecepatan tinggi",
-            "desc": "Menggunakan lebih banyak koneksi untuk mempercepat unduhan."
+            "desc": "Memulai lebih banyak permintaan secara serentak."
           },
           "maximum": {
             "label": "Maksimum",
-            "desc": "Menggunakan lebih banyak koneksi. Beberapa server mungkin membatasinya."
+            "desc": "Memulai pada batas konkurensi; beberapa server mungkin membatasi permintaan."
           },
           "custom": {
             "label": "Khusus",
-            "desc": "Atur koneksi, ukuran segmen, dan cache."
+            "desc": "Atur konkurensi awal, batas, dan ukuran segmen."
           }
         },
         "maxConcurrentDownloads": "Unduhan bersamaan",
         "maxConcurrentDownloadsDesc": "Tugas tambahan menunggu dalam antrean.",
-        "maxConnectionPerServer": "Koneksi maksimum per server",
-        "maxConnectionPerServerDesc": "Batas koneksi per berkas untuk satu server.",
-        "split": "Koneksi maksimum per berkas",
-        "splitDesc": "Koneksi yang digunakan untuk mengunduh satu berkas.",
-        "minSplitSize": "Ukuran segmen minimum ({{unit}})",
-        "minSplitSizeDesc": "Segmen di bawah 2× ukuran ini tidak akan dibagi."
+        "maxConnectionPerServer": "Batas konkurensi per server",
+        "maxConnectionPerServerDesc": "Batas permintaan serentak per berkas dan server; HTTP/2 menggunakan aliran serentak.",
+        "split": "Konkurensi awal",
+        "splitDesc": "Target awal penjadwalan dinamis, dibatasi oleh batas konkurensi.",
+        "minSplitSize": "Acuan ukuran segmen ({{unit}})",
+        "minSplitSizeDesc": "Acuan segmen dinamis; unduhan kecil dapat menggunakan segmen yang lebih kecil."
       },
       "reliability": {
         "title": "Koneksi dan percobaan ulang",
@@ -1685,9 +1685,9 @@
         "socketTimeout": "Batas waktu tanpa data (dtk)",
         "socketTimeoutDesc": "Lama waktu menunggu saat tidak ada data yang masuk.",
         "maxTries": "Percobaan maksimum",
-        "maxTriesDesc": "Termasuk percobaan pertama. 0 = tanpa batas.",
+        "maxTriesDesc": "Maksimum percobaan per segmen; 0 berarti tanpa batas.",
         "retryWait": "Jeda percobaan ulang (dtk)",
-        "retryWaitDesc": "Tunggu selama ini sebelum mencoba lagi.",
+        "retryWaitDesc": "Waktu tunggu awal digandakan setelah kegagalan hingga 30 detik.",
         "lowestSpeedLimit": "Kecepatan koneksi minimum ({{unit}})",
         "lowestSpeedLimitDesc": "Putuskan koneksi di bawah kecepatan ini. 0 = nonaktif."
       },

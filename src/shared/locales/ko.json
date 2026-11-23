@@ -1648,7 +1648,7 @@
         "profiles": {
           "auto": {
             "label": "자동",
-            "desc": "드라이브와 파일 크기에 맞게 조절합니다. 아래 값은 기본값입니다."
+            "desc": "전송 중 엔진이 동시 요청 수를 조정합니다. 아래 값은 초기값과 한도입니다."
           },
           "balanced": {
             "label": "균형",
@@ -1656,25 +1656,25 @@
           },
           "high": {
             "label": "고속",
-            "desc": "더 빠른 다운로드를 위해 연결 수를 늘립니다."
+            "desc": "더 많은 동시 요청으로 다운로드를 시작합니다."
           },
           "maximum": {
             "label": "최대",
-            "desc": "더 많은 연결을 사용합니다. 일부 서버에서는 연결 수를 제한할 수 있습니다."
+            "desc": "동시 요청 한도에서 시작합니다. 일부 서버는 요청을 제한할 수 있습니다."
           },
           "custom": {
             "label": "사용자 지정",
-            "desc": "연결 수, 세그먼트 크기 및 캐시를 설정합니다."
+            "desc": "초기 동시 요청 수, 한도, 조각 크기를 설정합니다."
           }
         },
         "maxConcurrentDownloads": "동시 다운로드 수",
         "maxConcurrentDownloadsDesc": "나머지 작업은 대기열에서 기다립니다.",
-        "maxConnectionPerServer": "서버당 최대 연결 수",
-        "maxConnectionPerServerDesc": "한 서버에서 파일 하나를 다운로드할 때의 연결 수 제한입니다.",
-        "split": "파일당 최대 연결 수",
-        "splitDesc": "파일 하나를 다운로드하는 데 사용하는 연결 수입니다.",
-        "minSplitSize": "최소 세그먼트 크기({{unit}})",
-        "minSplitSizeDesc": "이 크기의 2배보다 작은 세그먼트는 분할하지 않습니다."
+        "maxConnectionPerServer": "서버별 동시 요청 한도",
+        "maxConnectionPerServerDesc": "파일마다 동일 서버로 보내는 동시 요청 한도입니다. HTTP/2에서는 동시 스트림 수입니다.",
+        "split": "초기 동시 요청 수",
+        "splitDesc": "동적 스케줄링의 초기 목표이며 동시 요청 한도를 넘지 않습니다.",
+        "minSplitSize": "조각 크기 기준 ({{unit}})",
+        "minSplitSizeDesc": "동적 조각 크기의 기준입니다. 작은 파일은 더 작은 조각으로 나뉠 수 있습니다."
       },
       "reliability": {
         "title": "연결 및 재시도",
@@ -1685,9 +1685,9 @@
         "socketTimeout": "데이터 수신 대기 시간(초)",
         "socketTimeoutDesc": "데이터가 수신되지 않을 때 기다리는 시간입니다.",
         "maxTries": "최대 시도 횟수",
-        "maxTriesDesc": "첫 시도를 포함합니다. 0 = 무제한.",
+        "maxTriesDesc": "조각별 최대 시도 횟수입니다. 0은 무제한입니다.",
         "retryWait": "재시도 대기 시간(초)",
-        "retryWaitDesc": "다시 시도하기 전에 기다리는 시간입니다.",
+        "retryWaitDesc": "초기 재시도 대기 시간입니다. 실패할 때마다 두 배로 늘어나며 최대 30초입니다.",
         "lowestSpeedLimit": "최소 연결 속도({{unit}})",
         "lowestSpeedLimitDesc": "속도가 이 값보다 낮으면 연결을 끊습니다. 0 = 사용 안 함."
       },

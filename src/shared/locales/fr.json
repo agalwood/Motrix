@@ -2153,21 +2153,21 @@
         "learnMore": "En savoir plus",
         "maxConcurrentDownloads": "Téléchargements simultanés",
         "maxConcurrentDownloadsDesc": "Les tâches supplémentaires restent dans la file d’attente.",
-        "maxConnectionPerServer": "Connexions maximales par serveur",
-        "maxConnectionPerServerDesc": "Limite de connexions à un même serveur pour chaque fichier.",
+        "maxConnectionPerServer": "Limite simultanée par serveur",
+        "maxConnectionPerServerDesc": "Limite de requêtes simultanées par fichier et serveur ; HTTP/2 utilise des flux simultanés.",
         "metrics": {
           "cache": "Cache disque",
           "connections": "Connexions max.",
           "minimum": "Segment min.",
           "perServer": "Limite par serveur"
         },
-        "minSplitSize": "Taille minimale des segments ({{unit}})",
-        "minSplitSizeDesc": "Les segments inférieurs au double de cette taille ne sont pas divisés.",
+        "minSplitSize": "Taille de référence des segments ({{unit}})",
+        "minSplitSizeDesc": "Référence pour les segments dynamiques ; les petits téléchargements peuvent utiliser des segments plus petits.",
         "profile": "Performances de téléchargement",
         "profileDesc": "Équilibrer le débit de téléchargement et l’utilisation des ressources.",
         "profiles": {
           "auto": {
-            "desc": "S’adapte à votre disque et à la taille du fichier. Les valeurs ci-dessous sont les valeurs par défaut.",
+            "desc": "Le moteur ajuste le parallélisme pendant le transfert. Les valeurs définissent le départ et les limites.",
             "label": "Automatique"
           },
           "balanced": {
@@ -2175,20 +2175,20 @@
             "label": "Équilibré"
           },
           "custom": {
-            "desc": "Définir le nombre de connexions, la taille des segments et le cache.",
+            "desc": "Définir le parallélisme initial, les limites et la taille des segments.",
             "label": "Personnalisé"
           },
           "high": {
-            "desc": "Utilise davantage de connexions pour accélérer les téléchargements.",
+            "desc": "Démarre davantage de requêtes en parallèle.",
             "label": "Haut débit"
           },
           "maximum": {
-            "desc": "Utilise davantage de connexions. Certains serveurs peuvent les limiter.",
+            "desc": "Démarre à la limite de parallélisme ; certains serveurs peuvent limiter les requêtes.",
             "label": "Maximum"
           }
         },
-        "split": "Connexions maximales par fichier",
-        "splitDesc": "Connexions utilisées pour télécharger un fichier.",
+        "split": "Parallélisme initial",
+        "splitDesc": "Objectif initial de la planification dynamique, soumis à la limite de parallélisme.",
         "title": "Performances"
       },
       "reliability": {
@@ -2197,9 +2197,9 @@
         "lowestSpeedLimit": "Débit minimal de connexion ({{unit}})",
         "lowestSpeedLimitDesc": "Déconnecter en dessous de ce débit. 0 = désactivé.",
         "maxTries": "Nombre maximal de tentatives",
-        "maxTriesDesc": "Inclut la première tentative. 0 = illimité.",
+        "maxTriesDesc": "Nombre maximal de tentatives par segment ; 0 signifie illimité.",
         "retryWait": "Délai entre les tentatives (s)",
-        "retryWaitDesc": "Durée d’attente avant de réessayer.",
+        "retryWaitDesc": "Délai initial, doublé après chaque échec jusqu’à 30 secondes.",
         "socketTimeout": "Délai sans données (s)",
         "socketTimeoutDesc": "Durée maximale d’attente sans réception de données.",
         "title": "Connexions et nouvelles tentatives",

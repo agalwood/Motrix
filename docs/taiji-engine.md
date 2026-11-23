@@ -163,3 +163,18 @@ engine location; the selected binary must implement the pinned Motrix contract.
 The Server artifact budget is 64 MiB, including the source-built engine and its
 licenses (the local macOS arm64 stage measures about 55.9 MiB). Dependency and
 native-library budgets remain independently enforced.
+
+## Video preview ordering and HTTP scheduling
+
+For torrents whose payload files are all recognized videos, Motrix requests the
+first and last 10 MiB of each selected file with higher priority. taiji 0.9.1
+persists this preference on ordinary torrent creation and atomically with native
+magnet file selection. It survives restart without replacing the task. Explicit
+file priorities and scheduler policies retain precedence; unavailable edge pieces
+do not prevent other pieces from downloading.
+
+HTTP settings describe taiji’s dynamic scheduler: initial concurrency is a
+starting target, the per-server limit bounds concurrent requests (HTTP/2 streams),
+and segment size is a reference that small-file scheduling may bypass. Attempts
+are limited per segment, with exponential retry delays capped at 30 seconds.
+Existing custom values and performance presets are preserved.

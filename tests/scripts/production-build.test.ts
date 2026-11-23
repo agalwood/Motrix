@@ -19,9 +19,11 @@ const TARGETS = [
   // Add 16 KiB per total budget; retain both startup ceilings.
   // Virtual file trees and 26-locale search/disclosure controls add ~13 KiB.
   // Use 4 KiB more total headroom; startup ceilings remain unchanged.
-  { name: 'renderer', initial: 2.75 * MIB, total: 8 * MIB + 164 * 1024 },
+  // Native HTTP semantics in 26 locales add ~4.5 KiB. Reserve 4 KiB
+  // additional total space; retain startup budgets and lazy loading checks.
+  { name: 'renderer', initial: 2.75 * MIB, total: 8 * MIB + 168 * 1024 },
   // The lazy DSM storage recovery page and its localized controls add 9 KiB.
-  { name: 'renderer.web', initial: 2.75 * MIB, total: 8 * MIB + 208 * 1024 },
+  { name: 'renderer.web', initial: 2.75 * MIB, total: 8 * MIB + 212 * 1024 },
   // The shared operation runtime brings total server JS to ~5.01 MiB.
   { name: 'server', initial: 2 * MIB, total: 5.25 * MIB },
 ]

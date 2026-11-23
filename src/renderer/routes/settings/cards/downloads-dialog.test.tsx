@@ -267,17 +267,17 @@ describe('<DownloadsDialog>', () => {
   })
 
   it.each([
-    ['max connections per file', '129', 'Enter a whole number from 1 to 128.'],
+    ['initial concurrency', '129', 'Enter a whole number from 1 to 128.'],
+    ['initial concurrency', '1e100', 'Enter a whole number from 1 to 128.'],
+    ['initial concurrency', '1.5', 'Enter a whole number from 1 to 128.'],
+    ['initial concurrency', '', 'Enter a valid number.'],
     [
-      'max connections per file',
-      '1e100',
-      'Enter a whole number from 1 to 128.',
+      'concurrency limit per server',
+      '65',
+      'Enter a whole number from 1 to 64.',
     ],
-    ['max connections per file', '1.5', 'Enter a whole number from 1 to 128.'],
-    ['max connections per file', '', 'Enter a valid number.'],
-    ['max connections per server', '65', 'Enter a whole number from 1 to 64.'],
-    ['min segment size', '1025', 'Enter a number from 1 to 1024.'],
-    ['min segment size', '0.5', 'Enter a number from 1 to 1024.'],
+    ['segment size reference', '1025', 'Enter a number from 1 to 1024.'],
+    ['segment size reference', '0.5', 'Enter a number from 1 to 1024.'],
     ['simultaneous downloads', '201', 'Enter a whole number from 1 to 200.'],
     ['connection timeout', '601', 'Enter a whole number from 1 to 600.'],
     ['maximum attempts', '-1', 'Enter a whole number from 0 to 100.'],
@@ -387,7 +387,7 @@ describe('<DownloadsDialog>', () => {
     )
     await user.click(await screen.findByRole('option', { name: /^custom$/i }))
 
-    const input = screen.getByLabelText(/max connections per server/i)
+    const input = screen.getByLabelText(/concurrency limit per server/i)
     expect(input).toHaveValue(MAX_CONNECTIONS_PER_SERVER)
     expect(input).toHaveAttribute('max', String(MAX_CONNECTIONS_PER_SERVER))
     expect(
@@ -482,9 +482,9 @@ describe('<DownloadsDialog>', () => {
     )
     await user.click(await screen.findByRole('option', { name: /^custom$/i }))
 
-    expect(screen.getByLabelText(/max connections per file/i)).toHaveValue(16)
+    expect(screen.getByLabelText(/initial concurrency/i)).toHaveValue(16)
 
-    fireEvent.change(screen.getByLabelText(/max connections per file/i), {
+    fireEvent.change(screen.getByLabelText(/initial concurrency/i), {
       target: { value: '32' },
     })
     expect(screen.queryByLabelText(/disk cache/i)).toBeNull()

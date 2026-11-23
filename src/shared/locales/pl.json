@@ -1690,7 +1690,7 @@
         "profiles": {
           "auto": {
             "label": "Automatyczny",
-            "desc": "Dostosowuje się do dysku i rozmiaru pliku. Poniższe wartości są domyślne."
+            "desc": "Silnik dostosowuje równoległość podczas przesyłania. Wartości określają początek i limity."
           },
           "balanced": {
             "label": "Zrównoważony",
@@ -1698,25 +1698,25 @@
           },
           "high": {
             "label": "Wysoka prędkość",
-            "desc": "Używa większej liczby połączeń, aby przyspieszyć pobieranie."
+            "desc": "Rozpoczyna więcej żądań równolegle."
           },
           "maximum": {
             "label": "Maksymalny",
-            "desc": "Używa większej liczby połączeń. Niektóre serwery mogą je ograniczać."
+            "desc": "Rozpoczyna na limicie równoległości; niektóre serwery mogą ograniczać żądania."
           },
           "custom": {
             "label": "Własny",
-            "desc": "Ustaw połączenia, rozmiar segmentów i pamięć podręczną."
+            "desc": "Ustaw początkową równoległość, limity i rozmiar segmentu."
           }
         },
         "maxConcurrentDownloads": "Równoczesne pobierania",
         "maxConcurrentDownloadsDesc": "Dodatkowe zadania czekają w kolejce.",
-        "maxConnectionPerServer": "Maks. liczba połączeń na serwer",
-        "maxConnectionPerServerDesc": "Limit połączeń jednego pliku z jednym serwerem.",
-        "split": "Maks. liczba połączeń na plik",
-        "splitDesc": "Połączenia używane do pobierania jednego pliku.",
-        "minSplitSize": "Min. rozmiar segmentu ({{unit}})",
-        "minSplitSizeDesc": "Segmenty mniejsze niż dwukrotność tego rozmiaru nie są dzielone."
+        "maxConnectionPerServer": "Limit równoległości na serwer",
+        "maxConnectionPerServerDesc": "Limit równoczesnych żądań na plik i serwer; HTTP/2 używa równoległych strumieni.",
+        "split": "Początkowa równoległość",
+        "splitDesc": "Początkowy cel dynamicznego planowania, ograniczony limitem równoległości.",
+        "minSplitSize": "Referencyjny rozmiar segmentu ({{unit}})",
+        "minSplitSizeDesc": "Wartość odniesienia dla dynamicznych segmentów; małe pliki mogą mieć mniejsze segmenty."
       },
       "reliability": {
         "title": "Połączenia i ponowne próby",
@@ -1727,9 +1727,9 @@
         "socketTimeout": "Limit czasu bez danych (s)",
         "socketTimeoutDesc": "Czas oczekiwania, gdy nie napływają dane.",
         "maxTries": "Maksymalna liczba prób",
-        "maxTriesDesc": "Obejmuje pierwszą próbę. 0 = bez limitu.",
+        "maxTriesDesc": "Maksimum prób na segment; 0 oznacza brak limitu.",
         "retryWait": "Odstęp między próbami (s)",
-        "retryWaitDesc": "Czas oczekiwania przed kolejną próbą.",
+        "retryWaitDesc": "Początkowy czas oczekiwania podwaja się po błędach, do 30 sekund.",
         "lowestSpeedLimit": "Minimalna prędkość połączenia ({{unit}})",
         "lowestSpeedLimitDesc": "Rozłącz poniżej tej prędkości. 0 = wyłączone."
       },

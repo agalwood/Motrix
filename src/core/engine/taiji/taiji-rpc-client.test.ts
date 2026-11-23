@@ -30,6 +30,85 @@ function fixture() {
 }
 
 describe('native taiji RPC boundary', () => {
+  it.each([
+    [
+      'video-only',
+      [
+        ['movie.mkv', false],
+        ['trailer.mp4', false],
+      ],
+      true,
+    ],
+    [
+      'mixed files',
+      [
+        ['movie.mkv', false],
+        ['readme.txt', false],
+      ],
+      false,
+    ],
+    [
+      'video with padding',
+      [
+        ['movie.mkv', false],
+        ['.pad/1', true],
+      ],
+      true,
+    ],
+  ] as const)(
+    'commits preview intent atomically for %s magnet selections',
+    async (_label, entries, preview) => {
+      const { rpc, protocol } = fixture()
+      const adapter = new TaijiAdapter(rpc)
+      vi.spyOn(rpc, 'getFiles').mockResolvedValue(
+        entries.map(([name, padding], index) => ({
+          index: String(index + 1),
+          path: `/downloads/bundle/${name}`,
+          length: '1',
+          completedLength: '0',
+          selected: 'true',
+          padding: String(padding),
+          uris: [],
+        }))
+      )
+      vi.spyOn(rpc, 'getTorrentManifest').mockResolvedValue({
+        data: 'ZGU=',
+        awaitingSelection: true,
+        manifest: {
+          infoHash: 'a'.repeat(40),
+          v1: 'a'.repeat(40),
+          v2: null,
+          name: 'bundle',
+          multiFile: true,
+          isPrivate: false,
+          verificationReady: true,
+          files: entries.map(([name, padding], index) => ({
+            index,
+            components: ['bundle', ...name.split('/')],
+            length: 1,
+            padding,
+          })),
+        },
+      })
+      await adapter.confirmTorrentSelection('gid', {
+        saveDir: '/downloads',
+        selectedFiles: [0],
+        outputFilePaths: [{ fileIndex: 0, relativePath: 'movie.mkv' }],
+      })
+      const call = protocol.call.mock.calls.find(
+        ([method]) => method === 'taiji.confirmTorrentSelection'
+      )!
+      expect(
+        (call[1][2] as Record<string, string>)['bt-prioritize-piece']
+      ).toBe(preview ? 'head=10M,tail=10M' : undefined)
+      expect((call[1][2] as Record<string, string>)['select-file']).toBe('1')
+      expect(
+        protocol.call.mock.calls.some(([method]) => method === 'taiji.unpause')
+      ).toBe(false)
+      adapter.dispose()
+    }
+  )
+
   it('edits a task-level source ledger in the native namespace and invalidates file metadata', async () => {
     const { rpc, protocol } = fixture()
     protocol.call.mockResolvedValue([1, 2])
@@ -167,11 +246,18 @@ describe('native taiji RPC boundary', () => {
           version: 'taiji/0.4.3',
           enabledFeatures: ['BitTorrent'],
         }
+      if (method === 'taiji.getCapabilities')
+        return {
+          schemaVersion: 1,
+          version: 'taiji/0.4.3',
+          rpcExtensions: ['taiji.moveStorage'],
+        }
       if (method === 'taiji.prepareBitTorrent') return new Promise(() => {})
       return 'OK'
     })
     const adapter = new TaijiAdapter(rpc)
     await adapter.connect()
+    expect(adapter.getFeatureReport().hasMoveStorage).toBe(true)
     expect(protocol.call).toHaveBeenCalledWith(
       'taiji.prepareBitTorrent',
       ['token:secret'],
@@ -424,6 +510,8 @@ describe('native taiji RPC boundary', () => {
     protocol.call.mockResolvedValue({
       version: 'taiji/0.1.0',
       enabledFeatures: ['HTTP', 'BitTorrent'],
+      schemaVersion: 1,
+      rpcExtensions: ['taiji.moveStorage'],
     })
     await adapter.connect()
     expect(adapter.getCapabilities().bt).toBe(true)
@@ -434,6 +522,29 @@ describe('native taiji RPC boundary', () => {
     await adapter.connect()
     await adapter.disconnect()
     expect(adapter.getCapabilities().http).toBe(false)
+    adapter.dispose()
+  })
+
+  it('rejects malformed or mismatched native capability reports', async () => {
+    const { rpc, protocol } = fixture()
+    const adapter = new TaijiAdapter(rpc)
+    protocol.call.mockImplementation(async (method) =>
+      method === 'taiji.getVersion'
+        ? { version: 'taiji/0.9.0', enabledFeatures: ['BitTorrent'] }
+        : {
+            schemaVersion: 1,
+            version: 'taiji/0.8.0',
+            rpcExtensions: ['taiji.moveStorage'],
+          }
+    )
+    await expect(adapter.connect()).rejects.toThrow(
+      'Inconsistent taiji identity'
+    )
+    expect(adapter.getFeatureReport().hasMoveStorage).toBe(false)
+    protocol.call.mockResolvedValue({ version: 'taiji/0.9.0' })
+    await expect(rpc.getNativeCapabilities()).rejects.toThrow(
+      'Invalid native taiji capability'
+    )
     adapter.dispose()
   })
 

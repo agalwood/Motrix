@@ -1648,7 +1648,7 @@
         "profiles": {
           "auto": {
             "label": "Tự động",
-            "desc": "Điều chỉnh theo ổ đĩa và kích thước tệp. Các giá trị bên dưới là mặc định."
+            "desc": "Bộ máy điều chỉnh mức đồng thời khi truyền. Các giá trị xác định mức khởi đầu và giới hạn."
           },
           "balanced": {
             "label": "Cân bằng",
@@ -1656,25 +1656,25 @@
           },
           "high": {
             "label": "Tốc độ cao",
-            "desc": "Dùng nhiều kết nối hơn để tải xuống nhanh hơn."
+            "desc": "Bắt đầu nhiều yêu cầu song song hơn."
           },
           "maximum": {
             "label": "Tối đa",
-            "desc": "Dùng nhiều kết nối hơn. Một số máy chủ có thể giới hạn số kết nối."
+            "desc": "Bắt đầu ở giới hạn đồng thời; một số máy chủ có thể hạn chế yêu cầu."
           },
           "custom": {
             "label": "Tùy chỉnh",
-            "desc": "Đặt số kết nối, kích thước đoạn và bộ nhớ đệm."
+            "desc": "Đặt mức đồng thời ban đầu, giới hạn và kích thước phân đoạn."
           }
         },
         "maxConcurrentDownloads": "Số lượt tải xuống đồng thời",
         "maxConcurrentDownloadsDesc": "Các tác vụ vượt giới hạn sẽ chờ trong hàng đợi.",
-        "maxConnectionPerServer": "Số kết nối tối đa mỗi máy chủ",
-        "maxConnectionPerServerDesc": "Giới hạn kết nối cho một tệp từ một máy chủ.",
-        "split": "Số kết nối tối đa mỗi tệp",
-        "splitDesc": "Số kết nối dùng để tải xuống một tệp.",
-        "minSplitSize": "Kích thước đoạn tối thiểu ({{unit}})",
-        "minSplitSizeDesc": "Các đoạn nhỏ hơn 2× giá trị này sẽ không được chia nhỏ."
+        "maxConnectionPerServer": "Giới hạn đồng thời mỗi máy chủ",
+        "maxConnectionPerServerDesc": "Giới hạn yêu cầu đồng thời cho mỗi tệp và máy chủ; HTTP/2 dùng các luồng đồng thời.",
+        "split": "Mức đồng thời ban đầu",
+        "splitDesc": "Mục tiêu ban đầu của lập lịch động, trong giới hạn đồng thời.",
+        "minSplitSize": "Kích thước phân đoạn tham chiếu ({{unit}})",
+        "minSplitSizeDesc": "Tham chiếu cho phân đoạn động; tải xuống nhỏ có thể dùng phân đoạn nhỏ hơn."
       },
       "reliability": {
         "title": "Kết nối và thử lại",
@@ -1685,9 +1685,9 @@
         "socketTimeout": "Thời gian chờ khi không có dữ liệu (giây)",
         "socketTimeoutDesc": "Thời gian chờ khi không nhận được dữ liệu.",
         "maxTries": "Số lần thử tối đa",
-        "maxTriesDesc": "Bao gồm lần thử đầu tiên. 0 = không giới hạn.",
+        "maxTriesDesc": "Số lần thử tối đa mỗi phân đoạn; 0 là không giới hạn.",
         "retryWait": "Thời gian đợi trước khi thử lại (giây)",
-        "retryWaitDesc": "Đợi khoảng thời gian này trước khi thử lại.",
+        "retryWaitDesc": "Thời gian chờ ban đầu tăng gấp đôi sau lỗi, tối đa 30 giây.",
         "lowestSpeedLimit": "Tốc độ kết nối tối thiểu ({{unit}})",
         "lowestSpeedLimitDesc": "Ngắt kết nối khi tốc độ thấp hơn giá trị này. 0 = tắt."
       },

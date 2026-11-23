@@ -1648,7 +1648,7 @@
         "profiles": {
           "auto": {
             "label": "自动",
-            "desc": "按磁盘和文件大小自动调整，下方为默认值。"
+            "desc": "引擎在传输中调整并发，下方设置起始值和上限。"
           },
           "balanced": {
             "label": "均衡",
@@ -1656,25 +1656,25 @@
           },
           "high": {
             "label": "高速",
-            "desc": "增加连接数，提升下载速度。"
+            "desc": "以更高的并发目标开始下载。"
           },
           "maximum": {
             "label": "极限",
-            "desc": "使用更多连接，部分服务器可能会限制连接数。"
+            "desc": "从并发上限开始下载，部分服务器可能限流。"
           },
           "custom": {
             "label": "自定义",
-            "desc": "设置连接数、分段大小和缓存。"
+            "desc": "设置初始并发、并发上限和分段大小。"
           }
         },
         "maxConcurrentDownloads": "同时下载任务数",
         "maxConcurrentDownloadsDesc": "超出的任务会排队等待。",
-        "maxConnectionPerServer": "单服务器最大连接数",
-        "maxConnectionPerServerDesc": "每个文件对同一服务器的连接上限。",
-        "split": "单文件最大连接数",
-        "splitDesc": "下载单个文件时使用的连接数。",
-        "minSplitSize": "最小分段大小（{{unit}}）",
-        "minSplitSizeDesc": "小于此值两倍的分段不再拆分。"
+        "maxConnectionPerServer": "单服务器并发上限",
+        "maxConnectionPerServerDesc": "每个文件对同一服务器的请求并发上限；HTTP/2 对应并发流。",
+        "split": "初始下载并发",
+        "splitDesc": "动态调度的初始并发目标，不超过并发上限。",
+        "minSplitSize": "分段参考大小 ({{unit}})",
+        "minSplitSizeDesc": "动态分段的参考大小；小文件可能使用更小的分段。"
       },
       "reliability": {
         "title": "连接与重试",
@@ -1685,9 +1685,9 @@
         "socketTimeout": "数据等待时间（秒）",
         "socketTimeoutDesc": "连接后未收到数据的最长等待时间。",
         "maxTries": "最多尝试次数",
-        "maxTriesDesc": "包含首次尝试；0 表示不限次数。",
+        "maxTriesDesc": "每个分段的尝试次数上限；0 表示不限次数。",
         "retryWait": "重试间隔（秒）",
-        "retryWaitDesc": "失败后等多久再试。",
+        "retryWaitDesc": "重试的初始等待时间，失败后逐次翻倍，最多 30 秒。",
         "lowestSpeedLimit": "最低连接速度（{{unit}}）",
         "lowestSpeedLimitDesc": "低于此速度时断开连接；0 表示关闭。"
       },

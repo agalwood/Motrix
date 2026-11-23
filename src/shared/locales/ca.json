@@ -2153,21 +2153,21 @@
         "learnMore": "Més informació",
         "maxConcurrentDownloads": "Baixades simultànies",
         "maxConcurrentDownloadsDesc": "Les tasques addicionals esperen a la cua.",
-        "maxConnectionPerServer": "Màxim de connexions per servidor",
-        "maxConnectionPerServerDesc": "Límit de connexions d'un fitxer a un servidor.",
+        "maxConnectionPerServer": "Límit simultani per servidor",
+        "maxConnectionPerServerDesc": "Límit de peticions simultànies per fitxer i servidor; HTTP/2 utilitza fluxos simultanis.",
         "metrics": {
           "cache": "Memòria cau del disc",
           "connections": "Màxim de connexions",
           "minimum": "Segment mínim",
           "perServer": "Límit per servidor"
         },
-        "minSplitSize": "Mida mínima del segment ({{unit}})",
-        "minSplitSizeDesc": "Els segments més petits que el doble d'aquesta mida no es divideixen.",
+        "minSplitSize": "Mida de referència del segment ({{unit}})",
+        "minSplitSizeDesc": "Referència per a segments dinàmics; les baixades petites poden usar segments més petits.",
         "profile": "Rendiment de baixada",
         "profileDesc": "Equilibra la velocitat de baixada i l'ús de recursos.",
         "profiles": {
           "auto": {
-            "desc": "S'adapta al disc i a la mida del fitxer. Els valors següents són els predeterminats.",
+            "desc": "El motor ajusta la concurrència durant la transferència. Els valors fixen l’inici i els límits.",
             "label": "Automàtic"
           },
           "balanced": {
@@ -2175,20 +2175,20 @@
             "label": "Equilibrat"
           },
           "custom": {
-            "desc": "Establiu les connexions, la mida dels segments i la memòria cau.",
+            "desc": "Defineix la concurrència inicial, els límits i la mida del segment.",
             "label": "Personalitzat"
           },
           "high": {
-            "desc": "Utilitza més connexions per baixar més ràpidament.",
+            "desc": "Inicia més peticions en paral·lel.",
             "label": "Alta velocitat"
           },
           "maximum": {
-            "desc": "Utilitza més connexions. Alguns servidors poden limitar-les.",
+            "desc": "Inicia al límit de concurrència; alguns servidors poden limitar les peticions.",
             "label": "Màxim"
           }
         },
-        "split": "Màxim de connexions per fitxer",
-        "splitDesc": "Connexions utilitzades per baixar un fitxer.",
+        "split": "Concurrència inicial",
+        "splitDesc": "Objectiu inicial de la planificació dinàmica, subjecte al límit de concurrència.",
         "title": "Rendiment"
       },
       "reliability": {
@@ -2197,9 +2197,9 @@
         "lowestSpeedLimit": "Velocitat mínima de connexió ({{unit}})",
         "lowestSpeedLimitDesc": "Desconnecta si la velocitat és inferior. 0 = desactivat.",
         "maxTries": "Nombre màxim d'intents",
-        "maxTriesDesc": "Inclou el primer intent. 0 = sense límit.",
+        "maxTriesDesc": "Màxim d’intents per segment; 0 indica sense límit.",
         "retryWait": "Espera entre intents (s)",
-        "retryWaitDesc": "Espera aquest temps abans de tornar-ho a provar.",
+        "retryWaitDesc": "Espera inicial, duplicada després de cada error fins a 30 segons.",
         "socketTimeout": "Temps d'espera sense dades (s)",
         "socketTimeoutDesc": "Quant de temps s'espera quan no arriben dades.",
         "title": "Connexions i reintents",

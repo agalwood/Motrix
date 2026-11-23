@@ -368,6 +368,8 @@ export class EngineSupervisor {
         return
       }
       await this.adapter.connect()
+      // The authenticated runtime report replaces the conservative binary probe.
+      this.featureReport = this.adapter.getFeatureReport()
       await this.adapter.applySettings(engineSettings)
       await this.writeGlobalProxyOptions(resolvedProxy)
       // Unlike best-effort maintenance, failure here must stop the paused

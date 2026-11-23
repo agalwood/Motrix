@@ -1662,7 +1662,7 @@
         "profiles": {
           "auto": {
             "label": "Otomatik",
-            "desc": "Sürücünüze ve dosya boyutuna göre ayarlanır. Aşağıdaki değerler varsayılanlardır."
+            "desc": "Motor aktarım sırasında eşzamanlılığı ayarlar. Bu değerler başlangıcı ve sınırları belirler."
           },
           "balanced": {
             "label": "Dengeli",
@@ -1670,25 +1670,25 @@
           },
           "high": {
             "label": "Yüksek hız",
-            "desc": "Daha hızlı indirmeler için daha fazla bağlantı kullanır."
+            "desc": "Daha fazla isteği paralel başlatır."
           },
           "maximum": {
             "label": "En yüksek",
-            "desc": "Daha fazla bağlantı kullanır. Bazı sunucular bunları sınırlayabilir."
+            "desc": "Eşzamanlılık sınırında başlar; bazı sunucular istekleri sınırlayabilir."
           },
           "custom": {
             "label": "Özel",
-            "desc": "Bağlantıları, bölüm boyutunu ve önbelleği ayarlayın."
+            "desc": "Başlangıç eşzamanlılığını, sınırları ve parça boyutunu ayarlayın."
           }
         },
         "maxConcurrentDownloads": "Eşzamanlı indirmeler",
         "maxConcurrentDownloadsDesc": "Ek görevler kuyrukta bekler.",
-        "maxConnectionPerServer": "Sunucu başına en fazla bağlantı",
-        "maxConnectionPerServerDesc": "Bir sunucu için dosya başına bağlantı sınırı.",
-        "split": "Dosya başına en fazla bağlantı",
-        "splitDesc": "Bir dosyayı indirmek için kullanılan bağlantılar.",
-        "minSplitSize": "En küçük bölüm boyutu ({{unit}})",
-        "minSplitSizeDesc": "Bu boyutun 2 katından küçük bölümler bölünmez."
+        "maxConnectionPerServer": "Sunucu başına eşzamanlılık sınırı",
+        "maxConnectionPerServerDesc": "Dosya ve sunucu başına eşzamanlı istek sınırı; HTTP/2 paralel akışlar kullanır.",
+        "split": "Başlangıç eşzamanlılığı",
+        "splitDesc": "Dinamik zamanlamanın başlangıç hedefi, eşzamanlılık sınırını aşmaz.",
+        "minSplitSize": "Referans parça boyutu ({{unit}})",
+        "minSplitSizeDesc": "Dinamik parçalar için referans; küçük indirmeler daha küçük parçalara ayrılabilir."
       },
       "reliability": {
         "title": "Bağlantılar ve yeniden denemeler",
@@ -1699,9 +1699,9 @@
         "socketTimeout": "Veri gelmediğinde zaman aşımı (sn)",
         "socketTimeoutDesc": "Veri gelmediğinde beklenecek süre.",
         "maxTries": "En fazla deneme",
-        "maxTriesDesc": "İlk deneme dahildir. 0 = sınırsız.",
+        "maxTriesDesc": "Parça başına en fazla deneme sayısı; 0 sınırsızdır.",
         "retryWait": "Yeniden deneme gecikmesi (sn)",
-        "retryWaitDesc": "Yeniden denemeden önce bu süre kadar bekleyin.",
+        "retryWaitDesc": "Başlangıç bekleme süresi hatalardan sonra ikiye katlanır, en fazla 30 saniyedir.",
         "lowestSpeedLimit": "En düşük bağlantı hızı ({{unit}})",
         "lowestSpeedLimitDesc": "Hız bu değerin altına düşerse bağlantıyı kesin. 0 = devre dışı."
       },

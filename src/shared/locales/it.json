@@ -1676,7 +1676,7 @@
         "profiles": {
           "auto": {
             "label": "Automatico",
-            "desc": "Si adatta all’unità e alla dimensione del file. I valori sotto sono quelli predefiniti."
+            "desc": "Il motore adatta la concorrenza durante il trasferimento. I valori definiscono inizio e limiti."
           },
           "balanced": {
             "label": "Equilibrato",
@@ -1684,25 +1684,25 @@
           },
           "high": {
             "label": "Alta velocità",
-            "desc": "Usa più connessioni per accelerare i download."
+            "desc": "Avvia più richieste in parallelo."
           },
           "maximum": {
             "label": "Massimo",
-            "desc": "Usa più connessioni. Alcuni server potrebbero limitarle."
+            "desc": "Avvia al limite di concorrenza; alcuni server possono limitare le richieste."
           },
           "custom": {
             "label": "Personalizzato",
-            "desc": "Imposta connessioni, dimensione dei segmenti e cache."
+            "desc": "Impostare concorrenza iniziale, limiti e dimensione dei segmenti."
           }
         },
         "maxConcurrentDownloads": "Download simultanei",
         "maxConcurrentDownloadsDesc": "Le attività aggiuntive attendono in coda.",
-        "maxConnectionPerServer": "Connessioni massime per server",
-        "maxConnectionPerServerDesc": "Limite di connessioni per file verso un singolo server.",
-        "split": "Connessioni massime per file",
-        "splitDesc": "Connessioni usate per scaricare un file.",
-        "minSplitSize": "Dimensione minima del segmento ({{unit}})",
-        "minSplitSizeDesc": "I segmenti più piccoli del doppio di questa dimensione non vengono suddivisi."
+        "maxConnectionPerServer": "Limite simultaneo per server",
+        "maxConnectionPerServerDesc": "Limite di richieste simultanee per file e server; HTTP/2 usa flussi simultanei.",
+        "split": "Concorrenza iniziale",
+        "splitDesc": "Obiettivo iniziale della pianificazione dinamica, entro il limite di concorrenza.",
+        "minSplitSize": "Dimensione di riferimento dei segmenti ({{unit}})",
+        "minSplitSizeDesc": "Riferimento per i segmenti dinamici; i download piccoli possono usare segmenti più piccoli."
       },
       "reliability": {
         "title": "Connessioni e nuovi tentativi",
@@ -1713,9 +1713,9 @@
         "socketTimeout": "Tempo limite senza dati (s)",
         "socketTimeoutDesc": "Tempo di attesa quando non arrivano dati.",
         "maxTries": "Tentativi massimi",
-        "maxTriesDesc": "Include il primo tentativo. 0 = illimitati.",
+        "maxTriesDesc": "Numero massimo di tentativi per segmento; 0 indica nessun limite.",
         "retryWait": "Attesa prima di riprovare (s)",
-        "retryWaitDesc": "Attendi questo tempo prima di riprovare.",
+        "retryWaitDesc": "Attesa iniziale, raddoppiata dopo ogni errore fino a 30 secondi.",
         "lowestSpeedLimit": "Velocità minima della connessione ({{unit}})",
         "lowestSpeedLimitDesc": "Interrompi la connessione sotto questa velocità. 0 = disattivato."
       },
