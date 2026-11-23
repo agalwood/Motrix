@@ -2260,6 +2260,8 @@
         "userAgent": "User-Agent",
         "userAgentDesc": "يعرّف التطبيق للمواقع. غيّره إذا تطلب موقع قيمة مختلفة."
       },
+      "openingView": "عند فتح التنزيلات، اعرض",
+      "rememberLastSelection": "تذكّر آخر اختيار",
       "saveFolders": "مجلدات الحفظ",
       "speedLimit": {
         "adaptiveEnabled": "حجز نطاق ترددي للتطبيقات الأخرى",

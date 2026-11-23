@@ -1822,6 +1822,8 @@
       "defaultDownloadFolder": "Cartella download predefinita",
       "autofillFromClipboard": "Compila automaticamente i link dagli appunti",
       "fillInLinksWhenOpeningNewTask": "I link copiati vengono inseriti automaticamente all’apertura di una nuova attività.",
+      "openingView": "All’apertura dei download, mostra",
+      "rememberLastSelection": "Ricorda l’ultima selezione",
       "saveFolders": "Cartelle di salvataggio",
       "description": "File, velocità di download e connessioni"
     },

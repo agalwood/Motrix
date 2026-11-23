@@ -437,6 +437,9 @@ const settingsManager = new SettingsManager(settingsPath, {
     ) {
       eventBus.emit(Events.NotificationsChanged)
     }
+    if (old.app.downloadsOpeningView !== updated.app.downloadsOpeningView) {
+      eventBus.emit(Events.DownloadsOpeningViewChanged)
+    }
     if (old.app.keepStatsBarVisible !== updated.app.keepStatsBarVisible) {
       eventBus.emit(Events.StatsBarVisibilityChanged, {
         keepStatsBarVisible: updated.app.keepStatsBarVisible,

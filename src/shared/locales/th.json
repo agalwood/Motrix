@@ -2165,6 +2165,8 @@
         "userAgent": "User-Agent",
         "userAgentDesc": "ระบุแอปต่อเว็บไซต์ เปลี่ยนหากเว็บไซต์ต้องการค่าอื่น"
       },
+      "openingView": "เมื่อเปิดหน้าดาวน์โหลด ให้แสดง",
+      "rememberLastSelection": "จดจำตัวเลือกที่ใช้ล่าสุด",
       "saveFolders": "โฟลเดอร์บันทึก",
       "speedLimit": {
         "adaptiveEnabled": "สำรองแบนด์วิดท์ให้แอปอื่น",

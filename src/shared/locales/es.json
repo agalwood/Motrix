@@ -1822,6 +1822,8 @@
       "defaultDownloadFolder": "Carpeta de descargas predeterminada",
       "autofillFromClipboard": "Rellenar enlaces desde el portapapeles",
       "fillInLinksWhenOpeningNewTask": "Pega los enlaces copiados al abrir una tarea nueva.",
+      "openingView": "Al abrir las descargas, mostrar",
+      "rememberLastSelection": "Recordar la última selección",
       "saveFolders": "Carpetas de destino",
       "description": "Archivos, velocidad de descarga y conexiones"
     },

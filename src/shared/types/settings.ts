@@ -1,4 +1,5 @@
 import type {
+  DownloadsOpeningView,
   FileDeletionMode,
   NotificationBadgeStyle,
 } from '@shared/schemas/app-settings'
@@ -237,6 +238,7 @@ export interface MotrixAppSettings {
   language: LanguagePreference
   directoryPreferences: DirectoryPreferences
   defaultSaveDir: string
+  downloadsOpeningView: DownloadsOpeningView
   /** Desktop task file deletion only; the server always deletes directly. */
   fileDeletionMode: FileDeletionMode
   notifyOnComplete: boolean

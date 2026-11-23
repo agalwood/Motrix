@@ -1808,6 +1808,8 @@
       "defaultDownloadFolder": "Standard-Download-Ordner",
       "autofillFromClipboard": "Links aus der Zwischenablage automatisch einfügen",
       "fillInLinksWhenOpeningNewTask": "Kopierte Links beim Öffnen einer neuen Aufgabe einfügen.",
+      "openingView": "Beim Öffnen der Downloads anzeigen",
+      "rememberLastSelection": "Letzte Auswahl merken",
       "saveFolders": "Speicherordner",
       "description": "Dateien, Download-Geschwindigkeit und Verbindungen"
     },

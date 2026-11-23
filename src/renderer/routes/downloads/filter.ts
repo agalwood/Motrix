@@ -1,8 +1,9 @@
+import { DOWNLOADS_TABS } from '@shared/schemas/app-settings'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus, TaskType } from '@shared/types/task'
 import { taskMatchesView } from '../../lib/task-views'
 
-export const DOWNLOADS_TABS = ['all', 'active', 'completed', 'error'] as const
+export { DOWNLOADS_TABS }
 export type DownloadsTab = (typeof DOWNLOADS_TABS)[number]
 
 export const isValidTab = (x: unknown): x is DownloadsTab =>

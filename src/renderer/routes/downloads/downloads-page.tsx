@@ -39,6 +39,7 @@ import {
 } from './filter'
 import { GlobalStatsBar } from './global-stats-bar'
 import { resolveInspectorInset } from './inspector-inset'
+import { rememberDownloadsTab } from './last-selected-tab'
 import { StatusTitleMenu } from './status-title-menu'
 import { useDownloadsSelection } from './store'
 import { TaskInspectorDrawer } from './task-inspector-drawer'
@@ -155,6 +156,7 @@ export function DownloadsPage() {
 
   const onTabChange = useCallback(
     (next: DownloadsTab) => {
+      rememberDownloadsTab(next)
       const nextParams = new URLSearchParams(searchParams)
       nextParams.delete('task')
       navigate(`/downloads/${next}${nextParams.size ? `?${nextParams}` : ''}`)

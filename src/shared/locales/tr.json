@@ -1808,6 +1808,8 @@
       "defaultDownloadFolder": "Varsayılan indirme klasörü",
       "autofillFromClipboard": "Panodaki bağlantıları otomatik doldur",
       "fillInLinksWhenOpeningNewTask": "Yeni görev açılırken kopyalanan bağlantılar otomatik olarak yapıştırılır.",
+      "openingView": "İndirmeler açıldığında göster",
+      "rememberLastSelection": "Son seçimi hatırla",
       "saveFolders": "Kayıt klasörleri",
       "description": "Dosyalar, indirme hızı ve bağlantılar"
     },

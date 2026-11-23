@@ -1808,6 +1808,8 @@
       "defaultDownloadFolder": "Alapértelmezett letöltési mappa",
       "autofillFromClipboard": "Hivatkozások automatikus beillesztése a vágólapról",
       "fillInLinksWhenOpeningNewTask": "Másolt hivatkozások beillesztése új feladat megnyitásakor.",
+      "openingView": "A letöltések megnyitásakor megjelenő nézet",
+      "rememberLastSelection": "Legutóbbi választás megjegyzése",
       "saveFolders": "Mentési mappák",
       "description": "Fájlok, letöltési sebesség és kapcsolatok"
     },

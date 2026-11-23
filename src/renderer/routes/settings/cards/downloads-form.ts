@@ -54,6 +54,7 @@ export const DOWNLOADS_DEFAULTS: DownloadsFields = {
   app: {
     defaultSaveDir: DEFAULT_APP_SETTINGS.defaultSaveDir,
     autofillClipboardLinks: DEFAULT_APP_SETTINGS.autofillClipboardLinks,
+    downloadsOpeningView: DEFAULT_APP_SETTINGS.downloadsOpeningView,
     fileDeletionMode: DEFAULT_APP_SETTINGS.fileDeletionMode,
     speedLimitUnits: DEFAULT_APP_SETTINGS.speedLimitUnits,
   },
