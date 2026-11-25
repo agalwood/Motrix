@@ -554,10 +554,14 @@ async function handleCreateTaskUnderAdmission(
   }
 
   // 1. Decide final on-disk name (handles collisions).
+  // 未解析元数据的磁力链接此时尚不知晓真实种子结构，不能提前以 infoHash/dn
+  // 占位或创建子目录，否则 aria2 会把文件写入 Downloads/<info_hash>/file (#2552)。
+  const isUnresolvedMagnet = req.type === 'bt' && req.payload.kind === 'magnet'
   const desiredName = deriveDesiredName(req, torrentInfoName)
   const existingName = sanitizeFinalizeFilename(desiredName)
   if (
     req.type === 'bt' &&
+    !isUnresolvedMagnet &&
     btInfoHash &&
     req.duplicatePolicy === 'reuse' &&
     deps.finalNamePicker.isTaken &&
@@ -578,16 +582,18 @@ async function handleCreateTaskUnderAdmission(
     reservedNames.length > 0
       ? deps.finalNamePicker.pick(effectiveSaveDir, desired, reservedNames)
       : deps.finalNamePicker.pick(effectiveSaveDir, desired)
-  let finalName = useExistingFiles
-    ? existingName
-    : req.type === 'bt'
-      ? await deps.finalNamePicker.pick(
-          effectiveSaveDir,
-          desiredName,
-          reservedNames,
-          parsedBtLayout?.multiFile === false
-        )
-      : await pickHttpFinalName(desiredName)
+  let finalName = isUnresolvedMagnet
+    ? ''
+    : useExistingFiles
+      ? existingName
+      : req.type === 'bt'
+        ? await deps.finalNamePicker.pick(
+            effectiveSaveDir,
+            desiredName,
+            reservedNames,
+            parsedBtLayout?.multiFile === false
+          )
+        : await pickHttpFinalName(desiredName)
 
   if (useExistingFiles) {
     if (!torrentBytes || !parsedBtLayout || req.type !== 'bt')
@@ -617,8 +623,14 @@ async function handleCreateTaskUnderAdmission(
   }
 
   const taskType = deriveTaskType(req)
-  let finalPath = path.join(effectiveSaveDir, finalName)
-  let diskPath = isTorrentLikeType(taskType) ? finalPath : toTempPath(finalPath)
+  let finalPath = isUnresolvedMagnet
+    ? effectiveSaveDir
+    : path.join(effectiveSaveDir, finalName)
+  let diskPath = isUnresolvedMagnet
+    ? ''
+    : isTorrentLikeType(taskType)
+      ? finalPath
+      : toTempPath(finalPath)
   // Anchor "now" early so the hook DTO's requestedAt and the persisted
   // task row share a clock — they are written in the same SQLite
   // transaction when plugin metadata is staged.
@@ -1123,12 +1135,12 @@ async function handleCreateTaskUnderAdmission(
     }
     const params: CreateDownloadParams = {
       uris: [req.payload.uri],
-      // dir = diskPath; NO filename → createDownload emits no `out`.
-      saveDir: diskPath,
+      // 直接使用用户选择的下载目录，避免为未解析磁力链接创建 Downloads/<info_hash>/ 子目录 (#2552)
+      saveDir: effectiveSaveDir,
       // Spread order: magnet opts first, then shell-supplied opts (which
       // merged LAST in the old code and could override). createDownload then
       // merges extraEngineOptions after `dir`, so the final aria2 map is
-      // { dir: diskPath, ...magnetEngineOpts, ...opts.extraEngineOptions } —
+      // { dir: effectiveSaveDir, ...magnetEngineOpts, ...opts.extraEngineOptions } —
       // explicit shell overrides keep their existing precedence.
       extraEngineOptions: {
         ...magnetEngineOpts,
@@ -1185,10 +1197,11 @@ async function handleCreateTaskUnderAdmission(
     }
   }
 
+  const taskDisplayName = isUnresolvedMagnet ? desiredName : finalName
   const task: DownloadTask = makeDownloadTask({
     id: taskId,
     engineTaskId: gid,
-    name: finalName,
+    name: taskDisplayName,
     kind: taskKind,
     type: taskType,
     saveDir: effectiveSaveDir,
@@ -1197,7 +1210,7 @@ async function handleCreateTaskUnderAdmission(
     uris: canonicalUris,
     dlLimit: req.type === 'bt' ? (req.dlLimit ?? 0) : 0,
     ulLimit: req.type === 'bt' ? (req.ulLimit ?? 0) : 0,
-    filename: finalName,
+    filename: taskDisplayName,
     diskPath,
     finalPath,
     finalName,

@@ -124,6 +124,7 @@ import {
 } from '@core/task/task-recovery-service'
 import { TaskUpdatePublisher } from '@core/task/task-update-publisher'
 import { TorrentMetaStoreImpl } from '@core/task/torrent-meta-store'
+import { reconcileFollowedMagnetTasks } from '@core/torrent/magnet-follow-reconciler'
 import { MagnetTracker } from '@core/torrent/magnet-tracker'
 import { shouldSkipForPendingMagnetMetadata } from '@core/torrent/metadata-task-filter'
 import { TorrentParser } from '@core/torrent/torrent-parser'
@@ -930,7 +931,30 @@ async function handlePolledTasks(
 ): Promise<void> {
   if (supervisor.getState() !== EngineState.Ready) return
   let dirty = false
+  // 优先接力已完成并自动跟进真实 BT 子任务的磁力元数据记录，防止残留哈希命名磁力任务 (#2552)
+  const followedResult = await reconcileFollowedMagnetTasks(rawTasks, {
+    taskManager,
+    persistTask,
+    retireMetadataGid: (gid) => {
+      runShellAsyncWork('followed magnet metadata eviction', async () => {
+        try {
+          if (!mainProcessWork.isAccepting()) return
+          await aria2Adapter.removeDownloadResult(gid)
+        } catch (err) {
+          log.warn(
+            { err, gid },
+            'failed to remove followed magnet metadata result'
+          )
+        }
+      })
+    },
+    log,
+  })
+  if (followedResult.dirty) dirty = true
   for (const raw of rawTasks) {
+    if (followedResult.skippedGids.has(raw.gid)) {
+      continue
+    }
     if (shouldSkipForPendingMagnetMetadata(raw, magnetTracker)) {
       continue
     }

@@ -1524,7 +1524,7 @@ describe('handleCreateTask download paths', () => {
     ])
   })
 
-  it('Magnet task: derives name from dn= when no displayName provided', async () => {
+  it('Magnet task: derives display name from dn= while targeting saveDir directly', async () => {
     const deps = makeDeps({ addUriGid: 'gid-m' })
     await handleCreateTask(
       {
@@ -1539,14 +1539,39 @@ describe('handleCreateTask download paths', () => {
       deps
     )
     const task = lastAddedTask(deps)
-    expect(task.finalName).toBe('Ubuntu 24.04')
-    expect(task.diskPath).toBe(task.finalPath)
-    expect(task.instances[0].diskPath).toBe(task.diskPath)
-    expect(deps.addUri.mock.calls[0][1].dir).toBe(task.diskPath)
+    expect(task.name).toBe('Ubuntu 24.04')
+    expect(task.finalName).toBe('')
+    expect(task.finalPath).toBe('/d')
+    expect(task.diskPath).toBe('')
+    expect(task.instances[0].diskPath).toBe('')
+    expect(deps.addUri.mock.calls[0][1].dir).toBe('/d')
     expect(task.type).toBe(TaskType.Magnet)
     // magnet payloads never persist torrentBytes
     expect(task.torrentMetaPath).toBeNull()
     expect(deps.persist).not.toHaveBeenCalled()
+  })
+
+  it('Magnet task without dn=: does not create an info_hash subdirectory (#2552)', async () => {
+    const hash = 'a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc'
+    const deps = makeDeps({ addUriGid: 'gid-m-hash' })
+    await handleCreateTask(
+      {
+        type: 'bt',
+        payload: {
+          kind: 'magnet',
+          uri: `magnet:?xt=urn:btih:${hash}`,
+        },
+        selectedFiles: [],
+        saveDir: '/d',
+      },
+      deps
+    )
+    const task = lastAddedTask(deps)
+    expect(task.name).toBe(hash)
+    expect(task.finalPath).toBe('/d')
+    expect(task.diskPath).toBe('')
+    expect(deps.addUri.mock.calls[0][1].dir).toBe('/d')
+    expect(deps.pick).not.toHaveBeenCalled()
   })
 
   it('HTTP task: falls back to URI basename when filename absent', async () => {
@@ -2186,7 +2211,7 @@ describe('handleCreateTask mkdir target by task type', () => {
     )
   })
 
-  it('Magnet task: mkdirs the final container (diskPath)', async () => {
+  it('Magnet task: mkdirs saveDir instead of an unresolved info_hash subdirectory (#2552)', async () => {
     const deps = makeDeps({ addUriGid: 'gid-m' })
     await handleCreateTask(
       {
@@ -2201,7 +2226,7 @@ describe('handleCreateTask mkdir target by task type', () => {
       deps
     )
     expect(mkdirMock).toHaveBeenCalledTimes(1)
-    expect(mkdirMock).toHaveBeenCalledWith(lastAddedTask(deps).finalPath, {
+    expect(mkdirMock).toHaveBeenCalledWith('/d', {
       recursive: true,
     })
   })
