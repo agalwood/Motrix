@@ -90,7 +90,10 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
       baseUrl = `http://127.0.0.1:${address.port}`
       engine = await spawnAria2ForTest({
         baseDir: root,
-        extraArgs: ['--http-accept-gzip=true', '--no-want-digest-header=false'],
+        extraArgs: [
+          '--http-accept-gzip=false',
+          '--no-want-digest-header=false',
+        ],
       })
       wired = await connectAdapter(engine)
     }, 30_000)

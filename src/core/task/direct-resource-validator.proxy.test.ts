@@ -24,6 +24,7 @@ import {
 import os from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { gzipSync } from 'node:zlib'
 import { Server as ProxyServer } from 'proxy-chain'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Aria2Adapter } from '../engine/aria2/aria2-adapter'
@@ -329,6 +330,28 @@ describe('DirectResourceValidatorService proxy runtime', () => {
         response.end(body)
         return
       }
+      if (request.url === '/gzip-sensitive') {
+        const rawBody = Buffer.alloc(4096, 0x42)
+        const acceptEncoding = String(request.headers['accept-encoding'] ?? '')
+        if (/\bgzip\b/i.test(acceptEncoding)) {
+          const compressed = gzipSync(rawBody)
+          response.writeHead(200, {
+            'Content-Encoding': 'gzip',
+            'Content-Length': String(compressed.length),
+            ETag: '"gzip-variant-v1"',
+          })
+          response.end(compressed)
+          return
+        }
+        response.writeHead(200, {
+          'Accept-Ranges': 'bytes',
+          'Content-Length': String(rawBody.length),
+          'Content-Disposition': 'attachment; filename="installer.exe"',
+          ETag: '"identity-variant-v1"',
+        })
+        response.end(rawBody)
+        return
+      }
       response.writeHead(404)
       response.end()
     })
@@ -381,7 +404,7 @@ describe('DirectResourceValidatorService proxy runtime', () => {
     expect(originRequests).toEqual(['GET /stable', 'GET /artifacts/latest'])
     expect(originHeaders[0]).toMatchObject({
       accept: '*/*',
-      'accept-encoding': 'deflate, gzip',
+      'accept-encoding': 'identity',
       'user-agent': 'Motrix/2.0',
       'want-digest': 'SHA-512;q=1, SHA-256;q=1, SHA;q=0.1',
     })
@@ -466,6 +489,80 @@ describe('DirectResourceValidatorService proxy runtime', () => {
             expect(requestHeaders.authorization).toBe(authorization)
           }
         }
+      } finally {
+        rmSync(outputDir, { recursive: true, force: true })
+      }
+    }
+  )
+
+  bundledAria2Test(
+    'keeps identity encoding for gzip-sensitive binary downloads across probe and aria2 (#2540)',
+    async () => {
+      const outputDir = mkdtempSync(
+        path.join(os.tmpdir(), 'motrix-aria2-identity-')
+      )
+      try {
+        // 验证探针与真实 aria2 下载均不请求 gzip，从而保留原始 Content-Length 与分片能力
+        const service = new DirectResourceValidatorService()
+        await expect(
+          service.probe(`${originUrl}/gzip-sensitive`)
+        ).resolves.toEqual({
+          filename: 'installer.exe',
+          validator: {
+            kind: 'strong-etag',
+            value: '"identity-variant-v1"',
+            contentLength: 4096,
+            capturedAt: expect.any(Number),
+          },
+        })
+
+        const addUri = vi.fn<Aria2RpcClient['addUri']>(
+          async (uris, options = {}) => {
+            await new Promise<void>((resolve, reject) => {
+              execFile(
+                bundledAria2Path,
+                [
+                  '--no-conf=true',
+                  '--console-log-level=error',
+                  '--summary-interval=0',
+                  '--all-proxy=',
+                  '--http-proxy=',
+                  '--https-proxy=',
+                  ...Object.entries(options).flatMap(([name, value]) =>
+                    (Array.isArray(value) ? value : [value]).map(
+                      (entry) => `--${name}=${entry}`
+                    )
+                  ),
+                  ...uris,
+                ],
+                { timeout: 10_000 },
+                (error) => (error ? reject(error) : resolve())
+              )
+            })
+            return 'identity-gid'
+          }
+        )
+        const adapter = new Aria2Adapter({
+          addUri,
+          onBtDownloadComplete: vi.fn(),
+          onDownloadComplete: vi.fn(),
+          onDownloadError: vi.fn(),
+        } as unknown as Aria2RpcClient)
+        adapter.setDirectResourceMetadataProfile(
+          DIRECT_RESOURCE_METADATA_PROFILE
+        )
+        await adapter.createDownload({
+          uris: [`${originUrl}/gzip-sensitive`],
+          saveDir: outputDir,
+          filename: 'installer.exe',
+          directResourceMetadataProfile: DIRECT_RESOURCE_METADATA_PROFILE,
+        })
+
+        expect(readFileSync(path.join(outputDir, 'installer.exe'))).toEqual(
+          Buffer.alloc(4096, 0x42)
+        )
+        expect(originHeaders[0]?.['accept-encoding']).toBe('identity')
+        expect(originHeaders[1]?.['accept-encoding']).toBeUndefined()
       } finally {
         rmSync(outputDir, { recursive: true, force: true })
       }

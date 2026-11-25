@@ -391,7 +391,7 @@ describe('Aria2Adapter', () => {
   describe('direct resource metadata profile', () => {
     const safeOptions = {
       'content-disposition-default-utf8': 'false',
-      'http-accept-gzip': 'true',
+      'http-accept-gzip': 'false',
       'no-want-digest-header': 'false',
       'no-netrc': 'true',
     }
@@ -427,6 +427,7 @@ describe('Aria2Adapter', () => {
       ['http-auth-challenge', 'true'],
       ['http-no-cache', 'true'],
       ['use-head', 'true'],
+      ['http-accept-gzip', 'true'],
     ])('rejects ambient %s request semantics', async (name, value) => {
       await expect(
         directResourceMetadataProfileFromGlobalOptions({

@@ -1048,7 +1048,7 @@ describe('Aria2ConfigBuilder', () => {
         upload: 0,
       })
 
-      expect(args).toContain('--http-accept-gzip=true')
+      expect(args).toContain('--http-accept-gzip=false')
       expect(args).toContain('--no-want-digest-header=false')
     })
 
