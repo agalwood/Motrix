@@ -1,7 +1,8 @@
-//! Compatibility publication for local macOS exFAT and Paragon NTFS downloads.
+//! Compatibility publication for macOS exFAT, Paragon NTFS, and SMB (smbfs) downloads.
 //! The final name must remain application-owned between its last check and ordinary rename.
 //! This deliberately does not implement the atomic no-replace contract.
 
+use super::digest::Sha256State;
 use super::metadata::{artifact_stamp, ensure_same_entry, stat_named, stat_opened};
 use super::{ArtifactHandle, RootHandle, assert_opened_artifact};
 use crate::error::{native_error, operation_error};
@@ -13,12 +14,41 @@ use std::os::unix::fs::FileExt;
 
 mod ntfs_volume;
 
+fn fstype_bytes(fs: &libc::statfs) -> &[u8] {
+    unsafe { CStr::from_ptr(fs.f_fstypename.as_ptr()) }.to_bytes()
+}
+
+fn is_local_reserved_filesystem(fs: &libc::statfs) -> bool {
+    fs.f_flags & libc::MNT_LOCAL as u32 != 0 && matches!(fstype_bytes(fs), b"exfat" | b"ufsd_NTFS")
+}
+
+// macOS smbfs（网络 SMB 挂载）对目录 F_FULLFSYNC、renameatx_np(RENAME_EXCL) 与 linkat
+// 均返回 ENOTSUP(45)，且 renameat 后路径派生的合成 st_ino 会变化 (#2549)。
+fn is_macos_smbfs(fs: &libc::statfs) -> bool {
+    fs.f_flags & libc::MNT_LOCAL as u32 == 0 && fstype_bytes(fs) == b"smbfs"
+}
+
 fn supported_filesystem(fs: &libc::statfs) -> bool {
-    fs.f_flags & libc::MNT_LOCAL as u32 != 0
-        && matches!(
-            unsafe { CStr::from_ptr(fs.f_fstypename.as_ptr()) }.to_bytes(),
-            b"exfat" | b"ufsd_NTFS"
-        )
+    is_local_reserved_filesystem(fs) || is_macos_smbfs(fs)
+}
+
+fn smbfs_volume_identity(fs: &libc::statfs) -> io::Result<String> {
+    let source = unsafe { CStr::from_ptr(fs.f_mntfromname.as_ptr()) }.to_bytes();
+    if source.is_empty() {
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "missing SMB mount source identity",
+        ));
+    }
+    // 对挂载源做 SHA-256 截断为 32 位十六进制：既跨重挂载保持稳定，又避免将 SMB 凭据/主机名明文写入 journal。
+    let mut hasher = Sha256State::new();
+    hasher.update(b"macos-smbfs-v1\0");
+    hasher.update(source);
+    let digest = hasher.finalize();
+    Ok(digest[..16]
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect())
 }
 
 fn identity(stat: &libc::stat) -> String {
@@ -38,9 +68,12 @@ pub(crate) fn exfat_volume_identity(root: &RootHandle) -> io::Result<Option<Stri
     if !supported_filesystem(&fs) {
         return Ok(None);
     }
+    if is_macos_smbfs(&fs) {
+        return smbfs_volume_identity(&fs).map(Some);
+    }
     // Paragon rejects ATTR_VOL_UUID with EINVAL. Disk Arbitration supplies the
     // same persistent volume UUID without relying on transient st_dev values.
-    if unsafe { CStr::from_ptr(fs.f_fstypename.as_ptr()) }.to_bytes() == b"ufsd_NTFS" {
+    if fstype_bytes(&fs) == b"ufsd_NTFS" {
         return ntfs_volume::volume_uuid(&fs).map(Some);
     }
     let mut attributes = libc::attrlist {
@@ -82,9 +115,30 @@ pub(crate) fn exfat_volume_identity(root: &RootHandle) -> io::Result<Option<Stri
     ))
 }
 
+pub(super) fn sync_full_mode(fd: &std::os::fd::OwnedFd) -> io::Result<&'static str> {
+    // std 在 Apple 平台默认调用 F_FULLFSYNC；对目录句柄，macOS smbfs 返回 ENOTSUP(45)
+    // 但普通 fsync(dir_fd) 可正常完成，此时仅对 smbfs 降级并上报 remote_acknowledged (#2549)。
+    match std::fs::File::from(fd.try_clone()?).sync_all() {
+        Ok(()) => Ok("directory_flushed"),
+        Err(err) if err.raw_os_error() == Some(libc::ENOTSUP) => {
+            let mut fs = std::mem::MaybeUninit::<libc::statfs>::uninit();
+            if unsafe { libc::fstatfs(fd.as_raw_fd(), fs.as_mut_ptr()) } == 0 {
+                let fs = unsafe { fs.assume_init() };
+                if is_macos_smbfs(&fs) {
+                    if unsafe { libc::fsync(fd.as_raw_fd()) } < 0 {
+                        return Err(io::Error::last_os_error());
+                    }
+                    return Ok("remote_acknowledged");
+                }
+            }
+            Err(err)
+        }
+        Err(err) => Err(err),
+    }
+}
+
 pub(super) fn sync_full(fd: &std::os::fd::OwnedFd) -> io::Result<()> {
-    // std uses F_FULLFSYNC on Apple, with its platform fallback when unsupported.
-    std::fs::File::from(fd.try_clone()?).sync_all()
+    sync_full_mode(fd).map(|_| ())
 }
 
 fn marker(token: &str) -> io::Result<Vec<u8>> {
@@ -121,7 +175,7 @@ fn validate_scope(
     {
         return Err(io::Error::new(
             io::ErrorKind::Unsupported,
-            "reserved rename requires same-directory suffix removal on local exFAT or Paragon NTFS",
+            "reserved rename requires same-directory suffix removal on exFAT, Paragon NTFS, or macOS SMB",
         ));
     }
     unchanged(source)?;
@@ -296,9 +350,15 @@ pub(crate) fn rename_opened_reserved(
         )
     })?;
     let installed = (|| {
-        // FSKit exFAT can change an empty file's ID during rename, including
-        // the ID returned by the continuously held descriptor. Bind the new
-        // name to that descriptor, rather than trusting an equal empty digest.
+        let mut fs = std::mem::MaybeUninit::<libc::statfs>::uninit();
+        if unsafe { libc::fstatfs(reservation.parent.as_raw_fd(), fs.as_mut_ptr()) } != 0 {
+            return Err(io::Error::last_os_error());
+        }
+        let fs = unsafe { fs.assume_init() };
+        let allow_synthetic_inode = is_macos_smbfs(&fs);
+        // FSKit exFAT 在空文件 rename 时可能变更文件 ID，macOS smbfs 在普通 renameat 后
+        // 也会生成新的路径派生合成 st_ino。先通过 ensure_same_entry 证明打开句柄与目标路径
+        // 指向同一文件，再在 smbfs 挂载上放宽跨 rename 的 st_ino 比较 (#2549)。
         let after = ensure_same_entry(
             source.artifact.as_raw_fd(),
             reservation.parent.as_raw_fd(),
@@ -310,7 +370,7 @@ pub(crate) fn rename_opened_reserved(
             || after.st_nlink != 1
             || after.st_mtime != before.st_mtime
             || after.st_mtime_nsec != before.st_mtime_nsec
-            || (before.st_size != 0 && after.st_ino != before.st_ino)
+            || (!allow_synthetic_inode && before.st_size != 0 && after.st_ino != before.st_ino)
         {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
@@ -327,10 +387,7 @@ pub(crate) fn rename_opened_reserved(
         }
     })()
     .map_err(|e| operation_error(e, "verify_target", "applied", None))?;
-    let outcome = crate::rename::sync_parents(true, |_| {
-        sync_full(&reservation.parent)?;
-        Ok("directory_flushed")
-    })?;
+    let outcome = crate::rename::sync_parents(true, |_| sync_full_mode(&reservation.parent))?;
     Ok((outcome, installed))
 }
 
@@ -382,11 +439,61 @@ mod tests {
     }
 
     #[test]
+    fn smbfs_detection_and_volume_identity_hash_mount_source() {
+        let make_statfs = |fstype: &[u8], mntfrom: &[u8], flags: u32| {
+            let mut fs: libc::statfs = unsafe { std::mem::zeroed() };
+            fs.f_flags = flags;
+            for (dst, src) in fs.f_fstypename.iter_mut().zip(fstype.iter()) {
+                *dst = *src as libc::c_char;
+            }
+            for (dst, src) in fs.f_mntfromname.iter_mut().zip(mntfrom.iter()) {
+                *dst = *src as libc::c_char;
+            }
+            fs
+        };
+
+        let remote_smb = make_statfs(b"smbfs", b"//alice@nas.local/downloads", 0x18);
+        assert!(is_macos_smbfs(&remote_smb));
+        assert!(supported_filesystem(&remote_smb));
+
+        let local_smb = make_statfs(
+            b"smbfs",
+            b"//alice@nas.local/downloads",
+            libc::MNT_LOCAL as u32,
+        );
+        assert!(!is_macos_smbfs(&local_smb));
+        assert!(!supported_filesystem(&local_smb));
+
+        let remote_nfs = make_statfs(b"nfs", b"nas.local:/export", 0);
+        assert!(!is_macos_smbfs(&remote_nfs));
+        assert!(!supported_filesystem(&remote_nfs));
+
+        let id1 = smbfs_volume_identity(&remote_smb).unwrap();
+        let id2 = smbfs_volume_identity(&remote_smb).unwrap();
+        assert_eq!(id1, id2);
+        assert_eq!(id1.len(), 32);
+        assert!(
+            id1.bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        );
+        assert!(!id1.contains("alice") && !id1.contains("nas"));
+
+        let other_smb = make_statfs(b"smbfs", b"//alice@nas.local/media", 0x18);
+        assert_ne!(id1, smbfs_volume_identity(&other_smb).unwrap());
+
+        let empty_smb = make_statfs(b"smbfs", b"", 0x18);
+        assert_eq!(
+            smbfs_volume_identity(&empty_smb).unwrap_err().kind(),
+            io::ErrorKind::Unsupported
+        );
+    }
+
+    #[test]
     #[ignore = "requires MOTRIX_FINALIZE_EXFAT_ROOT on a disposable local exFAT volume"]
     fn exfat_reservations_preserve_conflicts_and_publish_held_files() {
         let parent =
             PathBuf::from(std::env::var("MOTRIX_FINALIZE_EXFAT_ROOT").expect("exFAT test root"));
-        check_reservations(parent);
+        check_reservations(parent, "directory_flushed");
     }
 
     #[test]
@@ -402,7 +509,7 @@ mod tests {
         );
         let fs = unsafe { fs.assume_init() };
         assert_eq!(
-            unsafe { CStr::from_ptr(fs.f_fstypename.as_ptr()) }.to_bytes(),
+            fstype_bytes(&fs),
             b"ufsd_NTFS",
             "NTFS test root must use the Paragon driver"
         );
@@ -410,10 +517,34 @@ mod tests {
             .unwrap()
             .expect("persistent NTFS UUID");
         assert_eq!(uuid.len(), 32);
-        check_reservations(parent);
+        check_reservations(parent, "directory_flushed");
     }
 
-    fn check_reservations(parent: PathBuf) {
+    #[test]
+    #[ignore = "requires MOTRIX_FINALIZE_SMBFS_ROOT on a writable macOS SMB share"]
+    fn smbfs_reservations_preserve_conflicts_and_publish_held_files() {
+        let parent =
+            PathBuf::from(std::env::var("MOTRIX_FINALIZE_SMBFS_ROOT").expect("SMB test root"));
+        let root = super::super::open_root(parent.to_str().unwrap()).unwrap();
+        let mut fs = std::mem::MaybeUninit::<libc::statfs>::uninit();
+        assert_eq!(
+            unsafe { libc::fstatfs(root.0.as_raw_fd(), fs.as_mut_ptr()) },
+            0
+        );
+        let fs = unsafe { fs.assume_init() };
+        assert!(is_macos_smbfs(&fs), "SMB test root must use macOS smbfs");
+        assert_eq!(
+            super::super::sync_root_mode(&root).unwrap(),
+            "remote_acknowledged"
+        );
+        let uuid = exfat_volume_identity(&root)
+            .unwrap()
+            .expect("persistent SMB share identity");
+        assert_eq!(uuid.len(), 32);
+        check_reservations(parent, "remote_acknowledged");
+    }
+
+    fn check_reservations(parent: PathBuf, expected_sync_mode: &str) {
         let dir = scratch(parent.clone());
         // Also exercise a held volume root, with names unique to this fixture.
         let root_name = dir.0.file_name().unwrap().to_str().unwrap().to_owned() + "-payload";
@@ -449,7 +580,7 @@ mod tests {
                 reserve_exfat_target(&source, &root, name, Some(&id), None).unwrap();
             drop(reserved);
             let (outcome, installed) = rename_opened_reserved(&source, &reopened).unwrap();
-            assert_eq!(outcome.directory_sync_mode, "directory_flushed");
+            assert_eq!(outcome.directory_sync_mode, expected_sync_mode);
             assert_eq!(
                 installed,
                 identity(&stat_named(root.0.as_raw_fd(), &CString::new(name).unwrap()).unwrap())

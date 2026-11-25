@@ -141,7 +141,7 @@ fn open_root_traverses_search_only_ancestors() {
     let root = open_root(downloads.to_str().unwrap()).unwrap();
     let artifact = super::open_artifact_for_rename(&root, "pending").unwrap();
     super::rename_opened_no_replace(&artifact, &root, "finished").unwrap();
-    super::sync_root(&root).unwrap();
+    super::sync_root_mode(&root).unwrap();
     assert_eq!(
         std::fs::read(downloads.join("finished")).unwrap(),
         b"complete payload"

@@ -38,7 +38,7 @@ pub(crate) fn open_rename_guard(
 pub(crate) use unix::{
     ArtifactHandle, RootHandle, copy_opened, copy_selected_file, create_private_root,
     open_artifact, open_artifact_for_rename, open_root, open_selected_file, remove_opened,
-    remove_private_root, rename_no_replace, rename_opened_no_replace, root_identity, sync_root,
+    remove_private_root, rename_no_replace, rename_opened_no_replace, root_identity,
 };
 #[cfg(not(any(unix, windows)))]
 pub(crate) use unsupported::{
@@ -58,7 +58,11 @@ pub(crate) fn sync_root_mode(root: &RootHandle) -> std::io::Result<&'static str>
     {
         windows::sync_root_mode(root)
     }
-    #[cfg(not(windows))]
+    #[cfg(unix)]
+    {
+        unix::sync_root_mode(root)
+    }
+    #[cfg(not(any(unix, windows)))]
     {
         sync_root(root).map(|()| "directory_flushed")
     }

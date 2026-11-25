@@ -138,20 +138,43 @@ it does not assert support for every FUSE driver, network server, kernel, or
 mount configuration. Synchronization success remains subject to the storage
 implementation; tmpfs, in particular, is volatile across system restart.
 
-## macOS local exFAT and Paragon NTFS
+## macOS exFAT, Paragon NTFS, and SMB (`smbfs`)
 
 Some FSKit exFAT volumes reject exclusive rename with `ENOTSUP` (45), which
 differs from `EOPNOTSUPP` (102) on Darwin, and do not support hard links.
 Ordinary download suffix removal can use `reserve_exfat_target` followed by
 `rename_opened_reserved`. The original no-replace operation keeps its strict
 contract. This compatibility route requires a regular file, the same parent,
-an exact `.motrix` suffix removal, a local exFAT or `ufsd_NTFS` mount, and no plugin replacement
-or staged metadata. Permission, space, I/O and other errors do not enable it.
+an exact `.motrix` suffix removal, a local exFAT, local `ufsd_NTFS`, or macOS
+`smbfs` mount, and no plugin replacement or staged metadata. Permission, space,
+I/O and other errors do not enable it.
+
+macOS `smbfs` mounts also reject `fcntl(dir_fd, F_FULLFSYNC)`,
+`renameatx_np(RENAME_EXCL)`, and `linkat` with `ENOTSUP` (45), reject
+`fgetattrlist(ATTR_VOL_UUID)` with `EINVAL` (22), and synthesize path-derived
+`st_ino` values that change across `renameat`:
+
+- When `File::sync_all()` (`F_FULLFSYNC`) returns `ENOTSUP` on a verified
+  non-local `smbfs` handle, the sidecar falls back to `fsync(fd)` and reports
+  `directory_sync_mode: "remote_acknowledged"` (mirroring Windows SMB).
+  Durability remains subject to the remote SMB server.
+- Because `ATTR_VOL_UUID` is unavailable on `smbfs`, the sidecar hashes the
+  mount source (`f_mntfromname`) with a domain tag into a 32-hex persistent
+  volume identifier so SMB credentials/hostnames are never written to journals.
+- During `rename_opened_reserved` on `smbfs`, `ensure_same_entry` binds the
+  held source file descriptor to the installed target path before reporting the
+  updated `platform_file_id`; the post-rename synthetic `st_ino` change is
+  accepted only after descriptor/path identity, size, mode, link count, and
+  mtime all match and the `.motrix` source name is confirmed absent.
+- **Shared-mount caveats**: as with exFAT and Paragon NTFS, this route relies
+  on an application-owned-name contract rather than atomic no-replace. An
+  external SMB client modifying or replacing the target between the reservation
+  check and `renameat` is outside the protection boundary.
 
 Paragon NTFS also rejects exclusive rename with `ENOTSUP`. Its volume UUID
 attribute query returns `EINVAL`, so the sidecar obtains that persistent UUID
 from the system Disk Arbitration description of the held mount's BSD device.
-Unknown NTFS/FUSE implementations and nonlocal mounts remain unsupported by
+Unknown NTFS/FUSE implementations and other nonlocal mounts remain unsupported by
 this compatibility route. The existing `exfat_*` wire operation names are
 retained for protocol compatibility.
 

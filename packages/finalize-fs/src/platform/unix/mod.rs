@@ -281,14 +281,14 @@ fn assert_opened_artifact(
     Ok(())
 }
 
-pub(crate) fn sync_root(root: &RootHandle) -> io::Result<()> {
+pub(crate) fn sync_root_mode(root: &RootHandle) -> io::Result<&'static str> {
     #[cfg(target_os = "macos")]
-    return reserved::sync_full(&root.0);
+    return reserved::sync_full_mode(&root.0);
     #[cfg(not(target_os = "macos"))]
     {
         if unsafe { libc::fsync(root.0.as_raw_fd()) } < 0 {
             return Err(io::Error::last_os_error());
         }
-        Ok(())
+        Ok("directory_flushed")
     }
 }
