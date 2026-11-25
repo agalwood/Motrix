@@ -741,14 +741,11 @@ describe('buildCommandHandlers', () => {
     expect(result).toMatchObject({
       gid: expect.stringMatching(/^[0-9a-f]{16}$/),
     })
-    // Unresolved BT writes directly inside its final container under the
-    // fallback save root.
+    // 未解析的直连磁力任务应直接使用默认下载目录，不再拼接 info_hash 子目录 (#2552)
     expect(ctx.rpcClient.addUri).toHaveBeenCalledWith(
       ['magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc'],
       expect.objectContaining({
-        dir: expect.stringMatching(
-          /^\/tmp\/(?!.*\.motrix$).+$/
-        ) as unknown as string,
+        dir: '/tmp',
         gid: result?.gid,
       })
     )
