@@ -1061,10 +1061,9 @@ function probeHeaders(
     result['user-agent'] = userAgent
   }
   if (!Object.hasOwn(result, 'accept')) result.accept = '*/*'
-  // The bundled aria2.conf enables http-accept-gzip. Preserve an explicit task
-  // override; otherwise mirror aria2's compiled-with-zlib request value.
+  // 与 aria2 默认禁用 http-accept-gzip 保持一致；未显式覆盖时发送 identity，防止 Undici 自动附加 gzip/deflate
   if (!Object.hasOwn(result, 'accept-encoding')) {
-    result['accept-encoding'] = 'deflate, gzip'
+    result['accept-encoding'] = 'identity'
   }
   if (!Object.hasOwn(result, 'want-digest')) {
     result['want-digest'] = ARIA2_WANT_DIGEST

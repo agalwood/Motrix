@@ -113,7 +113,7 @@ export async function directResourceMetadataProfileFromGlobalOptions(
     hasEffectiveCumulativeValue(options.header) ||
     AMBIENT_HTTP_TEXT_OPTIONS.some((name) => options[name]?.length > 0) ||
     AMBIENT_HTTP_TRUE_OPTIONS.some((name) => isAria2True(options[name])) ||
-    options['http-accept-gzip'] !== 'true' ||
+    options['http-accept-gzip'] !== 'false' ||
     options['no-want-digest-header'] !== 'false'
   ) {
     return null
@@ -550,7 +550,7 @@ export class Aria2Adapter implements EngineAdapter {
       options['http-user'] = ''
       options['http-passwd'] = ''
       options['http-auth-challenge'] = 'false'
-      options['http-accept-gzip'] = 'true'
+      options['http-accept-gzip'] = 'false'
       options['no-want-digest-header'] = 'false'
     }
     if (params.extraEngineOptions) {

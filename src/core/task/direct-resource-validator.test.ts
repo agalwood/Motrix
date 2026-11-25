@@ -164,7 +164,7 @@ describe('DirectResourceValidatorService', () => {
         method: 'GET',
         headers: {
           accept: '*/*',
-          'accept-encoding': 'deflate, gzip',
+          'accept-encoding': 'identity',
           authorization: 'Bearer secret',
           cookie: '',
           'user-agent': 'Motrix test',
@@ -205,7 +205,7 @@ describe('DirectResourceValidatorService', () => {
       expect.objectContaining({
         headers: {
           accept: 'application/octet-stream',
-          'accept-encoding': 'deflate, gzip',
+          'accept-encoding': 'identity',
           cookie: '',
           'user-agent': 'Motrix/2.0',
           'want-digest': 'SHA-512;q=1, SHA-256;q=1, SHA;q=0.1',
@@ -336,7 +336,7 @@ describe('DirectResourceValidatorService', () => {
         method: 'GET',
         headers: {
           accept: '*/*',
-          'accept-encoding': 'deflate, gzip',
+          'accept-encoding': 'identity',
           cookie: '',
           'want-digest': 'SHA-512;q=1, SHA-256;q=1, SHA;q=0.1',
         },
@@ -466,7 +466,7 @@ describe('DirectResourceValidatorService', () => {
         method: 'GET',
         headers: {
           accept: '*/*',
-          'accept-encoding': 'deflate, gzip',
+          'accept-encoding': 'identity',
           cookie: '',
           'want-digest': 'SHA-512;q=1, SHA-256;q=1, SHA;q=0.1',
         },
@@ -586,7 +586,7 @@ describe('DirectResourceValidatorService', () => {
         method: 'GET',
         headers: {
           accept: '*/*',
-          'accept-encoding': 'deflate, gzip',
+          'accept-encoding': 'identity',
           cookie: '',
           'user-agent': 'Motrix/2.0',
           'want-digest': 'SHA-512;q=1, SHA-256;q=1, SHA;q=0.1',

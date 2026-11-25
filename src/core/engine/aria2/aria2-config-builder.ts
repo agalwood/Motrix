@@ -318,7 +318,8 @@ export class Aria2ConfigBuilder {
       '--pause=false',
       '--pause-metadata=false',
       '--bt-seed-unverified=false',
-      '--http-accept-gzip=true',
+      // 禁用传输层 gzip 压缩，确保大文件可获取真实 Content-Length 并支持分片与断点续传 (#2540)
+      '--http-accept-gzip=false',
       '--no-want-digest-header=false',
       // Remove unselected files when BT download completes. Without
       // this, piece-boundary writes leak partial / sparse placeholders
