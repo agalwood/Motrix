@@ -195,7 +195,7 @@ describe('third-party notice generator', () => {
     expect(bundle.packageCount).toBeGreaterThan(100)
     expect(inventory).toContain('| @xyflow/react | 13.0.1 |')
     expect(inventory).toContain('| react-compiler-runtime | 1.0.0 |')
-    expect(inventory).toContain('| aria2 | 1.37.0-motrix.25 |')
+    expect(inventory).toContain('| aria2 | 1.37.0-motrix.26 |')
     expect(inventory).toContain('| motrix.filename-template | 1.1.1 |')
     expect(inventory).toContain('Apple San Francisco tray font')
     expect(licenses).toContain('GNU GENERAL PUBLIC LICENSE')
@@ -306,7 +306,7 @@ describe('third-party notice generator', () => {
       expect(licenses).toContain('GNU GENERAL PUBLIC LICENSE')
     }
     const serverInventory = server.files['THIRD_PARTY_DEPENDENCIES.md']
-    expect(serverInventory).toContain('| aria2 | 1.37.0-motrix.25 |')
+    expect(serverInventory).toContain('| aria2 | 1.37.0-motrix.26 |')
     expect(serverInventory).toContain('| motrix.filename-template | 1.1.1 |')
     expect(serverInventory).not.toContain('| Electron |')
 
