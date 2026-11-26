@@ -741,11 +741,12 @@ describe('buildCommandHandlers', () => {
     expect(result).toMatchObject({
       gid: expect.stringMatching(/^[0-9a-f]{16}$/),
     })
-    // 未解析的直连磁力任务应直接使用默认下载目录，不再拼接 info_hash 子目录 (#2552)
+    // 未解析的直连磁力任务应直接使用规范化后的默认下载目录，不再拼接 info_hash 子目录 (#2552, #2562)
+    const expectedDir = await realpath('/tmp').catch(() => '/tmp')
     expect(ctx.rpcClient.addUri).toHaveBeenCalledWith(
       ['magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc'],
       expect.objectContaining({
-        dir: '/tmp',
+        dir: expectedDir,
         gid: result?.gid,
       })
     )
