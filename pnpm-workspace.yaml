@@ -35,7 +35,7 @@ minimumReleaseAgeExclude:
   - '@noble/curves@2.4.0'
   - '@noble/hashes@2.4.0'
   - i18next@26.3.6 || 26.5.6 || 26.5.10 || 27.1.2 || 27.1.3
-  - lucide-react@1.24.0 || 1.31.0 || 1.49.0 || 1.54.0 || 1.62.0 || 1.64.0 || 1.66.0
+  - lucide-react@1.24.0 || 1.31.0 || 1.49.0 || 1.54.0 || 1.62.0 || 1.64.0 || 1.66.0 || 1.81.0
   - react-i18next@17.0.9 || 17.0.15 || 17.1.3 || 17.1.8 || 18.0.1 || 18.0.2
   - '@motrix/mdxp@0.1.0 || 0.3.0 || 0.4.0 || 0.5.0 || 0.6.0 || 0.7.0 || 0.8.0 || 0.8.1 || 0.10.0'
   - '@motrix/nat@0.1.0 || 0.1.1 || 0.1.3 || 0.1.4'
@@ -91,15 +91,15 @@ minimumReleaseAgeExclude:
   - '@biomejs/cli-win32-arm64@2.5.8 || 2.5.9 || 2.6.3 || 2.6.4'
   - '@biomejs/cli-win32-x64@2.5.8 || 2.5.9 || 2.6.3 || 2.6.4'
   - electron@43.4.0 || 44.1.1 || 44.5.0 || 45.1.0 || 45.2.1 || 45.3.3
-  - shadcn@4.17.0 || 4.18.0 || 4.20.0 || 4.20.1 || 4.23.0
+  - shadcn@4.17.0 || 4.18.0 || 4.20.0 || 4.20.1 || 4.23.0 || 4.23.1
   - zustand@5.0.15 || 5.0.16
   - js-yaml@5.4.2
   - tailwind-merge@3.7.0
   - zod@4.6.4
-  - '@vitest/coverage-v8@5.0.1'
-  - '@vitest/mocker@5.0.1'
-  - '@vitest/spy@5.0.1'
-  - vitest@5.0.1
+  - '@vitest/coverage-v8@5.0.1 || 5.1.2'
+  - '@vitest/mocker@5.0.1 || 5.1.2'
+  - '@vitest/spy@5.0.1 || 5.1.2'
+  - vitest@5.0.1 || 5.1.2
   - '@types/ws@8.18.2'
   - '@base-ui/react@1.9.0'
   - '@base-ui/utils@0.5.0'
@@ -110,9 +110,9 @@ minimumReleaseAgeExclude:
   - '@biomejs/cli-android-arm64@2.6.3 || 2.6.4'
   - '@biomejs/cli-android-x64@2.6.3 || 2.6.4'
   - '@fastify/static@10.1.8'
-  - '@shadcn/registry@0.2.1'
+  - '@shadcn/registry@0.2.1 || 0.2.2'
   - react-router@8.5.1
-  - elkjs@0.12.1
+  - elkjs@0.12.1 || 0.12.2
   - electron-builder@26.18.1
   - electron-updater@6.8.12
   - app-builder-lib@26.18.1
@@ -142,3 +142,4 @@ minimumReleaseAgeExclude:
   - rolldown@1.2.18
   - '@xyflow/react@13.0.1'
   - '@xyflow/system@1.0.0'
+  - '@types/react@19.3.3'
