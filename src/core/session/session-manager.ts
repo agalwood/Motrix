@@ -396,6 +396,54 @@ export class SessionManager {
       // must not make the whole download engine unavailable.
       log.warn({ err }, 'startup: media segment sweep failed')
     }
+
+    // 同步清理上次异常退出或强杀遗留在系统临时目录的孤儿媒体分片目录，避免长期占用系统盘空间
+    await this.cleanupOrphanMediaTempDirs()
+  }
+
+  private async cleanupOrphanMediaTempDirs(): Promise<void> {
+    if (!this.mediaTmpRoot) return
+    try {
+      const entries = await fs.promises.readdir(this.mediaTmpRoot, {
+        withFileTypes: true,
+      })
+      let removed = 0
+      for (const entry of entries) {
+        // 仅清理本应用生成的 motrix-media-* 孤儿目录，绝不触碰符号链接或外部文件
+        if (
+          !entry.isDirectory() ||
+          entry.isSymbolicLink() ||
+          !entry.name.startsWith('motrix-media-')
+        ) {
+          continue
+        }
+        const target = path.join(this.mediaTmpRoot, entry.name)
+        try {
+          await fs.promises.rm(target, { recursive: true, force: true })
+          removed++
+        } catch (err) {
+          log.warn(
+            { err, target },
+            'startup: failed to remove orphan media temp directory'
+          )
+        }
+      }
+      if (removed > 0) {
+        log.info(
+          { count: removed, mediaTmpRoot: this.mediaTmpRoot },
+          'startup: cleaned orphan media temp directories'
+        )
+      }
+    } catch (err) {
+      const code =
+        err && typeof err === 'object' && 'code' in err ? err.code : undefined
+      if (code !== 'ENOENT') {
+        log.warn(
+          { err, mediaTmpRoot: this.mediaTmpRoot },
+          'startup: orphan media temp directory scan failed'
+        )
+      }
+    }
   }
 
   runExclusivePersistence<T>(operation: () => T | Promise<T>): Promise<T> {
