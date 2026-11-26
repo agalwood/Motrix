@@ -75,6 +75,11 @@ import {
 } from '../task/bt-storage-layout'
 import { unsettledBtUpload } from '../task/bt-upload-settlement'
 import { isCompletedDirectOutput } from '../task/completed-direct-task-policy'
+import {
+  buildDirectMagnetIdentityPatch,
+  extractResolvedBtNameFromRaw,
+  needsDirectMagnetIdentityResolution,
+} from '../task/direct-magnet-identity'
 import { updateDirectReplayRetention } from '../task/direct-replay-recipe'
 import {
   canMirrorAria2MetadataHeaders,
@@ -1609,10 +1614,39 @@ export class SessionManager {
     const now = Date.now()
     const taskPart = pair.task
     const primary = matchedInstance ?? pair.instances[0]
+    const saveDir = restoreTaskSaveDirectory(
+      taskPart,
+      pair.instances,
+      aria2.dir
+    )
     const derived = derivePathsFromRaw(aria2)
-    const diskPath = primary?.diskPath || derived.diskPath
-    const finalPath = taskPart.finalPath || derived.finalPath
-    const finalName = taskPart.finalName || derived.finalName
+    const persistedCandidate = taskRowToDownloadTask(taskPart, pair.instances)
+    const unresolvedDirectMagnet = needsDirectMagnetIdentityResolution({
+      ...persistedCandidate,
+      saveDir,
+    })
+    const resolvedDirectMagnetName = unresolvedDirectMagnet
+      ? extractResolvedBtNameFromRaw(aria2)
+      : null
+    const directMagnetPatch = resolvedDirectMagnetName
+      ? buildDirectMagnetIdentityPatch({ saveDir }, resolvedDirectMagnetName)
+      : null
+    const taskName = directMagnetPatch?.name ?? taskPart.name
+    const diskPath = directMagnetPatch
+      ? directMagnetPatch.diskPath
+      : unresolvedDirectMagnet
+        ? primary?.diskPath || ''
+        : primary?.diskPath || derived.diskPath
+    const finalPath = directMagnetPatch
+      ? directMagnetPatch.finalPath
+      : unresolvedDirectMagnet
+        ? taskPart.finalPath || saveDir
+        : taskPart.finalPath || derived.finalPath
+    const finalName = directMagnetPatch
+      ? directMagnetPatch.finalName
+      : unresolvedDirectMagnet
+        ? taskPart.finalName
+        : taskPart.finalName || derived.finalName
 
     const totalBytes = Number(aria2.totalLength) || taskPart.totalBytes
     const downloadedBytes =
@@ -1667,6 +1701,9 @@ export class SessionManager {
         return {
           ...inst,
           gid: aria2.gid,
+          ...(directMagnetPatch
+            ? { diskPath: directMagnetPatch.diskPath }
+            : {}),
           status,
           progress:
             totalBytes > 0
@@ -1684,7 +1721,7 @@ export class SessionManager {
     return {
       id: taskPart.motrixId,
       engineTaskId: aria2.gid,
-      name: taskPart.name,
+      name: taskName,
       kind: taskPart.kind,
       type: taskPart.taskType,
       ...terminalFields,
@@ -1703,7 +1740,7 @@ export class SessionManager {
         String(downloadedBytes),
         aria2.downloadSpeed
       ),
-      saveDir: restoreTaskSaveDirectory(taskPart, pair.instances, aria2.dir),
+      saveDir,
       createdAt: taskPart.createdAt,
       updatedAt: now,
       uris: hasLegacyImport(pair) ? (primary?.uris ?? []) : extractUris(aria2),
@@ -1718,7 +1755,7 @@ export class SessionManager {
       category: taskPart.category,
       dlLimit: 0,
       ulLimit: 0,
-      filename: taskPart.name,
+      filename: directMagnetPatch?.filename ?? taskPart.name,
       sizeWhenDone,
       bt,
       diskPath,

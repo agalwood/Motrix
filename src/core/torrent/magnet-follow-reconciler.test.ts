@@ -183,4 +183,101 @@ describe('magnet-follow-reconciler', () => {
     expect(persistTask).not.toHaveBeenCalled()
     expect(retireMetadataGid).toHaveBeenCalledWith('meta-unowned')
   })
+
+  it('looks up followed BT status when notification batch contains only metadata row (#2569)', async () => {
+    const taskManager = new TaskManager()
+    const existing = makeMagnetTask({
+      id: 'task-notify',
+      engineTaskId: 'meta-gid',
+    })
+    taskManager.set(existing.id, existing)
+
+    const persistTask = vi.fn().mockResolvedValue(undefined)
+    const retireMetadataGid = vi.fn()
+    const lookupFollowedTask = vi.fn().mockResolvedValue(
+      makeAria2Row({
+        gid: 'bt-gid',
+        status: 'active',
+        dir: '/downloads',
+        totalLength: '4096',
+        infoHash: 'a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc',
+        bittorrent: {
+          announceList: [],
+          mode: 'single',
+          info: { name: 'debian-13.iso' },
+        },
+      })
+    )
+    const log = { info: vi.fn(), warn: vi.fn() }
+
+    const result = await reconcileFollowedMagnetTasks(
+      [
+        makeAria2Row({
+          gid: 'meta-gid',
+          status: 'complete',
+          followedBy: ['bt-gid'],
+        }),
+      ],
+      {
+        taskManager,
+        persistTask,
+        retireMetadataGid,
+        lookupFollowedTask,
+        log,
+      },
+      2500
+    )
+
+    expect(result.dirty).toBe(true)
+    expect(lookupFollowedTask).toHaveBeenCalledExactlyOnceWith('bt-gid')
+    const rebound = taskManager.getByEngineTaskId('bt-gid')
+    expect(rebound?.name).toBe('debian-13.iso')
+    expect(rebound?.filename).toBe('debian-13.iso')
+    expect(rebound?.finalName).toBe('debian-13.iso')
+    expect(rebound?.finalPath).toBe('/downloads/debian-13.iso')
+    expect(rebound?.diskPath).toBe('/downloads/debian-13.iso')
+    expect(rebound?.instances[0]?.diskPath).toBe('/downloads/debian-13.iso')
+  })
+
+  it('keeps placeholder unresolved for later poll healing when lookupFollowedTask fails (#2569)', async () => {
+    const taskManager = new TaskManager()
+    const existing = makeMagnetTask({
+      id: 'task-lookup-fail',
+      engineTaskId: 'meta-gid',
+    })
+    taskManager.set(existing.id, existing)
+
+    const persistTask = vi.fn().mockResolvedValue(undefined)
+    const retireMetadataGid = vi.fn()
+    const lookupFollowedTask = vi
+      .fn()
+      .mockRejectedValue(new Error('gid not ready'))
+    const log = { info: vi.fn(), warn: vi.fn() }
+
+    const result = await reconcileFollowedMagnetTasks(
+      [
+        makeAria2Row({
+          gid: 'meta-gid',
+          status: 'complete',
+          followedBy: ['bt-gid'],
+        }),
+      ],
+      {
+        taskManager,
+        persistTask,
+        retireMetadataGid,
+        lookupFollowedTask,
+        log,
+      },
+      2600
+    )
+
+    expect(result.dirty).toBe(true)
+    expect(log.warn).toHaveBeenCalledOnce()
+    const rebound = taskManager.getByEngineTaskId('bt-gid')
+    expect(rebound?.engineTaskId).toBe('bt-gid')
+    expect(rebound?.finalName).toBe('')
+    expect(rebound?.diskPath).toBe('')
+    expect(rebound?.finalPath).toBe('/downloads')
+  })
 })

@@ -3,14 +3,16 @@ import type { DownloadTask, TaskInstance } from '@shared/types/task'
 import {
   makeDefaultBtExtension,
   TaskInstancePhase,
+  TaskKind,
   TaskStatus,
+  TaskType,
   TransitionPhase,
 } from '@shared/types/task'
 import { makeRetainedHttpTask } from '@test-utils/direct-retry'
 import { makeLegacyHttpTask } from '@test-utils/legacy-http-activation'
 import { makeDownloadTask } from '@test-utils/task'
 import { describe, expect, it } from 'vitest'
-import { mergeEngineTask } from './merge-engine-task'
+import { hasEngineTaskDelta, mergeEngineTask } from './merge-engine-task'
 
 it('keeps retained HTTP errors visible when the engine restores them paused', () => {
   const task = makeRetainedHttpTask()
@@ -389,4 +391,71 @@ it('keeps share ratio cumulative when a new GID starts from zero upload', () => 
   })
   expect(existing.bt?.ratio).toBe(1.5)
   expect(incoming.bt?.ratio).toBe(0.2)
+})
+
+it('resolves placeholder name and paths for direct magnets once BT metadata arrives (#2569)', () => {
+  const hash = 'a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc'
+  const existing = baseTask({
+    name: hash,
+    filename: hash,
+    kind: TaskKind.Bt,
+    type: TaskType.Magnet,
+    status: TaskStatus.Downloading,
+    saveDir: '/downloads',
+    finalName: '',
+    diskPath: '',
+    finalPath: '/downloads',
+    infoHash: hash,
+    instances: [{ ...instance(TaskStatus.Downloading), diskPath: '' }],
+  })
+  const incoming = baseTask({
+    name: 'Fedora-Workstation.iso',
+    kind: TaskKind.Bt,
+    type: TaskType.Bt,
+    status: TaskStatus.Downloading,
+    totalBytes: 2_000_000,
+    fileCount: 1,
+    bt: makeDefaultBtExtension(),
+  })
+
+  const merged = mergeEngineTask(existing, incoming, 30_000)
+  expect(hasEngineTaskDelta(existing, merged)).toBe(true)
+  expect(merged).toMatchObject({
+    name: 'Fedora-Workstation.iso',
+    filename: 'Fedora-Workstation.iso',
+    finalName: 'Fedora-Workstation.iso',
+    finalPath: '/downloads/Fedora-Workstation.iso',
+    diskPath: '/downloads/Fedora-Workstation.iso',
+  })
+  expect(merged.instances[0]?.diskPath).toBe(
+    '/downloads/Fedora-Workstation.iso'
+  )
+  expect(existing.instances[0]?.diskPath).toBe('')
+})
+
+it('does not overwrite already-resolved BT names during polling', () => {
+  const existing = baseTask({
+    name: 'custom-name.iso',
+    filename: 'custom-name.iso',
+    kind: TaskKind.Bt,
+    type: TaskType.Bt,
+    status: TaskStatus.Downloading,
+    saveDir: '/downloads',
+    finalName: 'custom-name.iso',
+    diskPath: '/downloads/custom-name.iso',
+    finalPath: '/downloads/custom-name.iso',
+  })
+  const incoming = baseTask({
+    name: 'original-torrent-name.iso',
+    kind: TaskKind.Bt,
+    type: TaskType.Bt,
+    status: TaskStatus.Downloading,
+    totalBytes: 2_000_000,
+    fileCount: 1,
+    bt: makeDefaultBtExtension(),
+  })
+
+  const merged = mergeEngineTask(existing, incoming, 30_000)
+  expect(merged.name).toBe('custom-name.iso')
+  expect(merged.finalPath).toBe('/downloads/custom-name.iso')
 })

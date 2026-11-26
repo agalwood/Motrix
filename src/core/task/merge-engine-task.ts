@@ -6,6 +6,12 @@ import { shareRatio } from '@shared/utils/share-ratio'
 import { applyTerminalTransition } from './apply-terminal-transition'
 import { unsettledBtUpload } from './bt-upload-settlement'
 import { isCompletedDirectOutput } from './completed-direct-task-policy'
+import {
+  applyDirectMagnetDiskPathToInstances,
+  buildDirectMagnetIdentityPatch,
+  extractResolvedBtNameFromTask,
+  needsDirectMagnetIdentityResolution,
+} from './direct-magnet-identity'
 import { nonZeroMerge } from './non-zero-merge'
 import { syncTerminalInstanceStatus } from './task-instance'
 
@@ -97,8 +103,24 @@ export function mergeEngineTask(
     now
   )
   const bt = protected_.bt ?? existing.bt
+  // 直连磁力在元数据接力当帧可能尚未拿到真实种子名（例如由单条完成通知触发接力），
+  // 后续常规轮询一旦获取到真实 BT 名称，立刻补齐任务名与实际落盘路径 (#2569)。
+  const resolvedDirectMagnetName = needsDirectMagnetIdentityResolution(existing)
+    ? extractResolvedBtNameFromTask(engineTask, existing.infoHash)
+    : null
+  const directMagnetIdentityPatch = resolvedDirectMagnetName
+    ? buildDirectMagnetIdentityPatch(existing, resolvedDirectMagnetName)
+    : null
+  const mergedInstances = directMagnetIdentityPatch
+    ? applyDirectMagnetDiskPathToInstances(
+        existing.instances,
+        existing.engineTaskId,
+        directMagnetIdentityPatch.diskPath
+      )
+    : existing.instances
   const merged: DownloadTask = {
     ...existing,
+    ...(directMagnetIdentityPatch ?? {}),
     ...terminalFields,
     progress,
     totalBytes: protected_.totalBytes,
@@ -133,6 +155,7 @@ export function mergeEngineTask(
           ratio: shareRatio(uploadedBytes, protected_.totalBytes),
         }
       : undefined,
+    instances: mergedInstances,
     updatedAt: now,
   }
   if (
@@ -140,7 +163,9 @@ export function mergeEngineTask(
     merged.status === TaskStatus.Error
   ) {
     // The candidate must not mutate live instances before persistence succeeds.
-    merged.instances = existing.instances.map((instance) => ({ ...instance }))
+    if (merged.instances === existing.instances) {
+      merged.instances = existing.instances.map((instance) => ({ ...instance }))
+    }
     syncTerminalInstanceStatus(merged, merged.status)
   }
   return merged
@@ -151,6 +176,11 @@ export function hasEngineTaskDelta(
   after: DownloadTask
 ): boolean {
   return (
+    before.name !== after.name ||
+    before.filename !== after.filename ||
+    before.finalName !== after.finalName ||
+    before.diskPath !== after.diskPath ||
+    before.finalPath !== after.finalPath ||
     before.status !== after.status ||
     before.progress !== after.progress ||
     before.totalBytes !== after.totalBytes ||
