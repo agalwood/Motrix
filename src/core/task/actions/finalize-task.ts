@@ -38,6 +38,12 @@ import {
   parseBtFileLayout,
 } from '../bt-storage-layout'
 import { settleBtUpload } from '../bt-upload-settlement'
+import {
+  applyDirectMagnetDiskPathToInstances,
+  buildDirectMagnetIdentityPatch,
+  extractResolvedBtNameFromTask,
+  needsDirectMagnetIdentityResolution,
+} from '../direct-magnet-identity'
 import type { FinalNamePicker } from '../final-name-picker'
 import { resolvePublishedTargetPath } from '../finalize-target-name'
 import { fireAfterComplete, fireOnError } from '../hook-dispatch'
@@ -619,6 +625,32 @@ async function finalizeBt(
   }
 
   const recovering = task.transitionPhase !== TransitionPhase.Idle
+  // 若直连磁力任务在极速完成时抢在轮询自愈前触发 finalizeBt，先向引擎查询真实名称
+  // 补齐 finalName/finalPath/diskPath，避免误走目录重命名导致同步报错 (#2569)。
+  if (needsDirectMagnetIdentityResolution(task)) {
+    try {
+      const live = await deps.adapter.getTaskStatus(task.engineTaskId)
+      const resolvedName = live
+        ? extractResolvedBtNameFromTask(live, task.infoHash)
+        : null
+      const identityPatch = resolvedName
+        ? buildDirectMagnetIdentityPatch(task, resolvedName)
+        : null
+      if (identityPatch) {
+        Object.assign(task, identityPatch)
+        task.instances = applyDirectMagnetDiskPathToInstances(
+          task.instances,
+          task.engineTaskId,
+          identityPatch.diskPath
+        )
+      }
+    } catch (err) {
+      deps.log.warn(
+        { err, taskId: task.id, gid: task.engineTaskId },
+        'finalize_bt_direct_magnet_identity_refresh_failed'
+      )
+    }
+  }
   const previousStatus = task.status
   Object.assign(task, applyTerminalTransition(task, TaskStatus.Finalizing))
   setTaskTransitionPhase(task, TransitionPhase.Renaming)

@@ -17,6 +17,7 @@ import {
   PollingScheduler,
   type PollingTaskUpdateSource,
 } from '@core/engine/aria2/polling-scheduler'
+import { TASK_STATUS_FIELDS } from '@core/engine/aria2/task-status-fields'
 import { translateRawToTask } from '@core/engine/aria2/translate'
 import type { Aria2TaskStatus } from '@core/engine/aria2/types'
 import { WebSocketTransport } from '@core/engine/aria2/web-socket-transport'
@@ -935,10 +936,11 @@ async function handlePolledTasks(
 ): Promise<void> {
   if (supervisor.getState() !== EngineState.Ready) return
   let dirty = false
-  // 优先接力已完成并自动跟进真实 BT 子任务的磁力元数据记录，防止残留哈希命名磁力任务 (#2552)
+  // 优先接力已完成并自动跟进真实 BT 子任务的磁力元数据记录，防止残留哈希命名磁力任务 (#2552, #2569)
   const followedResult = await reconcileFollowedMagnetTasks(rawTasks, {
     taskManager,
     persistTask,
+    lookupFollowedTask: (gid) => rpcClient.tellStatus(gid, TASK_STATUS_FIELDS),
     retireMetadataGid: (gid) => {
       runShellAsyncWork('followed magnet metadata eviction', async () => {
         try {
@@ -1114,7 +1116,25 @@ async function handlePolledTasks(
             syncTaskFilesIfIncomplete(existing.id, merged.engineTaskId)
           )
         }
-        if (!publishedTerminal) taskManager.set(existing.id, merged)
+        if (!publishedTerminal) {
+          taskManager.set(existing.id, merged)
+          // 直连磁力在轮询中补全真实名称与路径后立刻触发一次保存，避免退出丢失 (#2569)
+          if (
+            existing.name !== merged.name ||
+            existing.finalName !== merged.finalName ||
+            existing.diskPath !== merged.diskPath ||
+            existing.finalPath !== merged.finalPath
+          ) {
+            void sessionManager
+              .requestSave()
+              .catch((err) =>
+                log.warn(
+                  { err, taskId: existing.id },
+                  'direct magnet identity save failed'
+                )
+              )
+          }
+        }
         dirty = true
       }
     } else {
