@@ -1300,6 +1300,36 @@ describe('SessionManager', () => {
       expect(adapter.removeDownloadResult).toHaveBeenCalledWith('seg-audio')
     })
 
+    it('removes orphan motrix-media-* directories under mediaTmpRoot during startup sweep without touching unrelated entries', async () => {
+      const mediaRoot = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'motrix-media-sweep-')
+      )
+      const orphanDir = path.join(mediaRoot, 'motrix-media-stale01')
+      const unrelatedDir = path.join(mediaRoot, 'keep-me')
+      const unrelatedFile = path.join(mediaRoot, 'motrix-media-note.txt')
+      fs.mkdirSync(path.join(orphanDir, 'video'), { recursive: true })
+      fs.writeFileSync(path.join(orphanDir, 'video', '000001.ts'), 'bytes')
+      fs.mkdirSync(unrelatedDir, { recursive: true })
+      fs.writeFileSync(unrelatedFile, 'keep')
+
+      try {
+        const mediaSession = new SessionManager(
+          taskManager,
+          rpc,
+          db,
+          adapter,
+          mediaRoot
+        )
+        await mediaSession.purgeEphemeralMediaRows()
+
+        expect(fs.existsSync(orphanDir)).toBe(false)
+        expect(fs.existsSync(unrelatedDir)).toBe(true)
+        expect(fs.existsSync(unrelatedFile)).toBe(true)
+      } finally {
+        fs.rmSync(mediaRoot, { recursive: true, force: true })
+      }
+    })
+
     it('still purges a media row when force-remove races or fails', async () => {
       const mediaRoot = '/var/tmp/motrix-media'
       const mediaSession = new SessionManager(
