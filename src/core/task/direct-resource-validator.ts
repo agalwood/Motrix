@@ -512,7 +512,11 @@ export class DirectResourceValidatorService {
       }
 
       if (expected.resourceUrlHash) {
-        if (hashResourceUrl(metadata.finalUrl) !== expected.resourceUrlHash) {
+        // 同时兼容新规范化哈希（忽略动态签名/过期令牌参数）与旧版原始完整 URL 哈希
+        const matchesIdentity =
+          hashResourceUrl(metadata.finalUrl) === expected.resourceUrlHash ||
+          hashRawResourceUrl(metadata.finalUrl) === expected.resourceUrlHash
+        if (!matchesIdentity) {
           return { outcome: 'source-changed', ifRange: null }
         }
       } else if (metadata.crossOriginRedirect) {
@@ -1482,9 +1486,83 @@ function readMetadataValidator(
   )
 }
 
+// 跨源签名重定向（GitHub Release Assets / Azure SAS / S3 / R2 / OSS / GCS / COS）
+// 每次重定向都会刷新临时签名或过期时间戳参数；在构造资源身份哈希时仅剥离这些鉴权参数，
+// 完整保留 origin、pathname 与内容定位查询参数。
+const TRANSIENT_SIGNED_REDIRECT_PARAMS = new Set([
+  'sig',
+  'se',
+  'st',
+  'sp',
+  'sr',
+  'sv',
+  'spr',
+  'skoid',
+  'sktid',
+  'skt',
+  'ske',
+  'sks',
+  'skv',
+  'jwt',
+  'rscd',
+  'rsct',
+  'response-content-disposition',
+  'response-content-type',
+  'x-amz-signature',
+  'x-amz-date',
+  'x-amz-expires',
+  'x-amz-credential',
+  'x-amz-security-token',
+  'x-amz-algorithm',
+  'x-amz-signedheaders',
+  'awsaccesskeyid',
+  'expires',
+  'signature',
+  'x-goog-signature',
+  'x-goog-date',
+  'x-goog-expires',
+  'x-goog-credential',
+  'x-goog-algorithm',
+  'x-goog-signedheaders',
+  'ossaccesskeyid',
+  'x-oss-signature',
+  'x-oss-expires',
+  'x-oss-date',
+  'x-oss-security-token',
+  'q-signature',
+  'q-key-time',
+  'q-sign-time',
+  'q-header-list',
+  'q-url-param-list',
+  'q-sign-algorithm',
+  'q-ak',
+  'x-cos-security-token',
+  'auth_key',
+  'token',
+  'sign',
+  'timestamp',
+  'ts',
+  'exp',
+])
+
+function hashRawResourceUrl(input: string | URL): string {
+  const url = new URL(input)
+  url.hash = ''
+  return createHash('sha256').update(url.href).digest('hex')
+}
+
 function hashResourceUrl(input: string | URL): string {
   const url = new URL(input)
   url.hash = ''
+  const retained = [...url.searchParams.entries()]
+    .filter(([key]) => !TRANSIENT_SIGNED_REDIRECT_PARAMS.has(key.toLowerCase()))
+    .sort(([aKey, aVal], [bKey, bVal]) =>
+      aKey === bKey ? aVal.localeCompare(bVal) : aKey.localeCompare(bKey)
+    )
+  url.search = ''
+  for (const [key, value] of retained) {
+    url.searchParams.append(key, value)
+  }
   return createHash('sha256').update(url.href).digest('hex')
 }
 

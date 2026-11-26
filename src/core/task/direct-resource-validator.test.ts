@@ -767,6 +767,86 @@ describe('DirectResourceValidatorService', () => {
     }
   )
 
+  it('allows rotated signed query parameters on the same cross-origin redirect target when validator and length match', async () => {
+    const githubReleaseA =
+      'https://release-assets.githubusercontent.com/github-production-release-asset/1398080271/69e89566?sp=r&sv=2018-11-09&se=2026-11-26T03%3A30%3A06Z&sig=first-secret-sig&jwt=first-secret-jwt'
+    const githubReleaseB =
+      'https://release-assets.githubusercontent.com/github-production-release-asset/1398080271/69e89566?sp=r&sv=2018-11-09&se=2026-11-26T04%3A30%3A06Z&sig=second-secret-sig&jwt=second-secret-jwt'
+    const service = new DirectResourceValidatorService(
+      fetchSequence(
+        new Response(null, {
+          status: 302,
+          headers: { Location: githubReleaseA },
+        }),
+        new Response(null, {
+          status: 200,
+          headers: { ETag: '"release-v0.23.1"', 'Content-Length': '8192' },
+        }),
+        new Response(null, {
+          status: 302,
+          headers: { Location: githubReleaseB },
+        }),
+        new Response(null, {
+          status: 206,
+          headers: {
+            ETag: '"release-v0.23.1"',
+            'Content-Range': 'bytes 0-0/8192',
+          },
+        })
+      )
+    )
+    const captured = await service.capture(
+      'https://github.com/storytold/photocraft/releases/download/v0.23.1/photocraft.deb'
+    )
+    expect(captured?.resourceUrlHash).toMatch(/^[a-f0-9]{64}$/)
+    expect(JSON.stringify(captured)).not.toContain('first-secret-sig')
+    expect(JSON.stringify(captured)).not.toContain('first-secret-jwt')
+    if (!captured) throw new Error('missing captured validator')
+    await expect(
+      service.verify(
+        'https://github.com/storytold/photocraft/releases/download/v0.23.1/photocraft.deb',
+        captured
+      )
+    ).resolves.toEqual({ outcome: 'unchanged', ifRange: '"release-v0.23.1"' })
+  })
+
+  it('rejects a changed content-identifying query parameter even when signed parameters rotate and ETag collides', async () => {
+    const service = new DirectResourceValidatorService(
+      fetchSequence(
+        new Response(null, {
+          status: 302,
+          headers: {
+            Location:
+              'https://cdn.example/download?file=v1.bin&X-Amz-Signature=sig-a&X-Amz-Expires=300',
+          },
+        }),
+        new Response(null, {
+          status: 200,
+          headers: { ETag: '"same-etag"', 'Content-Length': '4096' },
+        }),
+        new Response(null, {
+          status: 302,
+          headers: {
+            Location:
+              'https://cdn.example/download?file=v2.bin&X-Amz-Signature=sig-b&X-Amz-Expires=300',
+          },
+        }),
+        new Response(null, {
+          status: 206,
+          headers: {
+            ETag: '"same-etag"',
+            'Content-Range': 'bytes 0-0/4096',
+          },
+        })
+      )
+    )
+    const captured = await service.capture('https://example.com/latest')
+    if (!captured) throw new Error('missing captured validator')
+    await expect(
+      service.verify('https://example.com/latest', captured)
+    ).resolves.toEqual({ outcome: 'source-changed', ifRange: null })
+  })
+
   it.each([
     '',
     'bytes 0-1/4096',
