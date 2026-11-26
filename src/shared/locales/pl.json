@@ -1261,6 +1261,7 @@
         "checksumMismatch": "Suma kontrolna pliku nie jest zgodna",
         "tooManyRedirects": "Zbyt wiele przekierowań",
         "serverError": "Serwer zwrócił błąd",
+        "btPortBindFailed": "Port nasłuchiwania BitTorrent jest niedostępny",
         "btMetadataFailed": "Nie udało się pobrać metadanych torrenta",
         "btTrackerError": "Błąd połączenia z trackerem",
         "generic": "Pobieranie nie powiodło się"
@@ -1274,6 +1275,7 @@
         "pathTooLong": "Skróć ścieżkę folderu zapisu lub nazwę pliku i spróbuj ponownie",
         "checksumMismatch": "Pobrany plik może być uszkodzony; pobierz go ponownie, aby to zweryfikować",
         "tooManyRedirects": "Link źródłowy może być nieprawidłowy; spróbuj użyć innego",
+        "btPortBindFailed": "Zmień port nasłuchiwania BT w ustawieniach BitTorrent, uruchom ponownie silnik i spróbuj ponownie",
         "btMetadataFailed": "Sprawdź link magnet lub dodaj więcej trackerów, a następnie spróbuj ponownie"
       }
     },

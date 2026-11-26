@@ -1233,6 +1233,7 @@
         "checksumMismatch": "Die Prüfsumme der Datei stimmt nicht überein",
         "tooManyRedirects": "Zu viele Weiterleitungen",
         "serverError": "Der Server hat einen Fehler zurückgegeben",
+        "btPortBindFailed": "Der BitTorrent-Empfangsport ist nicht verfügbar",
         "btMetadataFailed": "Die Torrent-Metadaten konnten nicht abgerufen werden",
         "btTrackerError": "Verbindung zum Tracker fehlgeschlagen",
         "generic": "Download fehlgeschlagen"
@@ -1246,6 +1247,7 @@
         "pathTooLong": "Verkürzen Sie den Speicherpfad oder Dateinamen und versuchen Sie es erneut",
         "checksumMismatch": "Die heruntergeladene Datei ist möglicherweise beschädigt. Laden Sie sie zur Überprüfung erneut herunter",
         "tooManyRedirects": "Der Quelllink ist möglicherweise ungültig. Versuchen Sie einen anderen Link",
+        "btPortBindFailed": "Ändern Sie den BT-Empfangsport in den BitTorrent-Einstellungen, starten Sie die Engine neu und versuchen Sie es erneut",
         "btMetadataFailed": "Prüfen Sie den Magnet-Link oder fügen Sie weitere Tracker hinzu und versuchen Sie es erneut"
       }
     },

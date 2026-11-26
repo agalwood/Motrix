@@ -1247,6 +1247,7 @@
         "checksumMismatch": "La somma di controllo del file non corrisponde",
         "tooManyRedirects": "Troppi reindirizzamenti",
         "serverError": "Il server ha restituito un errore",
+        "btPortBindFailed": "La porta di ascolto BitTorrent non è disponibile",
         "btMetadataFailed": "Impossibile recuperare i metadati del torrent",
         "btTrackerError": "Connessione al tracker non riuscita",
         "generic": "Download non riuscito"
@@ -1260,6 +1261,7 @@
         "pathTooLong": "Accorcia il percorso della cartella di salvataggio o il nome del file, quindi riprova",
         "checksumMismatch": "Il file scaricato potrebbe essere danneggiato; scaricalo di nuovo per verificarlo",
         "tooManyRedirects": "Il link di origine potrebbe non funzionare; prova un altro link",
+        "btPortBindFailed": "Modifica la porta di ascolto BT nelle impostazioni BitTorrent, riavvia il motore e riprova",
         "btMetadataFailed": "Controlla il link magnet o aggiungi altri tracker, quindi riprova"
       }
     },

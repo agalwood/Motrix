@@ -28,8 +28,8 @@ const persistedEngineSettingsSchema = z.object({
   // SettingsManager while loading; live updates reject non-strings. An
   // explicitly persisted empty string disables tokens.
   rpcSecret: controlFreeString().catch(''),
-  listenPort: z.number().int().min(1024).max(65535).catch(6881),
-  dhtListenPort: z.number().int().min(1024).max(65535).catch(6881),
+  listenPort: z.number().int().min(1024).max(65535).catch(21301),
+  dhtListenPort: z.number().int().min(1024).max(65535).catch(26701),
   dhtEnabled: z.boolean().catch(true),
 
   // Performance (HOT, except diskCache)

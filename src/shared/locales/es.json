@@ -1247,6 +1247,7 @@
         "checksumMismatch": "La suma de comprobación del archivo no coincide",
         "tooManyRedirects": "Demasiadas redirecciones",
         "serverError": "El servidor devolvió un error",
+        "btPortBindFailed": "El puerto de escucha de BitTorrent no está disponible",
         "btMetadataFailed": "No se pudieron obtener los metadatos del torrent",
         "btTrackerError": "No se pudo conectar con el tracker",
         "generic": "La descarga falló"
@@ -1260,6 +1261,7 @@
         "pathTooLong": "Elige una ruta de destino o un nombre de archivo más corto y reintenta",
         "checksumMismatch": "El archivo descargado podría estar dañado; vuelve a descargarlo para verificarlo",
         "tooManyRedirects": "El enlace de origen podría no funcionar; prueba otro enlace",
+        "btPortBindFailed": "Cambia el puerto de escucha BT en los ajustes de BitTorrent, reinicia el motor e inténtalo de nuevo",
         "btMetadataFailed": "Comprueba el enlace magnet o añade más trackers y reintenta"
       }
     },

@@ -2990,6 +2990,7 @@
         "renameFileFailed": "Fișierul nu a putut fi redenumit: {{cause}}"
       },
       "hint": {
+        "btPortBindFailed": "Schimbați portul de ascultare BT în setările BitTorrent, reporniți motorul și încercați din nou",
         "btMetadataFailed": "Verifică linkul magnet sau adaugă mai multe trackere, apoi încearcă din nou",
         "checksumMismatch": "Fișierul descărcat poate fi corupt; descarcă-l din nou pentru verificare",
         "diskFull": "Eliberează spațiu pe disc sau schimbă dosarul de salvare, apoi încearcă din nou",
@@ -3001,6 +3002,7 @@
         "unauthorized": "Verifică datele de autentificare sau drepturile de acces, apoi încearcă din nou"
       },
       "reason": {
+        "btPortBindFailed": "Portul de ascultare BitTorrent nu este disponibil",
         "btMetadataFailed": "Metadatele torrentului nu au putut fi preluate",
         "btTrackerError": "Conectarea la tracker a eșuat",
         "checksumMismatch": "Suma de control a fișierului nu corespunde",

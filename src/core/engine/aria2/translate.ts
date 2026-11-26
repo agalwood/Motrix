@@ -152,6 +152,14 @@ export function classifyTerminalError(
   if (errorCode === null) return { errorCode, ...none }
 
   const numeric = Number.parseInt(String(rawErrorCode).trim(), 10)
+  // BtSetup aborts before connecting to peers if no TCP listener can bind.
+  // Exit code 1 alone is generic; require its specific terminal message.
+  if (
+    rawErrorCode?.trim() === '1' &&
+    rawErrorMessage?.trim() === 'Errors occurred while binding port.'
+  ) {
+    return { errorCode: DownloadErrorCode.BtPortBindFailed, ...none }
+  }
   if (!FILE_ACCESS_ERROR_CODES.has(numeric)) return { errorCode, ...none }
 
   const filePath = extractAria2FilePath(rawErrorMessage)

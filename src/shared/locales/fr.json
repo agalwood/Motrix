@@ -2990,6 +2990,7 @@
         "renameFileFailed": "Impossible de renommer le fichier : {{cause}}"
       },
       "hint": {
+        "btPortBindFailed": "Modifiez le port d’écoute BT dans les paramètres BitTorrent, redémarrez le moteur, puis réessayez",
         "btMetadataFailed": "Vérifiez le lien magnet ou ajoutez des trackers, puis réessayez",
         "checksumMismatch": "Le fichier téléchargé est peut-être corrompu ; téléchargez-le à nouveau pour le vérifier",
         "diskFull": "Libérez de l’espace disque ou changez le dossier de destination, puis réessayez",
@@ -3001,6 +3002,7 @@
         "unauthorized": "Vérifiez vos identifiants ou vos droits d’accès, puis réessayez"
       },
       "reason": {
+        "btPortBindFailed": "Le port d’écoute BitTorrent est indisponible",
         "btMetadataFailed": "Impossible de récupérer les métadonnées du torrent",
         "btTrackerError": "Échec de la connexion au tracker",
         "checksumMismatch": "La somme de contrôle du fichier ne correspond pas",

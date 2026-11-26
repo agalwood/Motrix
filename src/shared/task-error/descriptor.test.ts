@@ -52,6 +52,18 @@ describe('resolveFailureDescriptor', () => {
       expect(d.reasonCandidates[0]?.key).toMatch(/^task\.error\.reason\./)
     }
   })
+  it('gives port recovery advice and retains the engine detail for a bind failure', () => {
+    const d = resolveFailureDescriptor({
+      ...base,
+      errorCode: DownloadErrorCode.BtPortBindFailed,
+      errorMessage: 'Errors occurred while binding port.',
+    })
+    expect(d.reasonCandidates[0]?.key).toBe(
+      'task.error.reason.btPortBindFailed'
+    )
+    expect(d.hintKey).toBe('task.error.hint.btPortBindFailed')
+    expect(d.technicalDetail).toBe('Errors occurred while binding port.')
+  })
   it('whitespace-only errorMessage produces null technicalDetail', () => {
     const d = resolveFailureDescriptor({
       ...base,

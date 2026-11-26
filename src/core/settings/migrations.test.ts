@@ -93,10 +93,6 @@ describe('migrate', () => {
 })
 
 describe('migration v3 → v4', () => {
-  it('targets version 12', () => {
-    expect(CURRENT_SETTINGS_VERSION).toBe(13)
-  })
-
   it('adds dhtListenPort defaulting to listenPort value', () => {
     const v3 = {
       version: 3,
@@ -131,6 +127,45 @@ describe('migration v3 → v4', () => {
     }
     const v4 = migrate(v3)
     expect((v4.nat as Record<string, unknown>).enabled).toBe(false)
+  })
+})
+
+describe('migration v13 → v14', () => {
+  it.each([
+    [6881, 6881, 21301, 26701],
+    [51413, 6881, 51413, 26701],
+    [6881, 51414, 21301, 51414],
+    [51413, 51414, 51413, 51414],
+    [21301, 26701, 21301, 26701],
+  ])(
+    'migrates BT %i / DHT %i without replacing other ports',
+    (bt, dht, nextBt, nextDht) => {
+      const input = {
+        version: 13,
+        engine: { listenPort: bt, dhtListenPort: dht, rpcPort: 16800 },
+        nat: { enabled: true },
+      }
+      const result = migrate(input)
+      expect(result).toEqual({
+        ...input,
+        version: CURRENT_SETTINGS_VERSION,
+        engine: { listenPort: nextBt, dhtListenPort: nextDht, rpcPort: 16800 },
+      })
+      expect(migrate(result)).toEqual(result)
+      expect(input.engine).toEqual({
+        listenPort: bt,
+        dhtListenPort: dht,
+        rpcPort: 16800,
+      })
+    }
+  )
+
+  it('preserves 6881 explicitly selected after the migration', () => {
+    const input = {
+      version: CURRENT_SETTINGS_VERSION,
+      engine: { listenPort: 6881, dhtListenPort: 6881 },
+    }
+    expect(migrate(input)).toEqual(input)
   })
 })
 
@@ -204,10 +239,6 @@ describe('migration v5 → v6 (media namespace)', () => {
 })
 
 describe('migration v6 → v7 (speedLimit namespace)', () => {
-  it('targets version 12', () => {
-    expect(CURRENT_SETTINGS_VERSION).toBe(13)
-  })
-
   it('v6→v7: maps a configured limit to base, turtle off', () => {
     const result = migrate({
       version: 6,
@@ -480,7 +511,7 @@ describe('migration v12 → v13 (anime direct source and blacklist)', () => {
     const input = { version: 12, tracker }
     const result = migrate(input)
     expect(result).toEqual({
-      version: 13,
+      version: CURRENT_SETTINGS_VERSION,
       tracker: {
         ...tracker,
         sources: [...tracker.sources, ANIME_TRACKER_DIRECT_SOURCE],

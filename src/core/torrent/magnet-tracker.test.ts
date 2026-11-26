@@ -1820,6 +1820,133 @@ describe('MagnetTracker', () => {
 
   // ── 6. onError for known gid ─────────────────────────────────
 
+  it.each([
+    [
+      '1',
+      'Errors occurred while binding port.\n',
+      DownloadErrorCode.BtPortBindFailed,
+    ],
+    ['9', 'No space left on device', DownloadErrorCode.DiskFull],
+    ['1', 'Some other engine failure', DownloadErrorCode.BtMetadataFailed],
+  ])(
+    'preserves engine error %s before cleanup and clears it on retry',
+    async (code, message, expected) => {
+      const dispatch = vi.fn(async () => {})
+      const tracker = createMagnetTracker(
+        rpc as never,
+        eventBus as never,
+        settings as never,
+        db,
+        taskManager,
+        torrentParser,
+        undefined,
+        { occurrenceDispatcher: { dispatch } }
+      )
+      const taskId = await tracker.submit(
+        'magnet:?xt=urn:btih:6367c48dd193d56ea7b0baad25b19455e529f5ee',
+        await makeTempDir()
+      )
+      const gid = lastMetadataGid()
+      rpc.tellStatus.mockImplementation(async () => {
+        expect(rpc.forceRemove).not.toHaveBeenCalled()
+        expect(rpc.removeDownloadResult).not.toHaveBeenCalled()
+        return { status: 'error', errorCode: code, errorMessage: message }
+      })
+
+      await rpc.onDownloadError.mock.calls[0][0]({ gid })
+
+      expect(rpc.tellStatus).toHaveBeenCalledWith(gid, [
+        'status',
+        'errorCode',
+        'errorMessage',
+      ])
+      const error = { errorCode: expected, errorMessage: message.trim() }
+      expect(db.getTask(taskId)?.task).toMatchObject({
+        aggStatus: TaskStatus.Error,
+        ...error,
+      })
+      expect(taskManager.getById(taskId)).toMatchObject({
+        status: TaskStatus.Error,
+        ...error,
+      })
+      expect(dispatch).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          taskId,
+          errorGroup: expect.objectContaining(error),
+        })
+      )
+      expect(rpc.forceRemove).toHaveBeenCalledWith(gid)
+
+      await tracker.retryMetadata(taskId)
+      expect(db.getTask(taskId)?.task).toMatchObject({
+        aggStatus: TaskStatus.FetchingMetadata,
+        errorCode: null,
+        errorMessage: null,
+        errorDetailKey: null,
+        errorDetailParams: null,
+      })
+      tracker.dispose()
+    }
+  )
+
+  it('keeps a retryable metadata failure if reading the engine result fails', async () => {
+    const tracker = createMagnetTracker(
+      rpc as never,
+      eventBus as never,
+      settings as never,
+      db,
+      taskManager,
+      torrentParser
+    )
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:6367c48dd193d56ea7b0baad25b19455e529f5ee',
+      await makeTempDir()
+    )
+    const gid = lastMetadataGid()
+    rpc.tellStatus.mockRejectedValue(new Error('RPC disconnected'))
+    await rpc.onDownloadError.mock.calls[0][0]({ gid })
+    expect(db.getTask(taskId)?.task).toMatchObject({
+      aggStatus: TaskStatus.Error,
+      errorCode: DownloadErrorCode.BtMetadataFailed,
+      errorMessage: 'Magnet metadata fetch failed',
+    })
+    expect(rpc.forceRemove).toHaveBeenCalledWith(gid)
+    tracker.dispose()
+  })
+
+  it('does not resurrect a cancelled task when the error lookup completes late', async () => {
+    const tracker = createMagnetTracker(
+      rpc as never,
+      eventBus as never,
+      settings as never,
+      db,
+      taskManager,
+      torrentParser
+    )
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:6367c48dd193d56ea7b0baad25b19455e529f5ee',
+      await makeTempDir()
+    )
+    const gid = lastMetadataGid()
+    let resolveStatus!: (status: unknown) => void
+    rpc.tellStatus.mockReturnValue(
+      new Promise((resolve) => {
+        resolveStatus = resolve
+      })
+    )
+    const pending = rpc.onDownloadError.mock.calls[0][0]({ gid })
+    await tracker.cancel(taskId)
+    resolveStatus({
+      status: 'error',
+      errorCode: '1',
+      errorMessage: 'Errors occurred while binding port.',
+    })
+    await pending
+    expect(db.getTask(taskId)).toBeNull()
+    expect(db.persistTaskWithOccurrence).not.toHaveBeenCalled()
+    tracker.dispose()
+  })
+
   it('cleans up without emitting MagnetFileSelection when onError fires for known gid', async () => {
     const dir = await makeTempDir()
     const tracker = createMagnetTracker(

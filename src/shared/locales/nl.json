@@ -2969,6 +2969,7 @@
         "renameFileFailed": "Het bestand kon niet worden hernoemd: {{cause}}"
       },
       "hint": {
+        "btPortBindFailed": "Wijzig de BT-luisterpoort in de BitTorrent-instellingen, herstart de engine en probeer het opnieuw",
         "btMetadataFailed": "Controleer de magnetlink of voeg meer trackers toe en probeer het opnieuw",
         "checksumMismatch": "Het gedownloade bestand is mogelijk beschadigd; download het opnieuw om het te controleren",
         "diskFull": "Maak schijfruimte vrij of wijzig de opslagmap en probeer het opnieuw",
@@ -2980,6 +2981,7 @@
         "unauthorized": "Controleer je inloggegevens of toegangsrechten en probeer het opnieuw"
       },
       "reason": {
+        "btPortBindFailed": "De BitTorrent-luisterpoort is niet beschikbaar",
         "btMetadataFailed": "De torrentmetadata konden niet worden opgehaald",
         "btTrackerError": "Verbinding met de tracker mislukt",
         "checksumMismatch": "De controlesom van het bestand komt niet overeen",
