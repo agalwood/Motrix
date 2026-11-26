@@ -17,18 +17,48 @@ import { restoreTaskSaveDirectory } from '@core/task/task-save-directory'
 import { type DownloadTask, TaskStatus, TaskType } from '@shared/types/task'
 import type { ServerDownloadPathPolicy } from '../../download-path-policy'
 
+// Linux 4.4（群晖 DSM 7 主流内核）不支持 statx(STATX_BTIME)，libuv 会将
+// birthtimeNs 回退为 ctimeNs；目录内每次创建 .motrix/.aria2 文件都会更新目录 ctime。
+// 因此目录身份与快照戳均不得依赖 birthtimeNs，并需平滑兼容旧库中已写入的带 birthtimeNs 记录。
+const fileId = (info: { dev: bigint; ino: bigint }) => `${info.dev}:${info.ino}`
 const fileStamp = (info: {
   dev: bigint
   ino: bigint
-  birthtimeNs: bigint
   size: bigint
   mtimeNs: bigint
   isDirectory(): boolean
 }) =>
   info.isDirectory()
-    ? `${fileId(info)}:${info.birthtimeNs}`
-    : `${fileId(info)}:${info.birthtimeNs}:${info.size}:${info.mtimeNs}`
-const fileId = (info: { dev: bigint; ino: bigint }) => `${info.dev}:${info.ino}`
+    ? fileId(info)
+    : `${fileId(info)}:${info.size}:${info.mtimeNs}`
+
+function directoryIdentityMatches(stored: string, current: string): boolean {
+  if (stored === current) return true
+  // 兼容旧版写入的 `${dev}:${ino}:${birthtimeNs}` 三段目录身份
+  if (!stored.startsWith(`${current}:`)) return false
+  return /^\d+$/.test(stored.slice(current.length + 1))
+}
+
+function fileStampMatches(
+  stored: string,
+  info: {
+    dev: bigint
+    ino: bigint
+    size: bigint
+    mtimeNs: bigint
+    isDirectory(): boolean
+  }
+): boolean {
+  if (info.isDirectory()) return directoryIdentityMatches(stored, fileId(info))
+  const current = fileStamp(info)
+  if (stored === current) return true
+  // 兼容旧版写入的 `${dev}:${ino}:${birthtimeNs}:${size}:${mtimeNs}` 五段文件戳
+  const prefix = `${fileId(info)}:`
+  const suffix = `:${info.size}:${info.mtimeNs}`
+  if (!stored.startsWith(prefix) || !stored.endsWith(suffix)) return false
+  const middle = stored.slice(prefix.length, stored.length - suffix.length)
+  return /^\d+$/.test(middle)
+}
 type PathClaim = {
   identity: string
   stamp: string
@@ -90,7 +120,7 @@ async function verifyMembers(root: string, allowed: Tree, relative = '') {
     const info = await lstat(file, { bigint: true })
     if (
       (!info.isFile() && !info.isDirectory()) ||
-      fileStamp(info) !== allowed[child] ||
+      !fileStampMatches(allowed[child], info) ||
       (await realpath(file)) !== file
     )
       throw Error('Task directory contains a different file')
@@ -175,7 +205,13 @@ export class SynologyTaskFiles {
 
   async checkDirectory(task: DownloadTask) {
     const claim = this.row(task.id, 'directory', task.saveDir)
-    if (!claim || (await this.directoryId(task.saveDir)) !== claim.identity)
+    if (
+      !claim ||
+      !directoryIdentityMatches(
+        claim.identity,
+        await this.directoryId(task.saveDir)
+      )
+    )
       throw Error('Task download directory changed')
   }
 
@@ -274,7 +310,7 @@ export class SynologyTaskFiles {
     // A verified locate supersedes an older journal for this task and path.
     if (record && record.journal === (journal?.journal ?? null)) {
       const info = await existing(selected)
-      if (info && fileStamp(info) !== record.stamp)
+      if (info && !fileStampMatches(record.stamp ?? '', info))
         throw Error('Task output changed')
       return record.identity
     }
@@ -304,7 +340,7 @@ export class SynologyTaskFiles {
         const allowed: Tree = JSON.parse(parent.tree)
         if (Object.hasOwn(allowed, relative)) {
           const info = await existing(selected)
-          if (!info || fileStamp(info) !== allowed[relative])
+          if (!info || !fileStampMatches(allowed[relative], info))
             throw Error('Task output changed')
           return fileId(info)
         }
