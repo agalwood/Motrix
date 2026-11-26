@@ -26,6 +26,10 @@ import {
 } from '@core/engine/engine-supervisor'
 import { EventBus } from '@core/events/event-bus'
 import { locateFfmpeg } from '@core/ffmpeg/ffmpeg-locator'
+import {
+  canonicalizeFinalizeCommitRequest,
+  canonicalizeSaveDir,
+} from '@core/fs/canonicalize-save-dir'
 import { pathExists } from '@core/fs/path-exists'
 import { GeoIPManager } from '@core/geoip/geo-ip-manager'
 import { LocaleCoordinator } from '@core/i18n/locale-coordinator'
@@ -1334,18 +1338,20 @@ function buildFinalizeDeps(adapter: Aria2Adapter) {
       if (!durableFinalizeRuntime) {
         throw new Error('durable finalize runtime is unavailable')
       }
+      // 兼容符号链接保存目录（如 macOS 将 ~/Downloads 软链至外置盘）的存量任务落盘
+      const normalized = await canonicalizeFinalizeCommitRequest(input)
       const post =
-        input.occurrence?.type === 'terminal' && pluginHookRuntime
+        normalized.occurrence?.type === 'terminal' && pluginHookRuntime
           ? await pluginHookRuntime.prepareTerminal(
-              input.task,
-              input.occurrence
+              normalized.task,
+              normalized.occurrence
             )
           : { postDeliveries: [], beforeCommit: () => undefined }
       await durableFinalizeRuntime.commit({
-        ...input,
+        ...normalized,
         postDeliveries: post.postDeliveries,
         beforeCommit: () => {
-          input.beforeCommit?.()
+          normalized.beforeCommit?.()
           post.beforeCommit()
         },
       })
@@ -2830,6 +2836,7 @@ async function initializeMainProcess(): Promise<void> {
       eventBus,
       publishTaskUpdate,
       activityRecorder: activeTaskActivityService,
+      prepareSaveDir: canonicalizeSaveDir,
       persistTask,
       persistTaskWithPluginMetadata:
         pluginRuntime.persistTaskWithPluginMetadata,

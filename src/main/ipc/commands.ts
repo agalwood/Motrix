@@ -8,6 +8,7 @@ import type { EngineAdapter } from '@core/engine/engine-adapter'
 import type { EngineSupervisor } from '@core/engine/engine-supervisor'
 import { ENGINE_READY_TIMEOUT_MS } from '@core/engine/engine-supervisor'
 import type { EventBus } from '@core/events/event-bus'
+import { canonicalizeSaveDir } from '@core/fs/canonicalize-save-dir'
 import type { GeoIPManager } from '@core/geoip/geo-ip-manager'
 import { createUpdateGeoIPDatabaseHandler } from '@core/geoip/update-geo-ip-database'
 import { getLogger } from '@core/logger'
@@ -383,6 +384,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     orchestrator: hookOrchestrator,
     auditLog: hookAuditLog,
     db: motrixDatabase.database,
+    prepareSaveDir: canonicalizeSaveDir,
     persistTask,
     persistTaskWithPluginMetadata,
     parentTaskCreated,
@@ -988,9 +990,12 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
           ) {
             let taskId: string
             try {
+              const targetSaveDir = await canonicalizeSaveDir(
+                req.saveDir || settingsManager.getApp().defaultSaveDir
+              )
               taskId = await magnetTracker.submit(
                 req.payload.uri,
-                req.saveDir || settingsManager.getApp().defaultSaveDir
+                targetSaveDir
               )
             } catch (error) {
               const conflict =
