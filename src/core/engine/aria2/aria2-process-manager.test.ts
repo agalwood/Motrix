@@ -98,7 +98,7 @@ describe('Aria2ProcessManager', () => {
   let manager: Aria2ProcessManager
 
   beforeEach(() => {
-    manager = new Aria2ProcessManager()
+    manager = new Aria2ProcessManager({ probeRetryDelaysMs: [0, 0, 0] })
     vi.clearAllMocks()
   })
 
@@ -112,6 +112,7 @@ describe('Aria2ProcessManager', () => {
         (
           _path: string,
           _args: string[],
+          _options: Record<string, unknown>,
           callback: (err: Error | null, stdout: string, stderr: string) => void
         ) => {
           callback(null, ARIA2_VERSION_OUTPUT, '')
@@ -123,6 +124,7 @@ describe('Aria2ProcessManager', () => {
       expect(mockExecFile).toHaveBeenCalledWith(
         '/usr/bin/aria2c',
         ['--version'],
+        expect.objectContaining({ timeout: 10_000, windowsHide: true }),
         expect.any(Function)
       )
       expect(report.version).toBe('1.37.0-motrix.10')
@@ -141,6 +143,7 @@ describe('Aria2ProcessManager', () => {
         (
           _path: string,
           _args: string[],
+          _options: Record<string, unknown>,
           callback: (err: Error | null, stdout: string, stderr: string) => void
         ) => {
           callback(null, ARIA2_NO_SQLITE_OUTPUT, '')
@@ -153,14 +156,17 @@ describe('Aria2ProcessManager', () => {
       expect(report.hasSqlitePersistence).toBe(false)
     })
 
-    it('throws AppError when binary does not exist', async () => {
+    it('throws AppError immediately without retrying when binary does not exist', async () => {
       mockExecFile.mockImplementation(
         (
           _path: string,
           _args: string[],
+          _options: Record<string, unknown>,
           callback: (err: Error | null) => void
         ) => {
-          const err = new Error('ENOENT: no such file')
+          const err = Object.assign(new Error('ENOENT: no such file'), {
+            code: 'ENOENT',
+          })
           callback(err)
         }
       )
@@ -168,20 +174,86 @@ describe('Aria2ProcessManager', () => {
       await expect(manager.probe('/nonexistent/aria2c')).rejects.toThrow(
         AppError
       )
+      expect(mockExecFile).toHaveBeenCalledTimes(1)
 
       try {
         await manager.probe('/nonexistent/aria2c')
       } catch (err) {
         expect(err).toBeInstanceOf(AppError)
         expect((err as AppError).code).toBe(ErrorCode.EngineStartFailed)
+        expect((err as AppError).message).toContain('(ENOENT)')
       }
     })
 
-    it('throws AppError when output cannot be parsed', async () => {
+    it('retries transient probe errors such as EBUSY or EACCES and succeeds once unlocked', async () => {
+      let attempt = 0
       mockExecFile.mockImplementation(
         (
           _path: string,
           _args: string[],
+          _options: Record<string, unknown>,
+          callback: (err: Error | null, stdout: string, stderr: string) => void
+        ) => {
+          attempt++
+          if (attempt === 1) {
+            callback(
+              Object.assign(new Error('resource busy or locked'), {
+                code: 'EBUSY',
+              }),
+              '',
+              ''
+            )
+            return
+          }
+          if (attempt === 2) {
+            callback(
+              Object.assign(new Error('permission denied'), {
+                code: 'EACCES',
+              }),
+              '',
+              ''
+            )
+            return
+          }
+          callback(null, ARIA2_VERSION_OUTPUT, '')
+        }
+      )
+
+      const report = await manager.probe('/usr/bin/aria2c')
+
+      expect(mockExecFile).toHaveBeenCalledTimes(3)
+      expect(report.version).toBe('1.37.0-motrix.10')
+    })
+
+    it('retries timed-out probes and reports ETIMEDOUT when retries are exhausted', async () => {
+      mockExecFile.mockImplementation(
+        (
+          _path: string,
+          _args: string[],
+          _options: Record<string, unknown>,
+          callback: (err: Error | null) => void
+        ) => {
+          callback(
+            Object.assign(new Error('Command failed: timed out'), {
+              killed: true,
+            })
+          )
+        }
+      )
+
+      await expect(manager.probe('/usr/bin/aria2c')).rejects.toMatchObject({
+        code: ErrorCode.EngineStartFailed,
+        message: expect.stringContaining('(ETIMEDOUT)'),
+      })
+      expect(mockExecFile).toHaveBeenCalledTimes(4)
+    })
+
+    it('throws AppError without retrying when output cannot be parsed', async () => {
+      mockExecFile.mockImplementation(
+        (
+          _path: string,
+          _args: string[],
+          _options: Record<string, unknown>,
           callback: (err: Error | null, stdout: string, stderr: string) => void
         ) => {
           callback(null, 'not aria2 output', '')
@@ -191,6 +263,7 @@ describe('Aria2ProcessManager', () => {
       await expect(manager.probe('/usr/bin/something-else')).rejects.toThrow(
         AppError
       )
+      expect(mockExecFile).toHaveBeenCalledTimes(1)
     })
 
     describe('parses fork feature tag', () => {
@@ -199,6 +272,7 @@ describe('Aria2ProcessManager', () => {
           (
             _bin: string,
             args: string[],
+            _options: Record<string, unknown>,
             cb: (err: Error | null, stdout: string, stderr: string) => void
           ) => {
             expect(args).toEqual(['--version'])
@@ -220,6 +294,7 @@ describe('Aria2ProcessManager', () => {
           (
             _bin: string,
             _args: string[],
+            _options: Record<string, unknown>,
             cb: (err: Error | null, stdout: string, stderr: string) => void
           ) => {
             cb(
@@ -239,6 +314,7 @@ describe('Aria2ProcessManager', () => {
           (
             _bin: string,
             args: string[],
+            _options: Record<string, unknown>,
             cb: (err: Error | null, stdout: string, stderr: string) => void
           ) => {
             calls.push(args)
@@ -278,6 +354,7 @@ describe('Aria2ProcessManager', () => {
 
       expect(mockSpawnFn).toHaveBeenCalledWith('/usr/bin/aria2c', args, {
         stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
       })
       expect(mockLogInfo).toHaveBeenCalledWith(
         {
@@ -308,6 +385,7 @@ describe('Aria2ProcessManager', () => {
 
       expect(mockSpawnFn).toHaveBeenCalledWith('/usr/bin/aria2c', [], {
         stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
         env,
       })
     })
