@@ -695,7 +695,10 @@ export class EngineSupervisor {
               ? EngineFailureReason.RpcUnavailable
               : EngineFailureReason.Unknown
       this.recordFailure(reason, this.lastError)
-      log.error({ err: this.lastError }, 'start failed')
+      log.error(
+        { err: this.lastError, phase, reason, binaryPath: this.binaryPath },
+        'start failed'
+      )
       this.setState(EngineState.Failed)
     }
   }
