@@ -68,6 +68,11 @@
   </screenshots>
 
   <releases>
+    <release version="2.4.7" date="2026-11-26">
+      <description>
+        <p>Updates Electron to 45.5.0, pnpm to 12.23.0, and core UI/runtime dependencies (including fnOS SDK 0.7.0 top-level web file-action protection), alongside aria2 1.37.0-motrix.26 and all download/resume/SMB/BT fixes from 2.4.6.</p>
+      </description>
+    </release>
     <release version="2.4.6" date="2026-11-26">
       <description>
         <p>Bundles aria2 1.37.0-motrix.26 to restore multi-connection HTTP downloads across dynamic redirects, disables HTTP gzip compression to preserve progress and resume, adds macOS SMB finalize support, keeps direct magnets in the chosen save directory, moves default BT ports off 6881, hardens aria2 binary probing, supports rotated signed redirect URLs on resume, and bounds runtime log and temporary media disk usage.</p>
