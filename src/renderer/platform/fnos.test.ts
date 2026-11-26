@@ -167,6 +167,23 @@ it('uses a server-authorized task path for file actions and surfaces unsupported
 })
 
 it.each([true, false])(
+  'rejects file actions in top-level Web pages before calling SDK stubs (standalone=%s)',
+  async (standalone) => {
+    sdk.isWeb = true
+    sdk.isStandaloneWeb = standalone
+    await expect(fnosFileAction('task-123', 'open')).rejects.toThrow(
+      'fnOS desktop or mobile app'
+    )
+    await expect(fnosFileAction('task-123', 'reveal')).rejects.toThrow(
+      'fnOS desktop or mobile app'
+    )
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(sdk.openFile).not.toHaveBeenCalled()
+    expect(sdk.openFileManager).not.toHaveBeenCalled()
+  }
+)
+
+it.each([true, false])(
   'uses App Auth for a top-level Web page (standalone=%s)',
   async (standalone) => {
     sdk.isWeb = true

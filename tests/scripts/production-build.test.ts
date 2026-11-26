@@ -14,9 +14,11 @@ const TARGETS = [
   // dialog stays lazy and is excluded from Electron. Startup ceilings are unchanged.
   // React Flow 13's compiled call graph adds ~65 KiB (~26 KiB gzip), entirely
   // in lazy chunks. Reserve a further 64 KiB; retain the startup ceiling.
-  { name: 'renderer', initial: 2.75 * MIB, total: 8 * MIB + 128 * 1024 },
+  // 依赖升级（recharts、i18next、react-router、elkjs 等）使懒加载总包增加约 25 KiB，启动体积上限保持不变。
+  { name: 'renderer', initial: 2.75 * MIB, total: 8 * MIB + 160 * 1024 },
   // The lazy DSM storage recovery page and its localized controls add 9 KiB.
-  { name: 'renderer.web', initial: 2.75 * MIB, total: 8 * MIB + 172 * 1024 },
+  // 同上，加上 @trimjs/web-app 0.7.0 使 Web 懒加载总包增加约 26 KiB，启动体积上限保持不变。
+  { name: 'renderer.web', initial: 2.75 * MIB, total: 8 * MIB + 204 * 1024 },
   // The shared operation runtime brings total server JS to ~5.01 MiB.
   { name: 'server', initial: 2 * MIB, total: 5.25 * MIB },
 ]

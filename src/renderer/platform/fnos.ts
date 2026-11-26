@@ -138,7 +138,10 @@ export async function fnosFileAction(
   action: 'open' | 'reveal'
 ): Promise<void> {
   const sdk = await fnosSdk()
-  if (sdk.isStandaloneWeb) throw new FnosHostRequiredError()
+  // 顶层 Web 页面（包含 standalone 与 extension host）不具备真实 NAS 文件操作能力；
+  // @trimjs/web-app 0.7 在 extension host 中会弹开发模拟 alert 而非抛错，需在此拦截。
+  if (sdk.isStandaloneWeb || (sdk.isWeb && window.parent === window))
+    throw new FnosHostRequiredError()
   const response = await fnosRequest('task-path', { taskId, action })
   const { path } = pathResponse.parse(await response.json())
   try {
