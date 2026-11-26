@@ -14,11 +14,40 @@ const DNS_TRANSPORT_FAILURE_TEXTS = [
   'No DNS servers were configured',
 ] as const
 
+// 在无公网 IPv6 路由但本机存在虚拟/ULA IPv6 地址的环境中，aria2 内置 c-ares 会
+// 优先返回双栈 CDN 的 AAAA 记录，导致连接立即报路由不可达，而系统 getaddrinfo
+// 会自动按本机路由策略过滤不可达的 IPv6 地址 (#2421)。
+const UNREACHABLE_ROUTE_FAILURE_TEXTS = [
+  'A socket operation was attempted to an unreachable network',
+  'A socket operation was attempted to an unreachable host',
+  'Unknown socket error 10051',
+  'Unknown socket error 10065',
+  'Network is unreachable',
+  'No route to host',
+] as const
+
 export function isDnsContactFailure(
   errorMessage: string | null | undefined
 ): boolean {
   if (!errorMessage) return false
   return DNS_TRANSPORT_FAILURE_TEXTS.some((text) => errorMessage.includes(text))
+}
+
+export function isUnreachableRouteFailure(
+  errorMessage: string | null | undefined
+): boolean {
+  if (!errorMessage) return false
+  return UNREACHABLE_ROUTE_FAILURE_TEXTS.some((text) =>
+    errorMessage.includes(text)
+  )
+}
+
+export function shouldTriggerDnsFallback(
+  errorMessage: string | null | undefined
+): boolean {
+  return (
+    isDnsContactFailure(errorMessage) || isUnreachableRouteFailure(errorMessage)
+  )
 }
 
 export function dnsModeToAsyncDns(mode: DnsResolutionMode): boolean {
@@ -85,7 +114,7 @@ export function createDnsFallbackConsumer(
     if (occ.cause === 'user-cancel') return
     if (occ.createdAt < startedAt) return
     if (deps.getDnsMode() !== 'auto') return
-    if (!isDnsContactFailure(occ.errorGroup?.errorMessage)) return
+    if (!shouldTriggerDnsFallback(occ.errorGroup?.errorMessage)) return
     if (retriedTaskIds.has(occ.taskId)) return
     if (deps.getTaskStatus(occ.taskId) !== TaskStatus.Error) return
 

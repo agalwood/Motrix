@@ -23,6 +23,7 @@ import {
 } from '@shared/types/task'
 import { shareRatio } from '@shared/utils/share-ratio'
 import peerid from 'bittorrent-peerid'
+import { isUnreachableRouteFailure } from './dns-fallback'
 import type {
   Aria2RawFile,
   Aria2RawGlobalStat,
@@ -159,6 +160,14 @@ export function classifyTerminalError(
     rawErrorMessage?.trim() === 'Errors occurred while binding port.'
   ) {
     return { errorCode: DownloadErrorCode.BtPortBindFailed, ...none }
+  }
+  // SocketCore::establishConnection 在 Windows/POSIX 上遇到路由不可达时抛出通用
+  // exit code 1，将其细化为 NetworkError 以避免向用户展示 DL_UNKNOWN (#2421)。
+  if (
+    rawErrorCode?.trim() === '1' &&
+    isUnreachableRouteFailure(rawErrorMessage)
+  ) {
+    return { errorCode: DownloadErrorCode.NetworkError, ...none }
   }
   if (!FILE_ACCESS_ERROR_CODES.has(numeric)) return { errorCode, ...none }
 

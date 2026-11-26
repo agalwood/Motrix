@@ -67,6 +67,16 @@ describe('BT listening port failures', () => {
     ['1', 'Failed to bind a socket', DownloadErrorCode.Unknown],
     [
       '1',
+      'Network problem has occurred. cause:A socket operation was attempted to an unreachable network',
+      DownloadErrorCode.NetworkError,
+    ],
+    [
+      '1',
+      'Network problem has occurred. cause:Network is unreachable',
+      DownloadErrorCode.NetworkError,
+    ],
+    [
+      '1',
       'Could not open /tmp/Errors occurred while binding port.',
       DownloadErrorCode.Unknown,
     ],
