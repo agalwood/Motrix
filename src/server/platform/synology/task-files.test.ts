@@ -132,3 +132,64 @@ it('rejects an unproven partial file without adopting it during deletion', async
   await rm(task.diskPath)
   await expect(guard.checkRemoval(task, task.diskPath)).resolves.toBeUndefined()
 })
+
+it('keeps directory identity stable across file mutations and legacy birthtime stamps', async () => {
+  // 模拟在目录内持续创建和删除 .motrix / .aria2 文件导致目录 ctime 变更
+  const tempFile = path.join(root, 'active.bin.motrix')
+  const controlFile = `${tempFile}.aria2`
+  await writeFile(tempFile, 'downloading')
+  await writeFile(controlFile, 'control')
+  await expect(guard.checkDirectory(task)).resolves.toBeUndefined()
+
+  const dirInfo = await lstat(root, { bigint: true })
+  const stored = database
+    .prepare(
+      "SELECT identity FROM synology_task_paths WHERE task_id=? AND role='directory' AND path=?"
+    )
+    .get(task.id, root) as { identity: string }
+  // 新写入的目录身份仅包含 dev:ino，不包含会退化为 ctime 的 birthtimeNs
+  expect(stored.identity).toBe(`${dirInfo.dev}:${dirInfo.ino}`)
+
+  // 兼容旧版 DSM 数据库中已写入的 `${dev}:${ino}:${staleBirthtimeNs}` 三段格式
+  database
+    .prepare(
+      "UPDATE synology_task_paths SET identity=? WHERE task_id=? AND role='directory' AND path=?"
+    )
+    .run(`${dirInfo.dev}:${dirInfo.ino}:123456789`, task.id, root)
+  await expect(guard.checkDirectory(task)).resolves.toBeUndefined()
+
+  // 物理目录被替换（inode 变化）时仍必须拒绝
+  const parked = `${root}-legacy-parked`
+  await rename(root, parked)
+  try {
+    await mkdir(root)
+    await expect(guard.checkDirectory(task)).rejects.toThrow(
+      'Task download directory changed'
+    )
+  } finally {
+    await rm(root, { recursive: true, force: true })
+    await rename(parked, root)
+  }
+
+  // 兼容旧版五段文件戳与三段目录树戳
+  await writeFile(task.finalPath, 'legacy-content')
+  const fileInfo = await lstat(task.finalPath, { bigint: true })
+  database
+    .prepare(
+      `INSERT INTO synology_task_paths VALUES (?,'output',?,?,?,NULL,NULL)
+       ON CONFLICT(task_id,role,path) DO UPDATE SET identity=excluded.identity,stamp=excluded.stamp`
+    )
+    .run(
+      task.id,
+      task.finalPath,
+      `${fileInfo.dev}:${fileInfo.ino}`,
+      `${fileInfo.dev}:${fileInfo.ino}:987654321:${fileInfo.size}:${fileInfo.mtimeNs}`
+    )
+  await expect(guard.outputIdentity(task, task.finalPath)).resolves.toBe(
+    `${fileInfo.dev}:${fileInfo.ino}`
+  )
+  await writeFile(task.finalPath, 'tampered-content')
+  await expect(guard.outputIdentity(task, task.finalPath)).rejects.toThrow(
+    'Task output changed'
+  )
+})
