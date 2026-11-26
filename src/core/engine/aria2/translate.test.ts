@@ -43,6 +43,48 @@ function makeRaw(overrides: Partial<Aria2RawStatus> = {}): Aria2RawStatus {
   }
 }
 
+describe('BT listening port failures', () => {
+  it('classifies the engine bind failure for ordinary torrent tasks', () => {
+    const raw = makeRaw({
+      status: 'error',
+      errorCode: '1',
+      errorMessage: 'Errors occurred while binding port.\n',
+      bittorrent: {
+        announceList: [],
+        mode: 'single',
+        info: { name: 'sample' },
+      },
+    })
+    expect(translateRawToTask(raw)).toMatchObject({
+      status: TaskStatus.Error,
+      errorCode: DownloadErrorCode.BtPortBindFailed,
+      errorMessage: raw.errorMessage,
+    })
+  })
+
+  it.each([
+    ['1', 'Permission denied', DownloadErrorCode.Unknown],
+    ['1', 'Failed to bind a socket', DownloadErrorCode.Unknown],
+    [
+      '1',
+      'Could not open /tmp/Errors occurred while binding port.',
+      DownloadErrorCode.Unknown,
+    ],
+    ['1', undefined, DownloadErrorCode.Unknown],
+    [
+      '13',
+      'Errors occurred while binding port.',
+      DownloadErrorCode.FileWriteError,
+    ],
+    ['0', 'Errors occurred while binding port.', null],
+  ])(
+    'does not misclassify unrelated error %s: %s',
+    (code, message, expected) => {
+      expect(classifyTerminalError(code, message).errorCode).toBe(expected)
+    }
+  )
+})
+
 describe('derivePathsFromRaw', () => {
   it('HTTP: strips .motrix suffix for finalPath, keeps it for diskPath', () => {
     const derived = derivePathsFromRaw(makeRaw())

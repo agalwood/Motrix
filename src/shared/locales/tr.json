@@ -1233,6 +1233,7 @@
         "checksumMismatch": "Dosya sağlama toplamı eşleşmedi",
         "tooManyRedirects": "Çok fazla yönlendirme",
         "serverError": "Sunucu hata döndürdü",
+        "btPortBindFailed": "BitTorrent dinleme bağlantı noktası kullanılamıyor",
         "btMetadataFailed": "Torrent meta verileri alınamadı",
         "btTrackerError": "İzleyici bağlantısı kurulamadı",
         "generic": "İndirme başarısız oldu"
@@ -1246,6 +1247,7 @@
         "pathTooLong": "Kayıt klasörünün yolunu veya dosya adını kısaltıp tekrar deneyin",
         "checksumMismatch": "İndirilen dosya bozulmuş olabilir; doğrulamak için yeniden indirin",
         "tooManyRedirects": "Kaynak bağlantı bozuk olabilir; başka bir bağlantı deneyin",
+        "btPortBindFailed": "BitTorrent ayarlarında BT dinleme bağlantı noktasını değiştirin, motoru yeniden başlatın ve tekrar deneyin",
         "btMetadataFailed": "Magnet bağlantısını kontrol edin veya daha fazla izleyici ekleyip tekrar deneyin"
       }
     },

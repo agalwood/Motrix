@@ -1219,6 +1219,7 @@
         "checksumMismatch": "檔案總和檢查不符",
         "tooManyRedirects": "重新導向次數過多",
         "serverError": "伺服器傳回錯誤",
+        "btPortBindFailed": "無法綁定 BT 監聽連接埠",
         "btMetadataFailed": "無法取得 Torrent 中繼資料",
         "btTrackerError": "Tracker 連線失敗",
         "generic": "下載失敗"
@@ -1232,6 +1233,7 @@
         "pathTooLong": "縮短儲存目錄或檔名後重試",
         "checksumMismatch": "下載的檔案可能損毀，請重新下載以驗證",
         "tooManyRedirects": "來源連結可能失效，請嘗試其他連結",
+        "btPortBindFailed": "請在 BitTorrent 設定中更換 BT 監聽連接埠，重新啟動下載引擎後再試",
         "btMetadataFailed": "請檢查 Magnet 連結或新增更多 Tracker，然後重試"
       }
     },

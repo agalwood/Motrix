@@ -1233,6 +1233,7 @@
         "checksumMismatch": "A fájl ellenőrzőösszege nem egyezik",
         "tooManyRedirects": "Túl sok átirányítás",
         "serverError": "A szerver hibát jelzett",
+        "btPortBindFailed": "A BitTorrent figyelőportja nem érhető el",
         "btMetadataFailed": "A torrent metaadatait nem sikerült lekérni",
         "btTrackerError": "Nem sikerült kapcsolódni a trackerhez",
         "generic": "A letöltés sikertelen"
@@ -1246,6 +1247,7 @@
         "pathTooLong": "Rövidítsd le a mentési mappa elérési útját vagy a fájlnevet, majd próbáld újra",
         "checksumMismatch": "A letöltött fájl sérült lehet; töltsd le újra az ellenőrzéshez",
         "tooManyRedirects": "A forráshivatkozás hibás lehet; próbálj másik hivatkozást",
+        "btPortBindFailed": "Módosítsa a BT figyelőportját a BitTorrent beállításaiban, indítsa újra a motort, majd próbálja újra",
         "btMetadataFailed": "Ellenőrizd a magnet hivatkozást, vagy adj hozzá további trackereket, majd próbáld újra"
       }
     },

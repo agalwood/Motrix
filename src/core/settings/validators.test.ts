@@ -450,10 +450,6 @@ describe('validateAppSettings', () => {
 })
 
 describe('engineSettingsSchema — dhtListenPort', () => {
-  it('defaults dhtListenPort to 6881', () => {
-    expect(DEFAULT_ENGINE_SETTINGS.dhtListenPort).toBe(6881)
-  })
-
   it('accepts valid dhtListenPort', () => {
     const parsed = engineSettingsSchema.parse({
       ...DEFAULT_ENGINE_SETTINGS,
@@ -467,7 +463,7 @@ describe('engineSettingsSchema — dhtListenPort', () => {
       ...DEFAULT_ENGINE_SETTINGS,
       dhtListenPort: 999,
     })
-    expect(parsed.dhtListenPort).toBe(6881)
+    expect(parsed.dhtListenPort).toBe(DEFAULT_ENGINE_SETTINGS.dhtListenPort)
   })
 
   it('rejects dhtListenPort above 65535 and uses default', () => {
@@ -475,7 +471,7 @@ describe('engineSettingsSchema — dhtListenPort', () => {
       ...DEFAULT_ENGINE_SETTINGS,
       dhtListenPort: 70000,
     })
-    expect(parsed.dhtListenPort).toBe(6881)
+    expect(parsed.dhtListenPort).toBe(DEFAULT_ENGINE_SETTINGS.dhtListenPort)
   })
 })
 

@@ -2969,6 +2969,7 @@
         "renameFileFailed": "Kunne ikke endre filnavnet: {{cause}}"
       },
       "hint": {
+        "btPortBindFailed": "Endre BT-lytteporten i BitTorrent-innstillingene, start motoren på nytt og prøv igjen",
         "btMetadataFailed": "Kontroller magnetlenken eller legg til flere trackere, og prøv igjen",
         "checksumMismatch": "Den nedlastede filen kan være skadet; last den ned igjen for å kontrollere",
         "diskFull": "Frigjør diskplass eller endre lagringsmappen, og prøv igjen",
@@ -2980,6 +2981,7 @@
         "unauthorized": "Kontroller påloggingsopplysningene eller tilgangsrettighetene, og prøv igjen"
       },
       "reason": {
+        "btPortBindFailed": "BitTorrent-lytteporten er ikke tilgjengelig",
         "btMetadataFailed": "Kunne ikke hente torrentmetadata",
         "btTrackerError": "Tilkobling til tracker mislyktes",
         "checksumMismatch": "Filens kontrollsum stemte ikke",

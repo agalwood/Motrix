@@ -1219,6 +1219,7 @@
         "checksumMismatch": "ファイルのチェックサムが一致しませんでした",
         "tooManyRedirects": "リダイレクト回数が多すぎます",
         "serverError": "サーバーがエラーを返しました",
+        "btPortBindFailed": "BitTorrent の待ち受けポートを使用できません",
         "btMetadataFailed": "トレントのメタデータを取得できませんでした",
         "btTrackerError": "トラッカーに接続できませんでした",
         "generic": "ダウンロードに失敗しました"
@@ -1232,6 +1233,7 @@
         "pathTooLong": "保存先フォルダーのパスまたはファイル名を短くしてから再試行してください",
         "checksumMismatch": "ダウンロードしたファイルが破損している可能性があります。再度ダウンロードして確認してください",
         "tooManyRedirects": "リンク先に問題がある可能性があります。別のリンクをお試しください",
+        "btPortBindFailed": "BitTorrent 設定で BT の待ち受けポートを変更し、ダウンロードエンジンを再起動してから再試行してください",
         "btMetadataFailed": "マグネットリンクを確認するか、トラッカーを追加してから再試行してください"
       }
     },

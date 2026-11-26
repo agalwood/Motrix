@@ -1219,6 +1219,7 @@
         "checksumMismatch": "Checksum berkas tidak cocok",
         "tooManyRedirects": "Terlalu banyak pengalihan",
         "serverError": "Server mengembalikan kesalahan",
+        "btPortBindFailed": "Port dengar BitTorrent tidak tersedia",
         "btMetadataFailed": "Metadata torrent tidak dapat diambil",
         "btTrackerError": "Koneksi ke pelacak gagal",
         "generic": "Unduhan gagal"
@@ -1232,6 +1233,7 @@
         "pathTooLong": "Perpendek jalur folder penyimpanan atau nama berkas, lalu coba lagi",
         "checksumMismatch": "Berkas unduhan mungkin rusak; unduh ulang untuk memverifikasinya",
         "tooManyRedirects": "Tautan sumber mungkin rusak; coba tautan lain",
+        "btPortBindFailed": "Ubah port dengar BT di pengaturan BitTorrent, mulai ulang mesin, lalu coba lagi",
         "btMetadataFailed": "Periksa tautan magnet atau tambahkan pelacak, lalu coba lagi"
       }
     },

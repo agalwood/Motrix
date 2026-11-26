@@ -1219,6 +1219,7 @@
         "checksumMismatch": "파일 체크섬 불일치",
         "tooManyRedirects": "리디렉션 횟수 초과",
         "serverError": "서버가 오류를 반환함",
+        "btPortBindFailed": "BitTorrent 수신 포트를 사용할 수 없습니다",
         "btMetadataFailed": "토렌트 메타데이터를 가져올 수 없음",
         "btTrackerError": "트래커 연결 실패",
         "generic": "다운로드 실패"
@@ -1232,6 +1233,7 @@
         "pathTooLong": "저장 폴더 경로나 파일 이름을 짧게 바꾼 후 다시 시도하세요",
         "checksumMismatch": "다운로드한 파일이 손상되었을 수 있습니다. 다시 다운로드하여 확인하세요",
         "tooManyRedirects": "원본 링크에 문제가 있을 수 있습니다. 다른 링크를 사용해 보세요",
+        "btPortBindFailed": "BitTorrent 설정에서 BT 수신 포트를 변경하고 엔진을 다시 시작한 후 다시 시도하세요",
         "btMetadataFailed": "마그넷 링크를 확인하거나 트래커를 추가한 후 다시 시도하세요"
       }
     },

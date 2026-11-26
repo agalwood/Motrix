@@ -1247,6 +1247,7 @@
         "checksumMismatch": "A soma de verificação do arquivo não corresponde",
         "tooManyRedirects": "Redirecionamentos demais",
         "serverError": "O servidor retornou um erro",
+        "btPortBindFailed": "A porta de escuta do BitTorrent está indisponível",
         "btMetadataFailed": "Não foi possível obter os metadados do torrent",
         "btTrackerError": "Falha na conexão com o rastreador",
         "generic": "Falha no download"
@@ -1260,6 +1261,7 @@
         "pathTooLong": "Encurte o caminho da pasta de destino ou o nome do arquivo e tente novamente",
         "checksumMismatch": "O arquivo baixado pode estar corrompido; baixe-o novamente para verificar",
         "tooManyRedirects": "O link de origem pode estar inválido; tente outro link",
+        "btPortBindFailed": "Altere a porta de escuta BT nas configurações do BitTorrent, reinicie o mecanismo e tente novamente",
         "btMetadataFailed": "Verifique o link magnet ou adicione mais rastreadores e tente novamente"
       }
     },

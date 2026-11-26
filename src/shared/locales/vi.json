@@ -1219,6 +1219,7 @@
         "checksumMismatch": "Mã kiểm tra tệp không khớp",
         "tooManyRedirects": "Quá nhiều lần chuyển hướng",
         "serverError": "Máy chủ trả về lỗi",
+        "btPortBindFailed": "Cổng lắng nghe BitTorrent không khả dụng",
         "btMetadataFailed": "Không thể lấy siêu dữ liệu torrent",
         "btTrackerError": "Không thể kết nối đến máy chủ theo dõi",
         "generic": "Tải xuống thất bại"
@@ -1232,6 +1233,7 @@
         "pathTooLong": "Rút ngắn đường dẫn thư mục lưu hoặc tên tệp rồi thử lại",
         "checksumMismatch": "Tệp đã tải xuống có thể bị hỏng; hãy tải lại để kiểm tra",
         "tooManyRedirects": "Liên kết nguồn có thể bị hỏng; hãy thử liên kết khác",
+        "btPortBindFailed": "Đổi cổng lắng nghe BT trong cài đặt BitTorrent, khởi động lại bộ máy rồi thử lại",
         "btMetadataFailed": "Kiểm tra liên kết magnet hoặc thêm máy chủ theo dõi rồi thử lại"
       }
     },

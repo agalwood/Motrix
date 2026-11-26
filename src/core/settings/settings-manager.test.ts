@@ -77,6 +77,43 @@ describe('SettingsManager', () => {
     manager = new SettingsManager(TEST_PATH, { onChange })
   })
 
+  it('persists the migrated BT ports and keeps later explicit port choices on reload', async () => {
+    mockReadFile.mockResolvedValue(
+      JSON.stringify({
+        version: 13,
+        engine: { listenPort: 6881, dhtListenPort: 6881 },
+      })
+    )
+    await manager.load()
+    const migrated = mockWriteFileAtomic.mock.lastCall![1]
+    expect(JSON.parse(migrated as string)).toMatchObject({
+      version: CURRENT_SETTINGS_VERSION,
+      engine: { listenPort: 21301, dhtListenPort: 26701 },
+    })
+    mockReadFile.mockResolvedValue(migrated)
+    const reloaded = new SettingsManager(TEST_PATH)
+    await reloaded.load()
+    expect(reloaded.getEngine()).toMatchObject({
+      listenPort: 21301,
+      dhtListenPort: 26701,
+    })
+    expect(
+      await reloaded.update({
+        engine: { listenPort: 6881, dhtListenPort: 6881 },
+      })
+    ).toMatchObject({
+      requiresRestart: true,
+      changedRestartKeys: ['listenPort', 'dhtListenPort'],
+    })
+    mockReadFile.mockResolvedValue(mockWriteFileAtomic.mock.lastCall![1])
+    const chosenPorts = new SettingsManager(TEST_PATH)
+    await chosenPorts.load()
+    expect(chosenPorts.getEngine()).toMatchObject({
+      listenPort: 6881,
+      dhtListenPort: 6881,
+    })
+  })
+
   it('preserves manual window limits and compact bounds through unrelated saves and reloads', async () => {
     mockReadFile.mockResolvedValue(
       JSON.stringify({

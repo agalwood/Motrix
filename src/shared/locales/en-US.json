@@ -1233,6 +1233,7 @@
         "checksumMismatch": "File checksum did not match",
         "tooManyRedirects": "Too many redirects",
         "serverError": "Server returned an error",
+        "btPortBindFailed": "The BitTorrent listening port is unavailable",
         "btMetadataFailed": "Torrent metadata could not be fetched",
         "btTrackerError": "Tracker connection failed",
         "generic": "Download failed"
@@ -1246,6 +1247,7 @@
         "pathTooLong": "Shorten the save folder or the file name, then retry",
         "checksumMismatch": "The downloaded file may be corrupted; re-download to verify it",
         "tooManyRedirects": "The source link may be broken; try a different link",
+        "btPortBindFailed": "Change the BT listen port in BitTorrent settings, restart the engine, then retry",
         "btMetadataFailed": "Check the magnet link or add more trackers, then retry"
       }
     },

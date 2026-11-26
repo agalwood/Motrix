@@ -100,6 +100,7 @@ export enum DownloadErrorCode {
   TooManyRedirects = 'DL_TOO_MANY_REDIRECTS',
   ServerError = 'DL_SERVER_ERROR',
   BtMetadataFailed = 'DL_BT_METADATA_FAILED',
+  BtPortBindFailed = 'DL_BT_PORT_BIND_FAILED',
   BtTrackerError = 'DL_BT_TRACKER_ERROR',
 }
 

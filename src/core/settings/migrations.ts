@@ -6,7 +6,7 @@ import {
 } from '@shared/schemas/tracker-settings'
 import type { TrackerSource } from '@shared/types/tracker'
 
-export const CURRENT_SETTINGS_VERSION = 13
+export const CURRENT_SETTINGS_VERSION = 14
 
 interface Migration {
   version: number
@@ -324,6 +324,27 @@ function migrateV12ToV13(
   }
 }
 
+function migrateV13ToV14(
+  data: Record<string, unknown>
+): Record<string, unknown> {
+  const engine = (data.engine ?? {}) as Record<string, unknown>
+  if (engine.listenPort !== 6881 && engine.dhtListenPort !== 6881) {
+    return { ...data, version: 14 }
+  }
+  return {
+    ...data,
+    version: 14,
+    engine: {
+      ...engine,
+      // The old settings do not distinguish defaults from an explicit 6881
+      // choice. Replace each former default once, preserving other ports.
+      // Users can select 6881 again after this migration without losing it.
+      ...(engine.listenPort === 6881 ? { listenPort: 21301 } : {}),
+      ...(engine.dhtListenPort === 6881 ? { dhtListenPort: 26701 } : {}),
+    },
+  }
+}
+
 const migrations: Migration[] = [
   { version: 1, migrate: migrateV0ToV1 },
   { version: 2, migrate: migrateV1ToV2 },
@@ -338,6 +359,7 @@ const migrations: Migration[] = [
   { version: 11, migrate: migrateV10ToV11 },
   { version: 12, migrate: migrateV11ToV12 },
   { version: 13, migrate: migrateV12ToV13 },
+  { version: 14, migrate: migrateV13ToV14 },
 ]
 
 export function migrate(

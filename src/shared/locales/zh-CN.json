@@ -1219,6 +1219,7 @@
         "checksumMismatch": "文件校验失败",
         "tooManyRedirects": "重定向次数过多",
         "serverError": "服务器返回错误",
+        "btPortBindFailed": "无法绑定 BT 监听端口",
         "btMetadataFailed": "无法获取种子元数据",
         "btTrackerError": "无法连接 Tracker",
         "generic": "下载失败"
@@ -1232,6 +1233,7 @@
         "pathTooLong": "缩短保存目录或文件名后重试",
         "checksumMismatch": "下载的文件可能已损坏，请重新下载以校验",
         "tooManyRedirects": "该链接可能已失效，请尝试更换下载链接",
+        "btPortBindFailed": "在 BitTorrent 设置中更换 BT 监听端口，重启下载引擎后重试",
         "btMetadataFailed": "检查磁力链接或添加更多 Tracker 后重试"
       }
     },

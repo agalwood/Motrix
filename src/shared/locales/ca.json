@@ -2990,6 +2990,7 @@
         "renameFileFailed": "No s'ha pogut canviar el nom del fitxer: {{cause}}"
       },
       "hint": {
+        "btPortBindFailed": "Canvieu el port d’escolta BT a la configuració de BitTorrent, reinicieu el motor i torneu-ho a provar",
         "btMetadataFailed": "Comproveu l'enllaç magnet o afegiu més rastrejadors i torneu-ho a provar",
         "checksumMismatch": "El fitxer baixat podria estar malmès; torneu-lo a baixar per verificar-lo",
         "diskFull": "Allibereu espai al disc o canvieu la carpeta de destinació i torneu-ho a provar",
@@ -3001,6 +3002,7 @@
         "unauthorized": "Comproveu les credencials o els permisos d'accés i torneu-ho a provar"
       },
       "reason": {
+        "btPortBindFailed": "El port d’escolta de BitTorrent no està disponible",
         "btMetadataFailed": "No s'han pogut obtenir les metadades del torrent",
         "btTrackerError": "La connexió amb el rastrejador ha fallat",
         "checksumMismatch": "La suma de verificació del fitxer no coincideix",
