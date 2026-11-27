@@ -2043,4 +2043,64 @@ describe('MediaTaskCoordinator .motrix placeholder contract', () => {
     expect(task?.errorDetailKey).toBe('task.error.detail.muxFailed')
     expect(task?.diskPath).toBe(TEMP)
   })
+
+  it('cleans up failed media temp directories by default to avoid disk leaks (#2532)', async () => {
+    const rmSpy = vi.spyOn(fs.promises, 'rm').mockResolvedValue(undefined)
+    const prevEnv = process.env.MOTRIX_KEEP_FAILED_MEDIA_TMP
+    delete process.env.MOTRIX_KEEP_FAILED_MEDIA_TMP
+    try {
+      const { deps } = makeDeps({
+        mkdtemp: async () => '/tmp/motrix-media-fail-clean',
+        makeFfmpeg: () =>
+          ({
+            run: vi.fn(async () => {
+              throw new Error('mux-failed: ffmpeg exited 1')
+            }),
+            kill: vi.fn(),
+            buildArgs: vi.fn(() => []),
+          }) as unknown as import('@core/ffmpeg/ffmpeg-service').FfmpegService,
+      })
+      await expect(
+        new MediaTaskCoordinator(deps).start(baseJob())
+      ).rejects.toThrow(/mux-failed/)
+
+      expect(rmSpy).toHaveBeenCalledWith('/tmp/motrix-media-fail-clean', {
+        recursive: true,
+        force: true,
+      })
+    } finally {
+      if (prevEnv === undefined) delete process.env.MOTRIX_KEEP_FAILED_MEDIA_TMP
+      else process.env.MOTRIX_KEEP_FAILED_MEDIA_TMP = prevEnv
+    }
+  })
+
+  it('preserves failed media temp directory only when MOTRIX_KEEP_FAILED_MEDIA_TMP=1 (#2532)', async () => {
+    const rmSpy = vi.spyOn(fs.promises, 'rm').mockResolvedValue(undefined)
+    const prevEnv = process.env.MOTRIX_KEEP_FAILED_MEDIA_TMP
+    process.env.MOTRIX_KEEP_FAILED_MEDIA_TMP = '1'
+    try {
+      const { deps } = makeDeps({
+        mkdtemp: async () => '/tmp/motrix-media-fail-keep',
+        makeFfmpeg: () =>
+          ({
+            run: vi.fn(async () => {
+              throw new Error('mux-failed: ffmpeg exited 1')
+            }),
+            kill: vi.fn(),
+            buildArgs: vi.fn(() => []),
+          }) as unknown as import('@core/ffmpeg/ffmpeg-service').FfmpegService,
+      })
+      await expect(
+        new MediaTaskCoordinator(deps).start(baseJob())
+      ).rejects.toThrow(/mux-failed/)
+
+      expect(rmSpy).not.toHaveBeenCalledWith('/tmp/motrix-media-fail-keep', {
+        recursive: true,
+        force: true,
+      })
+    } finally {
+      if (prevEnv === undefined) delete process.env.MOTRIX_KEEP_FAILED_MEDIA_TMP
+      else process.env.MOTRIX_KEEP_FAILED_MEDIA_TMP = prevEnv
+    }
+  })
 })
