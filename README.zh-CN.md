@@ -19,11 +19,11 @@ Motrix 是一款界面简洁、功能丰富的桌面下载管理器，可处理 
 - **桌面应用**：可在 macOS、Windows 和 Linux 上运行；
 - **Headless server**：无需桌面环境，可直接使用 Node.js 运行或通过 Docker 部署，并提供 Web 界面，适合安装在 NAS 和家庭服务器上。
 
-## Motrix 2.4.7
+## Motrix 2.4.8
 
-升级 Electron 至 45.5.0 及核心运行时/界面依赖（含 fnOS SDK 0.7.0 顶层 Web 文件操作保护），内置引擎升级至 aria2 1.37.0-motrix.26，修复动态重定向下的 HTTP 多连接退化；全局关闭 HTTP gzip 编码以恢复大文件进度与断点续传；新增 macOS SMB 共享盘落盘兼容、直连磁力目录收敛、BT 默认端口迁移（6881 → 21301/26701），并加强引擎启动探针重试、签名重定向续传校验与运行期日志/临时目录空间控制。
-从 GitHub Releases 下载 [v2.4.7](https://github.com/agalwood/Motrix/releases/tag/v2.4.7)，
-并阅读[完整发布说明](./docs/release-notes/2.4.7.zh-CN.md)。
+内置引擎升级至 aria2 1.37.0-motrix.27，支持运行期切换 DNS 时立即清空缓存并过滤未启用网卡/不可路由 IPv6 地址；不可达路由错误自动回退系统 DNS；修复直连磁力元数据接力命名与落盘、群晖 DSM 7 目录身份误判、桌面端符号链接下载目录落盘以及媒体下载失败残留临时分片目录问题。
+从 GitHub Releases 下载 [v2.4.8](https://github.com/agalwood/Motrix/releases/tag/v2.4.8)，
+并阅读[完整发布说明](./docs/release-notes/2.4.8.zh-CN.md)。
 
 升级前请备份现有 Motrix 配置和下载文件。捆绑引擎会将 SQLite 数据库升级至
 schema 6，并保留升级前备份；旧引擎无法打开 schema 6，如需降级必须保留该备份。
@@ -174,7 +174,7 @@ npm install -g @motrix/cli
 ```bash
 mkdir -p motrix-data downloads
 sudo chown 1000:1000 motrix-data downloads
-export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.4.7'
+export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.4.8'
 export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
 docker compose pull server
 docker compose up -d --wait

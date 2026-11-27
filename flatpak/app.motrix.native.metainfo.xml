@@ -68,6 +68,11 @@
   </screenshots>
 
   <releases>
+    <release version="2.4.8" date="2026-11-27">
+      <description>
+        <p>Bundles aria2 1.37.0-motrix.27 with runtime DNS cache clearing and UP-interface IPv6 filtering, adds auto DNS fallback on unreachable route errors, fixes direct magnet metadata naming and finalization, fixes Synology DSM 7 directory identity and symlinked desktop saveDir finalization, and cleans up failed media temp directories by default.</p>
+      </description>
+    </release>
     <release version="2.4.7" date="2026-11-26">
       <description>
         <p>Updates Electron to 45.5.0, pnpm to 12.23.0, and core UI/runtime dependencies (including fnOS SDK 0.7.0 top-level web file-action protection), alongside aria2 1.37.0-motrix.26 and all download/resume/SMB/BT fixes from 2.4.6.</p>
