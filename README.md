@@ -19,11 +19,11 @@ The same core powers two ways to run Motrix:
 - **Desktop app:** Runs on macOS, Windows, and Linux
 - **Headless server:** Runs without a desktop environment, either directly on Node.js or in Docker, and includes a web UI for NAS devices and home servers
 
-## Motrix 2.4.7
+## Motrix 2.4.8
 
-Updates Electron to 45.5.0 and core dependencies (with fnOS SDK 0.7.0 top-level web compatibility), bundles aria2 1.37.0-motrix.26 to restore multi-connection HTTP downloads across dynamic CDN redirects, disables HTTP gzip compression for reliable progress and resume, adds macOS SMB share finalization, keeps direct magnet downloads in the selected save directory, migrates default BT ports off 6881, and hardens engine startup probing, signed-redirect resume, and log/temp disk usage.
-Download [v2.4.7 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.4.7)
-and read the [full release notes](./docs/release-notes/2.4.7.md).
+Bundles aria2 1.37.0-motrix.27 with runtime DNS cache clearing and UP-interface IPv6 filtering, triggers automatic system DNS fallback on unreachable route errors, fixes direct magnet metadata naming and finalization, fixes Synology DSM 7 directory identity and symlinked desktop save directory finalization, and cleans up failed media temporary directories by default.
+Download [v2.4.8 from GitHub Releases](https://github.com/agalwood/Motrix/releases/tag/v2.4.8)
+and read the [full release notes](./docs/release-notes/2.4.8.md).
 
 Back up your existing Motrix profile and downloads before upgrading. The bundled
 engine upgrades its SQLite database to schema 6 and keeps a pre-upgrade backup;
@@ -184,7 +184,7 @@ included `compose.yaml` keeps Server state separate from downloaded resources:
 ```bash
 mkdir -p motrix-data downloads
 sudo chown 1000:1000 motrix-data downloads
-export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.4.7'
+export MOTRIX_IMAGE='docker.io/motrixapp/motrix-server:2.4.8'
 export MOTRIX_PUBLIC_URL='http://nas.example.lan:8080'
 docker compose pull server
 docker compose up -d --wait
