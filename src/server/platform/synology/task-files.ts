@@ -1,4 +1,5 @@
-import { lstat, readdir, realpath } from 'node:fs/promises'
+import { constants } from 'node:fs'
+import { lstat, open, readdir, realpath } from 'node:fs/promises'
 import path from 'node:path'
 import {
   type ArtifactIdentity,
@@ -65,8 +66,104 @@ type PathClaim = {
   tree: string | null
   journal: string | null
 }
+type PartialClaim = {
+  identity: string | null
+  tree: string | null
+}
 type Published = { journal: string; artifact: string | null }
 type Tree = Record<string, string>
+
+export interface SynologyEngineTaskSnapshot {
+  dir: string
+  files: readonly string[]
+  infoHash?: string
+}
+
+export interface SynologyTaskFilesDeps {
+  getEngineTask?: (gid: string) => Promise<SynologyEngineTaskSnapshot | null>
+  readTorrentMeta?: (metaPath: string) => Promise<Uint8Array>
+}
+
+// aria2 控制文件（.aria2）头部最小为 34 字节，限制读取上限防止异常大文件
+const MAX_ARIA2_CONTROL_FILE_BYTES = 16n * 1024n * 1024n
+const MIN_ARIA2_CONTROL_FILE_BYTES = 34n
+
+function ownedByCurrentProcess(info: { uid: bigint }): boolean {
+  if (typeof process.getuid !== 'function') return true
+  return info.uid === BigInt(process.getuid())
+}
+
+// 严格校验 aria2 v1 二进制控制文件头（对应 aria2 DefaultBtProgressInfoFile.cc）：
+// version(2B=1) | extension(4B) | infoHashLen(4B) | infoHash(N) | pieceLen(4B>0) | totalLen(8B) | uploadLen(8B) | bitfieldLen(4B)
+async function verifyAria2ControlFile(
+  filePath: string,
+  expectedInfoHash?: string
+): Promise<{ dev: bigint; ino: bigint } | null> {
+  const named = await existing(filePath)
+  if (!named?.isFile() || !ownedByCurrentProcess(named)) return null
+  if ((await realpath(filePath)) !== filePath) return null
+  let handle: Awaited<ReturnType<typeof open>>
+  try {
+    handle = await open(filePath, constants.O_RDONLY | constants.O_NOFOLLOW)
+  } catch {
+    return null
+  }
+  try {
+    const info = await handle.stat({ bigint: true })
+    if (
+      !info.isFile() ||
+      info.dev !== named.dev ||
+      info.ino !== named.ino ||
+      !ownedByCurrentProcess(info) ||
+      info.size < MIN_ARIA2_CONTROL_FILE_BYTES ||
+      info.size > MAX_ARIA2_CONTROL_FILE_BYTES
+    )
+      return null
+    const headerSize = Math.min(64, Number(info.size))
+    const header = Buffer.alloc(headerSize)
+    const { bytesRead } = await handle.read(header, 0, headerSize, 0)
+    if (bytesRead < Number(MIN_ARIA2_CONTROL_FILE_BYTES)) return null
+    const version = header.readUInt16BE(0)
+    if (version !== 1) return null
+    const infoHashLength = header.readUInt32BE(6)
+    if (expectedInfoHash) {
+      if (infoHashLength !== 20 || bytesRead < 54) return null
+      const savedHash = header.subarray(10, 30).toString('hex')
+      if (savedHash !== expectedInfoHash.toLowerCase()) return null
+    } else if (infoHashLength !== 0) {
+      return null
+    }
+    const base = 10 + infoHashLength
+    if (bytesRead < base + 24) return null
+    const pieceLength = header.readUInt32BE(base)
+    if (pieceLength === 0) return null
+    const bitfieldLength = header.readUInt32BE(base + 20)
+    if (BigInt(base + 24) + BigInt(bitfieldLength) > info.size) return null
+    return { dev: info.dev, ino: info.ino }
+  } finally {
+    await handle.close()
+  }
+}
+
+async function verifyPartialMembers(
+  root: string,
+  allowed: ReadonlySet<string>,
+  relative = ''
+) {
+  for (const name of await readdir(path.join(root, relative))) {
+    const child = path.join(relative, name)
+    if (!allowed.has(child)) throw Error('Untracked file in task directory')
+    const file = path.join(root, child)
+    const info = await lstat(file, { bigint: true })
+    if (
+      (!info.isFile() && !info.isDirectory()) ||
+      !ownedByCurrentProcess(info) ||
+      (await realpath(file)) !== file
+    )
+      throw Error('Unsafe entry in task directory')
+    if (info.isDirectory()) await verifyPartialMembers(root, allowed, child)
+  }
+}
 
 async function existing(file: string) {
   return lstat(file, { bigint: true }).catch((error: NodeJS.ErrnoException) => {
@@ -132,21 +229,40 @@ async function verifyMembers(root: string, allowed: Tree, relative = '') {
  * directory it was admitted into and to the artifact actually published. */
 export class SynologyTaskFiles {
   private readonly digests = new ArtifactIdentityCache()
+  private runtimeDeps: SynologyTaskFilesDeps
   constructor(
     private readonly db: Pick<MotrixDatabase, 'database' | 'getAllTasks'>,
-    private readonly policy: ServerDownloadPathPolicy
-  ) {}
+    private readonly policy: ServerDownloadPathPolicy,
+    deps: SynologyTaskFilesDeps = {}
+  ) {
+    this.runtimeDeps = deps
+  }
+
+  setRuntimeDeps(deps: SynologyTaskFilesDeps) {
+    this.runtimeDeps = deps
+  }
 
   async initialize() {
     const sql = this.db.database
+    const ensurePartialClaimsTable = () => {
+      // 独立表记录新建未完成任务的独占预留与删除前锁定的物理 inode，兼容已有老库结构
+      sql.exec(`CREATE TABLE IF NOT EXISTS synology_task_partial_claims (
+        task_id TEXT NOT NULL REFERENCES tasks(motrix_id) ON DELETE CASCADE,
+        path TEXT NOT NULL,
+        identity TEXT,
+        tree TEXT,
+        PRIMARY KEY(task_id,path))`)
+    }
     if (
       sql
         .prepare(
           "SELECT 1 FROM sqlite_master WHERE type='table' AND name='synology_task_paths'"
         )
         .get()
-    )
+    ) {
+      ensurePartialClaimsTable()
       return
+    }
     // An old task has no historical directory identity. Bind only available,
     // authorized locations once. Never adopt a file during read or deletion.
     const legacy: [string, string, string][] = []
@@ -164,6 +280,7 @@ export class SynologyTaskFiles {
         role TEXT NOT NULL CHECK(role IN ('directory','output')),
         path TEXT NOT NULL, identity TEXT NOT NULL, stamp TEXT, tree TEXT, journal TEXT,
         PRIMARY KEY(task_id,role,path))`)
+      ensurePartialClaimsTable()
       const insert = sql.prepare(
         "INSERT INTO synology_task_paths(task_id,role,path,identity) VALUES (?,'directory',?,?)"
       )
@@ -192,14 +309,55 @@ export class SynologyTaskFiles {
       .get(id, role, candidate) as PathClaim | undefined
   }
 
+  private partialClaim(id: string, candidate: string) {
+    return this.db.database
+      .prepare(
+        'SELECT identity,tree FROM synology_task_partial_claims WHERE task_id=? AND path=?'
+      )
+      .get(id, candidate) as PartialClaim | undefined
+  }
+
+  private writePartialClaim(
+    taskId: string,
+    candidate: string,
+    identity: string | null,
+    tree: readonly string[] | null = null
+  ) {
+    this.db.database
+      .prepare(
+        `INSERT INTO synology_task_partial_claims(task_id,path,identity,tree) VALUES (?,?,?,?)
+         ON CONFLICT(task_id,path) DO UPDATE SET identity=excluded.identity,tree=excluded.tree`
+      )
+      .run(taskId, candidate, identity, tree ? JSON.stringify(tree) : null)
+  }
+
   async create(task: DownloadTask, persist: () => void | Promise<void>) {
     const id = await this.directoryId(task.saveDir)
+    // 仅当新建未完成任务的目标路径此刻在磁盘上尚不存在时，记录独占预留，绝不采纳既有文件
+    let reservePartialPath: string | null = null
+    if (
+      task.diskPath &&
+      task.status !== TaskStatus.Completed &&
+      task.status !== TaskStatus.Seeding &&
+      inside(task.saveDir, task.diskPath) &&
+      (await existing(task.diskPath)) === null &&
+      (await existing(`${task.diskPath}.aria2`)) === null
+    ) {
+      reservePartialPath = task.diskPath
+    }
     await persist()
     this.db.database
       .prepare(
         "INSERT INTO synology_task_paths(task_id,role,path,identity) VALUES (?,'directory',?,?) ON CONFLICT DO NOTHING"
       )
       .run(task.id, task.saveDir, id)
+    if (reservePartialPath) {
+      this.db.database
+        .prepare(
+          'INSERT INTO synology_task_partial_claims(task_id,path,identity,tree) VALUES (?,?,NULL,NULL) ON CONFLICT DO NOTHING'
+        )
+        .run(task.id, reservePartialPath)
+    }
     await this.checkDirectory(task)
   }
 
@@ -362,7 +520,138 @@ export class SynologyTaskFiles {
     if (info && fileId(info) !== expected) throw Error('Task output changed')
   }
 
+  private async hasEngineOwnership(
+    task: DownloadTask,
+    candidate: string
+  ): Promise<boolean> {
+    if (!task.engineTaskId || !this.runtimeDeps.getEngineTask) return false
+    const live = await this.runtimeDeps
+      .getEngineTask(task.engineTaskId)
+      .catch(() => null)
+    if (!live || path.resolve(live.dir) !== task.saveDir) return false
+    if (
+      (task.type === TaskType.Bt || task.type === TaskType.Magnet) &&
+      task.infoHash &&
+      live.infoHash?.toLowerCase() !== task.infoHash.toLowerCase()
+    )
+      return false
+    return live.files.some(
+      (file) =>
+        path.resolve(file) === candidate ||
+        inside(candidate, path.resolve(file)) !== null
+    )
+  }
+
+  private async certifyPartialRemoval(
+    task: DownloadTask,
+    candidate: string
+  ): Promise<void> {
+    if (
+      candidate !== task.diskPath ||
+      task.status === TaskStatus.Completed ||
+      task.status === TaskStatus.Seeding
+    )
+      return
+    if (!inside(task.saveDir, candidate)) return
+    const info = await existing(candidate)
+    if (!info) return
+    const isHttpTemp =
+      (task.type === TaskType.Http || task.type === TaskType.Ftp) &&
+      isTempPath(candidate)
+    const isBt = task.type === TaskType.Bt || task.type === TaskType.Magnet
+    if (!isHttpTemp && !isBt) return
+    if (isHttpTemp && !info.isFile()) return
+    if (isBt && !info.isFile() && !info.isDirectory()) return
+    if (!ownedByCurrentProcess(info)) return
+    if ((await realpath(candidate)) !== candidate) return
+
+    // 校验强归属证明（三选一）：创建期独占预留 / 引擎实时持有 / 伴生合法 aria2 控制文件
+    const reserved = this.partialClaim(task.id, candidate) !== undefined
+    const engineOwned = reserved
+      ? false
+      : await this.hasEngineOwnership(task, candidate)
+    const sidecarProof =
+      reserved || engineOwned
+        ? null
+        : isHttpTemp
+          ? await verifyAria2ControlFile(`${candidate}.aria2`)
+          : isBt && task.infoHash
+            ? await verifyAria2ControlFile(`${candidate}.aria2`, task.infoHash)
+            : null
+    if (!reserved && !engineOwned && !sidecarProof) return
+
+    let allowedTree: string[] | null = null
+    if (info.isDirectory()) {
+      // 未完成多文件 BT 目录必须用 .torrent 元数据建立成员白名单，禁止删除任何无关文件
+      if (!task.torrentMetaPath || !this.runtimeDeps.readTorrentMeta) return
+      const metadata = await this.runtimeDeps.readTorrentMeta(
+        task.torrentMetaPath
+      )
+      const layout = await parseBtFileLayout(metadata)
+      if (task.infoHash && layout.infoHash !== task.infoHash.toLowerCase())
+        throw Error('Torrent identity changed')
+      const names = new Set<string>()
+      for (const member of layout.files) {
+        const full = member.pathInsideRoot
+          ? path.join(candidate, member.pathInsideRoot)
+          : candidate
+        let relative = inside(candidate, full)
+        while (relative && relative !== '.') {
+          names.add(relative)
+          relative = path.dirname(relative)
+        }
+      }
+      // 多文件 BT 的 aria2 控制文件通常位于首个成员同级，仅当校验其 20 字节 infoHash 匹配时放行
+      const firstMemberRel = layout.files[0]?.pathInsideRoot
+      if (firstMemberRel && task.infoHash) {
+        const internalCtrlRel = `${firstMemberRel}.aria2`
+        const internalCtrlPath = path.join(candidate, internalCtrlRel)
+        if (
+          inside(candidate, internalCtrlPath) &&
+          (await verifyAria2ControlFile(internalCtrlPath, task.infoHash))
+        ) {
+          names.add(internalCtrlRel)
+        }
+      }
+      await verifyPartialMembers(candidate, names)
+      allowedTree = [...names].sort()
+    }
+    this.writePartialClaim(task.id, candidate, fileId(info), allowedTree)
+  }
+
+  private async certifySidecarRemoval(
+    task: DownloadTask,
+    candidate: string,
+    sidecar: string
+  ): Promise<void> {
+    if (!inside(task.saveDir, sidecar)) return
+    const isBt = task.type === TaskType.Bt || task.type === TaskType.Magnet
+    const expectedInfoHash = isBt ? (task.infoHash ?? undefined) : undefined
+    if (isBt && !expectedInfoHash) return
+    const verified = await verifyAria2ControlFile(sidecar, expectedInfoHash)
+    if (!verified) return
+    // 确认边车对应的主路径属于当前任务
+    if (candidate !== task.diskPath) return
+    this.writePartialClaim(task.id, sidecar, fileId(verified), null)
+  }
+
   async checkRemoval(task: DownloadTask, candidate: string) {
+    await this.checkDirectory(task)
+    // 仅对未完成任务尝试建立删除期物理 inode 锁定，避免已完成任务重复校验哈希
+    if (
+      task.status !== TaskStatus.Completed &&
+      task.status !== TaskStatus.Seeding &&
+      (await existing(candidate)) !== null
+    ) {
+      const existingIdentity = await this.outputIdentity(
+        task,
+        candidate,
+        candidate
+      ).catch(() => undefined)
+      if (!existingIdentity) {
+        await this.certifyPartialRemoval(task, candidate)
+      }
+    }
     await this.removalIdentity(task, candidate, candidate)
     if (
       candidate === task.diskPath &&
@@ -371,6 +660,9 @@ export class SynologyTaskFiles {
           isTempPath(candidate)))
     ) {
       const sidecar = `${candidate}.aria2`
+      if ((await existing(sidecar)) !== null) {
+        await this.certifySidecarRemoval(task, candidate, sidecar)
+      }
       await this.removalIdentity(task, sidecar, sidecar)
     }
   }
@@ -384,15 +676,34 @@ export class SynologyTaskFiles {
     const info = await existing(selected)
     if (!info) return undefined
     const expected = await this.outputIdentity(task, candidate, selected)
-    if (!expected || fileId(info) !== expected)
+    if (expected) {
+      if (fileId(info) !== expected) throw Error('Task output changed')
+      if (info.isDirectory()) {
+        const recorded = this.row(task.id, 'output', candidate)
+        if (!recorded?.tree || recorded.identity !== expected)
+          throw Error('No verified task directory manifest')
+        await verifyMembers(selected, JSON.parse(recorded.tree) as Tree)
+      }
+      return expected
+    }
+    // 校验已通过删除预检锁定的未完成临时文件或 .aria2 边车（按物理 dev:ino 匹配，容忍停止前追加写入）
+    const partial = this.partialClaim(task.id, candidate)
+    if (
+      !partial?.identity ||
+      fileId(info) !== partial.identity ||
+      (!info.isFile() && !info.isDirectory()) ||
+      !ownedByCurrentProcess(info) ||
+      (await realpath(selected)) !== selected
+    )
       throw Error('Task output changed')
     if (info.isDirectory()) {
-      const recorded = this.row(task.id, 'output', candidate)
-      if (!expected || !recorded?.tree || recorded.identity !== expected)
-        throw Error('No verified task directory manifest')
-      await verifyMembers(selected, JSON.parse(recorded.tree) as Tree)
+      if (!partial.tree) throw Error('No verified task directory manifest')
+      await verifyPartialMembers(
+        selected,
+        new Set(JSON.parse(partial.tree) as string[])
+      )
     }
-    return expected
+    return partial.identity
   }
 
   /** Move publishes a new durable journal. Locate/recheck must bind the inode
