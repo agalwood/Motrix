@@ -100,6 +100,29 @@ describe('FfmpegService', () => {
     expect(args.join(' ')).not.toContain('aac_adtstoasc')
   })
 
+  it('(c2) extractAudio re-encodes the input to MP3: -vn, libmp3lame, no copy, no movflags', () => {
+    const svc = new FfmpegService()
+    const args = svc.buildArgs({
+      ...NON_MPEGTS_JOB,
+      output: '/tmp/out.motrix',
+      format: 'mp3',
+      extractAudio: true,
+    })
+    const joined = args.join(' ')
+    // Single input — the downloaded best-audio stream.
+    expect(args.filter((a) => a === '-i')).toHaveLength(1)
+    expect(joined).toContain('-vn')
+    expect(joined).toContain('-c:a libmp3lame')
+    expect(joined).toContain('-q:a 2')
+    expect(joined).toContain('-f mp3')
+    expect(joined).toContain('-progress pipe:1')
+    expect(args[args.length - 1]).toBe('/tmp/out.motrix')
+    // Copy-remux options would make the mp3 muxer fail.
+    expect(joined).not.toContain('-c copy')
+    expect(joined).not.toContain('aac_adtstoasc')
+    expect(joined).not.toContain('-movflags')
+  })
+
   it('(d) progress fraction from out_time_ms / duration', async () => {
     const child = fakeChild()
     const svc = new FfmpegService()

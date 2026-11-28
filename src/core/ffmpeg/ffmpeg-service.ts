@@ -12,6 +12,13 @@ export interface RemuxJob {
   fromMpegts: boolean
   durationSec?: number
   /**
+   * Re-encode the input's audio to MP3 instead of copy-remuxing (the MP3
+   * extraction path). `videoPath` then holds a downloaded best-audio file
+   * and there is no `audioPath`: `-vn` drops any video stream and libmp3lame
+   * does the only encoding this job ever performs.
+   */
+  extractAudio?: boolean
+  /**
    * Explicit output muxer (`-f`). Required when `output` does not end in a
    * media extension ffmpeg can infer a muxer from — e.g. the `.motrix`
    * placeholder path a media task muxes into before the finalize rename.
@@ -57,6 +64,18 @@ export class FfmpegService {
     args.push('-i', job.videoPath)
     if (job.audioPath) {
       args.push('-i', job.audioPath)
+    }
+
+    if (job.extractAudio) {
+      // MP3 extraction: encode (never copy — an AAC/Opus source cannot ride
+      // the mp3 muxer) and drop video. `-movflags` is a mov/mp4-private
+      // option and would be rejected by the mp3 muxer, so it stays out.
+      args.push('-vn', '-c:a', 'libmp3lame', '-q:a', '2')
+      if (job.format) {
+        args.push('-f', job.format)
+      }
+      args.push('-progress', 'pipe:1', '-nostats', '-y', job.output)
+      return args
     }
 
     args.push('-c', 'copy')

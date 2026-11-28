@@ -19,7 +19,7 @@ function makeRuntime(): BridgeRuntime {
     muxPipeline: undefined,
     getMediaSegmentGids: vi.fn().mockReturnValue([]),
     cancelMedia: vi.fn().mockResolvedValue(undefined),
-    resolveToMux: vi.fn().mockResolvedValue(null),
+    resolveMedia: vi.fn().mockResolvedValue(null),
   }
 }
 

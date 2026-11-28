@@ -76,6 +76,11 @@ describe('unary POST /mdxp', () => {
     server.setHandlers({
       submitDownload: async () => ({ taskId: 'task-x' }),
       cancelDownload: async () => undefined,
+      listMediaFormats: async () => ({
+        available: false,
+        reason: 'disabled',
+        entries: [],
+      }),
     })
     server.registerReadMethods({
       getDownloadDirectories: async () => ({
@@ -209,6 +214,21 @@ describe('unary POST /mdxp', () => {
         id: 5,
         method: 'download/submit',
         params: {},
+      },
+      { token: LOCAL_TOKEN }
+    )
+    expect(res.status).toBe(404)
+    expect(res.body.error?.code).toBe(ErrorCodes.CapabilityNotSupported)
+  })
+
+  it('never exposes registered media/formats on authenticated unary HTTP', async () => {
+    const res = await postMdxp(
+      port,
+      {
+        jsonrpc: '2.0',
+        id: 'formats',
+        method: 'media/formats',
+        params: { url: 'https://example.com/watch' },
       },
       { token: LOCAL_TOKEN }
     )

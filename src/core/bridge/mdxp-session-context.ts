@@ -17,6 +17,10 @@ export interface MdxpSessionContext {
   /** Authenticated installation routing key; absent for unary CLI contexts. */
   readonly sessionKey?: string
   readonly startedAt: number
+  /** Lifetime of this exact connection; never reused after reconnect. */
+  readonly sessionSignal?: AbortSignal
+  /** Per-request cancellation, combined with the connection lifetime. */
+  readonly requestSignal?: AbortSignal
   isReady(): boolean
   markReady(): void
   /**
@@ -61,6 +65,7 @@ export function contextFromConnection(
     },
     sessionKey: conn.sessionKey,
     startedAt: conn.session.startedAt,
+    sessionSignal: conn.signal,
     isReady: () => conn.isReady(),
     markReady: () => conn.markReady(),
     isAuthorized: () => conn.isAuthorized(),

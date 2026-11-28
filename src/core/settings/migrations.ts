@@ -105,6 +105,10 @@ const DEFAULT_MEDIA_SETTINGS_PLAIN = {
   ffmpegBinaryPath: '',
   ffmpegStagingMB: 4096,
   ffmpegOpTimeoutSec: 1800,
+  ytdlpEnabled: false,
+  ytdlpBinaryPath: '',
+  ytdlpFormat: '',
+  ytdlpAllUrls: false,
 }
 
 function migrateV5ToV6(data: Record<string, unknown>): Record<string, unknown> {

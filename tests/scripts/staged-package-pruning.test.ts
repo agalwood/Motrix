@@ -3,8 +3,35 @@ import { describe, expect, it } from 'vitest'
 // @ts-expect-error — .mjs without types
 import {
   isBuildOnlyEntry,
+  mdxpRuntimeFilter,
   pruneBuildOnly,
 } from '../../scripts/staged-package-pruning.mjs'
+
+describe('MDXP runtime package', () => {
+  const keep = mdxpRuntimeFilter()
+  it.each([
+    '',
+    'package.json',
+    'LICENSE',
+    'NOTICE.md',
+    'dist',
+    'dist/index.js',
+    'dist/browser.js',
+    'dist/schemas/media-formats.js',
+    'dist/transports/ws.js',
+  ])('retains runtime/attribution %s', (entry) =>
+    expect(keep(entry)).toBe(true)
+  )
+  it.each([
+    'docs',
+    'docs/media-formats.md',
+    'docs/media-formats.zh-CN.md',
+    'src',
+    'src/index.ts',
+    'dist/index.d.ts',
+    'dist/index.js.map',
+  ])('omits build/documentation %s', (entry) => expect(keep(entry)).toBe(false))
+})
 
 describe('isBuildOnlyEntry', () => {
   it.each([

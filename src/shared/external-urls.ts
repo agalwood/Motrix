@@ -23,6 +23,7 @@ export const EXTERNAL_URLS = {
     releases: 'https://github.com/agalwood/Motrix/releases',
     ffmpegStaticReleases:
       'https://github.com/motrixapp/ffmpeg-static/releases/latest',
+    ytdlpReleases: 'https://github.com/yt-dlp/yt-dlp/releases/latest',
   },
   motrix: {
     updateFeed: 'https://dl.motrix.app/releases/',

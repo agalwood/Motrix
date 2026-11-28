@@ -16,3 +16,17 @@ export function ensureMediaExtension(
   const ext = container === 'mkv' ? 'mkv' : 'mp4'
   return `${finalName}.${ext}`
 }
+
+/**
+ * Force an audio-extract output name onto `.mp3`. A resolved best-audio
+ * stream carries its own container extension ('.m4a', '.webm' — or the
+ * '.mp4' a suggested page name implies), all of which must be swapped for
+ * the extension the extracted file will actually have; a name with no known
+ * media extension simply gets one appended.
+ */
+export function ensureMp3Extension(finalName: string): string {
+  const base = KNOWN_MEDIA_EXT.test(finalName)
+    ? finalName.replace(KNOWN_MEDIA_EXT, '')
+    : finalName
+  return `${base}.mp3`
+}

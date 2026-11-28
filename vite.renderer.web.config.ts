@@ -13,7 +13,7 @@ export default defineConfig({
     tailwindcss(),
     appLocaleProjection(
       path.resolve(import.meta.dirname, 'src/shared/locales'),
-      'renderer'
+      'renderer.web'
     ),
     {
       name: 'motrix-integration-marker',

@@ -12,6 +12,9 @@ import {
   DownloadSubmitParamsSchema,
   ErrorCodes,
   InitializeParamsSchema,
+  type MediaFormatsParams,
+  MediaFormatsParamsSchema,
+  type MediaFormatsResult,
   Methods,
   makeMdxpError,
   Notifications,
@@ -49,6 +52,7 @@ import {
   extensionHandoffMethods,
 } from './extension-handoff'
 import { createInitializeHandler } from './handlers/initialize-handler'
+import { createMediaFormatsHandler } from './handlers/media-formats-handler'
 import {
   type ReadHandlerDeps,
   registerReadHandlers,
@@ -331,6 +335,15 @@ export type MethodHandlers = {
     params: DownloadCancelParams,
     ctx: MdxpSessionContext
   ) => Promise<void>
+  /**
+   * Published `media/formats`: list the
+   * yt-dlp qualities a URL offers. Extension WS only — never registered on
+   * the agent-facing unary transport.
+   */
+  listMediaFormats?: (
+    params: MediaFormatsParams,
+    ctx: MdxpSessionContext
+  ) => Promise<MediaFormatsResult>
 }
 
 /**
@@ -668,6 +681,7 @@ export class WebSocketBridgeServer {
         runtime: opts.runtime,
         ffmpegAvailable: opts.ffmpegAvailable,
         supportsTaskReveal: () => this.dispatcher.has(Methods.TaskReveal),
+        supportsMediaFormats: () => this.dispatcher.has(Methods.MediaFormats),
         supportsDownloadDirectories: () =>
           this.dispatcher.has(Methods.DownloadDirectories),
       })
@@ -1186,6 +1200,13 @@ export class WebSocketBridgeServer {
           await cancel(params, ctx)
           return { ok: true }
         }
+      )
+    }
+    if (handlers.listMediaFormats) {
+      this.dispatcher.register(
+        Methods.MediaFormats,
+        MediaFormatsParamsSchema,
+        createMediaFormatsHandler(handlers.listMediaFormats)
       )
     }
   }
@@ -2529,7 +2550,8 @@ export class WebSocketBridgeServer {
     // dispatcher itself has no authz notion, so the gate lives at the wiring.
     const authorizedDispatch = (
       method: string,
-      params: unknown
+      params: unknown,
+      requestContext = ctx
     ): Promise<unknown> => {
       if (!ctx.isAuthorized()) {
         const error = makeMdxpError(
@@ -2543,7 +2565,7 @@ export class WebSocketBridgeServer {
           new ResponseError(error.code, error.message, error.data)
         )
       }
-      return this.dispatchTracked(method, params, ctx, authorization)
+      return this.dispatchTracked(method, params, requestContext, authorization)
     }
     // motrix/initialize is always registered on the dispatcher; download/* are
     // present only after the shell calls setHandlers(). Each onRequest routes
@@ -2559,13 +2581,35 @@ export class WebSocketBridgeServer {
           authorization
         ) as never
     )
-    // All domain requests use the same authorization and tracked-dispatch gate.
-    // The dispatcher contains handoff handlers only when a host installed them.
+    // Handoff and control-plane methods share the same authorization gate.
     for (const method of EXTENSION_WS_METHODS) {
       if (this.dispatcher.has(method))
         conn.onRoutedRequest(method, (params) =>
           authorizedDispatch(method, params)
         )
+    }
+    // A format query also follows caller cancellation and this session's lifetime.
+    if (this.dispatcher.has(Methods.MediaFormats)) {
+      conn.onRequest(Methods.MediaFormats, async (params, token) => {
+        const controller = new AbortController()
+        const subscription = token?.onCancellationRequested(() =>
+          controller.abort()
+        )
+        if (token?.isCancellationRequested) controller.abort()
+        const requestSignal = AbortSignal.any([
+          controller.signal,
+          AbortSignal.timeout(60_000),
+          conn.signal,
+        ])
+        try {
+          return (await authorizedDispatch(Methods.MediaFormats, params, {
+            ...ctx,
+            requestSignal,
+          })) as MediaFormatsResult
+        } finally {
+          subscription?.dispose()
+        }
+      })
     }
     // system/ping is universal — wire it unconditionally.
     conn.onRequest('system/ping', (params) => ({

@@ -86,6 +86,23 @@ describe('initialize handler', () => {
     expect(result.capabilities.taskReveal).toBe(false)
   })
 
+  it('derives mediaFormats lazily from actual registration', async () => {
+    let registered = false
+    const handler = createInitializeHandler({
+      ...baseCapabilities,
+      supportsMediaFormats: () => registered,
+    })
+    expect(
+      (await handler(validClientInfo as never, makeCtx({}))).capabilities
+        .mediaFormats
+    ).toBe(false)
+    registered = true
+    expect(
+      (await handler(validClientInfo as never, makeCtx({}))).capabilities
+        .mediaFormats
+    ).toBe(true)
+  })
+
   it('derives taskReveal from the currently registered shell capability', async () => {
     let registered = false
     const handler = createInitializeHandler({
