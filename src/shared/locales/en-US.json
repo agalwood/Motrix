@@ -2359,6 +2359,7 @@
     "task": {
       "create": {
         "dedupExhausted": "Too many files with this name already exist (>9999).",
+        "mediaExtractionFailed": "yt-dlp couldn’t extract a downloadable stream ({{reason}}). Check the yt-dlp settings and try again.",
         "torrentMetaFailed": "Failed to persist torrent metadata."
       }
     }

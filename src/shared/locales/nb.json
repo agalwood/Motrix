@@ -194,6 +194,7 @@
     "task": {
       "create": {
         "dedupExhausted": "Det finnes allerede for mange filer med dette navnet (>9999).",
+        "mediaExtractionFailed": "yt-dlp kunne ikke hente en nedlastbar strøm ({{reason}}). Sjekk innstillingene for yt-dlp og prøv igjen.",
         "torrentMetaFailed": "Kunne ikke lagre torrentmetadata."
       }
     }

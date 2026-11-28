@@ -6,6 +6,7 @@ import type {
   MediaResolveOptions,
   MuxResolution,
 } from './media-resolver'
+import { isYouTubeVideoPage } from './media-site-allowlist'
 import {
   canonicalPublicMediaUrl,
   isPublicMediaUrl,
@@ -27,9 +28,8 @@ import type { SpawnLike } from './ytdlp-locator'
  * `direct` resolution whose URL replaces the page URL in the normal HTTP
  * path.
  *
- * The resolver never throws for a URL it cannot handle — `unsupported` means
- * the site has no extractor or the media is DRM-protected, and the caller
- * keeps its unchanged direct-download path.
+ * Unsupported results distinguish URLs no extractor claims from media pages
+ * whose streams Motrix cannot download.
  */
 
 const DIRECT_FORMAT_FILTER = "[protocol~='^https?$']"
@@ -38,13 +38,13 @@ const RESOLVE_TIMEOUT_MS = 60_000
 
 export type YtdlpResolveOutcome =
   | { status: 'resolved'; resolution: MediaResolution }
-  | { status: 'unsupported'; reason: string }
-  | { status: 'failed'; reason: string }
+  | { status: 'unsupported' | 'failed'; reason: string; mediaIdentified?: true }
 
 export interface YtdlpResolveOptions {
   binaryPath: string
   /** yt-dlp `-f` selector. Defaults to best video + best audio. */
   format?: string
+  sortByHeight?: boolean
   proxy?: string
   signal?: AbortSignal
   timeoutMs?: number
@@ -114,6 +114,14 @@ export function buildYtdlpArgs(
   if (!args || !isPublicMediaUrl(url)) {
     throw new Error('Unsupported public media request')
   }
+  if (options.sortByHeight) {
+    // Extractor preferences can outrank user sort fields unless force is set.
+    args.push(
+      '--format-sort-force',
+      '--format-sort',
+      'height,vext:mp4,aext:m4a'
+    )
+  }
   args.push('--format', options.format?.trim() || DEFAULT_YTDLP_FORMAT)
   return args
 }
@@ -173,20 +181,24 @@ export function mapYtdlpInfo(info: RawInfo): MediaResolution | null {
 }
 
 const UNSUPPORTED_MARKERS = [
-  'unsupported url',
-  'no suitable extractor',
-  'requested format is not available',
-  'this video is unavailable',
-  'sign in to confirm',
-  'confirm your age',
-  'video unavailable',
-  'drm',
-]
+  ['unsupported url', 'unsupported-url'],
+  ['no suitable extractor', 'unsupported-url'],
+  ['requested format is not available', 'format-unavailable'],
+  ['this video is unavailable', 'video-unavailable'],
+  ['sign in to confirm', 'sign-in-required'],
+  ['confirm your age', 'sign-in-required'],
+  ['video unavailable', 'video-unavailable'],
+  ['drm', 'drm-protected'],
+] as const
 
-/** True when yt-dlp's stderr says the URL can never be resolved. */
-export function looksUnsupported(stderr: string): boolean {
+/** Only stable reason codes may reach the caller; stderr can contain signed URLs. */
+function unsupportedReason(stderr: string): string | undefined {
   const lower = stderr.toLowerCase()
-  return UNSUPPORTED_MARKERS.some((marker) => lower.includes(marker))
+  return UNSUPPORTED_MARKERS.find(([marker]) => lower.includes(marker))?.[1]
+}
+
+export function looksUnsupported(stderr: string): boolean {
+  return unsupportedReason(stderr) !== undefined
 }
 
 /**
@@ -199,11 +211,7 @@ export function parseYtdlpStdout<T>(stdout: string): T {
   return JSON.parse(stdout.slice(start)) as T
 }
 
-/** Ask yt-dlp for the stream URLs behind `url`.
- *
- * Returns an outcome rather than throwing so both desktop and bridge callers
- * can log the reason and fall through to their unchanged download path.
- */
+/** Ask yt-dlp for the stream URLs or a sanitized extraction failure. */
 export async function resolveWithYtdlp(
   url: string,
   options: YtdlpResolveOptions
@@ -226,16 +234,27 @@ export async function resolveWithYtdlp(
     )
     throwIfYtdlpAborted(options.signal)
     if (result.code !== 0) {
+      // A named site extractor claimed this input. An unsupported URL from
+      // the generic extractor still belongs to Motrix’s normal HTTP path.
+      const extractor = /^ERROR: \[([\w.:-]+)\]/im.exec(result.stderr)?.[1]
+      const reason = unsupportedReason(result.stderr)
       return {
-        status: looksUnsupported(result.stderr) ? 'unsupported' : 'failed',
-        reason: 'extraction-failed',
+        ...(extractor && extractor.toLowerCase() !== 'generic'
+          ? { mediaIdentified: true }
+          : {}),
+        status: reason ? 'unsupported' : 'failed',
+        reason: reason ?? 'extraction-failed',
       }
     }
     const info = parseYtdlpStdout<RawInfo>(result.stdout)
     const resolution = mapYtdlpInfo(info)
     return resolution
       ? { status: 'resolved', resolution }
-      : { status: 'unsupported', reason: 'no-direct-stream' }
+      : {
+          status: 'unsupported',
+          reason: 'no-direct-stream',
+          mediaIdentified: true,
+        }
   } catch (error) {
     if (isYtdlpAbort(error)) throw error
     return {
@@ -276,9 +295,8 @@ const PROGRESSIVE_FORMAT = `b[ext=mp4]${DIRECT_FORMAT_FILTER}/b${DIRECT_FORMAT_F
  *
  * - audioOnly → best audio stream, single format (never a mux pair), which
  *   the receiver routes to MP3 extraction after the download.
- * - height    → best stream at or below the cap. mp4/m4a is preferred while
- *   it exists so the mux lands in an mp4 container without a transcode. Every
- *   fallback retains the cap and direct-HTTP(S) constraint.
+ * - height    → direct streams at or below the cap. The height-first sort
+ *   resolves ties in favor of MP4/M4A without lowering the selected height.
  * - no hint   → the settings default (or the progressive fallback when no
  *   mux pipeline can run).
  */
@@ -292,28 +310,17 @@ export function buildQualityFormat(
   if (!height) {
     return muxAvailable ? DEFAULT_YTDLP_FORMAT : PROGRESSIVE_FORMAT
   }
-  if (muxAvailable) {
-    return [
-      `bv*[height<=${height}][ext=mp4]${DIRECT_FORMAT_FILTER}+ba[ext=m4a]${DIRECT_FORMAT_FILTER}`,
-      `bv*[height<=${height}]${DIRECT_FORMAT_FILTER}+ba${DIRECT_FORMAT_FILTER}`,
-      `b[height<=${height}][ext=mp4]${DIRECT_FORMAT_FILTER}`,
-      `b[height<=${height}]${DIRECT_FORMAT_FILTER}`,
-    ].join('/')
-  }
-  return [
-    `b[height<=${height}][ext=mp4]${DIRECT_FORMAT_FILTER}`,
-    `b[height<=${height}]${DIRECT_FORMAT_FILTER}`,
-  ].join('/')
+  const video = `[height<=${height}]${DIRECT_FORMAT_FILTER}`
+  return muxAvailable
+    ? `bv*${video}+ba${DIRECT_FORMAT_FILTER}/b${video}`
+    : `b${video}`
 }
 
 /**
  * Build a `MediaResolver` backed by yt-dlp.
  *
- * Returns null (no resolution) whenever yt-dlp is unavailable, disabled in
- * Settings, or the URL is not a media site under the current policy — so
- * composing this last in the resolver chain leaves every other download
- * untouched. A submitter quality hint overrides the Settings format so the
- * picker's choice wins over the default.
+ * Disabled and unmatched links fall through to ordinary HTTP. For an
+ * identified media page, return a safe failure reason instead of its HTML.
  */
 export function createYtdlpMediaResolver(
   deps: YtdlpResolverDeps,
@@ -323,35 +330,49 @@ export function createYtdlpMediaResolver(
     url: string,
     cookieHeader?: string,
     resolverOptions?: MediaResolveOptions
-  ): Promise<MediaResolution | null> => {
+  ): Promise<
+    MediaResolution | { kind: 'unavailable'; reason: string } | null
+  > => {
     const signal = resolverOptions?.signal
     throwIfYtdlpAborted(signal)
     // Site-specific plugins may use credentials before this fallback is reached.
     // The generic extractor cannot preserve browser Cookie scope, so decline.
     const targetUrl = canonicalPublicMediaUrl(url)
-    if (cookieHeader || !targetUrl) return null
+    if (!targetUrl) return null
+    const siteMatch = isMediaSite(targetUrl)
+    const optionsForSite = () => {
+      const options = deps.readOptions?.()
+      return options?.enabled && (options.allUrls || siteMatch) ? options : null
+    }
+    const initialOptions = optionsForSite()
+    if (!initialOptions) return null
+
+    const knownPage = isYouTubeVideoPage(targetUrl)
+    const unavailable = (reason: string, identified = knownPage) =>
+      identified ? { kind: 'unavailable' as const, reason } : null
+    if (cookieHeader) return unavailable('credentials-unsupported')
+    const proxyFailure = (options: typeof initialOptions) =>
+      options.proxyUnsupportedReason ??
+      (safeYtdlpArgs(options.proxy) ? null : 'proxy-credentials-unsupported')
+    const initialFailure = proxyFailure(initialOptions)
+    if (initialFailure) return unavailable(initialFailure)
+
     const permittedOptions = () => {
-      const options = deps.readOptions?.() ?? { enabled: false }
-      return options.enabled &&
-        !options.proxyUnsupportedReason &&
-        (options.allUrls || isMediaSite(targetUrl)) &&
-        safeYtdlpArgs(options.proxy)
+      const options = optionsForSite()
+      return options &&
+        options.configuredBinaryPath === initialOptions.configuredBinaryPath &&
+        !proxyFailure(options)
         ? options
         : null
     }
-    const initialOptions = permittedOptions()
-    if (!initialOptions) return null
     const binaryPath = await deps.resolveBinaryPath(signal)
     throwIfYtdlpAborted(signal)
-    if (!permittedOptions() || !binaryPath) return null
+    if (!permittedOptions()) return unavailable('settings-changed')
+    if (!binaryPath) return unavailable('binary-missing')
     const muxAvailable = (await deps.isMuxAvailable?.()) ?? false
     throwIfYtdlpAborted(signal)
     const options = permittedOptions()
-    if (
-      !options ||
-      options.configuredBinaryPath !== initialOptions.configuredBinaryPath
-    )
-      return null
+    if (!options) return unavailable('settings-changed')
     const hint = resolverOptions?.qualityHint
     const format = hint
       ? buildQualityFormat(hint, muxAvailable)
@@ -360,12 +381,14 @@ export function createYtdlpMediaResolver(
     const outcome = await resolveWithYtdlp(targetUrl, {
       binaryPath,
       format,
+      sortByHeight: Boolean(hint?.height && !hint.audioOnly),
       ...(options.proxy ? { proxy: options.proxy } : {}),
       ...(deps.spawnImpl ? { spawnImpl: deps.spawnImpl } : {}),
       ...(signal ? { signal } : {}),
     })
     throwIfYtdlpAborted(signal)
-    if (!permittedOptions()) return null
-    return outcome.status === 'resolved' ? outcome.resolution : null
+    if (!permittedOptions()) return unavailable('settings-changed')
+    if (outcome.status === 'resolved') return outcome.resolution
+    return unavailable(outcome.reason, knownPage || outcome.mediaIdentified)
   }
 }

@@ -3359,34 +3359,67 @@ describe('handleCreateTask mux pre-resolve seam', () => {
     expect(result.gid).toMatch(/^[0-9a-f]{16}$/)
   })
 
-  it('keeps the resolver filename for a direct (audio-only) resolution', async () => {
-    // Regression: the direct branch names the file from the resolver title,
-    // but the later URL-basename rebase used to overwrite it, so a YouTube
-    // audio stream landed as "videoplayback" with no extension.
-    const resolveMedia = vi.fn().mockResolvedValue({
-      kind: 'direct' as const,
-      url: 'https://rr1---sn-example.googlevideo.com/videoplayback?expire=1',
-      filename: 'Kuch Kuch Hota Hai.m4a',
-      title: 'Kuch Kuch Hota Hai',
+  it('rejects an unavailable media page before adding its HTML to the engine', async () => {
+    const deps = makeDeps()
+    await expect(
+      handleCreateTask(
+        {
+          type: 'http',
+          uris: ['https://www.youtube.com/watch?v=x'],
+          saveDir: '/d',
+          headers: [],
+        },
+        {
+          ...deps,
+          resolveMedia: async () => ({
+            kind: 'unavailable',
+            message: 'No downloadable stream',
+          }),
+        }
+      )
+    ).rejects.toMatchObject({
+      code: 'TASK_CREATE_FAILED',
+      message: 'No downloadable stream',
     })
-    const deps = makeDeps({ addUriGid: 'gid-direct' })
-    const result = await handleCreateTask(
-      {
-        type: 'http',
-        uris: ['https://www.youtube.com/watch?v=_1KqB_17dJE'],
-        saveDir: '/d',
-        headers: [],
-      },
-      { ...deps, resolveMedia }
-    )
-    expect(resolveMedia).toHaveBeenCalledOnce()
-    expect(lastAddedTask(deps).finalName).toBe('Kuch Kuch Hota Hai.m4a')
-    expect(deps.addUri).toHaveBeenCalledWith(
-      ['https://rr1---sn-example.googlevideo.com/videoplayback?expire=1'],
-      expect.objectContaining({ out: 'Kuch Kuch Hota Hai.m4a.motrix' })
-    )
-    expect(result.gid).toMatch(/^[0-9a-f]{16}$/)
+    expect(deps.addUri).not.toHaveBeenCalled()
+    expect(deps.taskManager.add).not.toHaveBeenCalled()
   })
+
+  it.each([
+    [undefined, 'Kuch Kuch Hota Hai.m4a'],
+    ['my-audio.m4a', 'my-audio.m4a'],
+  ] as const)(
+    'prefers an explicit name over a direct media title: %s',
+    async (filename, expectedName) => {
+      // Regression: the direct branch names the file from the resolver title,
+      // but the later URL-basename rebase used to overwrite it, so a YouTube
+      // audio stream landed as "videoplayback" with no extension.
+      const resolveMedia = vi.fn().mockResolvedValue({
+        kind: 'direct' as const,
+        url: 'https://rr1---sn-example.googlevideo.com/videoplayback?expire=1',
+        filename: 'Kuch Kuch Hota Hai.m4a',
+        title: 'Kuch Kuch Hota Hai',
+      })
+      const deps = makeDeps({ addUriGid: 'gid-direct' })
+      const result = await handleCreateTask(
+        {
+          type: 'http',
+          uris: ['https://www.youtube.com/watch?v=_1KqB_17dJE'],
+          saveDir: '/d',
+          ...(filename ? { filename } : {}),
+          headers: [],
+        },
+        { ...deps, resolveMedia }
+      )
+      expect(resolveMedia).toHaveBeenCalledOnce()
+      expect(lastAddedTask(deps).finalName).toBe(expectedName)
+      expect(deps.addUri).toHaveBeenCalledWith(
+        ['https://rr1---sn-example.googlevideo.com/videoplayback?expire=1'],
+        expect.objectContaining({ out: `${expectedName}.motrix` })
+      )
+      expect(result.gid).toMatch(/^[0-9a-f]{16}$/)
+    }
+  )
 
   it('never calls resolveMedia for magnet/bt requests', async () => {
     const resolveMedia = vi.fn().mockResolvedValue(null)

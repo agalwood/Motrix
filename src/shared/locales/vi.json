@@ -2344,6 +2344,7 @@
     "task": {
       "create": {
         "dedupExhausted": "Đã có quá nhiều tệp trùng tên này (>9999).",
+        "mediaExtractionFailed": "yt-dlp không trích xuất được luồng có thể tải xuống ({{reason}}). Hãy kiểm tra cài đặt yt-dlp rồi thử lại.",
         "torrentMetaFailed": "Không thể lưu siêu dữ liệu torrent."
       }
     }

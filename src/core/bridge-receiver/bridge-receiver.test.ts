@@ -622,6 +622,24 @@ describe('BridgeReceiver', () => {
       expect(muxArg.finalName).toBe('Human Title.mp4')
     })
 
+    it('returns a retryable error without downloading the page after extraction fails', async () => {
+      const deps = fakeDeps({
+        resolveMedia: async () => ({
+          kind: 'unavailable',
+          message: 'No downloadable stream',
+        }),
+      })
+      const receiver = new BridgeReceiver(deps as never)
+      await expect(receiver.handle(directParams, extCtx)).rejects.toMatchObject(
+        {
+          code: ErrorCodes.CapabilityNotSupported,
+          message: 'No downloadable stream',
+          data: { retryable: true },
+        }
+      )
+      expect(deps.createTask).not.toHaveBeenCalled()
+    })
+
     it('resolveMedia returning null falls through to direct dispatch (no regression)', async () => {
       const resolveMedia = vi.fn(async (_url: string) => null)
 

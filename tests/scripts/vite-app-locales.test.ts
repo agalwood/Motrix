@@ -22,6 +22,7 @@ describe('desktop main locale projection', () => {
       expect(result.operatorAdmin).toBeUndefined()
       expect(result.operatorToken).toBeUndefined()
       expect(result.settings.integration.browser).toBeUndefined()
+      expect(result.settings.integration.media.ytdlp).toBeUndefined()
       expect(result.settings.downloads).toBeUndefined()
       expect(result.task.add.duplicate).toBeUndefined()
       expect(result.task.storage).toEqual({
@@ -33,6 +34,7 @@ describe('desktop main locale projection', () => {
       delete original.operatorToken
       original.createTorrent = { menuLabel: original.createTorrent.menuLabel }
       delete original.settings.integration.browser
+      delete original.settings.integration.media.ytdlp
       delete original.settings.downloads
       delete original.task.add.duplicate
       original.task.storage = {
@@ -53,19 +55,25 @@ describe('desktop main locale projection', () => {
     }
   })
 
-  it('keeps the full creator UI in both renderers without shipping CLI messages', () => {
-    const renderer = appLocaleProjection(root, 'renderer')
-      .transform as typeof transform
-    const file = path.join(root, 'en-US.json')
-    const source = readFileSync(file, 'utf8')
-    const projected = JSON.parse(renderer(source, file)!.code)
-    const original = JSON.parse(source)
-    delete original.operatorAdmin
-    expect(projected).toEqual(original)
-    expect(projected.createTorrent.seedAfter).toBeTruthy()
-    expect(projected.settings.downloads.openingView).toBeTruthy()
-    expect(projected.operatorToken).toEqual(original.operatorToken)
-  })
+  it.each(['renderer', 'renderer.web'] as const)(
+    'keeps the full creator UI and ships only applicable media settings to %s',
+    (host) => {
+      const renderer = appLocaleProjection(root, host)
+        .transform as typeof transform
+      const file = path.join(root, 'en-US.json')
+      const source = readFileSync(file, 'utf8')
+      const projected = JSON.parse(renderer(source, file)!.code)
+      const original = JSON.parse(source)
+      delete original.operatorAdmin
+      expect(original.settings.integration.media.ytdlp.title).toBeTruthy()
+      if (host === 'renderer.web')
+        delete original.settings.integration.media.ytdlp
+      expect(projected).toEqual(original)
+      expect(projected.createTorrent.seedAfter).toBeTruthy()
+      expect(projected.settings.downloads.openingView).toBeTruthy()
+      expect(projected.operatorToken).toEqual(original.operatorToken)
+    }
+  )
 
   it('leaves unrelated JSON and scripts unchanged', () => {
     expect(transform('{}', path.join(root, '../schemas/test.json'))).toBeNull()

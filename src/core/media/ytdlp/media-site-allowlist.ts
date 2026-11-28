@@ -98,3 +98,20 @@ export function isLikelyMediaSite(
   }
   return false
 }
+
+/** A playback page is an HTML document even if the extractor fails before
+ * identifying its site. Assets on the same host still use normal HTTP. */
+export function isYouTubeVideoPage(value: string): boolean {
+  const url = new URL(value)
+  const host = normalizeHost(url.hostname)
+  if (matchesSuffix(host, 'youtu.be')) return /^\/[\w-]+\/?$/.test(url.pathname)
+  if (
+    !matchesSuffix(host, 'youtube.com') &&
+    !matchesSuffix(host, 'youtube-nocookie.com')
+  )
+    return false
+  return (
+    (url.pathname === '/watch' && Boolean(url.searchParams.get('v'))) ||
+    /^\/(?:shorts|live|embed|v)\/[\w-]+\/?$/.test(url.pathname)
+  )
+}

@@ -3,7 +3,7 @@
  *
  * A media resolver turns a page URL (a watch page, a post, an article with an
  * embedded player) into something the download engine can actually transfer.
- * Two outcomes are possible:
+ * Successful resolutions use one of two download paths:
  *
  *   - `mux`   — the media is delivered as separate video and audio streams
  *               (the normal case for adaptive streaming sites such as
@@ -12,9 +12,8 @@
  *   - `direct`— a single self-contained stream. The URL is swapped for the
  *               resolved stream URL and the normal HTTP download path runs.
  *
- * Resolvers never throw for an unresolvable URL: they return `null` so the
- * caller keeps the unchanged direct-download path. A resolver only reports a
- * hard failure through `YtdlpResolveOutcome` for logging.
+ * A resolver returns null when it declines a URL. Once a media page has been
+ * identified, an unavailable result stops submission and describes the failure.
  */
 
 export interface MuxResolution {
@@ -61,7 +60,7 @@ export type MediaResolver = (
   url: string,
   cookieHeader?: string,
   options?: MediaResolveOptions
-) => Promise<MediaResolution | null>
+) => Promise<MediaResolution | { kind: 'unavailable'; message: string } | null>
 
 /**
  * Run resolvers in order and return the first positive result.

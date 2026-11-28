@@ -203,7 +203,7 @@ export interface CreateTaskDeps {
    * (video + audio), the download is routed to the MuxPipeline instead of
    * the normal HTTP engine path. A single-stream resolution instead rewrites
    * the request URL and headers, and the unchanged HTTP path runs.
-   * Errors are owned by the factory (returns null → HTTP fallback).
+   * A declined URL falls through to HTTP; an unavailable media result stops submission.
    * The optional cookieHeader arg is for bilibili HD (desktop Add-Task path
    * passes no cookies — only the extension submit path forwards them).
    */
@@ -770,10 +770,7 @@ async function handleCreateTaskUnderAdmission(
       extraEngineOptions: opts.extraEngineOptions,
     }
     let currentHttpDesiredName = desiredName
-    // A media resolver reports a real title, so its derived name is as
-    // authoritative as a user-supplied one. Without this, the HTTP fallback
-    // below rebases the name onto the resolved CDN URL and a YouTube audio
-    // stream lands as "videoplayback" with no extension.
+    // A resolver-derived name takes precedence over a CDN URL or response name.
     let mediaNameResolved = false
     const pickHttpName = async (nextDesiredName: string): Promise<void> => {
       if (nextDesiredName === currentHttpDesiredName) return
@@ -791,12 +788,14 @@ async function handleCreateTaskUnderAdmission(
     // taskId/saveDir/finalName, then delegate to MuxPipeline and return — the
     // entire HTTP/beforeCreate/engine path is bypassed for this URL.
     // On null (non-resolver URL, bridge disabled, plugin not enabled) → fall
-    // through to the unchanged HTTP path. No try/catch here: the factory owns
-    // error handling (returns null on failure).
+    // through to the unchanged HTTP path. An identified page cannot serve as a file.
     if (deps.resolveMedia) {
       const uri = params.uris[0]
       if (uri) {
         const resolution = await deps.resolveMedia(uri)
+        if (resolution?.kind === 'unavailable') {
+          throw new AppError(ErrorCode.TaskCreateFailed, resolution.message)
+        }
         if (resolution?.kind === 'direct') {
           // Single-stream media site: swap the page URL for the real stream
           // URL and let the unchanged HTTP path download it. Resolved headers
@@ -817,7 +816,7 @@ async function handleCreateTaskUnderAdmission(
           params.uris = [resolvedUrl, ...params.uris.slice(1)]
           params.headers = { ...resolvedHeaders, ...(params.headers ?? {}) }
           const directBase = resolution.filename ?? resolution.title
-          if (directBase) {
+          if (directBase && !req.filename?.trim()) {
             const desired = sanitizeFilename(directBase).trim()
             if (desired) {
               await pickHttpName(desired)

@@ -2359,6 +2359,7 @@
     "task": {
       "create": {
         "dedupExhausted": "Es gibt bereits zu viele Dateien mit diesem Namen (>9999).",
+        "mediaExtractionFailed": "yt-dlp konnte keinen herunterladbaren Stream ermitteln ({{reason}}). Prüfe die yt-dlp-Einstellungen und versuche es erneut.",
         "torrentMetaFailed": "Die Torrent-Metadaten konnten nicht gespeichert werden."
       }
     }

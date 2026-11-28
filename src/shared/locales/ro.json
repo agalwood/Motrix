@@ -194,6 +194,7 @@
     "task": {
       "create": {
         "dedupExhausted": "Există deja prea multe fișiere cu acest nume (>9999).",
+        "mediaExtractionFailed": "yt-dlp nu a putut extrage un flux descărcabil ({{reason}}). Verificați setările yt-dlp și încercați din nou.",
         "torrentMetaFailed": "Metadatele torrentului nu au putut fi salvate."
       }
     }

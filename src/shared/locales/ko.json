@@ -2344,6 +2344,7 @@
     "task": {
       "create": {
         "dedupExhausted": "같은 이름의 파일이 너무 많습니다(9999개 초과).",
+        "mediaExtractionFailed": "yt-dlp가 다운로드할 수 있는 스트림을 추출하지 못했습니다({{reason}}). yt-dlp 설정을 확인하고 다시 시도하세요.",
         "torrentMetaFailed": "토렌트 메타데이터를 저장하지 못했습니다."
       }
     }

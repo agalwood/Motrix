@@ -156,7 +156,10 @@ describe('shell public extraction boundary', () => {
       f.media.ytdlpBinaryPath = '/fixture/replaced'
       return true
     })
-    expect(await f.resolver.resolve(req.url)).toBeNull()
+    expect(await f.resolver.resolve(req.url)).toMatchObject({
+      kind: 'unavailable',
+      message: expect.stringContaining('settings-changed'),
+    })
     expect(f.locate).toHaveBeenCalledOnce()
     expect(spawnMock).not.toHaveBeenCalled()
   })
@@ -172,7 +175,10 @@ describe('shell public extraction boundary', () => {
     expect(await f.resolver.listFormats(req)).toMatchObject({
       reason: 'proxy-bypass-unsupported',
     })
-    expect(await f.resolver.resolve(req.url)).toBeNull()
+    expect(await f.resolver.resolve(req.url)).toMatchObject({
+      kind: 'unavailable',
+      message: expect.stringContaining('proxy-bypass-unsupported'),
+    })
     expect(f.isMuxAvailable).not.toHaveBeenCalled()
     expect(f.locate).not.toHaveBeenCalled()
     expect(spawnMock).not.toHaveBeenCalled()
@@ -191,7 +197,10 @@ describe('shell public extraction boundary', () => {
     expect(await f.resolver.listFormats(req)).toMatchObject({
       reason: 'proxy-credentials-unsupported',
     })
-    expect(await f.resolver.resolve(req.url)).toBeNull()
+    expect(await f.resolver.resolve(req.url)).toMatchObject({
+      kind: 'unavailable',
+      message: expect.stringContaining('proxy-credentials-unsupported'),
+    })
     expect(f.locate).not.toHaveBeenCalled()
     expect(spawnMock).not.toHaveBeenCalled()
   })

@@ -37,6 +37,9 @@ import {
  *   MOTRIX_LIVE_NETWORK_TESTS=1 \
  *   pnpm exec playwright test e2e/media-extension-overlay.spec.ts --headed
  *
+ * Set MOTRIX_MEDIA_QUALITY to a displayed key such as 240p or mp3, and
+ * MOTRIX_MEDIA_RETAIN_FILE=1 to attach the downloaded file to the test results.
+ *
  * Leg 1 proves the in-page grab overlay renders and anchors to the playing
  * <video> (the "download this video" popup on the player) with no backend.
  * Leg 2 pairs the extension with the freshly launched App, then submits a real
@@ -50,7 +53,8 @@ import {
 const extensionBuild = process.env.MOTRIX_EXTENSION_BUILD?.trim() ?? ''
 const liveNetwork = process.env.MOTRIX_LIVE_NETWORK_TESTS === '1'
 const execFileAsync = promisify(execFile)
-const audioSelection = process.env.MOTRIX_MEDIA_QUALITY === 'mp3'
+const requestedQuality = process.env.MOTRIX_MEDIA_QUALITY?.trim()
+const audioSelection = requestedQuality === 'mp3'
 const fixturePage = process.env.MOTRIX_MEDIA_TEST_URL?.trim()
 const mediaPage = fixturePage || 'https://www.youtube.com/watch?v=jNQXAC9IVRw'
 
@@ -183,6 +187,7 @@ test.describe('real Chromium extension overlay', () => {
       const showQualitiesLabels = await qualityActionLabels()
       console.log('[overlay] waiting for query action')
       let task: DownloadTask | null = null
+      let selectedQuality: string | null = null
       for (let attempt = 0; attempt < 3 && task === null; attempt += 1) {
         const actions = await waitForOverlayRows(page, 15_000, (rows) =>
           rows.some(
@@ -201,14 +206,16 @@ test.describe('real Chromium extension overlay', () => {
         await page.mouse.click(show.box.centerX, show.box.centerY)
         console.log('[overlay] requested formats')
         const rows = await waitForOverlayRows(page, 90_000, (candidates) =>
-          candidates.some((row) =>
-            audioSelection
-              ? row.formatKey === 'mp3'
-              : /^\d{3,4}p$/.test(row.formatKey ?? '')
+          candidates.some(
+            (row) =>
+              isClickable(row) &&
+              (requestedQuality
+                ? row.formatKey === requestedQuality
+                : /^\d{3,4}p$/.test(row.formatKey ?? ''))
           )
         )
-        const chosen = audioSelection
-          ? pickRow(rows, (row) => row.formatKey === 'mp3')
+        const chosen = requestedQuality
+          ? pickRow(rows, (row) => row.formatKey === requestedQuality)
           : pickSmallestVideoRow(rows)
         console.log(
           `[overlay] attempt ${attempt}: heading=${JSON.stringify(
@@ -216,7 +223,11 @@ test.describe('real Chromium extension overlay', () => {
           )} chosen=${JSON.stringify(chosen?.label ?? null)} rows=` +
             JSON.stringify(rows.map((entry) => entry.label))
         )
-        if (!chosen?.box) break
+        if (!chosen?.box || !chosen.formatKey) break
+        selectedQuality = chosen.formatKey
+        await page.screenshot({
+          path: testInfo.outputPath('overlay-quality-selection.png'),
+        })
         await page.mouse.click(chosen.box.centerX, chosen.box.centerY)
         task = await waitForMediaTask(mainWindow, 45_000)
       }
@@ -265,6 +276,31 @@ test.describe('real Chromium extension overlay', () => {
         expect(JSON.parse(stdout).streams).toEqual([
           { codec_name: 'mp3', codec_type: 'audio' },
         ])
+      } else if (file && selectedQuality) {
+        const { stdout } = await execFileAsync(
+          process.env.MOTRIX_FFPROBE_PATH?.trim() || 'ffprobe',
+          [
+            '-v',
+            'error',
+            '-show_entries',
+            'stream=codec_type,height',
+            '-of',
+            'json',
+            file,
+          ]
+        )
+        expect(JSON.parse(stdout).streams).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              codec_type: 'video',
+              height: Number.parseInt(selectedQuality, 10),
+            }),
+            expect.objectContaining({ codec_type: 'audio' }),
+          ])
+        )
+      }
+      if (file && process.env.MOTRIX_MEDIA_RETAIN_FILE === '1') {
+        await testInfo.attach(path.basename(file), { path: file })
       }
       const expectedHash = process.env.MOTRIX_MEDIA_EXPECTED_SHA256
       if (file && expectedHash) {

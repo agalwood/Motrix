@@ -2389,6 +2389,7 @@
     "task": {
       "create": {
         "dedupExhausted": "Istnieje już zbyt wiele plików o tej nazwie (>9999).",
+        "mediaExtractionFailed": "yt-dlp nie udało się uzyskać strumienia do pobrania ({{reason}}). Sprawdź ustawienia yt-dlp i spróbuj ponownie.",
         "torrentMetaFailed": "Nie udało się zapisać metadanych torrenta."
       }
     }

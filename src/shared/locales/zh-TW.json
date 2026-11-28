@@ -2344,6 +2344,7 @@
     "task": {
       "create": {
         "dedupExhausted": "已有太多相同名稱的檔案 (>9999)。",
+        "mediaExtractionFailed": "yt-dlp 無法擷取可下載的媒體串流（{{reason}}）。請檢查 yt-dlp 設定後再試一次。",
         "torrentMetaFailed": "無法儲存 Torrent 中繼資料。"
       }
     }

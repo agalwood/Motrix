@@ -2374,6 +2374,7 @@
     "task": {
       "create": {
         "dedupExhausted": "Já existem arquivos demais com este nome (>9999).",
+        "mediaExtractionFailed": "O yt-dlp não conseguiu extrair um fluxo para download ({{reason}}). Confira as configurações do yt-dlp e tente novamente.",
         "torrentMetaFailed": "Não foi possível salvar os metadados do torrent."
       }
     }

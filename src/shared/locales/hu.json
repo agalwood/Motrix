@@ -2359,6 +2359,7 @@
     "task": {
       "create": {
         "dedupExhausted": "Túl sok azonos nevű fájl létezik már (>9999).",
+        "mediaExtractionFailed": "A yt-dlp nem talált letölthető adatfolyamot ({{reason}}). Ellenőrizze a yt-dlp beállításait, majd próbálja újra.",
         "torrentMetaFailed": "A torrent metaadatainak tartós mentése sikertelen."
       }
     }

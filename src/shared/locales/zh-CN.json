@@ -2403,6 +2403,7 @@
     "task": {
       "create": {
         "dedupExhausted": "同名文件过多（>9999）。",
+        "mediaExtractionFailed": "yt-dlp 无法提取可下载的媒体流（{{reason}}）。请检查 yt-dlp 设置后重试。",
         "torrentMetaFailed": "无法持久化 torrent 元数据。"
       }
     }

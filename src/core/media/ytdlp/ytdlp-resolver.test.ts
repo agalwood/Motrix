@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { MediaResolution } from './media-resolver'
+import { isLikelyMediaSite } from './media-site-allowlist'
 import type { SpawnLike } from './ytdlp-locator'
 import {
   containerForFormats,
@@ -278,7 +278,7 @@ describe('resolveWithYtdlp', () => {
     })
     expect(outcome).toEqual({
       status: 'unsupported',
-      reason: 'extraction-failed',
+      reason: 'unsupported-url',
     })
   })
 
@@ -325,9 +325,7 @@ describe('createYtdlpMediaResolver', () => {
       },
       isMediaSite
     )
-    const resolution: MediaResolution | null = await resolver(
-      'https://youtube.com/watch?v=x'
-    )
+    const resolution = await resolver('https://youtube.com/watch?v=x')
     expect(resolution?.kind).toBe('direct')
   })
 
@@ -340,7 +338,7 @@ describe('createYtdlpMediaResolver', () => {
     )
     expect(
       await resolver('https://youtube.com/watch?v=x', 'SID=secret')
-    ).toBeNull()
+    ).toEqual({ kind: 'unavailable', reason: 'credentials-unsupported' })
     expect(resolveBinaryPath).not.toHaveBeenCalled()
     expect(spawnImpl).not.toHaveBeenCalled()
   })
@@ -365,16 +363,74 @@ describe('createYtdlpMediaResolver', () => {
       },
       isMediaSite
     )
-    expect(await resolver('https://youtube.com/watch?v=x')).toBeNull()
+    expect(await resolver('https://youtube.com/watch?v=x')).toEqual({
+      kind: 'unavailable',
+      reason: 'extraction-failed',
+    })
     expect(calls).toBe(1)
   })
 
-  it('stays silent when yt-dlp is not installed', async () => {
+  it('reports a missing extractor for enabled media pages', async () => {
     const resolver = createYtdlpMediaResolver(
-      { resolveBinaryPath: async () => null },
+      {
+        resolveBinaryPath: async () => null,
+        readOptions: () => ({ enabled: true }),
+      },
+      isLikelyMediaSite
+    )
+    expect(await resolver('https://youtu.be/clip')).toEqual({
+      kind: 'unavailable',
+      reason: 'binary-missing',
+    })
+    expect(await resolver('https://youtube.com/shorts/clip')).toEqual({
+      kind: 'unavailable',
+      reason: 'binary-missing',
+    })
+    expect(await resolver('https://youtube.com/assets/file.zip')).toBeNull()
+  })
+
+  it.each([
+    ['https://example.com/file.zip', 'ERROR: [generic] Unsupported URL', null],
+    [
+      'https://www.vimeo.com/123',
+      'ERROR: [vimeo] Requested format is not available',
+      { kind: 'unavailable', reason: 'format-unavailable' },
+    ],
+  ])(
+    'distinguishes claimed videos from ordinary URLs with try-every-link enabled: %s',
+    async (url, stderr, expected) => {
+      const resolver = createYtdlpMediaResolver(
+        {
+          resolveBinaryPath: async () => 'yt-dlp',
+          readOptions: () => ({ enabled: true, allUrls: true }),
+          spawnImpl: spawnWith(fakeChild({ stderr: String(stderr) }, 1)),
+        },
+        () => false
+      )
+      expect(await resolver(String(url))).toEqual(expected)
+    }
+  )
+
+  it('stops an identified watch page with only unsupported streams', async () => {
+    const resolver = createYtdlpMediaResolver(
+      {
+        resolveBinaryPath: async () => 'yt-dlp',
+        readOptions: () => ({ enabled: true }),
+        spawnImpl: spawnWith(
+          fakeChild({
+            stdout: JSON.stringify({
+              url: 'https://cdn.example/playlist.m3u8',
+              protocol: 'm3u8_native',
+            }),
+          })
+        ),
+      },
       isMediaSite
     )
-    expect(await resolver('https://youtube.com/watch?v=x')).toBeNull()
+    expect(await resolver('https://youtube.com/watch?v=x')).toEqual({
+      kind: 'unavailable',
+      reason: 'no-direct-stream',
+    })
   })
 
   it('stays silent when disabled in Settings', async () => {

@@ -2344,6 +2344,7 @@
     "task": {
       "create": {
         "dedupExhausted": "同じ名前のファイルが多すぎます（9999 個を超えています）。",
+        "mediaExtractionFailed": "yt-dlp でダウンロード可能なストリームを取得できませんでした（{{reason}}）。yt-dlp の設定を確認して、もう一度お試しください。",
         "torrentMetaFailed": "トレントのメタデータを保存できませんでした。"
       }
     }

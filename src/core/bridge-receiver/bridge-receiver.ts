@@ -180,7 +180,7 @@ export interface BridgeReceiverDeps {
    * YouTube watch page or bilibili page, this is called before kind-routing.
    * If it returns a mux pair the direct submit is transparently re-routed to
    * the MuxPipeline. Absent or returning null → direct download proceeds.
-   * All error handling lives in the bootstrap factory (returns null on failure).
+   * An unavailable result rejects the submission before creating a task.
    * An optional cookieHeader (2nd arg) is forwarded when the submit carries
    * cookies (bilibili HD path). Omitted for YouTube and desktop submits.
    */
@@ -398,8 +398,7 @@ export class BridgeReceiver {
     // Submit-path pre-resolve: if the adapted result is a direct download and
     // a resolveMedia factory is wired (bootstrap only), call it. On a non-null
     // mux pair the direct submit is transparently re-routed to MuxPipeline.
-    // resolveMedia owns its own error handling (catches → null), so we never
-    // wrap this in try/catch here — a null means "proceed as direct".
+    // A declined URL proceeds as direct; an identified media page cannot.
     //
     // Cookie handoff (bilibili HD): when the extension submits a direct download
     // with cookies (e.g. SESSDATA for bilibili), serialize them into a Cookie
@@ -433,6 +432,16 @@ export class BridgeReceiver {
         cookieHeader,
         qualityHint ? { qualityHint } : undefined
       )
+      if (resolved?.kind === 'unavailable') {
+        // Extensions recognize this rejection as occurring before task creation.
+        throw makeMdxpError(
+          ErrorCodes.CapabilityNotSupported,
+          resolved.message,
+          {
+            retryable: true,
+          }
+        )
+      }
       if (!resolved && qualityHint) {
         throw new BridgeReceiverError(
           'unsupported-kind',

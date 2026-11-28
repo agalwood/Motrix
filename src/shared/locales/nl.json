@@ -194,6 +194,7 @@
     "task": {
       "create": {
         "dedupExhausted": "Er bestaan al te veel bestanden met deze naam (>9999).",
+        "mediaExtractionFailed": "yt-dlp kon geen downloadbare stream ophalen ({{reason}}). Controleer de instellingen van yt-dlp en probeer het opnieuw.",
         "torrentMetaFailed": "De torrentmetadata konden niet worden opgeslagen."
       }
     }

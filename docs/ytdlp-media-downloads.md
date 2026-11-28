@@ -43,6 +43,7 @@ manager, set the path, then click **Re-detect**.
 3. With FFmpeg configured, the best video and audio streams are downloaded in
    parallel and muxed into one MP4/MKV task, shown as a merge task while it
    runs. Without FFmpeg, Motrix downloads the best single stream directly.
+   If you enter a filename for a single-stream download, Motrix uses that name.
 
 Downloads that are not media links skip the extractor entirely, so ordinary
 downloads behave exactly as before.
@@ -65,8 +66,9 @@ includes a media sniffer and an in-page grab overlay:
 5. When yt-dlp is enabled, click **Show qualities** to query the
    page's available public formats: a **Video** section with one row per resolution (e.g. `1080p`,
    `720p`) and an **Audio** section with an **MP3** row when FFmpeg is
-   configured and the page offers a downloadable audio track. Picking a resolution downloads the best stream at or below it;
-   picking **MP3** downloads the best audio stream and converts it to a
+   configured and the page offers a downloadable audio track. Motrix uses the selected height
+   when available, then the highest available height below it. At the same height it prefers MP4.
+   Picking **MP3** downloads the best audio stream and converts it to a
    `.mp3` file. Opening a page or playing a video does not query the desktop.
    Ordinary sniffed items keep their own rows alongside the picker.
 
@@ -96,6 +98,8 @@ your routing rules, or silently connecting directly.
 
 ## Troubleshooting
 
+- **A YouTube video page reports an extraction error** — check that Motrix detects yt-dlp,
+  confirm the video plays publicly, and retry. The error is reported before a file is created.
 - **The link downloads as a tiny HTML file** — the site is not in the built-in
   media-site list. Turn on **Try every link**, or use the browser extension's
   grab overlay on the playing video.

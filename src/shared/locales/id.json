@@ -2344,6 +2344,7 @@
     "task": {
       "create": {
         "dedupExhausted": "Sudah ada terlalu banyak berkas dengan nama ini (>9999).",
+        "mediaExtractionFailed": "yt-dlp tidak dapat mengekstrak aliran yang bisa diunduh ({{reason}}). Periksa pengaturan yt-dlp, lalu coba lagi.",
         "torrentMetaFailed": "Metadata torrent gagal disimpan."
       }
     }

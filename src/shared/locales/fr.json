@@ -194,6 +194,7 @@
     "task": {
       "create": {
         "dedupExhausted": "Trop de fichiers portent déjà ce nom (>9999).",
+        "mediaExtractionFailed": "yt-dlp n’a pas pu extraire de flux téléchargeable ({{reason}}). Vérifiez les réglages de yt-dlp et réessayez.",
         "torrentMetaFailed": "Impossible d’enregistrer les métadonnées du torrent."
       }
     }

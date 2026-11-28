@@ -15,6 +15,7 @@ import {
 } from '@core/media/ytdlp/ytdlp-resolver'
 import { proxyToUrl } from '@core/proxy/serializers'
 import type { MediaSettings, ProxySettings } from '@shared/types/settings'
+import { i18n } from '../lib/i18n'
 
 /**
  * Electron shell wiring for the yt-dlp media resolver.
@@ -158,8 +159,18 @@ export function createShellYtdlpResolver(
     isMediaSite: isLikelyMediaSite,
   })
 
+  const resolve = createYtdlpMediaResolver(resolverDeps, isLikelyMediaSite)
   return {
-    resolve: createYtdlpMediaResolver(resolverDeps, isLikelyMediaSite),
+    resolve: async (...args) => {
+      const result = await resolve(...args)
+      if (result?.kind !== 'unavailable') return result
+      return {
+        kind: 'unavailable',
+        message: i18n.t('errors.task.create.mediaExtractionFailed', {
+          reason: result.reason,
+        }),
+      }
+    },
     listFormats: async (req, signal) => {
       throwIfYtdlpAborted(signal)
       if (

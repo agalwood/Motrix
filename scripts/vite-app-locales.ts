@@ -3,7 +3,7 @@ import type { Plugin } from 'vite'
 // The operator-admin catalog belongs to the Server CLI, never to the app UI.
 export function appLocaleProjection(
   localeDirectory: string,
-  host: 'main' | 'renderer'
+  host: 'main' | 'renderer' | 'renderer.web'
 ): Plugin {
   const prefix = `${localeDirectory.replaceAll('\\', '/')}/`
   return {
@@ -16,18 +16,23 @@ export function appLocaleProjection(
       delete catalog.operatorAdmin
       if (host === 'renderer')
         return { code: JSON.stringify(catalog), map: null }
+      const settings = catalog.settings as Record<string, unknown> | undefined
+      const integration = settings?.integration as
+        | Record<string, unknown>
+        | undefined
+      const media = integration?.media as Record<string, unknown> | undefined
+      // The yt-dlp controls are rendered only by the Electron settings dialog.
+      if (media) delete media.ytdlp
+      if (host === 'renderer.web')
+        return { code: JSON.stringify(catalog), map: null }
       // Password settings and their validation are rendered only in the Web UI.
       delete catalog.operatorToken
       const creator = catalog.createTorrent as
         | Record<string, unknown>
         | undefined
       if (creator) catalog.createTorrent = { menuLabel: creator.menuLabel }
-      const settings = catalog.settings as Record<string, unknown> | undefined
       // The Downloads settings dialog renders exclusively in the renderer.
       if (settings) delete settings.downloads
-      const integration = settings?.integration as
-        | Record<string, unknown>
-        | undefined
       // Extension settings and pairing prompts are rendered by the shared UI.
       // Native integration prompts and media errors still need their catalogs.
       if (integration) delete integration.browser

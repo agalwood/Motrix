@@ -194,6 +194,7 @@
     "task": {
       "create": {
         "dedupExhausted": "Ja hi ha massa fitxers amb aquest nom (>9999).",
+        "mediaExtractionFailed": "El yt-dlp no ha pogut extreure cap flux que es pugui baixar ({{reason}}). Comproveu la configuració del yt-dlp i torneu-ho a provar.",
         "torrentMetaFailed": "No s'han pogut desar les metadades del torrent."
       }
     }
