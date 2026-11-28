@@ -1309,6 +1309,27 @@ async function main() {
               ),
           })
       : undefined
+  // 注入运行期引擎与种子元数据查询能力，用于校验群晖 DSM 上未完成任务的合法删文件归属
+  dsmTaskFiles?.setRuntimeDeps({
+    getEngineTask: async (gid) => {
+      if (!gid || supervisor.getState() !== EngineState.Ready) return null
+      try {
+        const raw = await rpcClient.tellStatus(gid, [
+          'dir',
+          'files',
+          'infoHash',
+        ])
+        return {
+          dir: raw.dir,
+          files: raw.files.map((file) => file.path).filter(Boolean),
+          infoHash: raw.infoHash || undefined,
+        }
+      } catch {
+        return null
+      }
+    },
+    readTorrentMeta: (metaPath) => torrentMetaStore.read(metaPath),
+  })
   const torrentParser = new TorrentParser()
   const magnetTracker = new MagnetTracker(
     rpcClient,
