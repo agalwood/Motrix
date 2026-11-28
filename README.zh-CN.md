@@ -132,7 +132,7 @@ Motrix Extension 已上架官方浏览器扩展商店，配合 Motrix 2 使用�
 
 ### 桌面应用
 
-访问 Motrix 官网 [motrix.app](https://motrix.app)，选择对应操作系统的安装包。macOS 用户通常下载 Apple Silicon 版本即可；如果使用较早的 Intel 芯片 Mac，请选择 Intel 版本。
+访问 Motrix 官网 [motrix.app](https://motrix.app)，选择对应操作系统的安装包。macOS 用户通常下载 Apple Silicon 版本即可；如果使用较早的 Intel 芯片 Mac，请选择 Intel 版本。中文用户也可以通过 [FossNest](https://fossnest.org/zh-CN/repo/agalwood/Motrix) 下载安装包（提供中文介绍与下载加速）。
 
 桌面安装包通过上方链接的 GitHub Release 提供。Snap 构建先经过
 `latest/edge` 和 `latest/candidate` 验证，再晋级到 `latest/stable`。

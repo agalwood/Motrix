@@ -134,7 +134,7 @@ For installation and pairing, see the [browser extension guide](https://motrix.a
 
 ### Desktop app
 
-Download Motrix from [motrix.app](https://motrix.app) and choose the package for your operating system. Most Mac users should choose the Apple Silicon build; Intel builds are available for older Macs with Intel processors.
+Download Motrix from [motrix.app](https://motrix.app) and choose the package for your operating system. Most Mac users should choose the Apple Silicon build; Intel builds are available for older Macs with Intel processors. Chinese users can also download Motrix from [FossNest](https://fossnest.org/zh-CN/repo/agalwood/Motrix), which provides a Chinese introduction and download mirrors.
 
 Desktop packages are available from the GitHub Release linked above. Snap
 builds pass through `latest/edge` and `latest/candidate` before promotion to
