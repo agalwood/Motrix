@@ -2,6 +2,7 @@ import { analyzeDownloadInput } from '@shared/lib/download-source-input'
 import { MAX_TORRENT_BASE64_SIZE } from '@shared/lib/torrent-meta'
 import { z } from 'zod'
 import { MAX_MIRROR_URIS, type SourceFailure } from './download-source'
+import { legacyOptionNamesSchema } from './legacy-import'
 import { infoHashToMagnetUri } from './magnet-input'
 
 const torrentFileSchema = z.object({
@@ -21,22 +22,32 @@ const torrentMetaSchema = z.object({
 export { torrentMetaSchema }
 
 const httpHeaderSchema = z.object({
-  name: z.string().min(1),
+  name: z.string().min(1, { message: 'task.add.errors.headerNameRequired' }),
   value: z.string(),
 })
+
+// A blank optional form row is a draft, not an HTTP header.
+const extraHeaderDraftSchema = httpHeaderSchema
+  .extend({ name: z.string() })
+  .refine(({ name, value }) => !!name.trim() || !value.trim(), {
+    path: ['name'],
+    message: 'task.add.errors.headerNameRequired',
+  })
 
 const linksTabSchema = z.object({
   tab: z.literal('links'),
   urls: z.string().min(1, { message: 'task.add.errors.urlsRequired' }),
   saveDir: z.string().min(1, { message: 'task.add.errors.saveDirRequired' }),
   filename: z.string().optional(),
-  extraHeaders: z.array(httpHeaderSchema).optional(),
+  extraHeaders: z.array(extraHeaderDraftSchema).optional(),
   split: z.number().int().min(1).max(128).optional(),
   userAgent: z.string().optional(),
   referer: z.string().optional(),
   cookie: z.string().optional(),
   authorization: z.string().optional(),
   allProxy: z.string().optional(),
+  // Draft-only reminder; option values are entered explicitly in the new task.
+  legacyRequestOptions: legacyOptionNamesSchema.optional(),
 })
 
 const torrentTabSchema = z
@@ -120,9 +131,20 @@ const btTaskRequestSchema = z
     existingTaskId: z.string().min(1).optional(),
     // Duplicate torrent handling is conservative by default. A separate copy
     // is created only after the user explicitly confirms the conflict.
-    duplicatePolicy: z.enum(['reuse', 'create-copy']).default('reuse'),
+    duplicatePolicy: z
+      .enum(['reuse', 'create-copy', 'use-existing'])
+      .default('reuse'),
   })
   .superRefine((value, ctx) => {
+    if (
+      value.duplicatePolicy === 'use-existing' &&
+      (value.payload.kind !== 'torrent-base64' ||
+        value.existingTaskId !== undefined)
+    )
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Existing files require resolved torrent metadata',
+      })
     if (
       value.payload.kind === 'torrent-base64' &&
       value.selectedFiles.length === 0
@@ -329,7 +351,10 @@ export function formValuesToTaskCreateRequest(
       }
     }
     const headers = [
-      ...(v.extraHeaders ?? []),
+      ...(v.extraHeaders ?? []).flatMap(({ name, value }) => {
+        const key = name.trim()
+        return key || value.trim() ? [{ name: key, value }] : []
+      }),
       ...compactHeader('User-Agent', v.userAgent),
       ...compactHeader('Referer', v.referer),
       ...compactHeader('Cookie', v.cookie),

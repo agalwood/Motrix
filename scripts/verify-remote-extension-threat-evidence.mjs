@@ -140,12 +140,15 @@ export function verifyThreatEvidence({
     extension: resolve(extensionRepository),
   }
 
+  const standalone = packageName(roots.extension) === '@motrix/extension'
   let evidenceCount = 0
   for (const threat of manifest.threats) {
     for (const evidence of threat.evidence) {
       const absolutePath = assertInsideRepository(
         roots[evidence.repository],
-        evidence.path
+        standalone && evidence.repository === 'extension'
+          ? evidence.path.replace(/^packages\/ext\//u, '')
+          : evidence.path
       )
       if (!existsSync(absolutePath) || !statSync(absolutePath).isFile()) {
         throw new Error(
@@ -164,18 +167,21 @@ export function verifyThreatEvidence({
   return { threatCount: manifest.threats.length, evidenceCount }
 }
 
+function packageName(root) {
+  const file = resolve(root, 'package.json')
+  return existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')).name : null
+}
+
 function inferExtensionRepository() {
   if (process.env.MOTRIX_EXTENSION_REPO) {
     return resolve(process.env.MOTRIX_EXTENSION_REPO)
   }
   if (process.env.MOTRIX_EXTENSION_BUILD) {
     const build = resolve(process.env.MOTRIX_EXTENSION_BUILD)
-    const candidate = resolve(build, '../../../..')
-    const packagePath = resolve(candidate, 'package.json')
-    if (existsSync(packagePath)) {
-      const packageJson = JSON.parse(readFileSync(packagePath, 'utf8'))
-      if (packageJson.name === 'motrix-extension') return candidate
-    }
+    const standalone = resolve(build, '../..')
+    if (packageName(standalone) === '@motrix/extension') return standalone
+    const workspace = resolve(build, '../../../..')
+    if (packageName(workspace) === 'motrix-extension') return workspace
   }
   throw new Error(
     'set MOTRIX_EXTENSION_REPO or MOTRIX_EXTENSION_BUILD to the compatible Extension checkout/build'

@@ -4,10 +4,12 @@
     "help": "Bu sunucu operatör belirteci gerektirir. Sunucu makinesinde MOTRIX_OPERATOR_TOKEN değişkenini ayarlayın veya <dataDir>/operator-token dosyasındaki belirteci okuyup aşağıya yapıştırın.",
     "placeholder": "Operatör belirteci",
     "error": "Operatör belirteci geçersiz. Sunucu makinesindeki MOTRIX_OPERATOR_TOKEN değişkenini veya <dataDir>/operator-token dosyasını kontrol edip tekrar deneyin.",
-    "submit": "Kilidi aç"
+    "submit": "Kilidi aç",
+    "nasSessionExpired": "NAS yönetici oturumu doğrulanamadı. Motrix’i NAS masaüstünden açın.",
+    "openDsm": "Open DSM to sign in"
   },
   "operatorAdmin": {
-    "help": "Kullanım:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\nKomut yalnızca çalışan Motrix sunucusuyla, kapsayıcının geri döngü bağlantısı üzerinden iletişim kurar.",
+    "help": "Kullanım:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nKomut yalnızca çalışan Motrix sunucusuyla, kapsayıcının geri döngü bağlantısı üzerinden iletişim kurar.\n\n  motrix-admin token set [--stdin] [--json]\nSet a custom administrator token; weak tokens are accepted with a warning.",
     "errorPrefix": "motrix-admin: {{message}}",
     "usageHint": "Kullanım bilgisi için `motrix-admin --help` komutunu çalıştırın.",
     "pending": {
@@ -55,6 +57,35 @@
         "loopback": "Çalışan Motrix sunucusuna kapsayıcının geri döngü bağlantısından ulaşılamıyor.",
         "approvalNotReady": "Çalışan Motrix sunucusunda eşleştirme onayı henüz hazır değil."
       }
+    },
+    "extension": {
+      "heading": "Pending browser Extension pairing requests",
+      "identityNotice": "Verify that you initiated this request. Origin and claimed identity alone do not prove who is connecting. Terminal recording can capture the pairing code.",
+      "row": "{{index}}. {{browser}} [{{identity}}] Origin: {{origin}}; claimed ID: {{claimedId}}; Server: {{authority}}; {{seconds}} s remaining",
+      "select": "Enter the number of one request (Ctrl+C to exit): ",
+      "code": "Pairing code: {{code}}",
+      "instructions": "Type this code into the browser Extension. It expires at the original deadline. Ctrl+C closes this view without approving or denying the request.",
+      "none": "No pending Extension pairing requests. Start pairing in the Extension, then run this command again. If requests remain absent, check the remote Extension configuration.",
+      "ended": "The selected pairing request has ended. Check the Extension for its outcome.",
+      "ttyRequired": "Extension pairing requires interactive input, output and error terminals. Piping, redirection and JSON output are not supported.",
+      "cancelled": "Pairing code view closed. No approval or denial was sent.",
+      "invalidSelection": "Select exactly one listed request by its number.",
+      "unavailable": "The selected request expired, ended or changed. Start a new pairing attempt in the Extension."
+    },
+    "token": {
+      "weak": "This token may be easy to guess. Consider a longer, unique passphrase. You can still save it.",
+      "invalid": "Enter a nonblank token of up to 1,024 characters, without control characters.",
+      "mismatch": "The new tokens do not match.",
+      "incorrectToken": "The current token is incorrect. Check it and try again.",
+      "managed": "This token is managed by MOTRIX_OPERATOR_TOKEN. Change the deployment environment variable and restart the server.",
+      "unavailable": "The token could not be saved. The previous token is still active. Check server storage and retry.",
+      "rateLimited": "Too many attempts. Wait a minute and try again.",
+      "unknown": "The result could not be confirmed. Check the token file on the server before retrying.",
+      "prompt": "New token (input hidden):",
+      "confirm": "Confirm new token:",
+      "saved": "Token updated. Existing sessions have been signed out. Downloads continue.",
+      "ttyRequired": "Use an interactive terminal, or token set --stdin to read the token from standard input.",
+      "cancelled": "Token change cancelled."
     }
   },
   "common": {
@@ -317,7 +348,7 @@
         "loading": "Etkinlik yükleniyor",
         "unavailable": "Etkinlik kullanılamıyor",
         "retry": "Yeniden dene",
-        "stale": "Etkinlik güncel olmayabilir",
+        "refreshFailed": "Yenileme başarısız",
         "coverageDegraded": "{{time}} itibarıyla etkinlik eksik olabilir",
         "rangeSummary": "{{start}} ile {{end}} arasında {{weeks}} haftalık indirme etkinliği",
         "completedIntensity": "Renk yoğunluğu tamamlanan indirmeleri gösterir",
@@ -591,7 +622,7 @@
         "down": "İndirme hızı",
         "up": "Gönderme hızı",
         "eta": "Kalan süre",
-        "connections": "Eşler",
+        "connections": "Bağlantılar",
         "status": "Durum",
         "createdAt": "Oluşturulma tarihi",
         "finishedAt": "Tamamlanma tarihi"
@@ -869,6 +900,7 @@
       },
       "action": {
         "pause": "Duraklat",
+        "pausing": "Duraklatılıyor…",
         "queueMoveFailed": "Bekleme kuyruğu güncellenemedi.",
         "queueTaskStarted": "Görev artık bekleme kuyruğunda değil.",
         "queueMoveHint": "Kuyruk konumu, bekleyen indirmelerden hangisinin önce başlayacağını belirler. Sütun sıralaması ayrıca kaydedilir.",
@@ -927,7 +959,15 @@
         "redownloadOverwriteTitle": "File Already Exists",
         "redownloadOverwriteDescription": "“{{name}}” already exists in the download directory. Re-downloading will overwrite or rename it. Do you want to continue?",
         "redownloadCredentialsExpired": "Original request options have expired. Please review and submit.",
-        "redownloadStarted": "Re-download started"
+        "redownloadStarted": "Re-download started",
+        "retryDialogTitle": "İndirmeyi yeniden dene",
+        "retryDialogDescription": "Yeni bir indirme başlatmak için {{name}} isteğinin parametrelerini düzenleyin. Başarısız görev ve kısmi dosyası korunacaktır.",
+        "retryDialogProgress": "{{total}} indirmeden {{current}}. indirme",
+        "downloadToDevice": "Download to this device",
+        "revealInFileStation": "Show in File Station",
+        "nasFileUnavailable": "File access could not be authorized. Check the account and folder permissions.",
+        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again.",
+        "fnosHostRequired": "Bu dosya işlemini kullanmak için Motrix’i fnOS masaüstünden veya mobil uygulamadan açın."
       },
       "titleCount": "{{shown}} gösteriliyor · toplam {{total}}",
       "type": {
@@ -1007,6 +1047,11 @@
   },
   "task": {
     "add": {
+      "extraHeaders": "Ek üstbilgiler",
+      "headerName": "Üstbilgi adı",
+      "headerValue": "Üstbilgi değeri",
+      "addHeader": "Üstbilgi ekle",
+      "removeHeader": "Üstbilgiyi kaldır",
       "title": "Yeni Görev",
       "links": "Bağlantılar",
       "torrent": "Torrent",
@@ -1018,6 +1063,7 @@
       "createFailedByPlugin": "Görev oluşturulamadı: “{{pluginId}}” eklentisi işlemi durdurdu ({{detail}}). Ayarlar → Eklentiler bölümünden bu eklentiyi devre dışı bırakıp tekrar deneyin.",
       "createFailedPathTooLong": "Görev oluşturulamadı: hedef yol {{length}} karakter uzunluğunda ve Windows’un {{limit}} karakter sınırını aşıyor. Daha kısa bir kayıt klasörü yolu veya dosya adı seçin.",
       "parseFailed": "Torrent dosyası ayrıştırılamadı.",
+      "unsupportedTorrent": "Bu torrent, mevcut indirme motorunun desteklemediği özellikler kullanıyor.",
       "urlsCount_one": "{{count}} URL",
       "urlsCount_other": "{{count}} URL",
       "urlsWithInvalid": "{{valid}} geçerli, {{invalid}} geçersiz",
@@ -1100,6 +1146,7 @@
         "doc": "Belge"
       },
       "errors": {
+        "headerNameRequired": "Değeri olan her üst bilgi için bir ad girin.",
         "urlsRequired": "En az bir URL gerekli",
         "saveDirRequired": "Kayıt klasörü gerekli",
         "noFilesSelected": "En az bir dosya seçin",
@@ -1110,7 +1157,9 @@
         "failed": "{{name}} otomatik olarak başlatılamadı. Dosyaları seçip tekrar denemek için görev ayrıntılarını açın."
       },
       "undoCorrection": "URL düzeltmesini geri al",
-      "submissionUnconfirmed": "Sonuç doğrulanmadı. Yeniden denediğinizde, başka bir görev oluşturulmadan önce ilk isteğin sonucu kontrol edilir."
+      "submissionUnconfirmed": "Sonuç doğrulanmadı. Yeniden denediğinizde, başka bir görev oluşturulmadan önce ilk isteğin sonucu kontrol edilir.",
+      "selectNasTorrent": "Choose a torrent from the NAS",
+      "fnosAuthorizationPopupBlocked": "Bu site için açılır pencerelere izin verin ve klasörü yeniden seçin."
     },
     "detail": {
       "peers": "Eş: {{count}}",
@@ -1154,7 +1203,8 @@
         "resumeSourceChanged": "İndirme başladıktan sonra uzak dosya değiştiği için kısmen indirilen dosya korundu.",
         "resumeRangeUnsupported": "Sunucu, kalan dosya aralığından güvenle devam etmeyi desteklemediği için kısmen indirilen dosya korundu.",
         "resumeValidationFailed": "Motrix uzak dosyanın değişmediğini doğrulayamadığı için kısmen indirilen dosya korundu.",
-        "mediaInterrupted": "Uygulama yeniden başlatıldığı için bu medya indirmesi kesintiye uğradı ve sürdürülemiyor. Tekrar denemek için yeniden ekleyin."
+        "mediaInterrupted": "Uygulama yeniden başlatıldığı için bu medya indirmesi kesintiye uğradı ve sürdürülemiyor. Tekrar denemek için yeniden ekleyin.",
+        "portableExternalPath": "This task uses a location outside the portable folder. The application moved or the original directory is unavailable. Check the download location before retrying."
       }
     },
     "error": {
@@ -1163,6 +1213,7 @@
         "recoveryFailed": "İndirme kurtarılamadı: {{cause}}",
         "recoveryOutputConflict": "Hem geçici hem de son dosya mevcut; elle incelenmeleri için ikisi de korundu",
         "filesMissing": "Uygulama yeniden başlatıldıktan sonra dosyalar bulunamadı",
+        "sourceHash": "Yayıncının SHA-256 değeri",
         "renameFileFailed": "Dosya yeniden adlandırılamadı: {{cause}}",
         "renameDirFailed": "Klasör yeniden adlandırılamadı: {{cause}}",
         "pluginChainAborted": "Eklenti zinciri durduruldu: {{cause}}",
@@ -1182,6 +1233,7 @@
         "checksumMismatch": "Dosya sağlama toplamı eşleşmedi",
         "tooManyRedirects": "Çok fazla yönlendirme",
         "serverError": "Sunucu hata döndürdü",
+        "btPortBindFailed": "BitTorrent dinleme bağlantı noktası kullanılamıyor",
         "btMetadataFailed": "Torrent meta verileri alınamadı",
         "btTrackerError": "İzleyici bağlantısı kurulamadı",
         "generic": "İndirme başarısız oldu"
@@ -1195,7 +1247,38 @@
         "pathTooLong": "Kayıt klasörünün yolunu veya dosya adını kısaltıp tekrar deneyin",
         "checksumMismatch": "İndirilen dosya bozulmuş olabilir; doğrulamak için yeniden indirin",
         "tooManyRedirects": "Kaynak bağlantı bozuk olabilir; başka bir bağlantı deneyin",
+        "btPortBindFailed": "BitTorrent ayarlarında BT dinleme bağlantı noktasını değiştirin, motoru yeniden başlatın ve tekrar deneyin",
         "btMetadataFailed": "Magnet bağlantısını kontrol edin veya daha fazla izleyici ekleyip tekrar deneyin"
+      }
+    },
+    "storage": {
+      "move": "Move files…",
+      "locate": "Find existing files…",
+      "recheck": "Check files…",
+      "moveDescription": "Choose a new folder for your downloaded files. Seeding pauses while they move.",
+      "locateDescription": "Choose where your downloaded files are now. Motrix will check them so you can continue seeding.",
+      "recheckDescription": "Check that your downloaded files are complete. This will not change the files or download them again.",
+      "directory": "Folder",
+      "name": "File or folder name",
+      "resume": "Continue seeding after checking",
+      "checking": "Checking files…",
+      "moving": "Moving files…",
+      "resuming": "Starting seeding…",
+      "verifiedPercent": "Verified: {{percent}}%",
+      "checkFailed": "Check failed",
+      "verified": "Your files are ready to seed.",
+      "resumed": "Seeding has resumed.",
+      "incomplete": "Some files are missing or incomplete. Check that you selected the right folder and try again.",
+      "resumeFailed": "The new location is saved. Select Re-seed to try sharing the files again.",
+      "useExisting": "Check and use these files",
+      "errors": {
+        "unavailable": "This task cannot be moved or checked yet.",
+        "busy": "Another file operation is still running. Please wait for it to finish.",
+        "destination": "Choose a different folder or file name. The location may already contain these files or be inside the current folder.",
+        "conflict": "Another download is using these files. Open that task to change their location.",
+        "engine": "Motrix could not stop this task. Please try again.",
+        "failed": "Motrix could not access or move the files. Check the folder, available space, and permission to use it.",
+        "cancelled": "Check cancelled."
       }
     }
   },
@@ -1234,6 +1317,10 @@
       "integration": {
         "title": "Entegrasyon",
         "desc": "Tarayıcı uzantıları, CLI, sistem entegrasyonları"
+      },
+      "nas": {
+        "title": "Synology NAS",
+        "desc": "Download folders and client connections"
       }
     },
     "general": {
@@ -1289,6 +1376,12 @@
       "language": "Dil",
       "traySpeedometer": "Menü çubuğunda hızı göster",
       "traySpeedometerDesc": "Uygulama simgesinin yanında indirme ve gönderme hızlarını görün.",
+      "dockAndMenuBar": "Dock ve menü çubuğu",
+      "taskbar": "Görev çubuğu",
+      "taskbarProgress": "Görev çubuğunda indirme ilerlemesini göster",
+      "taskbarProgressDesc": "Etkin indirmelerin toplam ilerlemesini ana pencerenin görev çubuğu düğmesinde gösterir.",
+      "dockProgress": "Dock’ta indirme ilerlemesini göster",
+      "dockProgressDesc": "Etkin indirmelerin toplam ilerlemesini Dock simgesinde gösterir.",
       "trayIconColor": "Sistem tepsisi simgesinin rengi",
       "trayIconColorDesc": "Sistem panelinizde belirgin görünen bir renk seçin.",
       "trayIconColorAuto": "Uygulama temasını kullan",
@@ -1296,6 +1389,10 @@
       "trayIconColorDark": "Koyu simge (açık panel)",
       "reduceMotion": "Hareketi azalt",
       "reduceMotionDesc": "Uygulama genelinde daha az animasyon kullanın.",
+      "hardwareAcceleration": "Donanım hızlandırma",
+      "hardwareAccelerationDesc": "Daha akıcı görüntü için ekran kartını kullanır. Pencere titriyorsa veya Motrix çöküyorsa kapatın. Değişiklikler Motrix yeniden başlatılınca uygulanır.",
+      "hardwareAccelerationRecoveryTitle": "Donanım hızlandırma kapatıldı",
+      "hardwareAccelerationRecoveryBody": "Tekrarlanan görüntü çökmeleri nedeniyle Motrix donanım hızlandırmayı kapattı. Ayarlar → Görünüm bölümünden yeniden açıp Motrix’i yeniden başlatabilirsiniz.",
       "liquidGlassEffect": "Liquid Glass",
       "liquidGlassEffectDesc": "İndirme araç çubuğuna yarı saydam cam efekti uygulayın.",
       "liquidGlassEffectMacDesc": "macOS 26 ve üzeri sürümlerde pencereye de uygulanır. Bu ayar değiştiğinde pencere yeniden açılır.",
@@ -1309,6 +1406,8 @@
       "runModeLinuxDesc": "Sistem tepsisinin kullanılabilirliği ve etkinleştirme davranışı masaüstü ortamınıza bağlıdır.",
       "lightweightMode": "Hafif mod",
       "lightweightModeDesc": "Pencere kapalıyken bellekten tasarruf edin. İndirmeler devam eder ancak pencerenin yeniden açılması daha uzun sürer ve kaydedilmemiş girişler temizlenir.",
+      "keepStatsBarVisible": "Ayrıntılar açıkken istatistikleri görünür tut",
+      "keepStatsBarVisibleDesc": "İndirme istatistikleri çubuğunu görev ayrıntıları panelinin altında tut.",
       "byteUnitSystem": "Boyut ve hız birimleri",
       "byteUnitSystemDesc": "Dosya boyutlarının ve hızların nasıl gösterileceğini seçin.",
       "byteUnitDecimal": "Ondalık ({{megabyte}}, {{gigabyte}} · 1000)",
@@ -1414,7 +1513,12 @@
         "channelStable": "Kararlı",
         "channelBeta": "Beta",
         "channelBetaWarning": "Beta daha az kararlı olabilir. Yeni kararlı sürümleri de alırsınız. Kararlı kanala dönmek, sürümü düşürmeden beta güncellemelerini durdurur.",
-        "channelSaveError": "Güncelleme kanalı kaydedilemedi. Tekrar deneyin."
+        "channelSaveError": "Güncelleme kanalı kaydedilemedi. Tekrar deneyin.",
+        "installing": "Yükleniyor…",
+        "installingDescription": "Güncelleme hazırlanıyor. Hazır olduğunda Motrix yeniden başlatılacak.",
+        "manualDownload": "Elle indir",
+        "manualInstall": "Yeni sürümü indirin, Motrix’i kapatın ve yüklü uygulamayı değiştirin.",
+        "manualCrossVolume": "Diskler arasında otomatik yükleme şu anda kullanılamıyor. Yeni sürümü indirin ve Motrix’i elle değiştirin."
       },
       "details": {
         "author": "Yazar",
@@ -1616,7 +1720,7 @@
         "turtle_auto": "Otomatik",
         "unitFor": "{{field}} birimi",
         "baseSection": "Standart sınırlar",
-        "baseSectionDesc": "Günlük indirmelerde kullanılır ve her modda geçerlidir.",
+        "baseSectionDesc": "Standart modda ve hiçbir düşük hız kuralı etkin değilken kullanılır.",
         "baseDownload": "İndirme",
         "baseDownloadDesc": "Günlük kullanım için en yüksek indirme hızı.",
         "baseUpload": "Gönderme",
@@ -1626,7 +1730,7 @@
         "standardLimit": "Standart sınırı kullan",
         "useStandardLimit": "Standart sınırı kullan",
         "altSection": "Düşük hız sınırları",
-        "altSectionDesc": "Düşük hız modunda veya zamanlanmış kurallarla kullanılır. Bu sınırlar standart sınırları yalnızca düşürebilir.",
+        "altSectionDesc": "Düşük hız modunda veya otomatik bir kural bu profili seçtiğinde kullanılır.",
         "altDownload": "İndirme",
         "altDownloadDesc": "Düşük hız modu etkinken en yüksek indirme hızı.",
         "altUpload": "Gönderme",
@@ -1697,7 +1801,7 @@
           "adaptiveRulePending": "bağlantı bant genişliği girildikten sonra diğer uygulamalar için %{{reserved}} bant genişliği ayırır",
           "ruleSeparator": " ve ",
           "autoRules": "Motrix {{rules}}.",
-          "lowerWins": "Etkin sınırların en düşüğü uygulanır."
+          "profileSelection": "Seçilen modun sınırları uygulanır. Boş bırakılan düşük hız sınırları standart değerleri kullanır; otomatik mod ek bir uyarlanabilir sınır uygulayabilir."
         },
         "bandwidthUsed": "Motrix en fazla %{{motrix}} kullanabilir.",
         "bandwidthPending": "Bu sınırı uygulamak için her iki bağlantı hızını da girin."
@@ -1706,6 +1810,8 @@
       "defaultDownloadFolder": "Varsayılan indirme klasörü",
       "autofillFromClipboard": "Panodaki bağlantıları otomatik doldur",
       "fillInLinksWhenOpeningNewTask": "Yeni görev açılırken kopyalanan bağlantılar otomatik olarak yapıştırılır.",
+      "openingView": "İndirmeler açıldığında göster",
+      "rememberLastSelection": "Son seçimi hatırla",
       "saveFolders": "Kayıt klasörleri",
       "description": "Dosyalar, indirme hızı ve bağlantılar"
     },
@@ -1804,6 +1910,12 @@
       "hideSecret": "Gizli bilgiyi gizle"
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "system": {
         "title": "Varsayılan uygulama",
         "protocolMagnet": "Magnet bağlantılarını Motrix ile aç",
@@ -1861,8 +1973,14 @@
           "store": "Yükle",
           "development": "Geliştirme"
         },
+        "pendingTitle": "Browser pairing requests",
+        "pendingEmpty": "Start pairing in your extension.",
         "pairedTitle": "Bağlı uzantılar",
         "pairedEmpty": "Henüz bağlı uzantı yok.",
+        "profile": "Tarayıcı profili {{number}}",
+        "connected": "Bağlı",
+        "disconnected": "Bağlı değil",
+        "revokeAll": "Tüm bağlantıları kes",
         "lastActive": "Son etkinlik",
         "revoke": "Bağlantıyı kes",
         "disconnecting": "Bağlantı kesiliyor…",
@@ -1888,7 +2006,10 @@
             "attested": "Doğrulanmış uzantı",
             "unverified": "Doğrulanmamış uzantı"
           },
-          "identityUnverifiedWarning": "Bu uzantının kimliği doğrulanamadı. Yalnızca uzantıya güveniyorsanız devam edin."
+          "identityUnverifiedWarning": "Bu uzantının kimliği doğrulanamadı. Yalnızca uzantıya güveniyorsanız devam edin.",
+          "claim": "Geçerli hesapla eşleştir",
+          "claimDesc": "Uzantı bu hesabın izinlerini kullanacak. Ardından eşleştirmeyi tamamlamak için kodu uzantıya girin.",
+          "account": "Geçerli hesap: {{name}}"
         },
         "pairUnavailable": "Bu eşleştirme isteği artık beklemede değil. Tarayıcı uzantısından eşleştirmeyi yeniden deneyin.",
         "trustedExtensions": "Güvenilen uzantılar",
@@ -2068,7 +2189,8 @@
           "missing": "Bulunamadı",
           "untrusted": "macOS tarafından engellendi",
           "unconfigured": "Ayarlanmadı",
-          "version_mismatch": "Desteklenmiyor"
+          "version_mismatch": "Desteklenmiyor",
+          "verificationUnavailable": "Doğrulama kullanılamıyor"
         },
         "stagingMB": "Geçici dosya sınırı (MB)",
         "stagingMBDesc": "Eklenti ve görev başına ara dosyalar için ayrılan alan.",
@@ -2191,6 +2313,46 @@
       "originMismatchBody": "Gerçek zamanlı güncellemeler kullanılamıyor. Yapılandırılmış sunucu adresini kullanın veya yöneticiden adresi düzeltmesini isteyin.",
       "disconnectedTitle": "Gerçek zamanlı güncelleme bağlantısı kesildi.",
       "disconnectedBody": "Bazı bilgiler gecikebilir. Sorun sürerse sunucu bağlantısını ve vekil sunucu yapılandırmasını kontrol edin."
+    },
+    "portable": {
+      "title": "Portable mode",
+      "startupError": "Motrix could not open its portable data directory. Check that the data folder beside Motrix.exe is writable and that no external profile override is set. Motrix has not switched to the system profile.",
+      "integrationUnavailable": "Portable mode keeps system settings unchanged. Startup registration, file associations, and system tool installation are unavailable.",
+      "browserDescription": "The local bridge remains available while Motrix is running. Portable mode does not register a browser launcher or change existing browser integration.",
+      "updateDescription": "Download the Windows ZIP, exit Motrix, and move the entire data folder to the new version. Portable mode never runs the installer.",
+      "recoveryError": "Portable data could not be recovered safely. Keep the data folder and check the logs and directory permissions before retrying. Motrix has stopped without using the system profile.",
+      "enginePathDescription": "Portable mode manages engine state inside the data folder for the current application location."
+    },
+    "nas": {
+      "description": "Shared by all DSM administrators. Restart Motrix in Package Center to apply changes.",
+      "account": "Current DSM account: {{username}}",
+      "restartRequired": "Settings saved. Restart Motrix in Package Center to apply them.",
+      "storageUnavailable": "Download folders unavailable",
+      "storageRecoveryHint": "Downloads are paused. Restore the original folders or authorize a different path, then restart Motrix in Package Center.",
+      "roots": "Authorized download folders",
+      "rootsHint": "One existing folder per line. Both your account and the system user motrix need read/write access. Removing the default makes the first folder the new default.",
+      "extensionEnabled": "Enable browser extension connections",
+      "extensionHint": "Use a DSM certificate hostname that resolves to the NAS LAN address.",
+      "webAddress": "Motrix Web address",
+      "webAddressHint": "Use the address you normally open, including /motrix/. You can fill it from this browser.",
+      "useCurrentAddress": "Use this DSM address",
+      "extensionAddress": "Extension connection address",
+      "allowHttp": "Allow pairing codes over HTTP",
+      "allowHttpHint": "Enable only on a trusted network. HTTPS does not require this option.",
+      "clientPort": "Direct client port",
+      "clientPortHint": "Direct clients use this port (1024–65535). DSM HTTPS addresses use the DSM port.",
+      "activeConnections": "Current connection addresses",
+      "cliAddress": "CLI endpoint",
+      "sessionHint": "Clients use their paired DSM account’s current permissions. After DSM logout, session expiration or a package restart, reopen Motrix with that account; pairing again is not required.",
+      "copy": "Copy address",
+      "openSettings": "Configure NAS connections",
+      "errors": {
+        "invalid": "Check the folder paths, port and connection addresses. HTTP code delivery requires explicit permission.",
+        "folderUnavailable": "Check that each folder is on a mounted volume and writable by the internal system user motrix.",
+        "permissionDenied": "The account or folder cannot be authorized. Check DSM shared-folder permissions for your account and the internal system user motrix.",
+        "unavailable": "Package settings are unavailable. Try again after the service has recovered.",
+        "conflict": "The saved configuration changed. Reload before editing again; your unsaved changes will be replaced."
+      }
     }
   },
   "errors": {
@@ -3152,12 +3314,21 @@
     "freshDescription": "Choose where to save the new download. Motrix will create a separate folder and open the download form for you to confirm. It will start from the beginning and leave your old files untouched.",
     "freshDestination": "Choose where to save the new download",
     "chooseDestination": "Choose another location…",
+    "requestSettingsHelp": "Eski çerez dosyaları için gerekli Cookie üstbilgisini girin. HTTP kullanıcı adları ve parolaları için eşdeğer bir Authorization üstbilgisi girin. Proxy kimlik bilgilerini proxy URL’sine girin.",
+    "unsupportedOptions": "Desteklenmeyen seçenekler: {{options}}",
+    "ignoredOptions": "Desteklenmeyen seçenekler atlandı: {{options}}",
+    "currentProxyDescription": "Taşınan indirmeler Motrix’in geçerli indirme proxy ayarlarını kullanır. Eski proxy ayarları korunmaz.",
+    "requestOptions": "Kaydedilmiş istek ayarları: {{options}}",
+    "requestSettingsDescription": "Eski istek ayarları kopyalanmadı. Yeni bir klasöre indirmeden önce Gelişmiş bölümünde yeniden girin.",
+    "reconfigureDownload": "Yeniden yapılandır ve indir…",
     "reasons": {
       "fresh-download-required": "Needs a new download",
       "verification-required": "Existing files need checking",
       "metadata-required": "Original torrent file needed",
       "selection-required": "Choose which files to download",
-      "unsupported-options": "Download details need checking",
+      "request-settings-required": "Devam etmeden önce kaydedilmiş istek ayarları kontrol edilecek",
+      "mirrors-unsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "unsupported-options": "Desteklenmeyen indirme seçenekleri",
       "invalid-record": "Couldn’t read this task",
       "unsafe-path": "File location needs checking",
       "already-imported": "Already imported",
@@ -3200,14 +3371,21 @@
       "payloadMissing": "Some original files are missing, including files previously left unselected. All are needed to resume this task. Download again in a new folder.",
       "payloadUnsafe": "The original files can’t be updated safely because of file links or permissions. Keep them and download again in a new folder.",
       "controlRequired": "The saved download progress is missing. Download again in a new folder.",
-      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder."
+      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder.",
+      "httpContentChanged": "İndirilen veriler sunucu içeriğinden farklı.",
+      "httpRangeUnsupported": "Sunucu gerekli bayt aralıklarını desteklemiyor.",
+      "httpValidatorRequired": "Sunucu güvenilir bir kaynak sürümü tanımlayıcısı sağlamıyor.",
+      "httpVerificationFailed": "İndirilen veriler doğrulanamadı.",
+      "httpRequestUnsupported": "Motor veya istek ayarları güvenli devamı desteklemiyor.",
+      "httpVerificationCancelled": "Doğrulama iptal edildi.",
+      "httpRedirectUnsupported": "Yönlendirilen bağlantılara özgün konumda güvenle devam edilemez."
     },
     "resultIncompleteTitle": "Migration is incomplete",
     "resultStoppedTitle": "Migration stopped",
-    "activationRequired": "Download again in a new folder to keep the original files.",
+    "activationRequired": "İndirmeyi doğrulayıp devam ettirmek için görev ayrıntılarını açın.",
     "chooseTorrent": "Choose torrent…",
     "torrentFile": "Torrent file",
-    "verifyAndContinue": "Verify and continue",
+    "verifyAndContinue": "Doğrula ve devam et",
     "verifyDescription": "Motrix will verify the original files, then continue with your previous file selection. While downloading, it may upload data and write shared pieces to unselected files. It won’t seed automatically when finished.",
     "authorizeOriginalDirectory": "Choose the original download folder",
     "verifyReady": "Verify your existing files to continue this download, or start again in a new folder.",
@@ -3317,7 +3495,10 @@
         "remaining": "Remaining"
       }
     },
-    "importSelected": "Migrate"
+    "importSelected": "Migrate",
+    "httpResumeDescription": "Motrix indirilen tüm aralıkları sunucuyla karşılaştırıp özgün klasörde devam eder. Doğrulama bu aralıkları yeniden aktarır; kayıtlı istek ayarları bellekte kalır.",
+    "httpVerifying": "Hazırlanıyor veya doğrulanıyor…",
+    "httpOriginalFilesKept": "Mevcut dosyalarınız korundu."
   },
   "rendererRecovery": {
     "title": "Arayüzün kurtarılması gerekiyor",
@@ -3379,5 +3560,56 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "Torrent oluştur",
+    "source": "Paylaşılacak içerik",
+    "options": "Torrent seçenekleri",
+    "trackers": "İzleyiciler",
+    "trackersPlaceholder": "Her satıra bir announce URL’si",
+    "webSeeds": "Web tohumları",
+    "webSeedsPlaceholder": "Her satıra bir HTTP(S) URL (isteğe bağlı)",
+    "comment": "Yorum",
+    "private": "Özel torrent",
+    "privateDesc": "DHT ve eş değişimi devre dışı; dağıtım yalnızca izleyiciyle.",
+    "pieceLength": "Parça boyutu",
+    "pieceAuto": "Otomatik",
+    "hashing": "Hash hesaplanıyor…",
+    "resultName": "Ad",
+    "resultSize": "Boyut",
+    "resultInfoHash": "Info hash",
+    "saveFile": ".torrent kaydet",
+    "create": "Oluştur",
+    "savedToast": "Torrent {{path}} konumuna kaydedildi",
+    "createFailed": "Torrent oluşturulamadı",
+    "saveFailed": "Torrent dosyası kaydedilemedi",
+    "seedAfter": "Kaydettikten sonra paylaşmaya başla",
+    "seedFailed": "Paylaşım başlatılamadı.",
+    "seedSubmitted": "Paylaşım görevi gönderildi.",
+    "invalidOptions": "Her liste en fazla {{limit}} geçerli URL içerebilir. Özel torrentler izleyici gerektirir.",
+    "menuLabel": "Torrent dosyası oluştur…",
+    "downloadRequested": "İndirme istendi: {{path}}"
+  },
+  "operatorToken": {
+    "title": "Access password",
+    "change": "Change password",
+    "effect": "Other devices will need to sign in again.",
+    "currentToken": "Current password",
+    "newToken": "New password",
+    "confirmation": "Confirm new password",
+    "weak": "If you plan to access Motrix over the public internet, use a stronger password.",
+    "invalid": "Remove line breaks and other control characters.",
+    "mismatch": "The passwords do not match.",
+    "incorrectToken": "The current password is incorrect. Try again.",
+    "managed": "This password is managed by the server administrator.",
+    "unavailable": "Could not save. Your current password still works. Try again later.",
+    "rateLimited": "Too many attempts. Wait a minute and try again.",
+    "unknown": "Connection interrupted. The change could not be confirmed.",
+    "saved": "Access password updated.",
+    "saving": "Updating…",
+    "update": "Update password",
+    "requiredCurrent": "Enter your current password.",
+    "requiredNew": "Enter a new password.",
+    "tooLong": "This password is too long. Shorten it and try again."
   }
 }

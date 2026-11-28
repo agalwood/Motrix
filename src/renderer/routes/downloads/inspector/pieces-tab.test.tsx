@@ -33,6 +33,23 @@ describe('PiecesTab', () => {
     expect(canvas?.getAttribute('data-piece-count')).toBe('8')
   })
 
+  it('shows real piece counts rather than the number of downsampled cells', () => {
+    mockPieces.value = {
+      pieceLength: 1024,
+      numPieces: 10_000,
+      bitfield: 'f'.repeat(1250) + '0'.repeat(1250),
+    }
+    const { getAllByText, container } = render(
+      <PiecesTab task={makeTask('large')} />
+    )
+    expect(getAllByText('5000')).toHaveLength(2)
+    expect(
+      Number(
+        container.querySelector('canvas')?.getAttribute('data-piece-count')
+      )
+    ).toBeLessThanOrEqual(4000)
+  })
+
   it('locks direction to LTR for piece ordering', () => {
     mockPieces.value = { pieceLength: 1024, numPieces: 8, bitfield: 'ff' }
     const { container } = render(<PiecesTab task={makeTask('t-1')} />)

@@ -107,6 +107,7 @@ export function NatStatusMenu({
           <DropdownMenuSeparator />
           {status && (bucket === 'failed' || bucket === 'off') ? (
             <DropdownMenuItem
+              className="text-xs"
               onClick={() => void runCommand(Commands.EnableNat)}
             >
               {t(
@@ -116,10 +117,14 @@ export function NatStatusMenu({
               )}
             </DropdownMenuItem>
           ) : null}
-          <DropdownMenuItem render={<Link to="/settings/network" />}>
+          <DropdownMenuItem
+            className="text-xs"
+            render={<Link to="/settings/network" />}
+          >
             {t('panel.downloads.stats.natSettings')}
           </DropdownMenuItem>
           <DropdownMenuItem
+            className="text-xs"
             onClick={() =>
               void services.openExternal(
                 getNatTroubleshootingUrl(i18n.resolvedLanguage ?? i18n.language)
@@ -132,6 +137,7 @@ export function NatStatusMenu({
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem
+                className="text-xs"
                 onClick={() => void runCommand(Commands.DisableNat)}
               >
                 {t('panel.downloads.stats.natDisable')}

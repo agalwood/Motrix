@@ -26,9 +26,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   assertManagedFfmpegTrusted,
   extractVerifiedFfmpeg,
+  FfmpegDownloadUnavailableError,
   getFfmpegInstallStatus,
   installVerifiedFfmpeg,
   resolveManagedFfmpegCandidate,
+  verifyLegacyMacFfmpeg,
 } from './verified-install'
 import {
   compareFfmpegReleases,
@@ -167,8 +169,17 @@ function fixture(
   version = '9.0.2-motrix.8',
   arch: 'x64' | 'arm64' = 'x64',
   platform: FfmpegPlatform = 'win32',
-  additionalManifest: Record<string, unknown> = {}
+  additionalManifest: Record<string, unknown> = {},
+  binaryVariant = 0
 ) {
+  const binary = (
+    selectedPlatform: FfmpegPlatform,
+    selectedArch: 'x64' | 'arm64'
+  ) => {
+    const bytes = nativeBinary(selectedPlatform, selectedArch)
+    bytes[500] = binaryVariant
+    return bytes
+  }
   const licenseFiles = [
     { path: 'LICENSES/GPL.txt', sha256: sha256(Buffer.from('license')) },
   ]
@@ -180,14 +191,8 @@ function fixture(
     })
   )
   const files = new Map([
-    [
-      platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg',
-      nativeBinary(platform, arch),
-    ],
-    [
-      platform === 'win32' ? 'ffprobe.exe' : 'ffprobe',
-      nativeBinary(platform, arch),
-    ],
+    [platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg', binary(platform, arch)],
+    [platform === 'win32' ? 'ffprobe.exe' : 'ffprobe', binary(platform, arch)],
     ['BUILD-INFO.json', Buffer.from('{}')],
     ['LICENSES.json', inventory],
     ['configure.txt', Buffer.from('--enable-gpl')],
@@ -219,10 +224,10 @@ function fixture(
     archiveSize: archive.length,
     binaryPath:
       platform === 'win32' ? ('ffmpeg.exe' as const) : ('ffmpeg' as const),
-    binarySha256: sha256(nativeBinary(platform, arch)),
+    binarySha256: sha256(binary(platform, arch)),
     ffprobePath:
       platform === 'win32' ? ('ffprobe.exe' as const) : ('ffprobe' as const),
-    ffprobeSha256: sha256(nativeBinary(platform, arch)),
+    ffprobeSha256: sha256(binary(platform, arch)),
     buildInfoSha256: sha256(Buffer.from('{}')),
     configureSha256: sha256(Buffer.from('--enable-gpl')),
     licensesSha256: sha256(inventory),
@@ -244,8 +249,8 @@ function fixture(
       archive: `ffmpeg-${version}-${name}.${otherPlatform === 'linux' ? 'tar.gz' : 'zip'}`,
       binaryPath: otherPlatform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg',
       ffprobePath: otherPlatform === 'win32' ? 'ffprobe.exe' : 'ffprobe',
-      binarySha256: sha256(nativeBinary(otherPlatform, otherArch)),
-      ffprobeSha256: sha256(nativeBinary(otherPlatform, otherArch)),
+      binarySha256: sha256(binary(otherPlatform, otherArch)),
+      ffprobeSha256: sha256(binary(otherPlatform, otherArch)),
       minimumOs: {
         name: { darwin: 'macos', win32: 'windows', linux: 'linux' }[
           otherPlatform
@@ -342,32 +347,32 @@ function fixture(
       signature: signature.toString('base64'),
     })
   )
+  const metadata = {
+    tag_name: `v${version}`,
+    draft: false,
+    prerelease: false,
+    immutable: true,
+    published_at: '2026-10-01T01:00:00Z',
+    html_url: `https://github.com/motrixapp/ffmpeg-static/releases/tag/v${version}`,
+    assets: [
+      { name: 'ffmpeg-manifest.json', size: raw.length },
+      { name: 'ffmpeg-manifest.json.sig', size: envelope.length },
+      ...allTargets.map((item) => ({
+        name: item.archive,
+        size: item.archiveSize,
+      })),
+    ].map((item, index) => ({
+      ...item,
+      id: index + 1,
+      state: 'uploaded',
+      browser_download_url: `https://github.com/motrixapp/ffmpeg-static/releases/download/v${version}/${item.name}`,
+    })),
+  }
   const fetcher = vi.fn<typeof fetch>(async (input) => {
     const url = String(input)
-    if (url.endsWith('/latest'))
-      return new Response(
-        JSON.stringify({
-          tag_name: `v${version}`,
-          draft: false,
-          prerelease: false,
-          immutable: true,
-          published_at: '2026-10-01T01:00:00Z',
-          html_url: `https://github.com/motrixapp/ffmpeg-static/releases/tag/v${version}`,
-          assets: [
-            { name: 'ffmpeg-manifest.json', size: raw.length },
-            { name: 'ffmpeg-manifest.json.sig', size: envelope.length },
-            ...allTargets.map((item) => ({
-              name: item.archive,
-              size: item.archiveSize,
-            })),
-          ].map((item, index) => ({
-            ...item,
-            id: index + 1,
-            state: 'uploaded',
-            browser_download_url: `https://github.com/motrixapp/ffmpeg-static/releases/download/v${version}/${item.name}`,
-          })),
-        })
-      )
+    if (url.endsWith('/latest')) return new Response(JSON.stringify(metadata))
+    if (url.includes('/releases?'))
+      return new Response(JSON.stringify([metadata]))
     if (url.endsWith('.json.sig')) return new Response(envelope)
     if (url.endsWith('ffmpeg-manifest.json')) return new Response(raw)
     if (url.endsWith(target.archive)) return new Response(archive)
@@ -379,6 +384,7 @@ function fixture(
     archive,
     target: selected as import('@shared/schemas/ffmpeg-release').FfmpegTarget,
     entries,
+    metadata,
     fetcher,
   }
 }
@@ -393,6 +399,364 @@ afterEach(async () => {
     directories
       .splice(0)
       .map((dir) => rm(dir, { recursive: true, force: true }))
+  )
+})
+
+describe('legacy macOS FFmpeg verification', () => {
+  async function legacy() {
+    const userDataDir = await temp()
+    const directory = path.join(userDataDir, 'binaries')
+    await mkdir(directory, { mode: 0o700 })
+    const binaryPath = path.join(directory, 'ffmpeg')
+    await writeFile(binaryPath, nativeBinary('darwin', 'arm64'))
+    const release = fixture(undefined, 'arm64', 'darwin')
+    return { userDataDir, binaryPath, release }
+  }
+  function history(...releases: ReturnType<typeof fixture>[]) {
+    return vi.fn<typeof fetch>(async (input, init) => {
+      const url = String(input)
+      if (url.includes('/releases?')) {
+        const page = Number(new URL(url).searchParams.get('page'))
+        return new Response(
+          JSON.stringify(
+            releases
+              .slice((page - 1) * 20, page * 20)
+              .map((release) => release.metadata)
+          )
+        )
+      }
+      const release = releases.find((item) =>
+        url.includes(`/v${item.target.releaseVersion}/`)
+      )
+      if (!release) throw new Error('Unexpected release URL')
+      return release.fetcher(input, init)
+    })
+  }
+  function evidenceFile(
+    userDataDir: string,
+    release: ReturnType<typeof fixture>
+  ) {
+    return path.join(
+      userDataDir,
+      'binaries',
+      'ffmpeg-legacy-evidence',
+      `${release.target.binarySha256}-darwin-arm64.json`
+    )
+  }
+  it('discovers an unchanged older signed release even when a different newer release already exists', async () => {
+    const { userDataDir, binaryPath, release } = await legacy()
+    const newer = fixture('9.0.2-motrix.9', 'arm64', 'darwin', {}, 1)
+    const fetcher = history(newer, release)
+    const systemTrust = vi.fn(async () => {})
+    await verifyLegacyMacFfmpeg({
+      userDataDir,
+      binaryPath,
+      arch: 'arm64',
+      fetcher,
+      systemTrust,
+    })
+    expect(systemTrust).toHaveBeenCalledWith(binaryPath, release.target)
+    expect(
+      fetcher.mock.calls.every(([input]) => !String(input).endsWith('/latest'))
+    ).toBe(true)
+  })
+  it('does not let an unrelated future manifest format invalidate a verifiable older binary', async () => {
+    const { userDataDir, binaryPath, release } = await legacy()
+    const future = fixture(
+      '9.0.2-motrix.9',
+      'arm64',
+      'darwin',
+      { schemaVersion: 4 },
+      1
+    )
+    const systemTrust = vi.fn(async () => {})
+    await verifyLegacyMacFfmpeg({
+      userDataDir,
+      binaryPath,
+      arch: 'arm64',
+      fetcher: history(future, release),
+      systemTrust,
+    })
+    expect(systemTrust).toHaveBeenCalledWith(binaryPath, release.target)
+  })
+  it('follows bounded release-history pages to find the binary’s signed release', async () => {
+    const { userDataDir, binaryPath, release } = await legacy()
+    const newer = Array.from({ length: 20 }, (_, index) =>
+      fixture(`9.0.2-motrix.${index + 9}`, 'arm64', 'darwin', {}, 1)
+    )
+    const fetcher = history(...newer, release)
+    await verifyLegacyMacFfmpeg({
+      userDataDir,
+      binaryPath,
+      arch: 'arm64',
+      fetcher,
+      systemTrust: async () => {},
+    })
+    expect(
+      fetcher.mock.calls.some(([input]) => String(input).includes('page=2'))
+    ).toBe(true)
+  })
+  it('reuses authenticated on-disk evidence after newer releases and GitHub outages, but always repeats OS checks', async () => {
+    const { userDataDir, binaryPath, release } = await legacy()
+    const systemTrust = vi.fn(async () => {})
+    await verifyLegacyMacFfmpeg({
+      userDataDir,
+      binaryPath,
+      arch: 'arm64',
+      fetcher: release.fetcher,
+      systemTrust,
+    })
+    const newer = fixture('9.0.2-motrix.9', 'arm64', 'darwin', {}, 1)
+    const fetcher = history(newer)
+    await verifyLegacyMacFfmpeg({
+      userDataDir,
+      binaryPath,
+      arch: 'arm64',
+      fetcher,
+      systemTrust,
+    })
+    fetcher.mockRejectedValue(new Error('offline'))
+    await verifyLegacyMacFfmpeg({
+      userDataDir,
+      binaryPath,
+      arch: 'arm64',
+      fetcher,
+      systemTrust,
+    })
+    expect(fetcher).not.toHaveBeenCalled()
+    expect(systemTrust).toHaveBeenCalledTimes(3)
+    systemTrust.mockRejectedValue(new Error('notarization denied'))
+    await expect(
+      verifyLegacyMacFfmpeg({
+        userDataDir,
+        binaryPath,
+        arch: 'arm64',
+        fetcher,
+        systemTrust,
+      })
+    ).rejects.toThrow('notarization denied')
+  })
+  it.each(['manifest', 'signature', 'wrong-release', 'symlink', 'hardlink'])(
+    'rejects cached %s tampering without falling back to network evidence',
+    async (violation) => {
+      const { userDataDir, binaryPath, release } = await legacy()
+      await verifyLegacyMacFfmpeg({
+        userDataDir,
+        binaryPath,
+        arch: 'arm64',
+        fetcher: release.fetcher,
+        systemTrust: async () => {},
+      })
+      const file = evidenceFile(userDataDir, release)
+      if (violation === 'symlink' || violation === 'hardlink') {
+        const original = path.join(await temp(), 'evidence.json')
+        await rename(file, original)
+        await (violation === 'symlink' ? symlink : link)(original, file)
+      } else {
+        const evidence = JSON.parse(await readFile(file, 'utf8'))
+        if (violation === 'wrong-release') {
+          const newer = fixture('9.0.2-motrix.9', 'arm64', 'darwin', {}, 1)
+          evidence.manifest = newer.raw.toString('base64')
+          evidence.signature = newer.envelope.toString('base64')
+        } else evidence[violation] = Buffer.from('modified').toString('base64')
+        await writeFile(file, JSON.stringify(evidence))
+      }
+      const fetcher = vi.fn<typeof fetch>()
+      const systemTrust = vi.fn(async () => {})
+      await expect(
+        verifyLegacyMacFfmpeg({
+          userDataDir,
+          binaryPath,
+          arch: 'arm64',
+          fetcher,
+          systemTrust,
+        })
+      ).rejects.toThrow()
+      expect(fetcher).not.toHaveBeenCalled()
+      expect(systemTrust).not.toHaveBeenCalled()
+    }
+  )
+  it('never reuses a cached verdict for changed binary bytes', async () => {
+    const { userDataDir, binaryPath, release } = await legacy()
+    await verifyLegacyMacFfmpeg({
+      userDataDir,
+      binaryPath,
+      arch: 'arm64',
+      fetcher: release.fetcher,
+      systemTrust: async () => {},
+    })
+    const changed = nativeBinary('darwin', 'arm64')
+    changed[500] = 1
+    await writeFile(binaryPath, changed)
+    const systemTrust = vi.fn(async () => {})
+    await expect(
+      verifyLegacyMacFfmpeg({
+        userDataDir,
+        binaryPath,
+        arch: 'arm64',
+        fetcher: release.fetcher,
+        systemTrust,
+      })
+    ).rejects.toThrow('No signed FFmpeg release matches')
+    expect(systemTrust).not.toHaveBeenCalled()
+  })
+  it.each([
+    403,
+    429,
+    503,
+    'offline',
+    'stream-error',
+    'error-status-stream-error',
+  ])(
+    'classifies %s as retryable metadata unavailability before any OS check',
+    async (failure) => {
+      const { userDataDir, binaryPath } = await legacy()
+      const fetcher = vi.fn<typeof fetch>(async () => {
+        if (failure === 'offline') throw new Error('offline')
+        if (
+          failure === 'stream-error' ||
+          failure === 'error-status-stream-error'
+        )
+          return new Response(
+            new ReadableStream({
+              start(controller) {
+                controller.error(new Error('connection lost'))
+              },
+            }),
+            { status: failure === 'stream-error' ? 200 : 503 }
+          )
+        return new Response(null, { status: failure as number })
+      })
+      const systemTrust = vi.fn(async () => {})
+      await expect(
+        verifyLegacyMacFfmpeg({
+          userDataDir,
+          binaryPath,
+          arch: 'arm64',
+          fetcher,
+          systemTrust,
+        })
+      ).rejects.toBeInstanceOf(FfmpegDownloadUnavailableError)
+      expect(systemTrust).not.toHaveBeenCalled()
+    }
+  )
+  it('reports an incomplete bounded history search as retryable instead of declaring the binary untrusted', async () => {
+    const { userDataDir, binaryPath } = await legacy()
+    const newer = fixture('9.0.2-motrix.9', 'arm64', 'darwin', {}, 1)
+    const fetcher = vi.fn<typeof fetch>(async (input, init) =>
+      String(input).includes('/releases?')
+        ? new Response(JSON.stringify(Array(20).fill(newer.metadata)))
+        : newer.fetcher(input, init)
+    )
+    await expect(
+      verifyLegacyMacFfmpeg({
+        userDataDir,
+        binaryPath,
+        arch: 'arm64',
+        fetcher,
+        systemTrust: async () => {},
+      })
+    ).rejects.toBeInstanceOf(FfmpegDownloadUnavailableError)
+    expect(fetcher).toHaveBeenCalledTimes(12)
+  })
+  it('authenticates a lone legacy binary against the signed release before OS checks', async () => {
+    const { userDataDir, binaryPath, release } = await legacy()
+    const systemTrust = vi.fn(async () => {})
+    await verifyLegacyMacFfmpeg({
+      userDataDir,
+      binaryPath,
+      arch: 'arm64',
+      fetcher: release.fetcher,
+      systemTrust,
+    })
+    expect(systemTrust).toHaveBeenCalledWith(binaryPath, release.target)
+    expect(await readFile(binaryPath)).toEqual(nativeBinary('darwin', 'arm64'))
+    expect((await readdir(path.dirname(binaryPath))).sort()).toEqual([
+      'ffmpeg',
+      'ffmpeg-legacy-evidence',
+    ])
+    expect(
+      release.fetcher.mock.calls.map(([input]) => String(input))
+    ).toHaveLength(3)
+    expect(getFfmpegInstallStatus(userDataDir).phase).toBe('idle')
+  })
+  it.each([
+    'hash',
+    'architecture',
+    'symlink',
+    'hardlink',
+    'signature',
+    'metadata',
+    'network',
+    'minimum-version',
+    'managed-receipt',
+    'other-path',
+  ])('rejects %s before system checks', async (violation) => {
+    let { userDataDir, binaryPath, release } = await legacy()
+    if (violation === 'hash')
+      await writeFile(
+        binaryPath,
+        Buffer.concat([
+          nativeBinary('darwin', 'arm64'),
+          Buffer.from('modified'),
+        ])
+      )
+    if (violation === 'architecture')
+      await writeFile(binaryPath, nativeBinary('darwin', 'x64'))
+    if (violation === 'symlink' || violation === 'hardlink') {
+      const original = path.join(await temp(), 'ffmpeg')
+      await rename(binaryPath, original)
+      await (violation === 'symlink' ? symlink : link)(original, binaryPath)
+    }
+    if (violation === 'signature') release.raw[0] ^= 1
+    if (violation === 'metadata')
+      release.fetcher.mockResolvedValueOnce(new Response('{}'))
+    if (violation === 'network')
+      release.fetcher.mockRejectedValueOnce(new Error('offline'))
+    if (violation === 'minimum-version')
+      release = fixture('9.0.2-motrix.7', 'arm64', 'darwin')
+    if (violation === 'managed-receipt') {
+      const managed = path.join(userDataDir, 'binaries', 'ffmpeg-verified')
+      await mkdir(managed)
+      await writeFile(path.join(managed, 'current.json'), '{}')
+    }
+    if (violation === 'other-path')
+      binaryPath = path.join(await temp(), 'ffmpeg')
+    const systemTrust = vi.fn(async () => {})
+    await expect(
+      verifyLegacyMacFfmpeg({
+        userDataDir,
+        binaryPath,
+        arch: 'arm64',
+        fetcher: release.fetcher,
+        systemTrust,
+      })
+    ).rejects.toThrow()
+    expect(systemTrust).not.toHaveBeenCalled()
+  })
+  it.each(['os-rejection', 'changed-during-check'])(
+    'fails closed on %s',
+    async (violation) => {
+      const { userDataDir, binaryPath, release } = await legacy()
+      await expect(
+        verifyLegacyMacFfmpeg({
+          userDataDir,
+          binaryPath,
+          arch: 'arm64',
+          fetcher: release.fetcher,
+          systemTrust: async () => {
+            if (violation === 'os-rejection') throw new Error('not notarized')
+            await writeFile(
+              binaryPath,
+              Buffer.concat([
+                nativeBinary('darwin', 'arm64'),
+                Buffer.from('changed'),
+              ])
+            )
+          },
+        })
+      ).rejects.toThrow()
+    }
   )
 })
 

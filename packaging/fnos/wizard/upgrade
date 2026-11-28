@@ -1,0 +1,24 @@
+[
+  {
+    "stepTitle": "客户端连接 / Client connections",
+    "items": [
+      {
+        "type": "text",
+        "field": "wizard_client_port",
+        "label": "客户端连接端口 / Client connection port",
+        "initValue": "16802",
+        "helpText": "用于 CLI 和扩展连接，与 Docker 版端口独立。配置修改后请重新启动 Motrix。 / Used by CLI and Extension clients, separately from Docker. Restart Motrix after changing this setting.",
+        "rules": [
+          {
+            "required": true,
+            "message": "请输入端口 / Enter a port"
+          },
+          {
+            "pattern": "^[0-9]{1,5}$",
+            "message": "请输入 1024–65535 之间的端口 / Enter a port from 1024 to 65535"
+          }
+        ]
+      }
+    ]
+  }
+]

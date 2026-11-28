@@ -27,7 +27,6 @@ export function useFfmpegInstall() {
     events: [Events.FfmpegInstallStatusChanged],
     refreshOnSettingsSave: false,
     load: async (stale) => {
-      if (transport.platform === 'web') return
       const next = ffmpegInstallStatusSchema.parse(
         await transport.invoke(Queries.GetFfmpegInstallStatus)
       )

@@ -289,6 +289,65 @@ describe('exact legacy torrent metadata authorization', () => {
     expect(f.db.getAllTasks()).toEqual([])
   })
 
+  it('invalidates a released preview while its picker is pending and ignores a late selection', async () => {
+    const f = await fixture()
+    let selected!: (file: string) => void
+    const choose = vi.fn(
+      () =>
+        new Promise<string>((resolve) => {
+          selected = resolve
+        })
+    )
+    const admission = f.service.authorizeMetadata(f.request, choose)
+    await vi.waitFor(() => expect(choose).toHaveBeenCalledOnce())
+    f.service.releasePreview(f.preview.previewId)
+    await expect(admission).resolves.toBeNull()
+    selected(f.metadata)
+    const next = await f.service.scan(f.source.sourceHandle)
+    expect(
+      next.items.find((entry) => entry.itemId === f.request.itemId)?.selectable
+    ).toBe(false)
+  })
+
+  it('does not publish a replacement preview when released during the final validation scan', async () => {
+    const f = await fixture()
+    const target = f.service as unknown as {
+      scanSource(
+        source: Parameters<typeof scanLegacySource>[0]
+      ): ReturnType<typeof scanLegacySource>
+    }
+    const scan = target.scanSource.bind(f.service)
+    let scans = 0
+    let entered = false
+    let resume!: () => void
+    const gate = new Promise<void>((resolve) => {
+      resume = resolve
+    })
+    vi.spyOn(target, 'scanSource').mockImplementation(async (source) => {
+      if (++scans === 4) {
+        entered = true
+        await gate
+      }
+      return scan(source)
+    })
+    const admission = f.service.authorizeMetadata(
+      f.request,
+      async () => f.metadata
+    )
+    await vi.waitFor(() => expect(entered).toBe(true))
+    f.service.releasePreview(f.preview.previewId)
+    const rejected = expect(admission).rejects.toThrow('expiredPreview')
+    resume()
+    await rejected
+    expect(
+      (Reflect.get(f.service, 'previews') as Map<string, unknown>).size
+    ).toBe(0)
+    const next = await f.service.scan(f.source.sourceHandle)
+    expect(
+      next.items.find((entry) => entry.itemId === f.request.itemId)?.selectable
+    ).toBe(false)
+  })
+
   it('rejects concurrent metadata admissions before opening a second picker', async () => {
     const f = await fixture()
     let entered = false

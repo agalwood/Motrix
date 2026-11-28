@@ -647,8 +647,17 @@ describe('PluginInstaller e2e', () => {
     await installer.commit(stagingId, {})
     expect(stateStore.get('example.test')).toBeDefined()
 
+    const releaseLog = vi.fn(async (id: string) => {
+      expect(calls.deactivated).toContain(id)
+      expect(stateStore.get(id)).toBeDefined()
+      expect(existsSync(path.join(pluginsDir, id))).toBe(true)
+    })
+    ;(
+      Reflect.get(installer, 'opts') as PluginInstallerOptions
+    ).capabilityHost.releaseLog = releaseLog
     await installer.uninstall('example.test')
 
+    expect(releaseLog).toHaveBeenCalledExactlyOnceWith('example.test')
     expect(calls.deactivated).toContain('example.test')
     expect(calls.storageDeleteAll).toEqual(['example.test'])
     expect(calls.metadataDeleteAllForPlugin).toEqual(['example.test'])
@@ -687,6 +696,29 @@ describe('PluginInstaller e2e', () => {
     expect(calls.storageDeleteAll).toEqual([])
     expect(calls.metadataDeleteAllForPlugin).toEqual([])
     expect(calls.cookieJarsCleared).toEqual([])
+    expect(existsSync(path.join(pluginsDir, 'example.test'))).toBe(true)
+  })
+
+  it('aborts destructive uninstall if the diagnostic writer cannot be released', async () => {
+    const moext = await writeMoext(
+      path.join(inputDir, 'v1.moext'),
+      manifestJSON()
+    )
+    const { stagingId } = await installer.stage(moext, {
+      type: 'github',
+      spec: 'example/test',
+    })
+    await installer.commit(stagingId, {})
+    const failure = new Error('diagnostic fsync failed')
+    ;(
+      Reflect.get(installer, 'opts') as PluginInstallerOptions
+    ).capabilityHost.releaseLog = vi.fn(async () => {
+      throw failure
+    })
+    await expect(installer.uninstall('example.test')).rejects.toBe(failure)
+    expect(stateStore.get('example.test')).toBeDefined()
+    expect(calls.storageDeleteAll).toEqual([])
+    expect(calls.metadataDeleteAllForPlugin).toEqual([])
     expect(existsSync(path.join(pluginsDir, 'example.test'))).toBe(true)
   })
 

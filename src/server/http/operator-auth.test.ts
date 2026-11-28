@@ -4,6 +4,7 @@ import { BridgeCommands, BridgeQueries } from '@shared/protocol/bridge'
 import { Commands } from '@shared/protocol/commands'
 import type { FastifyInstance } from 'fastify'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { parseRemoteExtensionConfig } from '../bridge/remote-extension-config'
 import { createApp } from './app'
 
 const TOKEN = 'machine-owner-token-xyz'
@@ -157,8 +158,7 @@ describe('operator auth gate', () => {
     expect(last).toBe(429)
   })
 
-  it('a correct token still logs in after the failure window is saturated (no DoS)', async () => {
-    // An attacker flooding wrong tokens must not lock out the operator.
+  it('throttles guesses before comparison without blocking a different client', async () => {
     for (let i = 0; i < 30; i++) {
       await app.inject({
         method: 'POST',
@@ -171,8 +171,14 @@ describe('operator auth gate', () => {
       url: '/rpc/auth/login',
       payload: { token: TOKEN },
     })
-    expect(ok.statusCode).toBe(200)
-    expect(ok.headers['set-cookie']).toBeDefined()
+    expect(ok.statusCode).toBe(429)
+    const other = await app.inject({
+      method: 'POST',
+      url: '/rpc/auth/login',
+      remoteAddress: '127.0.0.2',
+      payload: { token: TOKEN },
+    })
+    expect(other.statusCode).toBe(200)
   })
 })
 
@@ -247,6 +253,11 @@ describe('device-code approval is gated by the operator (the Codex bypass)', () 
       expiresAt: 2,
     }
     const app = await createApp({
+      remoteExtensionConfig: parseRemoteExtensionConfig({
+        MOTRIX_REMOTE_EXTENSION_ENABLED: 'true',
+        MOTRIX_REMOTE_EXTENSION_PUBLIC_URL: 'wss://motrix.example',
+        MOTRIX_PUBLIC_URL: 'https://motrix.example',
+      }),
       commandHandlers: {},
       queryHandlers: {},
       bridgeQueryHandlers: {

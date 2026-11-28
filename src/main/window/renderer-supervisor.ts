@@ -303,6 +303,7 @@ export class RendererSupervisor implements WindowLifecycle {
       report.surface === 'route-error' ||
       (report.surface === 'app' &&
         (id === 'onboarding' ||
+          id === 'create-torrent' ||
           slot.capabilities.has(
             id === 'main' ? 'navigation' : 'add-task-hydration'
           )))

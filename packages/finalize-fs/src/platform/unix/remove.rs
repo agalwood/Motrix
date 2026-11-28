@@ -305,7 +305,10 @@ fn remove_with_survivor(
     resume_isolated: bool,
     survivor: Option<&ArtifactHandle>,
 ) -> io::Result<()> {
-    if artifact.opened_tree.is_none() && artifact.opened_file_sha256.is_none() {
+    if !artifact.metadata_removal
+        && artifact.opened_tree.is_none()
+        && artifact.opened_file_sha256.is_none()
+    {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             "rename-only handle cannot copy or remove an artifact",
@@ -368,17 +371,19 @@ fn remove_with_survivor(
                 "artifact changed before removal",
             ));
         }
-        let opened_file_sha256 = artifact.opened_file_sha256.ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::InvalidData,
-                "opened file is missing its held content digest",
-            )
-        })?;
-        if hash_opened_file(artifact.artifact.as_raw_fd())? != opened_file_sha256 {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "file content changed before removal",
-            ));
+        if !artifact.metadata_removal {
+            let opened_file_sha256 = artifact.opened_file_sha256.ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "opened file is missing its held content digest",
+                )
+            })?;
+            if hash_opened_file(artifact.artifact.as_raw_fd())? != opened_file_sha256 {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "file content changed before removal",
+                ));
+            }
         }
         check_survivor(artifact, &isolated_name, survivor)?;
         if unsafe { libc::unlinkat(artifact.parent.as_raw_fd(), isolated_name.as_ptr(), 0) } < 0 {

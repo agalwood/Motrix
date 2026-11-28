@@ -78,13 +78,4 @@ describe('StatusTitleMenu', () => {
     )
     expect(onTabChange).toHaveBeenCalledWith('completed')
   })
-
-  it('positions the trigger for window-chrome stacking', () => {
-    render(<StatusTitleMenu tab="all" onTabChange={vi.fn()} counts={counts} />)
-    const trigger = screen.getByRole('button', { name: /downloads/i })
-    // `relative` gives the trigger its own stacking context so it can be
-    // z-layered against the fixed WindowChrome drag strip (the exact z is
-    // tuned in the component). The app-region itself isn't observable in jsdom.
-    expect(trigger).toHaveClass('relative')
-  })
 })

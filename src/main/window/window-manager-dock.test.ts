@@ -94,7 +94,7 @@ describe('WindowManager macOS Dock visibility', () => {
 
   it('re-hides the Dock when a Menu Bar Only main window is dismissed', () => {
     const wm = createWindowManager(RunMode.TrayOnly)
-    const win = wm.open('main')
+    const win = wm.open('main')!
     const closeListener = (
       win.on as unknown as ReturnType<typeof vi.fn>
     ).mock.calls.find(([event]) => event === 'close')?.[1] as
@@ -111,7 +111,7 @@ describe('WindowManager macOS Dock visibility', () => {
 
   it('does not hide the Dock when the run mode is Standard', () => {
     const wm = createWindowManager(RunMode.Standard)
-    const win = wm.open('main')
+    const win = wm.open('main')!
     const closeListener = (
       win.on as unknown as ReturnType<typeof vi.fn>
     ).mock.calls.find(([event]) => event === 'close')?.[1] as

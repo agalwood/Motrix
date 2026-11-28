@@ -20,8 +20,9 @@
 
 /* Keep the keyboard target visible when no child is selected or it is offscreen. */
 .directory-picker-pane:has(
-  .directory-picker-list [role="listbox"]:focus-visible[aria-disabled="false"]
-) .directory-picker-target::before {
+    .directory-picker-list [role="listbox"]:focus-visible[aria-disabled="false"]
+  )
+  .directory-picker-target::before {
   content: "";
   position: absolute;
   inset-block: 2px;

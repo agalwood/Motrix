@@ -21,6 +21,7 @@ interface CreateAppUpdateServiceOptions {
   supported: boolean
   loadUpdater: () => Promise<Updater>
   getManagedMessage: () => string
+  getInstallBlockReason?: () => AppUpdateState['manualInstallReason']
 }
 
 /** Windows packages never load the application updater, including sideloaded tests. */
@@ -41,6 +42,7 @@ export async function createAppUpdateService(
     channel: options.channel,
     updater: await options.loadUpdater(),
     supported: options.supported,
+    getInstallBlockReason: options.getInstallBlockReason,
   })
 }
 

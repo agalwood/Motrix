@@ -373,20 +373,51 @@
         "unknownOption": "Ukjent kommandolinjealternativ."
       }
     },
-    "help": "Bruk:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\nKommandoen kommuniserer bare med den kjørende Motrix-serveren via containerens loopback-grensesnitt.",
+    "help": "Bruk:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nKommandoen kommuniserer bare med den kjørende Motrix-serveren via containerens loopback-grensesnitt.\n\n  motrix-admin token set [--stdin] [--json]\nSet a custom administrator token; weak tokens are accepted with a warning.",
     "pending": {
       "none": "Ingen ventende sammenkoblingsforespørsler.",
       "row": "{{userCode}}  {{clientName}}  {{clientVersion}}  utløper om {{ttl}}",
       "ttl": "{{minutes}} min {{seconds}} s"
     },
-    "usageHint": "Kjør `motrix-admin --help` for bruksanvisning."
+    "usageHint": "Kjør `motrix-admin --help` for bruksanvisning.",
+    "extension": {
+      "heading": "Pending browser Extension pairing requests",
+      "identityNotice": "Verify that you initiated this request. Origin and claimed identity alone do not prove who is connecting. Terminal recording can capture the pairing code.",
+      "row": "{{index}}. {{browser}} [{{identity}}] Origin: {{origin}}; claimed ID: {{claimedId}}; Server: {{authority}}; {{seconds}} s remaining",
+      "select": "Enter the number of one request (Ctrl+C to exit): ",
+      "code": "Pairing code: {{code}}",
+      "instructions": "Type this code into the browser Extension. It expires at the original deadline. Ctrl+C closes this view without approving or denying the request.",
+      "none": "No pending Extension pairing requests. Start pairing in the Extension, then run this command again. If requests remain absent, check the remote Extension configuration.",
+      "ended": "The selected pairing request has ended. Check the Extension for its outcome.",
+      "ttyRequired": "Extension pairing requires interactive input, output and error terminals. Piping, redirection and JSON output are not supported.",
+      "cancelled": "Pairing code view closed. No approval or denial was sent.",
+      "invalidSelection": "Select exactly one listed request by its number.",
+      "unavailable": "The selected request expired, ended or changed. Start a new pairing attempt in the Extension."
+    },
+    "token": {
+      "weak": "This token may be easy to guess. Consider a longer, unique passphrase. You can still save it.",
+      "invalid": "Enter a nonblank token of up to 1,024 characters, without control characters.",
+      "mismatch": "The new tokens do not match.",
+      "incorrectToken": "The current token is incorrect. Check it and try again.",
+      "managed": "This token is managed by MOTRIX_OPERATOR_TOKEN. Change the deployment environment variable and restart the server.",
+      "unavailable": "The token could not be saved. The previous token is still active. Check server storage and retry.",
+      "rateLimited": "Too many attempts. Wait a minute and try again.",
+      "unknown": "The result could not be confirmed. Check the token file on the server before retrying.",
+      "prompt": "New token (input hidden):",
+      "confirm": "Confirm new token:",
+      "saved": "Token updated. Existing sessions have been signed out. Downloads continue.",
+      "ttyRequired": "Use an interactive terminal, or token set --stdin to read the token from standard input.",
+      "cancelled": "Token change cancelled."
+    }
   },
   "operatorUnlock": {
     "error": "Ugyldig operatørtoken. Kontroller MOTRIX_OPERATOR_TOKEN eller <dataDir>/operator-token på vertsmaskinen og prøv igjen.",
     "help": "Denne serveren krever operatørtokenet. På vertsmaskinen setter du MOTRIX_OPERATOR_TOKEN eller leser tokenet fra <dataDir>/operator-token, og limer det inn nedenfor.",
     "placeholder": "Operatørtoken",
     "submit": "Lås opp",
-    "title": "Lås opp Motrix"
+    "title": "Lås opp Motrix",
+    "nasSessionExpired": "Kan ikke bekrefte NAS-administratorøkten. Åpne Motrix fra NAS-skrivebordet.",
+    "openDsm": "Open DSM to sign in"
   },
   "panel": {
     "completed": {
@@ -416,7 +447,7 @@
         "more": "Flere",
         "rangeSummary": "{{weeks}} uker med nedlastingsaktivitet, fra {{start}} til {{end}}",
         "retry": "Prøv igjen",
-        "stale": "Aktiviteten kan være utdatert",
+        "refreshFailed": "Oppdateringen mislyktes",
         "title": "Aktivitet",
         "tooltip": {
           "completed": "Fullført: {{count}}",
@@ -851,6 +882,7 @@
         "openFileFailedHint": "Kontroller at filen fortsatt finnes, og at du har tillatelse til å åpne den.",
         "openFolder": "Åpne mappe",
         "pause": "Sett på pause",
+        "pausing": "Setter på pause…",
         "pauseTooltipBatch": "Sett på pause: {{n}} / {{total}} i utvalget",
         "queueBoundary": "Utvalget kan ikke flyttes lenger i denne retningen",
         "queueMoveFailed": "Kunne ikke oppdatere ventekøen.",
@@ -888,10 +920,18 @@
         "redownloadOverwriteTitle": "File Already Exists",
         "redownloadOverwriteDescription": "“{{name}}” already exists in the download directory. Re-downloading will overwrite or rename it. Do you want to continue?",
         "redownloadCredentialsExpired": "Original request options have expired. Please review and submit.",
-        "redownloadStarted": "Re-download started"
+        "redownloadStarted": "Re-download started",
+        "retryDialogTitle": "Prøv nedlastingen på nytt",
+        "retryDialogDescription": "Rediger forespørselsparametrene for {{name}} for å starte en ny nedlasting. Den mislykkede oppgaven og den delvise filen beholdes.",
+        "retryDialogProgress": "Nedlasting {{current}} av {{total}}",
+        "downloadToDevice": "Download to this device",
+        "revealInFileStation": "Show in File Station",
+        "nasFileUnavailable": "File access could not be authorized. Check the account and folder permissions.",
+        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again.",
+        "fnosHostRequired": "Åpne Motrix fra fnOS-skrivebordet eller mobilappen for å bruke denne filhandlingen."
       },
       "column": {
-        "connections": "Noder",
+        "connections": "Tilkoblinger",
         "createdAt": "Opprettelsesdato",
         "down": "Nedlastingshastighet",
         "eta": "Gjenstående tid",
@@ -1805,7 +1845,12 @@
         "managedDescription": "Denne pakkede Windows-utgaven oppdateres via den opprinnelige installasjonskilden. Oppdatering fra appen er ikke tilgjengelig.",
         "unsupportedTitle": "Automatiske oppdateringer er utilgjengelige",
         "upToDate": "Versjon {{version}} er den nyeste tilgjengelige utgaven.",
-        "upToDateTitle": "Motrix er oppdatert"
+        "upToDateTitle": "Motrix er oppdatert",
+        "installing": "Installerer…",
+        "installingDescription": "Forbereder oppdateringen. Motrix starter på nytt når den er klar.",
+        "manualDownload": "Last ned manuelt",
+        "manualInstall": "Last ned den nye versjonen, avslutt Motrix og erstatt den installerte appen.",
+        "manualCrossVolume": "Automatisk installasjon mellom disker er foreløpig utilgjengelig. Last ned den nye versjonen og erstatt Motrix manuelt."
       },
       "version": "Versjon {{version}}",
       "webVersionNote": "Denne nettutgaven oppdateres av administratoren for installasjonen."
@@ -1847,6 +1892,8 @@
     "appearance": {
       "byteUnitBinary": "Binære ({{megabyte}}, {{gigabyte}} · 1024)",
       "byteUnitDecimal": "Desimale ({{megabyte}}, {{gigabyte}} · 1000)",
+      "keepStatsBarVisible": "Behold statistikken når detaljer er åpne",
+      "keepStatsBarVisibleDesc": "Behold nedlastingsstatistikken under panelet med oppgavedetaljer.",
       "byteUnitSystem": "Enheter for størrelse og hastighet",
       "byteUnitSystemDefault": "Følg systemet ({{units}})",
       "byteUnitSystemDesc": "Velg hvordan filstørrelser og hastigheter vises.",
@@ -1862,6 +1909,10 @@
       "menuBar": "Menylinje",
       "reduceMotion": "Reduser bevegelse",
       "reduceMotionDesc": "Bruk færre animasjoner i hele appen.",
+      "hardwareAcceleration": "Maskinvareakselerasjon",
+      "hardwareAccelerationDesc": "Bruker grafikkortet for jevnere visning. Slå av hvis vinduet flimrer eller Motrix krasjer. Endringer trer i kraft når Motrix startes på nytt.",
+      "hardwareAccelerationRecoveryTitle": "Maskinvareakselerasjon er slått av",
+      "hardwareAccelerationRecoveryBody": "Motrix slo av maskinvareakselerasjon etter gjentatte skjermkrasj. Du kan slå den på igjen i Innstillinger → Utseende og starte Motrix på nytt.",
       "runMode": "Vis appen i",
       "runModeHideTray": "Bare Dock",
       "runModeLaunch": "Når Motrix åpnes",
@@ -1895,6 +1946,12 @@
       "trayIconColorDesc": "Velg en farge som skiller seg ut på systempanelet.",
       "trayIconColorLight": "Lyst ikon (mørkt panel)",
       "traySpeedometer": "Vis hastighet i menylinjen",
+      "dockAndMenuBar": "Dock og menylinje",
+      "taskbar": "Oppgavelinje",
+      "taskbarProgress": "Vis nedlastingsfremdrift på oppgavelinjen",
+      "taskbarProgressDesc": "Vis samlet fremdrift for aktive nedlastinger på hovedvinduets knapp på oppgavelinjen.",
+      "dockProgress": "Vis nedlastingsfremdrift i Dock",
+      "dockProgressDesc": "Vis samlet fremdrift for aktive nedlastinger på Dock-symbolet.",
       "traySpeedometerDesc": "Se nedlastings- og opplastingshastighet ved siden av appikonet."
     },
     "bittorrent": {
@@ -2009,6 +2066,10 @@
       "network": {
         "desc": "Mellomtjener, DNS og NAT/UPnP",
         "title": "Nettverk"
+      },
+      "nas": {
+        "title": "Synology NAS",
+        "desc": "Download folders and client connections"
       }
     },
     "common": {
@@ -2123,6 +2184,8 @@
         "userAgent": "User-Agent",
         "userAgentDesc": "Identifiserer appen overfor nettsteder. Endre verdien hvis et nettsted krever en annen."
       },
+      "openingView": "Vis når nedlastinger åpnes",
+      "rememberLastSelection": "Husk siste valg",
       "saveFolders": "Lagringsmapper",
       "speedLimit": {
         "adaptiveEnabled": "Reserver båndbredde til andre apper",
@@ -2130,7 +2193,7 @@
         "altDownload": "Nedlasting",
         "altDownloadDesc": "Maksimal nedlastingshastighet når lavhastighetsmodus er aktiv.",
         "altSection": "Grenser for lav hastighet",
-        "altSectionDesc": "Brukes i lavhastighetsmodus eller av tidsplanregler. Disse grensene kan bare redusere standardgrensene.",
+        "altSectionDesc": "Brukes i lavhastighetsmodus eller når en automatisk regel velger denne profilen.",
         "altUpload": "Opplasting",
         "altUploadDesc": "Maksimal opplastingshastighet når lavhastighetsmodus er aktiv.",
         "autoAdaptive": "La andre apper få båndbredde",
@@ -2143,7 +2206,7 @@
         "baseDownloadDesc": "Maksimal nedlastingshastighet til daglig bruk.",
         "unitFor": "Enhet for {{field}}",
         "baseSection": "Standardgrenser",
-        "baseSectionDesc": "Brukes til daglige nedlastinger og overholdes i alle moduser.",
+        "baseSectionDesc": "Brukes i standardmodus og når ingen lavhastighetsregel er aktiv.",
         "baseUpload": "Opplasting",
         "baseUploadDesc": "Maksimal opplastingshastighet til daglig bruk.",
         "effect": {
@@ -2151,7 +2214,7 @@
           "adaptiveRulePending": "reservere {{reserved}}% av båndbredden til andre apper etter at tilkoblingens båndbredde er angitt",
           "autoRules": "Motrix vil {{rules}}.",
           "lowSpeed": "Bruker nå grensene for lav hastighet: nedlasting {{download}}, opplasting {{upload}}.",
-          "lowerWins": "Den laveste aktive grensen gjelder.",
+          "profileSelection": "Grensene for valgt modus gjelder. Tomme lavhastighetsgrenser bruker standardgrensene; automatisk modus kan legge til en adaptiv grense.",
           "nextDay": " neste dag",
           "noAutoRules": "Ingen automatiske regler er aktivert. Dette fungerer foreløpig som standardmodus.",
           "ruleSeparator": " og ",
@@ -2280,6 +2343,12 @@
       "warnBeforeQuitDesc": "Spør før avslutning hvis nedlastinger fortsatt pågår."
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "appimage": {
         "desc": "Registrer dette Motrix-AppImage i skrivebordsmiljøet, slik at nettlesere og magnetlenker kan overføre nedlastinger til det.",
         "enable": "Aktiver skrivebordsintegrasjon",
@@ -2364,10 +2433,19 @@
           "identityUnverifiedWarning": "Identiteten til denne utvidelsen kunne ikke bekreftes. Fortsett bare hvis du stoler på den.",
           "pairCode": "Sammenkoblingskode",
           "pairCodeHint": "Skriv inn denne koden i utvidelsen",
-          "title": "En {{browser}}-utvidelse vil koble til Motrix"
+          "title": "En {{browser}}-utvidelse vil koble til Motrix",
+          "claim": "Koble til med gjeldende konto",
+          "claimDesc": "Utvidelsen vil bruke tillatelsene til denne kontoen. Skriv deretter inn paringskoden i utvidelsen for å fullføre.",
+          "account": "Gjeldende konto: {{name}}"
         },
         "pairUnavailable": "Denne sammenkoblingsforespørselen venter ikke lenger — prøv sammenkoblingen på nytt fra nettleserutvidelsen.",
         "pairedEmpty": "Ingen utvidelser er tilkoblet ennå.",
+        "profile": "Nettleserprofil {{number}}",
+        "connected": "Tilkoblet",
+        "disconnected": "Ikke tilkoblet",
+        "revokeAll": "Koble fra alle",
+        "pendingTitle": "Browser pairing requests",
+        "pendingEmpty": "Start pairing in your extension.",
         "pairedTitle": "Tilkoblede utvidelser",
         "pairingStateDegraded": {
           "description": "Motrix kunne ikke oppdatere registreringene for sammenkoblede utvidelser trygt. Eksisterende utvidelsesøkter er lukket, og ny tilgang er blokkert for denne kjøringen. Start Motrix på nytt for å prøve reparasjonen igjen; ikke stol på listen nedenfor før denne meldingen forsvinner.",
@@ -2554,7 +2632,8 @@
           "missing": "Ikke funnet",
           "unconfigured": "Ikke angitt",
           "untrusted": "Blokkert av macOS",
-          "version_mismatch": "Støttes ikke"
+          "version_mismatch": "Støttes ikke",
+          "verificationUnavailable": "Verifisering utilgjengelig"
         },
         "title": "Medieverktøy",
         "validation": {
@@ -2733,10 +2812,55 @@
       "textLength": "Bruk høyst {{max}} tegn.",
       "time": "Bruk 24-timersformat, for eksempel 23:00.",
       "wholeBytes": "Bruk færre desimaler."
+    },
+    "portable": {
+      "title": "Portable mode",
+      "startupError": "Motrix could not open its portable data directory. Check that the data folder beside Motrix.exe is writable and that no external profile override is set. Motrix has not switched to the system profile.",
+      "integrationUnavailable": "Portable mode keeps system settings unchanged. Startup registration, file associations, and system tool installation are unavailable.",
+      "browserDescription": "The local bridge remains available while Motrix is running. Portable mode does not register a browser launcher or change existing browser integration.",
+      "updateDescription": "Download the Windows ZIP, exit Motrix, and move the entire data folder to the new version. Portable mode never runs the installer.",
+      "recoveryError": "Portable data could not be recovered safely. Keep the data folder and check the logs and directory permissions before retrying. Motrix has stopped without using the system profile.",
+      "enginePathDescription": "Portable mode manages engine state inside the data folder for the current application location."
+    },
+    "nas": {
+      "description": "Shared by all DSM administrators. Restart Motrix in Package Center to apply changes.",
+      "account": "Current DSM account: {{username}}",
+      "restartRequired": "Settings saved. Restart Motrix in Package Center to apply them.",
+      "storageUnavailable": "Download folders unavailable",
+      "storageRecoveryHint": "Downloads are paused. Restore the original folders or authorize a different path, then restart Motrix in Package Center.",
+      "roots": "Authorized download folders",
+      "rootsHint": "One existing folder per line. Both your account and the system user motrix need read/write access. Removing the default makes the first folder the new default.",
+      "extensionEnabled": "Enable browser extension connections",
+      "extensionHint": "Use a DSM certificate hostname that resolves to the NAS LAN address.",
+      "webAddress": "Motrix Web address",
+      "webAddressHint": "Use the address you normally open, including /motrix/. You can fill it from this browser.",
+      "useCurrentAddress": "Use this DSM address",
+      "extensionAddress": "Extension connection address",
+      "allowHttp": "Allow pairing codes over HTTP",
+      "allowHttpHint": "Enable only on a trusted network. HTTPS does not require this option.",
+      "clientPort": "Direct client port",
+      "clientPortHint": "Direct clients use this port (1024–65535). DSM HTTPS addresses use the DSM port.",
+      "activeConnections": "Current connection addresses",
+      "cliAddress": "CLI endpoint",
+      "sessionHint": "Clients use their paired DSM account’s current permissions. After DSM logout, session expiration or a package restart, reopen Motrix with that account; pairing again is not required.",
+      "copy": "Copy address",
+      "openSettings": "Configure NAS connections",
+      "errors": {
+        "invalid": "Check the folder paths, port and connection addresses. HTTP code delivery requires explicit permission.",
+        "folderUnavailable": "Check that each folder is on a mounted volume and writable by the internal system user motrix.",
+        "permissionDenied": "The account or folder cannot be authorized. Check DSM shared-folder permissions for your account and the internal system user motrix.",
+        "unavailable": "Package settings are unavailable. Try again after the service has recovered.",
+        "conflict": "The saved configuration changed. Reload before editing again; your unsaved changes will be replaced."
+      }
     }
   },
   "task": {
     "add": {
+      "extraHeaders": "Ekstra headere",
+      "headerName": "Headernavn",
+      "headerValue": "Headerverdi",
+      "addHeader": "Legg til header",
+      "removeHeader": "Fjern header",
       "adding": "Legger til…",
       "advanced": "Avansert",
       "allProxy": "Mellomtjener",
@@ -2767,6 +2891,7 @@
         "title": "Denne torrenten finnes allerede"
       },
       "errors": {
+        "headerNameRequired": "Gi hvert hodefelt med en verdi et navn.",
         "missingSource": "En torrentfil eller magnetlenke kreves",
         "noFilesSelected": "Velg minst én fil",
         "saveDirRequired": "Lagringsmappe kreves",
@@ -2788,6 +2913,7 @@
       "invalidUrlCount": "Ugyldige: {{count}}",
       "links": "Lenker",
       "parseFailed": "Kunne ikke tolke torrentfilen.",
+      "unsupportedTorrent": "Denne torrenten bruker funksjoner som den nåværende nedlastingsmotoren ikke støtter.",
       "pickPathCustom": "Egendefinert sti",
       "pickPathTitle": "Velg lagringsmappe",
       "queueAdvanceFailed": "Kunne ikke åpne neste torrent.",
@@ -2840,7 +2966,9 @@
       "urlsLabel": "URL-er",
       "urlsWithInvalid": "Gyldige: {{valid}}, ugyldige: {{invalid}}",
       "userAgent": "User-Agent",
-      "validUrlCount": "Gyldige: {{count}}"
+      "validUrlCount": "Gyldige: {{count}}",
+      "selectNasTorrent": "Choose a torrent from the NAS",
+      "fnosAuthorizationPopupBlocked": "Tillat sprettoppvinduer for dette nettstedet, og velg mappen på nytt."
     },
     "detail": {
       "peers": "Noder: {{count}}",
@@ -2857,9 +2985,11 @@
         "recoveryFailed": "Kunne ikke gjenopprette nedlastingen: {{cause}}",
         "recoveryOutputConflict": "Både den midlertidige og den endelige filen finnes; begge er beholdt for manuell gjennomgang",
         "renameDirFailed": "Kunne ikke endre mappenavnet: {{cause}}",
+        "sourceHash": "Utgiverens SHA-256",
         "renameFileFailed": "Kunne ikke endre filnavnet: {{cause}}"
       },
       "hint": {
+        "btPortBindFailed": "Endre BT-lytteporten i BitTorrent-innstillingene, start motoren på nytt og prøv igjen",
         "btMetadataFailed": "Kontroller magnetlenken eller legg til flere trackere, og prøv igjen",
         "checksumMismatch": "Den nedlastede filen kan være skadet; last den ned igjen for å kontrollere",
         "diskFull": "Frigjør diskplass eller endre lagringsmappen, og prøv igjen",
@@ -2871,6 +3001,7 @@
         "unauthorized": "Kontroller påloggingsopplysningene eller tilgangsrettighetene, og prøv igjen"
       },
       "reason": {
+        "btPortBindFailed": "BitTorrent-lytteporten er ikke tilgjengelig",
         "btMetadataFailed": "Kunne ikke hente torrentmetadata",
         "btTrackerError": "Tilkobling til tracker mislyktes",
         "checksumMismatch": "Filens kontrollsum stemte ikke",
@@ -2901,7 +3032,8 @@
         "resumeRangeUnsupported": "Den delvise filen er beholdt fordi serveren ikke støtter trygg gjenopptakelse med byteområder.",
         "resumeSourceChanged": "Den delvise filen er beholdt fordi den eksterne filen har blitt endret siden nedlastingen startet.",
         "resumeValidationFailed": "Den delvise filen er beholdt fordi Motrix ikke kunne bekrefte at den eksterne filen er uendret.",
-        "torrentMetaMissing": "Kan ikke gjenopprette denne BitTorrent-oppgaven: metadatafilen .torrent mangler. Fjern oppgaven og legg den til på nytt."
+        "torrentMetaMissing": "Kan ikke gjenopprette denne BitTorrent-oppgaven: metadatafilen .torrent mangler. Fjern oppgaven og legg den til på nytt.",
+        "portableExternalPath": "This task uses a location outside the portable folder. The application moved or the original directory is unavailable. Check the download location before retrying."
       },
       "toast": "Gjenopprettede avbrutte oppgaver: {{count}}. Klikk for å se gjennom dem."
     },
@@ -2927,6 +3059,36 @@
       "image": "Bilde",
       "selectAll": "Velg alle",
       "video": "Video"
+    },
+    "storage": {
+      "move": "Move files…",
+      "locate": "Find existing files…",
+      "recheck": "Check files…",
+      "moveDescription": "Choose a new folder for your downloaded files. Seeding pauses while they move.",
+      "locateDescription": "Choose where your downloaded files are now. Motrix will check them so you can continue seeding.",
+      "recheckDescription": "Check that your downloaded files are complete. This will not change the files or download them again.",
+      "directory": "Folder",
+      "name": "File or folder name",
+      "resume": "Continue seeding after checking",
+      "checking": "Checking files…",
+      "moving": "Moving files…",
+      "resuming": "Starting seeding…",
+      "verifiedPercent": "Verified: {{percent}}%",
+      "checkFailed": "Check failed",
+      "verified": "Your files are ready to seed.",
+      "resumed": "Seeding has resumed.",
+      "incomplete": "Some files are missing or incomplete. Check that you selected the right folder and try again.",
+      "resumeFailed": "The new location is saved. Select Re-seed to try sharing the files again.",
+      "useExisting": "Check and use these files",
+      "errors": {
+        "unavailable": "This task cannot be moved or checked yet.",
+        "busy": "Another file operation is still running. Please wait for it to finish.",
+        "destination": "Choose a different folder or file name. The location may already contain these files or be inside the current folder.",
+        "conflict": "Another download is using these files. Open that task to change their location.",
+        "engine": "Motrix could not stop this task. Please try again.",
+        "failed": "Motrix could not access or move the files. Check the folder, available space, and permission to use it.",
+        "cancelled": "Check cancelled."
+      }
     }
   },
   "trackers": {
@@ -3152,12 +3314,21 @@
     "freshDescription": "Choose where to save the new download. Motrix will create a separate folder and open the download form for you to confirm. It will start from the beginning and leave your old files untouched.",
     "freshDestination": "Choose where to save the new download",
     "chooseDestination": "Choose another location…",
+    "requestSettingsHelp": "For gamle informasjonskapselfiler angir du den nødvendige Cookie-headeren. For HTTP-brukernavn og -passord angir du en tilsvarende Authorization-header. Angi proxyens påloggingsinformasjon i proxy-URL-en.",
+    "unsupportedOptions": "Alternativer som ikke støttes: {{options}}",
+    "ignoredOptions": "Alternativer som ikke støttes, er utelatt: {{options}}",
+    "currentProxyDescription": "Migrerte nedlastinger bruker de gjeldende proxyinnstillingene for nedlasting i Motrix. Gamle proxyinnstillinger beholdes ikke.",
+    "requestOptions": "Lagrede forespørselsinnstillinger: {{options}}",
+    "requestSettingsDescription": "De gamle forespørselsinnstillingene ble ikke kopiert. Skriv dem inn på nytt under Avansert før du laster ned til en ny mappe.",
+    "reconfigureDownload": "Konfigurer på nytt og last ned…",
     "reasons": {
       "fresh-download-required": "Needs a new download",
       "verification-required": "Existing files need checking",
       "metadata-required": "Original torrent file needed",
       "selection-required": "Choose which files to download",
-      "unsupported-options": "Download details need checking",
+      "request-settings-required": "Lagrede forespørselsinnstillinger kontrolleres før gjenopptakelse",
+      "mirrors-unsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "unsupported-options": "Nedlastingsalternativer som ikke støttes",
       "invalid-record": "Couldn’t read this task",
       "unsafe-path": "File location needs checking",
       "already-imported": "Already imported",
@@ -3200,14 +3371,21 @@
       "payloadMissing": "Some original files are missing, including files previously left unselected. All are needed to resume this task. Download again in a new folder.",
       "payloadUnsafe": "The original files can’t be updated safely because of file links or permissions. Keep them and download again in a new folder.",
       "controlRequired": "The saved download progress is missing. Download again in a new folder.",
-      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder."
+      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder.",
+      "httpContentChanged": "De nedlastede dataene er forskjellige fra serverinnholdet.",
+      "httpRangeUnsupported": "Serveren støtter ikke de nødvendige byteområdene.",
+      "httpValidatorRequired": "Serveren oppgir ingen pålitelig identifikator for ressursversjonen.",
+      "httpVerificationFailed": "De nedlastede dataene kunne ikke kontrolleres.",
+      "httpRequestUnsupported": "Motoren eller forespørselsinnstillingene støtter ikke trygg gjenopptakelse.",
+      "httpVerificationCancelled": "Kontrollen ble avbrutt.",
+      "httpRedirectUnsupported": "Videresendte lenker kan ikke gjenopptas trygt på det opprinnelige stedet."
     },
     "resultIncompleteTitle": "Migration is incomplete",
     "resultStoppedTitle": "Migration stopped",
-    "activationRequired": "Download again in a new folder to keep the original files.",
+    "activationRequired": "Åpne oppgavedetaljene for å kontrollere og gjenoppta nedlastingen.",
     "chooseTorrent": "Choose torrent…",
     "torrentFile": "Torrent file",
-    "verifyAndContinue": "Verify and continue",
+    "verifyAndContinue": "Kontroller og fortsett",
     "verifyDescription": "Motrix will verify the original files, then continue with your previous file selection. While downloading, it may upload data and write shared pieces to unselected files. It won’t seed automatically when finished.",
     "authorizeOriginalDirectory": "Choose the original download folder",
     "verifyReady": "Verify your existing files to continue this download, or start again in a new folder.",
@@ -3317,7 +3495,10 @@
         "remaining": "Remaining"
       }
     },
-    "importSelected": "Migrate"
+    "importSelected": "Migrate",
+    "httpResumeDescription": "Motrix sammenligner alle nedlastede områder med serveren og fortsetter deretter i den opprinnelige mappen. Kontrollen overfører områdene på nytt; lagrede forespørselsinnstillinger forblir i minnet.",
+    "httpVerifying": "Forbereder eller kontrollerer…",
+    "httpOriginalFilesKept": "De eksisterende filene ble beholdt."
   },
   "rendererRecovery": {
     "title": "Grensesnittet må gjenopprettes",
@@ -3379,5 +3560,56 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "Opprett torrent",
+    "source": "Innhold som skal deles",
+    "options": "Torrentvalg",
+    "trackers": "Trackere",
+    "trackersPlaceholder": "Én announce-URL per linje",
+    "webSeeds": "Web-frø",
+    "webSeedsPlaceholder": "Én HTTP(S)-URL per linje (valgfritt)",
+    "comment": "Kommentar",
+    "private": "Privat torrent",
+    "privateDesc": "Slår av DHT og peer-utveksling; distribusjon kun via tracker.",
+    "pieceLength": "Stykkestørrelse",
+    "pieceAuto": "Automatisk",
+    "hashing": "Beregner sjekksummer…",
+    "resultName": "Navn",
+    "resultSize": "Størrelse",
+    "resultInfoHash": "Info-sjekksum",
+    "saveFile": "Lagre .torrent",
+    "create": "Opprett",
+    "savedToast": "Torrent lagret til {{path}}",
+    "createFailed": "Kunne ikke opprette torrenten",
+    "saveFailed": "Kunne ikke lagre torrentfilen",
+    "seedAfter": "Start seeding etter lagring",
+    "seedFailed": "Seedingen kunne ikke startes.",
+    "seedSubmitted": "Seedingoppgaven er sendt inn.",
+    "invalidOptions": "Hver liste kan ha opptil {{limit}} gyldige URL-er. Private torrenter trenger en tracker.",
+    "menuLabel": "Opprett torrentfil…",
+    "downloadRequested": "Nedlasting forespurt: {{path}}"
+  },
+  "operatorToken": {
+    "title": "Access password",
+    "change": "Change password",
+    "effect": "Other devices will need to sign in again.",
+    "currentToken": "Current password",
+    "newToken": "New password",
+    "confirmation": "Confirm new password",
+    "weak": "If you plan to access Motrix over the public internet, use a stronger password.",
+    "invalid": "Remove line breaks and other control characters.",
+    "mismatch": "The passwords do not match.",
+    "incorrectToken": "The current password is incorrect. Try again.",
+    "managed": "This password is managed by the server administrator.",
+    "unavailable": "Could not save. Your current password still works. Try again later.",
+    "rateLimited": "Too many attempts. Wait a minute and try again.",
+    "unknown": "Connection interrupted. The change could not be confirmed.",
+    "saved": "Access password updated.",
+    "saving": "Updating…",
+    "update": "Update password",
+    "requiredCurrent": "Enter your current password.",
+    "requiredNew": "Enter a new password.",
+    "tooLong": "This password is too long. Shorten it and try again."
   }
 }

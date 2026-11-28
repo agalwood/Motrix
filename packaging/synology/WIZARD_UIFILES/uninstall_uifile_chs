@@ -1,0 +1,20 @@
+[
+  {
+    "step_title": "Motrix",
+    "items": [
+      {
+        "desc": "默认保留任务、配置和配对信息。下载文件始终保留。"
+      },
+      {
+        "type": "multiselect",
+        "subitems": [
+          {
+            "key": "wizard_delete_data",
+            "desc": "删除任务、配置和配对信息",
+            "defaultValue": false
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -23,12 +23,7 @@ type StoreListener = () => void
 export type TaskActivityState =
   | { status: 'loading'; retry: () => Promise<void> }
   | {
-      status: 'ready'
-      snapshot: TaskActivitySnapshot
-      retry: () => Promise<void>
-    }
-  | {
-      status: 'stale'
+      status: 'ready' | 'refreshFailed'
       snapshot: TaskActivitySnapshot
       retry: () => Promise<void>
     }
@@ -82,7 +77,10 @@ function publish(next: TaskActivityState, force = false): void {
   notify()
 }
 
-function publishFromSnapshot(status: 'ready' | 'stale', force = false): void {
+function publishFromSnapshot(
+  status: 'ready' | 'refreshFailed',
+  force = false
+): void {
   if (!activitySnapshot) return
   publish({ status, snapshot: activitySnapshot, retry }, force)
 }
@@ -116,11 +114,17 @@ function refreshRange(now = new Date()): boolean {
   if (next.signature === rangeEnvironment.signature) return false
   rangeEnvironment = next
   rangeEpoch += 1
-  // A snapshot is meaningful only for the range that produced it. Even when
-  // an already-stale fetch fails across midnight, publish a fresh state
-  // identity so the calendar recomputes today/future presentation.
-  if (activitySnapshot) publishFromSnapshot('stale', true)
+  republishCalendarDay()
   return true
+}
+
+// Re-render today/future cells at midnight without changing the outcome of
+// the last fetch while the new calendar range is being reconciled.
+function republishCalendarDay(): void {
+  publishFromSnapshot(
+    state.status === 'refreshFailed' ? 'refreshFailed' : 'ready',
+    true
+  )
 }
 
 function scheduleMidnight(): void {
@@ -137,7 +141,7 @@ function scheduleMidnight(): void {
       if (!rangeChanged && activitySnapshot) {
         // The 53-week request range changes only on Sunday, but the Canvas
         // model's today/future state changes at every local midnight.
-        publishFromSnapshot('stale', true)
+        republishCalendarDay()
       }
       scheduleMidnight()
       void requestSnapshot('authoritative')
@@ -228,10 +232,6 @@ function applyContiguousEvent(payload: TaskActivityUpdatedPayload): boolean {
   return true
 }
 
-function markDirty(): void {
-  if (pendingRequest) trailingRequested = true
-}
-
 function processEvent(payload: TaskActivityUpdatedPayload): void {
   const current = activitySnapshot
   if (
@@ -242,20 +242,15 @@ function processEvent(payload: TaskActivityUpdatedPayload): void {
     return
   }
 
-  markDirty()
-  if (current) publishFromSnapshot('stale')
-  if (!pendingRequest) void requestSnapshot()
+  void requestSnapshot()
 }
 
 function queueEvent(payload: TaskActivityUpdatedPayload): void {
-  if (queueOverflowed) {
-    markDirty()
-    return
-  }
+  if (queueOverflowed) return
   if (queuedEvents.length >= MAX_QUEUED_EVENTS) {
     queuedEvents = []
     queueOverflowed = true
-    markDirty()
+    trailingRequested = true
     return
   }
   queuedEvents.push(payload)
@@ -274,7 +269,7 @@ function drainQueuedEvents(): void {
   if (queueOverflowed) {
     queuedEvents = []
     queueOverflowed = false
-    markDirty()
+    trailingRequested = true
     return
   }
   if (queuedEvents.length === 0) return
@@ -289,11 +284,11 @@ function drainQueuedEvents(): void {
 
   for (const payload of matching) {
     if (!applyContiguousEvent(payload)) {
-      markDirty()
+      trailingRequested = true
       break
     }
   }
-  if (hasOtherGeneration) markDirty()
+  if (hasOtherGeneration) trailingRequested = true
 }
 
 // Detach and replacement both clear `pendingRequest`, so request identity
@@ -316,7 +311,7 @@ function requestSnapshot(
       reason === 'authoritative' ||
       pendingRequest.rangeEpoch !== rangeEpoch
     ) {
-      markDirty()
+      trailingRequested = true
     }
     return pendingRequest.promise
   }
@@ -324,8 +319,8 @@ function requestSnapshot(
   const capturedRangeEpoch = rangeEpoch
   const capturedRangeSignature = rangeEnvironment.signature
   const params = rangeEnvironment.params
-  if (activitySnapshot) publishFromSnapshot('stale')
-  else publish({ status: 'loading', retry })
+  // Keep the cached calendar visible while automatic reconciliation runs.
+  if (!activitySnapshot) publish({ status: 'loading', retry })
 
   let request!: PendingRequest
   const work = transport
@@ -337,7 +332,7 @@ function requestSnapshot(
         activitySnapshot?.generation === incoming.generation &&
         incoming.revision < activitySnapshot.revision
       ) {
-        markDirty()
+        trailingRequested = true
         return
       }
       activitySnapshot = incoming
@@ -347,7 +342,7 @@ function requestSnapshot(
     })
     .catch(() => {
       if (!canPublish(request)) return
-      if (activitySnapshot) publishFromSnapshot('stale')
+      if (activitySnapshot) publishFromSnapshot('refreshFailed')
       else publish({ status: 'unavailable', retry })
       drainQueuedEvents()
     })

@@ -8,6 +8,7 @@ import type { EngineAdapter } from '@core/engine/engine-adapter'
 import type { EngineSupervisor } from '@core/engine/engine-supervisor'
 import { ENGINE_READY_TIMEOUT_MS } from '@core/engine/engine-supervisor'
 import type { EventBus } from '@core/events/event-bus'
+import { canonicalizeSaveDir } from '@core/fs/canonicalize-save-dir'
 import type { GeoIPManager } from '@core/geoip/geo-ip-manager'
 import { createUpdateGeoIPDatabaseHandler } from '@core/geoip/update-geo-ip-database'
 import { getLogger } from '@core/logger'
@@ -44,6 +45,7 @@ import {
   type AppliedDownloadProxyPolicy,
   UNAVAILABLE_APPLIED_DOWNLOAD_PROXY_POLICY,
 } from '@core/proxy/applied-download-proxy-policy'
+import type { DurableFinalizeRuntime } from '@core/session/durable-finalize-runtime'
 import type { MotrixDatabase } from '@core/session/motrix-database'
 import type { SessionManager } from '@core/session/session-manager'
 import { applySavedSettings } from '@core/settings/apply-saved-settings'
@@ -74,6 +76,10 @@ import {
   taskCreateConflictResult,
 } from '@core/task/bt-duplicate-policy'
 import { parseBtFileLayout } from '@core/task/bt-storage-layout'
+import {
+  authorizeBtDirectory,
+  BtStorageService,
+} from '@core/task/bt-storage-service'
 import {
   type CreateTaskDeps,
   handleCreateTask,
@@ -113,7 +119,9 @@ import {
   torrentBatchCreateOptionsSchema,
 } from '@shared/schemas/add-task'
 import { appImageNativeHostActionSchema } from '@shared/schemas/appimage-native-host'
+import { btStorageRequestSchema } from '@shared/schemas/bt-storage'
 import {
+  reAddTaskPayloadSchema,
   removeTasksPayloadSchema,
   taskIdsPayloadSchema,
 } from '@shared/schemas/bulk-task-command'
@@ -164,6 +172,7 @@ import {
 } from '../platform/appimage-integration-host'
 import { syncAutoLaunch } from '../platform/auto-launch'
 import { setLinuxDefaultTorrentHandler } from '../platform/linux-default-apps'
+import { getPortableProfile } from '../platform/portable-profile'
 import type { createProtocolManager } from '../platform/protocol-manager'
 import { resolveWindowsDefaultAppsSettingsUrl } from '../platform/windows-default-apps'
 import { desktopOperationHandlers } from '../plugin/operation-commands'
@@ -171,6 +180,7 @@ import { installManagedFfmpeg } from '../plugin/verified-ffmpeg-electron'
 import type { createMainProxyApplier } from '../proxy/wiring'
 import type { createRendererRecoveryRuntime } from '../window/renderer-recovery-runtime'
 import type { WindowManager } from '../window/window-manager'
+import { torrentCreatorHandlers } from './commands/create-torrent'
 import { createOpenTaskFileHandler } from './commands/open-task-file'
 import { createRevealInFolderHandler } from './commands/reveal-in-folder'
 import { createSetSelectedFilesHandler } from './commands/set-selected-files'
@@ -183,6 +193,15 @@ const cliInstallRequestSchema = z
   .strict()
 
 export interface CommandContext {
+  btStorageRuntime?: Pick<
+    DurableFinalizeRuntime,
+    'commit' | 'withArtifactLease' | 'hasPendingFinalization'
+  >
+  persistBtStorage?: (
+    task: DownloadTask,
+    sourceRoot: string,
+    targetRoot: string
+  ) => Promise<void>
   rendererRecovery?: ReturnType<typeof createRendererRecoveryRuntime>
   operationService?: OperationService
   cliToolService: Pick<CliToolService, 'install'>
@@ -195,7 +214,7 @@ export interface CommandContext {
    * paths cannot drift. Called synchronously during handler construction.
    */
   bindTaskRetry?: (fn: (taskId: string) => Promise<unknown>) => void
-  recoverFinalization?: (taskId: string) => Promise<void>
+  recoverFinalization?: (taskId: string, sha256?: string) => Promise<void>
   sessionManager: SessionManager
   settingsManager: SettingsManager
   applyLocale?: (language: string) => Promise<void>
@@ -373,6 +392,7 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     orchestrator: hookOrchestrator,
     auditLog: hookAuditLog,
     db: motrixDatabase.database,
+    prepareSaveDir: canonicalizeSaveDir,
     persistTask,
     persistTaskWithPluginMetadata,
     parentTaskCreated,
@@ -499,7 +519,38 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     directResourceProxyPolicy:
       appliedDownloadProxyPolicy ?? UNAVAILABLE_APPLIED_DOWNLOAD_PROXY_POLICY,
   }
+  const btStorage =
+    ctx.btStorageRuntime && ctx.persistBtStorage
+      ? new BtStorageService({
+          ...reAddDeps,
+          runtime: ctx.btStorageRuntime,
+          persistStorage: ctx.persistBtStorage,
+          authorizeDirectory: authorizeBtDirectory,
+        })
+      : null
   createDeps.reuseExistingBt = (taskId) => reAddTask(taskId, reAddDeps)
+  if (btStorage)
+    createDeps.relocateExistingBt = async (taskId, directory, name) => {
+      const result = await btStorage.run(
+        { taskId, mode: 'locate', directory, name, resume: true },
+        true
+      )
+      if ('error' in result)
+        throw new AppError(
+          ErrorCode.TaskNotRetryable,
+          `task.storage.errors.${result.error}`
+        )
+      if (!result.verification.complete)
+        throw new AppError(
+          ErrorCode.TaskNotRetryable,
+          'task.storage.incomplete'
+        )
+      if (result.resumeFailed)
+        throw new AppError(
+          ErrorCode.TaskNotRetryable,
+          'task.storage.resumeFailed'
+        )
+    }
   // The DNS fallback consumer retries through the same deps bundle as
   // Commands.ReAddTasks so the automatic and user-initiated paths match.
   bindTaskRetry?.((id) => reAddTask(id, reAddDeps))
@@ -812,6 +863,17 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
     // Plural task commands (option C): one IPC request per multi-select
     // action. Per-task outcomes come back IPC-safe; the bulk close inside
     // runBulkTaskAction forces one immediate snapshot flush.
+    [Commands.ChangeBtStorage]: async (rawPayload: unknown) => {
+      const request = btStorageRequestSchema.parse(rawPayload)
+      await supervisor.waitUntilReady(ENGINE_READY_TIMEOUT_MS)
+      await waitForTasksReady?.()
+      return btStorage ? btStorage.run(request) : { error: 'unavailable' }
+    },
+    [Commands.CancelBtStorage]: async (taskId: unknown) => {
+      btStorage?.cancel(z.string().min(1).parse(taskId))
+      return { ok: true }
+    },
+
     [Commands.MoveTasks]: async (rawPayload: unknown) =>
       moveTasks(moveTasksPayloadSchema.parse(rawPayload), pauseResumeDeps),
 
@@ -890,8 +952,9 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       return { ok: true }
     },
 
-    [Commands.ReAddTask]: async (taskId: string) => {
-      await reAddTask(taskId, reAddDeps)
+    [Commands.ReAddTask]: async (rawPayload: unknown) => {
+      const { taskId, sha256 } = reAddTaskPayloadSchema.parse(rawPayload)
+      await reAddTask(taskId, reAddDeps, sha256)
       return { ok: true }
     },
 
@@ -908,6 +971,15 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       return { ok: true }
     },
 
+    ...torrentCreatorHandlers(
+      (sender) =>
+        windowManager.getWindowIdBySender(sender) === 'create-torrent',
+      directoryHistory.wrap(async (request) => {
+        await activatePluginsForTask('bt', '')
+        return createAndPersist(request)
+      }),
+      () => ctx.rendererRecovery?.supervisor.enterModal()
+    ),
     [Commands.CreateTask]: directoryHistory.wrap(async (request: unknown) => {
       try {
         request = admitTaskCreateRequest(request)
@@ -933,9 +1005,12 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
           ) {
             let taskId: string
             try {
+              const targetSaveDir = await canonicalizeSaveDir(
+                req.saveDir || settingsManager.getApp().defaultSaveDir
+              )
               taskId = await magnetTracker.submit(
                 req.payload.uri,
-                req.saveDir || settingsManager.getApp().defaultSaveDir
+                targetSaveDir
               )
             } catch (error) {
               const conflict =
@@ -987,7 +1062,10 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
                     infoHash: layout.infoHash,
                     saveDir: req.saveDir,
                     selectedFiles: req.selectedFiles,
-                    duplicatePolicy: req.duplicatePolicy,
+                    duplicatePolicy:
+                      req.duplicatePolicy === 'use-existing'
+                        ? 'reuse'
+                        : req.duplicatePolicy,
                     excludeTaskId: req.existingTaskId,
                   })
                 : { action: 'create' as const }
@@ -1019,7 +1097,10 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
                     selectedFiles: req.selectedFiles,
                     saveDir: req.saveDir,
                     name: req.displayName,
-                    duplicatePolicy: req.duplicatePolicy,
+                    duplicatePolicy:
+                      req.duplicatePolicy === 'use-existing'
+                        ? 'reuse'
+                        : req.duplicatePolicy,
                   },
                   {
                     db: motrixDatabase,
@@ -1398,7 +1479,11 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
           protocolManager.resetDialogState()
         }
         windowManager.closeAndRecycle(id)
-        if (options.showMain) {
+        if (
+          options.showMain === true ||
+          (options.showMain === 'if-visible' &&
+            windowManager.get('main')?.isVisible())
+        ) {
           windowManager.show('main')
         }
         if (options.navigateMainTo) {
@@ -1534,6 +1619,11 @@ export function buildCommandHandlers(ctx: CommandContext): CommandHandlerMap {
       }),
 
     [Commands.RequestDefaultTorrentHandler]: async () => {
+      if (getPortableProfile())
+        throw new AppError(
+          ErrorCode.SettingsInvalid,
+          i18n.t('settings.portable.integrationUnavailable')
+        )
       if (process.platform === 'darwin') {
         // macOS has no central default-apps panel. The previous implementation
         // opened the General preference pane, which is unrelated to file
@@ -2016,6 +2106,9 @@ export function registerCommandHandlers(ctx: CommandContext): () => void {
       channel === Commands.MinimizeCurrentWindow ||
       channel === Commands.ToggleMaximizeCurrentWindow ||
       channel === Commands.PickSaveDir ||
+      channel === Commands.PickTorrentSource ||
+      channel === Commands.CreateTorrent ||
+      channel === Commands.SaveTorrentFile ||
       OPERATION_CHANNELS.has(channel) ||
       channel === Commands.PickFile ||
       channel === Commands.ResizeWindow ||

@@ -1,6 +1,7 @@
-import { randomBytes } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import { constants } from 'node:fs'
 import fs from 'node:fs/promises'
+import { createServer } from 'node:net'
 import path from 'node:path'
 import type { BridgeDataDirLockRecoveryAuthority } from '@core/bridge/bridge-data-dir-lock'
 
@@ -31,6 +32,8 @@ export const ServerProcessOwnershipFailureReason = {
   BindingHostMismatch: 'binding-host-mismatch',
   BindingTransportMismatch: 'binding-transport-mismatch',
   BindingDirectoryMismatch: 'binding-directory-mismatch',
+  BindingNamespaceMismatch: 'binding-namespace-mismatch',
+  KernelOwnershipUnavailable: 'kernel-ownership-unavailable',
 } as const
 
 export type ServerProcessOwnershipFailureReason =
@@ -43,12 +46,25 @@ export class ServerProcessOwnershipError extends Error {
   }
 }
 
-interface BindingDocument {
+interface TcpBindingDocument {
   readonly version: typeof BINDING_VERSION
   readonly transport: 'tcp-control-plane'
   readonly host: '0.0.0.0'
   readonly port: number
   readonly bridgeDataDirectory: string
+}
+
+interface LinuxBindingDocument {
+  readonly version: 2
+  readonly transport: 'linux-abstract-control-plane'
+  readonly guardName: string
+  readonly bridgeDataDirectory: string
+}
+type BindingDocument = TcpBindingDocument | LinuxBindingDocument
+
+export interface LinuxServerProcessOwnershipAuthority
+  extends BridgeDataDirLockRecoveryAuthority {
+  release(): Promise<void>
 }
 
 export interface ServerProcessOwnershipAuthorityOptions {
@@ -73,6 +89,16 @@ function isExactBinding(value: unknown): value is BindingDocument {
     return false
   }
   const record = value as Record<string, unknown>
+  if (record.version === 2) {
+    return (
+      Object.keys(record).length === 4 &&
+      record.transport === 'linux-abstract-control-plane' &&
+      typeof record.guardName === 'string' &&
+      /^motrix-bridge-[a-f0-9]{64}$/.test(record.guardName) &&
+      typeof record.bridgeDataDirectory === 'string' &&
+      path.isAbsolute(record.bridgeDataDirectory)
+    )
+  }
   if (
     Object.keys(record).length !== 5 ||
     record.version !== BINDING_VERSION ||
@@ -87,6 +113,31 @@ function isExactBinding(value: unknown): value is BindingDocument {
     return false
   }
   return true
+}
+
+function compareBinding(
+  actual: BindingDocument,
+  expected: BindingDocument
+): void {
+  if (actual.transport !== expected.transport)
+    throw fail(ServerProcessOwnershipFailureReason.BindingTransportMismatch)
+  if (
+    actual.transport === 'tcp-control-plane' &&
+    expected.transport === 'tcp-control-plane'
+  ) {
+    if (actual.port !== expected.port)
+      throw fail(ServerProcessOwnershipFailureReason.BindingPortMismatch)
+    if (actual.host !== expected.host)
+      throw fail(ServerProcessOwnershipFailureReason.BindingHostMismatch)
+  } else if (
+    actual.transport === 'linux-abstract-control-plane' &&
+    expected.transport === 'linux-abstract-control-plane' &&
+    actual.guardName !== expected.guardName
+  ) {
+    throw fail(ServerProcessOwnershipFailureReason.BindingNamespaceMismatch)
+  }
+  if (actual.bridgeDataDirectory !== expected.bridgeDataDirectory)
+    throw fail(ServerProcessOwnershipFailureReason.BindingDirectoryMismatch)
 }
 
 function sameFile(
@@ -236,18 +287,7 @@ async function persistBinding(
   }
 
   const actual = await readExactBinding(filePath)
-  if (actual.port !== expected.port) {
-    throw fail(ServerProcessOwnershipFailureReason.BindingPortMismatch)
-  }
-  if (actual.host !== expected.host) {
-    throw fail(ServerProcessOwnershipFailureReason.BindingHostMismatch)
-  }
-  if (actual.transport !== expected.transport) {
-    throw fail(ServerProcessOwnershipFailureReason.BindingTransportMismatch)
-  }
-  if (actual.bridgeDataDirectory !== expected.bridgeDataDirectory) {
-    throw fail(ServerProcessOwnershipFailureReason.BindingDirectoryMismatch)
-  }
+  compareBinding(actual, expected)
 }
 
 /**
@@ -274,7 +314,7 @@ export async function establishServerProcessOwnershipAuthority(
   const bridgeDataDirectory = path.join(canonicalUserDataDir, 'bridge')
   await fs.mkdir(bridgeDataDirectory, { recursive: true })
   const canonicalBridgeDataDirectory = await fs.realpath(bridgeDataDirectory)
-  const binding: BindingDocument = {
+  const binding: TcpBindingDocument = {
     version: BINDING_VERSION,
     transport: 'tcp-control-plane',
     host: '0.0.0.0',
@@ -294,15 +334,94 @@ export async function establishServerProcessOwnershipAuthority(
         if (currentBridgeDirectory !== canonicalBridgeDataDirectory)
           return false
         const current = await readExactBinding(bindingPath)
-        return (
-          current.port === binding.port &&
-          current.host === binding.host &&
-          current.transport === binding.transport &&
-          current.bridgeDataDirectory === binding.bridgeDataDirectory
-        )
+        compareBinding(current, binding)
+        return true
       } catch {
         return false
       }
     },
   })
+}
+
+/** Linux native NAS services have a filesystem Unix control-plane socket.
+ * That pathname alone is not exclusive: unlinking it permits a second bind.
+ * A data-directory-derived abstract socket instead remains owned by the kernel
+ * until this process closes it or exits. No TCP port or public route is opened. */
+export async function establishLinuxServerProcessOwnershipAuthority(options: {
+  userDataDir: string
+  assertControlPlaneOwnership: () => boolean
+}): Promise<LinuxServerProcessOwnershipAuthority> {
+  if (process.platform !== 'linux' || !options.assertControlPlaneOwnership())
+    throw fail(ServerProcessOwnershipFailureReason.ControlPlaneUnavailable)
+  await fs.mkdir(options.userDataDir, { recursive: true })
+  const directory = await fs.realpath(options.userDataDir)
+  const bridge = path.join(directory, 'bridge')
+  await fs.mkdir(bridge, { recursive: true })
+  const canonicalBridge = await fs.realpath(bridge)
+  const guardName = `motrix-bridge-${createHash('sha256').update(canonicalBridge).digest('hex')}`
+  const guard = createServer((socket) => socket.destroy())
+  let healthy = true
+  guard.on('error', () => {
+    healthy = false
+  })
+  let released: Promise<void> | undefined
+  const release = () => {
+    released ??= new Promise<void>((resolve, reject) => {
+      if (!guard.listening) {
+        resolve()
+        return
+      }
+      guard.close((error) => (error ? reject(error) : resolve()))
+    })
+    return released
+  }
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const failed = () =>
+        reject(
+          fail(ServerProcessOwnershipFailureReason.KernelOwnershipUnavailable)
+        )
+      guard.once('error', failed)
+      guard.listen({ path: `\0${guardName}`, exclusive: true }, () => {
+        guard.off('error', failed)
+        guard.unref()
+        resolve()
+      })
+    })
+    const binding: LinuxBindingDocument = {
+      version: 2,
+      transport: 'linux-abstract-control-plane',
+      guardName,
+      bridgeDataDirectory: canonicalBridge,
+    }
+    const bindingPath = path.join(directory, BINDING_FILE_NAME)
+    await persistBinding(bindingPath, binding)
+    return Object.freeze({
+      ownershipEpoch: randomBytes(32).toString('base64url'),
+      release,
+      assertExclusiveProcessOwnership: async () => {
+        if (
+          released ||
+          !healthy ||
+          !guard.listening ||
+          !options.assertControlPlaneOwnership()
+        )
+          return false
+        try {
+          if (
+            (await fs.realpath(options.userDataDir)) !== directory ||
+            (await fs.realpath(bridge)) !== canonicalBridge
+          )
+            return false
+          compareBinding(await readExactBinding(bindingPath), binding)
+          return true
+        } catch {
+          return false
+        }
+      },
+    })
+  } catch (error) {
+    await release()
+    throw error
+  }
 }

@@ -15,11 +15,14 @@ import { MagnetFileSelectionButton } from '@renderer/components/task/magnet-file
 import { Button } from '@renderer/components/ui/button'
 import { toast } from '@renderer/components/ui/toast'
 import { useModifierKeys } from '@renderer/hooks/use-modifier-keys'
-import { openTaskFile } from '@renderer/lib/open-task-file'
+import { openTaskFile, revealTaskFolder } from '@renderer/lib/open-task-file'
 import { rtlMirror } from '@renderer/lib/task-status-ui'
-import { transport } from '@renderer/lib/transport'
 import { cn } from '@renderer/lib/utils'
-import { Commands } from '@shared/protocol/commands'
+import {
+  hasHostFileActions,
+  hostOpenFileLabelKey,
+  hostRevealFolderLabelKey,
+} from '@renderer/platform/nas'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
 import { canOpenTaskFile } from '@shared/types/task-actions'
@@ -117,7 +120,7 @@ function OpenTaskFileButton({ task }: { task: DownloadTask }) {
       onClick={() => void open()}
     >
       <OpenFileIcon />
-      {t('panel.downloads.action.openFile')}
+      {t(hostOpenFileLabelKey())}
     </Button>
   )
 }
@@ -139,16 +142,14 @@ function FinalizingActionBar({
         <PauseIcon />
         {t('panel.downloads.action.pause')}
       </Button>
-      {__MOTRIX_TARGET__ === 'electron' && canRevealTaskFolder(task) && (
+      {hasHostFileActions() && canRevealTaskFolder(task) && (
         <Button
           size="xs"
           variant="outline"
-          onClick={() =>
-            transport.invoke(Commands.RevealInFolder, { taskId: task.id })
-          }
+          onClick={() => revealTaskFolder(task, t)}
         >
           <RevealFolderIcon />
-          {t('panel.downloads.action.openFolder')}
+          {t(hostRevealFolderLabelKey())}
         </Button>
       )}
       <CopyButton
@@ -210,17 +211,30 @@ export function TaskInspectorActionBar({
 
   return (
     <div className="flex shrink-0 items-center gap-2 border-b border-border/50 px-4 py-2">
-      {actions.pauseCount > 0 && (
+      {(actions.pauseCount > 0 || actions.pausing) && (
         <CountedButton
-          label={t('panel.downloads.action.pause')}
+          label={t(
+            actions.pausing
+              ? 'panel.downloads.action.pausing'
+              : 'panel.downloads.action.pause'
+          )}
           total={actions.total}
-          count={actions.pauseCount}
-          tooltipSingle={t('panel.downloads.action.pause')}
-          tooltipBatch={t('panel.downloads.action.pauseTooltipBatch', {
-            n: actions.pauseCount,
-            total: actions.total,
-          })}
+          count={actions.pausing ? actions.pausingCount : actions.pauseCount}
+          tooltipSingle={t(
+            actions.pausing
+              ? 'panel.downloads.action.pausing'
+              : 'panel.downloads.action.pause'
+          )}
+          tooltipBatch={
+            actions.pausing
+              ? t('panel.downloads.action.pausing')
+              : t('panel.downloads.action.pauseTooltipBatch', {
+                  n: actions.pauseCount,
+                  total: actions.total,
+                })
+          }
           icon={<PauseIcon />}
+          disabled={actions.pausing}
           onClick={() => void actions.onPause()}
         />
       )}
@@ -311,25 +325,19 @@ export function TaskInspectorActionBar({
         <MagnetFileSelectionButton task={single} />
       )}
 
-      {single &&
-        __MOTRIX_TARGET__ === 'electron' &&
-        canOpenTaskFile(single) && <OpenTaskFileButton task={single} />}
-      {single &&
-        __MOTRIX_TARGET__ === 'electron' &&
-        canRevealTaskFolder(single) && (
-          <Button
-            size="xs"
-            variant="outline"
-            onClick={() =>
-              transport.invoke(Commands.RevealInFolder, {
-                taskId: single.id,
-              })
-            }
-          >
-            <RevealFolderIcon />
-            {t('panel.downloads.action.openFolder')}
-          </Button>
-        )}
+      {single && hasHostFileActions() && canOpenTaskFile(single) && (
+        <OpenTaskFileButton task={single} />
+      )}
+      {single && hasHostFileActions() && canRevealTaskFolder(single) && (
+        <Button
+          size="xs"
+          variant="outline"
+          onClick={() => revealTaskFolder(single, t)}
+        >
+          <RevealFolderIcon />
+          {t(hostRevealFolderLabelKey())}
+        </Button>
+      )}
       {single && (
         <CopyButton
           size="xs"

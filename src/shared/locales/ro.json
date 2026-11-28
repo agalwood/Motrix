@@ -374,20 +374,51 @@
         "unknownOption": "Opțiune necunoscută a liniei de comandă."
       }
     },
-    "help": "Utilizare:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\nComanda comunică doar cu serverul Motrix activ, prin interfața loopback a containerului.",
+    "help": "Utilizare:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nComanda comunică doar cu serverul Motrix activ, prin interfața loopback a containerului.\n\n  motrix-admin token set [--stdin] [--json]\nSet a custom administrator token; weak tokens are accepted with a warning.",
     "pending": {
       "none": "Nu există cereri de asociere în așteptare.",
       "row": "{{userCode}}  {{clientName}}  {{clientVersion}}  expiră în {{ttl}}",
       "ttl": "{{minutes}}m {{seconds}}s"
     },
-    "usageHint": "Rulează `motrix-admin --help` pentru instrucțiuni de utilizare."
+    "usageHint": "Rulează `motrix-admin --help` pentru instrucțiuni de utilizare.",
+    "extension": {
+      "heading": "Pending browser Extension pairing requests",
+      "identityNotice": "Verify that you initiated this request. Origin and claimed identity alone do not prove who is connecting. Terminal recording can capture the pairing code.",
+      "row": "{{index}}. {{browser}} [{{identity}}] Origin: {{origin}}; claimed ID: {{claimedId}}; Server: {{authority}}; {{seconds}} s remaining",
+      "select": "Enter the number of one request (Ctrl+C to exit): ",
+      "code": "Pairing code: {{code}}",
+      "instructions": "Type this code into the browser Extension. It expires at the original deadline. Ctrl+C closes this view without approving or denying the request.",
+      "none": "No pending Extension pairing requests. Start pairing in the Extension, then run this command again. If requests remain absent, check the remote Extension configuration.",
+      "ended": "The selected pairing request has ended. Check the Extension for its outcome.",
+      "ttyRequired": "Extension pairing requires interactive input, output and error terminals. Piping, redirection and JSON output are not supported.",
+      "cancelled": "Pairing code view closed. No approval or denial was sent.",
+      "invalidSelection": "Select exactly one listed request by its number.",
+      "unavailable": "The selected request expired, ended or changed. Start a new pairing attempt in the Extension."
+    },
+    "token": {
+      "weak": "This token may be easy to guess. Consider a longer, unique passphrase. You can still save it.",
+      "invalid": "Enter a nonblank token of up to 1,024 characters, without control characters.",
+      "mismatch": "The new tokens do not match.",
+      "incorrectToken": "The current token is incorrect. Check it and try again.",
+      "managed": "This token is managed by MOTRIX_OPERATOR_TOKEN. Change the deployment environment variable and restart the server.",
+      "unavailable": "The token could not be saved. The previous token is still active. Check server storage and retry.",
+      "rateLimited": "Too many attempts. Wait a minute and try again.",
+      "unknown": "The result could not be confirmed. Check the token file on the server before retrying.",
+      "prompt": "New token (input hidden):",
+      "confirm": "Confirm new token:",
+      "saved": "Token updated. Existing sessions have been signed out. Downloads continue.",
+      "ttyRequired": "Use an interactive terminal, or token set --stdin to read the token from standard input.",
+      "cancelled": "Token change cancelled."
+    }
   },
   "operatorUnlock": {
     "error": "Token de operator nevalid. Verifică MOTRIX_OPERATOR_TOKEN sau <dataDir>/operator-token pe gazdă și încearcă din nou.",
     "help": "Acest server necesită tokenul operatorului. Pe gazdă, setează MOTRIX_OPERATOR_TOKEN sau citește tokenul din <dataDir>/operator-token, apoi lipește-l mai jos.",
     "placeholder": "Token operator",
     "submit": "Deblochează",
-    "title": "Deblochează Motrix"
+    "title": "Deblochează Motrix",
+    "nasSessionExpired": "Sesiunea de administrator NAS nu poate fi verificată. Deschideți Motrix de pe desktopul NAS.",
+    "openDsm": "Open DSM to sign in"
   },
   "panel": {
     "completed": {
@@ -417,7 +448,7 @@
         "more": "Mai multe",
         "rangeSummary": "Activitate de descărcare de la {{start}} la {{end}}; număr de săptămâni: {{weeks}}",
         "retry": "Încearcă din nou",
-        "stale": "Activitatea poate fi învechită",
+        "refreshFailed": "Reîmprospătarea a eșuat",
         "title": "Activitate",
         "tooltip": {
           "completed": "Finalizate: {{count}}",
@@ -854,6 +885,7 @@
         "openFileFailedHint": "Verifică dacă fișierul mai există și dacă ai permisiunea să îl deschizi.",
         "openFolder": "Deschide dosarul",
         "pause": "Pune pe pauză",
+        "pausing": "Se pune pe pauză…",
         "pauseTooltipBatch": "Pune pe pauză: {{n}} din selecția totală de {{total}}",
         "queueBoundary": "Selecția este deja la începutul sau la sfârșitul cozii",
         "queueMoveFailed": "Coada de așteptare nu a putut fi actualizată.",
@@ -891,10 +923,18 @@
         "redownloadOverwriteTitle": "File Already Exists",
         "redownloadOverwriteDescription": "“{{name}}” already exists in the download directory. Re-downloading will overwrite or rename it. Do you want to continue?",
         "redownloadCredentialsExpired": "Original request options have expired. Please review and submit.",
-        "redownloadStarted": "Re-download started"
+        "redownloadStarted": "Re-download started",
+        "retryDialogTitle": "Reîncearcă descărcarea",
+        "retryDialogDescription": "Editează parametrii cererii pentru {{name}} pentru a începe o descărcare nouă. Sarcina eșuată și fișierul parțial vor fi păstrate.",
+        "retryDialogProgress": "Descărcarea {{current}} din {{total}}",
+        "downloadToDevice": "Download to this device",
+        "revealInFileStation": "Show in File Station",
+        "nasFileUnavailable": "File access could not be authorized. Check the account and folder permissions.",
+        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again.",
+        "fnosHostRequired": "Deschideți Motrix de pe desktopul fnOS sau din aplicația mobilă pentru a folosi această acțiune asupra fișierului."
       },
       "column": {
-        "connections": "Parteneri",
+        "connections": "Conexiuni",
         "createdAt": "Data creării",
         "down": "Viteză de descărcare",
         "eta": "Timp rămas",
@@ -1824,7 +1864,12 @@
         "managedDescription": "Această ediție Windows împachetată se actualizează prin sursa de instalare originală. Actualizările din aplicație nu sunt disponibile.",
         "unsupportedTitle": "Actualizările automate nu sunt disponibile",
         "upToDate": "Versiunea {{version}} este cea mai nouă versiune disponibilă.",
-        "upToDateTitle": "Motrix este la zi"
+        "upToDateTitle": "Motrix este la zi",
+        "installing": "Se instalează…",
+        "installingDescription": "Se pregătește actualizarea. Motrix va reporni când este gata.",
+        "manualDownload": "Descarcă manual",
+        "manualInstall": "Descarcă noua versiune, închide Motrix și înlocuiește aplicația instalată.",
+        "manualCrossVolume": "Instalarea automată între discuri nu este disponibilă momentan. Descarcă noua versiune și înlocuiește Motrix manual."
       },
       "version": "Versiunea {{version}}",
       "webVersionNote": "Această ediție web este actualizată de administratorul instalării."
@@ -1866,6 +1911,8 @@
     "appearance": {
       "byteUnitBinary": "Binare ({{megabyte}}, {{gigabyte}} · 1024)",
       "byteUnitDecimal": "Zecimale ({{megabyte}}, {{gigabyte}} · 1000)",
+      "keepStatsBarVisible": "Păstrează statisticile vizibile cu detaliile deschise",
+      "keepStatsBarVisibleDesc": "Păstrează bara de statistici de descărcare sub panoul cu detaliile sarcinii.",
       "byteUnitSystem": "Unități pentru dimensiune și viteză",
       "byteUnitSystemDefault": "Urmează sistemul ({{units}})",
       "byteUnitSystemDesc": "Alege cum sunt afișate dimensiunile fișierelor și vitezele.",
@@ -1881,6 +1928,10 @@
       "menuBar": "Bara de meniu",
       "reduceMotion": "Redu mișcarea",
       "reduceMotionDesc": "Folosește mai puține animații în aplicație.",
+      "hardwareAcceleration": "Accelerare hardware",
+      "hardwareAccelerationDesc": "Folosește placa video pentru o afișare mai fluidă. Dezactivează dacă fereastra pâlpâie sau Motrix se închide neașteptat. Modificările se aplică după repornirea Motrix.",
+      "hardwareAccelerationRecoveryTitle": "Accelerarea hardware a fost dezactivată",
+      "hardwareAccelerationRecoveryBody": "Motrix a dezactivat accelerarea hardware după erori repetate de afișare. O poți reactiva în Setări → Aspect, apoi poți reporni Motrix.",
       "runMode": "Arată aplicația în",
       "runModeHideTray": "Doar Dock",
       "runModeLaunch": "La deschiderea Motrix",
@@ -1914,6 +1965,12 @@
       "trayIconColorDesc": "Alege o culoare vizibilă pe panoul sistemului.",
       "trayIconColorLight": "Pictogramă de culoare deschisă (panou întunecat)",
       "traySpeedometer": "Arată viteza în bara de meniu",
+      "dockAndMenuBar": "Dock și bara de meniu",
+      "taskbar": "Bară de activități",
+      "taskbarProgress": "Afișează progresul descărcărilor în bara de activități",
+      "taskbarProgressDesc": "Afișează progresul total al descărcărilor active pe butonul ferestrei principale din bara de activități.",
+      "dockProgress": "Afișează progresul descărcărilor în Dock",
+      "dockProgressDesc": "Afișează progresul total al descărcărilor active pe pictograma din Dock.",
       "traySpeedometerDesc": "Arată vitezele de descărcare și încărcare lângă pictograma aplicației."
     },
     "bittorrent": {
@@ -2028,6 +2085,10 @@
       "network": {
         "desc": "Proxy, DNS și NAT/UPnP",
         "title": "Rețea"
+      },
+      "nas": {
+        "title": "Synology NAS",
+        "desc": "Download folders and client connections"
       }
     },
     "common": {
@@ -2142,6 +2203,8 @@
         "userAgent": "User-Agent",
         "userAgentDesc": "Identifică aplicația pentru site-uri. Schimbă-l dacă un site cere altul."
       },
+      "openingView": "La deschiderea descărcărilor, afișează",
+      "rememberLastSelection": "Reține ultima selecție",
       "saveFolders": "Dosare de salvare",
       "speedLimit": {
         "adaptiveEnabled": "Rezervă lățime de bandă pentru alte aplicații",
@@ -2149,7 +2212,7 @@
         "altDownload": "Descărcare",
         "altDownloadDesc": "Viteza maximă de descărcare când este activ modul de viteză redusă.",
         "altSection": "Limite de viteză redusă",
-        "altSectionDesc": "Folosite în modul de viteză redusă sau de regulile programate. Aceste limite pot doar să reducă limitele standard.",
+        "altSectionDesc": "Folosite în modul de viteză redusă sau când o regulă automată selectează acest profil.",
         "altUpload": "Încărcare",
         "altUploadDesc": "Viteza maximă de încărcare când este activ modul de viteză redusă.",
         "autoAdaptive": "Lasă lățime de bandă pentru alte aplicații",
@@ -2162,7 +2225,7 @@
         "baseDownloadDesc": "Viteza maximă obișnuită de descărcare.",
         "unitFor": "Unitate pentru {{field}}",
         "baseSection": "Limite standard",
-        "baseSectionDesc": "Folosite pentru descărcările obișnuite și respectate în toate modurile.",
+        "baseSectionDesc": "Folosite în modul standard și când nu este activă nicio regulă de viteză redusă.",
         "baseUpload": "Încărcare",
         "baseUploadDesc": "Viteza maximă obișnuită de încărcare.",
         "effect": {
@@ -2170,7 +2233,7 @@
           "adaptiveRulePending": "rezerva {{reserved}}% din lățimea de bandă pentru alte aplicații după introducerea lățimii de bandă a conexiunii",
           "autoRules": "Motrix va {{rules}}.",
           "lowSpeed": "Se folosesc acum limitele de viteză redusă: descărcare {{download}}, încărcare {{upload}}.",
-          "lowerWins": "Se aplică cea mai mică limită activă.",
+          "profileSelection": "Se aplică limitele modului selectat. Limitele de viteză redusă necompletate folosesc valorile standard; modul automat poate adăuga o limită adaptivă.",
           "nextDay": " în ziua următoare",
           "noAutoRules": "Nu este activată nicio regulă automată. Comportamentul actual este cel al modului Standard.",
           "ruleSeparator": " și va ",
@@ -2299,6 +2362,12 @@
       "warnBeforeQuitDesc": "Cere confirmare la ieșire dacă există descărcări active."
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "appimage": {
         "desc": "Înregistrează acest AppImage Motrix în mediul desktop, astfel încât browserele și linkurile magnet să îi poată trimite descărcări.",
         "enable": "Activează integrarea desktop",
@@ -2383,10 +2452,19 @@
           "identityUnverifiedWarning": "Identitatea acestei extensii nu a putut fi verificată. Continuă doar dacă ai încredere în ea.",
           "pairCode": "Cod de asociere",
           "pairCodeHint": "Introdu acest cod în extensie",
-          "title": "O extensie {{browser}} dorește să se conecteze la Motrix"
+          "title": "O extensie {{browser}} dorește să se conecteze la Motrix",
+          "claim": "Asociază cu contul curent",
+          "claimDesc": "Extensia va folosi permisiunile acestui cont. Apoi introdu codul în extensie pentru a finaliza asocierea.",
+          "account": "Cont curent: {{name}}"
         },
         "pairUnavailable": "Această cerere de asociere nu mai este în așteptare — reîncearcă asocierea din extensia de browser.",
         "pairedEmpty": "Încă nu există extensii conectate.",
+        "profile": "Profil de browser {{number}}",
+        "connected": "Conectat",
+        "disconnected": "Neconectat",
+        "revokeAll": "Deconectează toate",
+        "pendingTitle": "Browser pairing requests",
+        "pendingEmpty": "Start pairing in your extension.",
         "pairedTitle": "Extensii conectate",
         "pairingStateDegraded": {
           "description": "Motrix nu a putut actualiza în siguranță înregistrările extensiilor asociate. Sesiunile existente ale extensiilor sunt închise, iar accesul nou este blocat pentru această rulare. Repornește Motrix pentru a reîncerca repararea; nu te baza pe lista de mai jos până când dispare acest mesaj.",
@@ -2574,7 +2652,8 @@
           "missing": "Negăsit",
           "unconfigured": "Nesetat",
           "untrusted": "Blocat de macOS",
-          "version_mismatch": "Neacceptat"
+          "version_mismatch": "Neacceptat",
+          "verificationUnavailable": "Verificare indisponibilă"
         },
         "title": "Instrumente media",
         "validation": {
@@ -2753,10 +2832,55 @@
       "textLength": "Numărul de caractere nu trebuie să depășească {{max}}.",
       "time": "Folosește formatul de 24 de ore, de exemplu 23:00.",
       "wholeBytes": "Folosește mai puține zecimale."
+    },
+    "portable": {
+      "title": "Portable mode",
+      "startupError": "Motrix could not open its portable data directory. Check that the data folder beside Motrix.exe is writable and that no external profile override is set. Motrix has not switched to the system profile.",
+      "integrationUnavailable": "Portable mode keeps system settings unchanged. Startup registration, file associations, and system tool installation are unavailable.",
+      "browserDescription": "The local bridge remains available while Motrix is running. Portable mode does not register a browser launcher or change existing browser integration.",
+      "updateDescription": "Download the Windows ZIP, exit Motrix, and move the entire data folder to the new version. Portable mode never runs the installer.",
+      "recoveryError": "Portable data could not be recovered safely. Keep the data folder and check the logs and directory permissions before retrying. Motrix has stopped without using the system profile.",
+      "enginePathDescription": "Portable mode manages engine state inside the data folder for the current application location."
+    },
+    "nas": {
+      "description": "Shared by all DSM administrators. Restart Motrix in Package Center to apply changes.",
+      "account": "Current DSM account: {{username}}",
+      "restartRequired": "Settings saved. Restart Motrix in Package Center to apply them.",
+      "storageUnavailable": "Download folders unavailable",
+      "storageRecoveryHint": "Downloads are paused. Restore the original folders or authorize a different path, then restart Motrix in Package Center.",
+      "roots": "Authorized download folders",
+      "rootsHint": "One existing folder per line. Both your account and the system user motrix need read/write access. Removing the default makes the first folder the new default.",
+      "extensionEnabled": "Enable browser extension connections",
+      "extensionHint": "Use a DSM certificate hostname that resolves to the NAS LAN address.",
+      "webAddress": "Motrix Web address",
+      "webAddressHint": "Use the address you normally open, including /motrix/. You can fill it from this browser.",
+      "useCurrentAddress": "Use this DSM address",
+      "extensionAddress": "Extension connection address",
+      "allowHttp": "Allow pairing codes over HTTP",
+      "allowHttpHint": "Enable only on a trusted network. HTTPS does not require this option.",
+      "clientPort": "Direct client port",
+      "clientPortHint": "Direct clients use this port (1024–65535). DSM HTTPS addresses use the DSM port.",
+      "activeConnections": "Current connection addresses",
+      "cliAddress": "CLI endpoint",
+      "sessionHint": "Clients use their paired DSM account’s current permissions. After DSM logout, session expiration or a package restart, reopen Motrix with that account; pairing again is not required.",
+      "copy": "Copy address",
+      "openSettings": "Configure NAS connections",
+      "errors": {
+        "invalid": "Check the folder paths, port and connection addresses. HTTP code delivery requires explicit permission.",
+        "folderUnavailable": "Check that each folder is on a mounted volume and writable by the internal system user motrix.",
+        "permissionDenied": "The account or folder cannot be authorized. Check DSM shared-folder permissions for your account and the internal system user motrix.",
+        "unavailable": "Package settings are unavailable. Try again after the service has recovered.",
+        "conflict": "The saved configuration changed. Reload before editing again; your unsaved changes will be replaced."
+      }
     }
   },
   "task": {
     "add": {
+      "extraHeaders": "Antete suplimentare",
+      "headerName": "Numele antetului",
+      "headerValue": "Valoarea antetului",
+      "addHeader": "Adăugați un antet",
+      "removeHeader": "Eliminați antetul",
       "adding": "Se adaugă…",
       "advanced": "Avansat",
       "allProxy": "Proxy",
@@ -2787,6 +2911,7 @@
         "title": "Acest torrent există deja"
       },
       "errors": {
+        "headerNameRequired": "Introduceți un nume pentru fiecare antet care are o valoare.",
         "missingSource": "Este necesar un fișier torrent sau un link magnet",
         "noFilesSelected": "Selectează cel puțin un fișier",
         "saveDirRequired": "Este necesar un dosar de salvare",
@@ -2808,6 +2933,7 @@
       "invalidUrlCount": "Nevalide: {{count}}",
       "links": "Linkuri",
       "parseFailed": "Fișierul torrent nu a putut fi analizat.",
+      "unsupportedTorrent": "Acest torrent folosește funcții pe care motorul de descărcare actual nu le acceptă.",
       "pickPathCustom": "Cale personalizată",
       "pickPathTitle": "Selectează dosarul de salvare",
       "queueAdvanceFailed": "Următorul torrent nu a putut fi deschis.",
@@ -2861,7 +2987,9 @@
       "urlsLabel": "URL-uri",
       "urlsWithInvalid": "Valide: {{valid}}, nevalide: {{invalid}}",
       "userAgent": "User-Agent",
-      "validUrlCount": "Valide: {{count}}"
+      "validUrlCount": "Valide: {{count}}",
+      "selectNasTorrent": "Choose a torrent from the NAS",
+      "fnosAuthorizationPopupBlocked": "Permiteți ferestrele pop-up pentru acest site, apoi selectați din nou dosarul."
     },
     "detail": {
       "peers": "Parteneri: {{count}}",
@@ -2878,9 +3006,11 @@
         "recoveryFailed": "Descărcarea nu a putut fi recuperată: {{cause}}",
         "recoveryOutputConflict": "Există atât fișierul temporar, cât și cel final; ambele au fost păstrate pentru verificare manuală",
         "renameDirFailed": "Dosarul nu a putut fi redenumit: {{cause}}",
+        "sourceHash": "SHA-256 de la editor",
         "renameFileFailed": "Fișierul nu a putut fi redenumit: {{cause}}"
       },
       "hint": {
+        "btPortBindFailed": "Schimbați portul de ascultare BT în setările BitTorrent, reporniți motorul și încercați din nou",
         "btMetadataFailed": "Verifică linkul magnet sau adaugă mai multe trackere, apoi încearcă din nou",
         "checksumMismatch": "Fișierul descărcat poate fi corupt; descarcă-l din nou pentru verificare",
         "diskFull": "Eliberează spațiu pe disc sau schimbă dosarul de salvare, apoi încearcă din nou",
@@ -2892,6 +3022,7 @@
         "unauthorized": "Verifică datele de autentificare sau drepturile de acces, apoi încearcă din nou"
       },
       "reason": {
+        "btPortBindFailed": "Portul de ascultare BitTorrent nu este disponibil",
         "btMetadataFailed": "Metadatele torrentului nu au putut fi preluate",
         "btTrackerError": "Conectarea la tracker a eșuat",
         "checksumMismatch": "Suma de control a fișierului nu corespunde",
@@ -2922,7 +3053,8 @@
         "resumeRangeUnsupported": "Fișierul parțial a fost păstrat deoarece serverul nu acceptă reluarea sigură prin cereri de intervale de octeți.",
         "resumeSourceChanged": "Fișierul parțial a fost păstrat deoarece fișierul de pe server s-a modificat de la începutul descărcării.",
         "resumeValidationFailed": "Fișierul parțial a fost păstrat deoarece Motrix nu a putut verifica dacă fișierul de pe server a rămas neschimbat.",
-        "torrentMetaMissing": "Această sarcină BitTorrent nu poate fi recuperată: lipsește fișierul de metadate .torrent. Elimină sarcina și adaug-o din nou."
+        "torrentMetaMissing": "Această sarcină BitTorrent nu poate fi recuperată: lipsește fișierul de metadate .torrent. Elimină sarcina și adaug-o din nou.",
+        "portableExternalPath": "This task uses a location outside the portable folder. The application moved or the original directory is unavailable. Check the download location before retrying."
       },
       "toast": "Sarcini întrerupte recuperate: {{count}}. Apasă pentru a le vedea."
     },
@@ -2949,6 +3081,36 @@
       "image": "Imagine",
       "selectAll": "Selectează tot",
       "video": "Video"
+    },
+    "storage": {
+      "move": "Move files…",
+      "locate": "Find existing files…",
+      "recheck": "Check files…",
+      "moveDescription": "Choose a new folder for your downloaded files. Seeding pauses while they move.",
+      "locateDescription": "Choose where your downloaded files are now. Motrix will check them so you can continue seeding.",
+      "recheckDescription": "Check that your downloaded files are complete. This will not change the files or download them again.",
+      "directory": "Folder",
+      "name": "File or folder name",
+      "resume": "Continue seeding after checking",
+      "checking": "Checking files…",
+      "moving": "Moving files…",
+      "resuming": "Starting seeding…",
+      "verifiedPercent": "Verified: {{percent}}%",
+      "checkFailed": "Check failed",
+      "verified": "Your files are ready to seed.",
+      "resumed": "Seeding has resumed.",
+      "incomplete": "Some files are missing or incomplete. Check that you selected the right folder and try again.",
+      "resumeFailed": "The new location is saved. Select Re-seed to try sharing the files again.",
+      "useExisting": "Check and use these files",
+      "errors": {
+        "unavailable": "This task cannot be moved or checked yet.",
+        "busy": "Another file operation is still running. Please wait for it to finish.",
+        "destination": "Choose a different folder or file name. The location may already contain these files or be inside the current folder.",
+        "conflict": "Another download is using these files. Open that task to change their location.",
+        "engine": "Motrix could not stop this task. Please try again.",
+        "failed": "Motrix could not access or move the files. Check the folder, available space, and permission to use it.",
+        "cancelled": "Check cancelled."
+      }
     }
   },
   "trackers": {
@@ -3174,12 +3336,21 @@
     "freshDescription": "Choose where to save the new download. Motrix will create a separate folder and open the download form for you to confirm. It will start from the beginning and leave your old files untouched.",
     "freshDestination": "Choose where to save the new download",
     "chooseDestination": "Choose another location…",
+    "requestSettingsHelp": "Pentru vechile fișiere cookie, introduceți antetul Cookie necesar. Pentru numele de utilizator și parolele HTTP, introduceți un antet Authorization echivalent. Introduceți datele de autentificare ale proxy-ului în URL-ul acestuia.",
+    "unsupportedOptions": "Opțiuni neacceptate: {{options}}",
+    "ignoredOptions": "Opțiuni neacceptate omise: {{options}}",
+    "currentProxyDescription": "Descărcările migrate folosesc setările proxy actuale pentru descărcare din Motrix. Setările vechi nu sunt păstrate.",
+    "requestOptions": "Setări de cerere salvate: {{options}}",
+    "requestSettingsDescription": "Setările vechi de cerere nu au fost copiate. Introdu-le din nou în Avansat înainte de a descărca într-un dosar nou.",
+    "reconfigureDownload": "Reconfigurați și descărcați…",
     "reasons": {
       "fresh-download-required": "Needs a new download",
       "verification-required": "Existing files need checking",
       "metadata-required": "Original torrent file needed",
       "selection-required": "Choose which files to download",
-      "unsupported-options": "Download details need checking",
+      "request-settings-required": "Setările de cerere salvate vor fi verificate înainte de reluare",
+      "mirrors-unsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "unsupported-options": "Opțiuni de descărcare neacceptate",
       "invalid-record": "Couldn’t read this task",
       "unsafe-path": "File location needs checking",
       "already-imported": "Already imported",
@@ -3222,14 +3393,21 @@
       "payloadMissing": "Some original files are missing, including files previously left unselected. All are needed to resume this task. Download again in a new folder.",
       "payloadUnsafe": "The original files can’t be updated safely because of file links or permissions. Keep them and download again in a new folder.",
       "controlRequired": "The saved download progress is missing. Download again in a new folder.",
-      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder."
+      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder.",
+      "httpContentChanged": "Datele descărcate diferă de conținutul serverului.",
+      "httpRangeUnsupported": "Serverul nu acceptă intervalele de octeți necesare.",
+      "httpValidatorRequired": "Serverul nu oferă un identificator fiabil al versiunii resursei.",
+      "httpVerificationFailed": "Datele descărcate nu au putut fi verificate.",
+      "httpRequestUnsupported": "Motorul sau setările de cerere nu permit reluarea în siguranță.",
+      "httpVerificationCancelled": "Verificare anulată.",
+      "httpRedirectUnsupported": "Linkurile redirecționate nu pot fi reluate în siguranță în locația originală."
     },
     "resultIncompleteTitle": "Migration is incomplete",
     "resultStoppedTitle": "Migration stopped",
-    "activationRequired": "Download again in a new folder to keep the original files.",
+    "activationRequired": "Deschide detaliile sarcinii pentru a verifica și relua descărcarea.",
     "chooseTorrent": "Choose torrent…",
     "torrentFile": "Torrent file",
-    "verifyAndContinue": "Verify and continue",
+    "verifyAndContinue": "Verifică și continuă",
     "verifyDescription": "Motrix will verify the original files, then continue with your previous file selection. While downloading, it may upload data and write shared pieces to unselected files. It won’t seed automatically when finished.",
     "authorizeOriginalDirectory": "Choose the original download folder",
     "verifyReady": "Verify your existing files to continue this download, or start again in a new folder.",
@@ -3341,7 +3519,10 @@
         "remaining": "Remaining"
       }
     },
-    "importSelected": "Migrate"
+    "importSelected": "Migrate",
+    "httpResumeDescription": "Motrix va compara toate intervalele descărcate cu serverul, apoi va continua în dosarul original. Verificarea transferă din nou aceste intervale; setările de cerere salvate rămân în memorie.",
+    "httpVerifying": "Pregătire sau verificare…",
+    "httpOriginalFilesKept": "Fișierele existente au fost păstrate."
   },
   "rendererRecovery": {
     "title": "Interfața trebuie recuperată",
@@ -3403,5 +3584,56 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "Creează torrent",
+    "source": "Conținut de partajat",
+    "options": "Opțiuni torrent",
+    "trackers": "Trackere",
+    "trackersPlaceholder": "Câte un URL announce pe linie",
+    "webSeeds": "Web seed-uri",
+    "webSeedsPlaceholder": "Câte un URL HTTP(S) pe linie (opțional)",
+    "comment": "Comentariu",
+    "private": "Torrent privat",
+    "privateDesc": "Dezactivează DHT și schimbul între peers; distribuire doar prin trackere.",
+    "pieceLength": "Mărimea piesei",
+    "pieceAuto": "Automat",
+    "hashing": "Se calculează amprentele…",
+    "resultName": "Nume",
+    "resultSize": "Dimensiune",
+    "resultInfoHash": "Hash info",
+    "saveFile": "Salvează .torrent",
+    "create": "Creează",
+    "savedToast": "Torrentul a fost salvat în {{path}}",
+    "createFailed": "Torrentul nu a putut fi creat",
+    "saveFailed": "Fișierul torrent nu a putut fi salvat",
+    "seedAfter": "Începe distribuirea după salvare",
+    "seedFailed": "Distribuirea nu a putut porni.",
+    "seedSubmitted": "Sarcina de distribuire a fost trimisă.",
+    "invalidOptions": "Fiecare listă acceptă până la {{limit}} URL-uri valide. Torrentele private necesită un tracker.",
+    "menuLabel": "Creează un fișier torrent…",
+    "downloadRequested": "Descărcare solicitată: {{path}}"
+  },
+  "operatorToken": {
+    "title": "Access password",
+    "change": "Change password",
+    "effect": "Other devices will need to sign in again.",
+    "currentToken": "Current password",
+    "newToken": "New password",
+    "confirmation": "Confirm new password",
+    "weak": "If you plan to access Motrix over the public internet, use a stronger password.",
+    "invalid": "Remove line breaks and other control characters.",
+    "mismatch": "The passwords do not match.",
+    "incorrectToken": "The current password is incorrect. Try again.",
+    "managed": "This password is managed by the server administrator.",
+    "unavailable": "Could not save. Your current password still works. Try again later.",
+    "rateLimited": "Too many attempts. Wait a minute and try again.",
+    "unknown": "Connection interrupted. The change could not be confirmed.",
+    "saved": "Access password updated.",
+    "saving": "Updating…",
+    "update": "Update password",
+    "requiredCurrent": "Enter your current password.",
+    "requiredNew": "Enter a new password.",
+    "tooLong": "This password is too long. Shorten it and try again."
   }
 }

@@ -14,6 +14,7 @@ import {
 } from '@core/bridge/credential-store'
 import { DeviceCodeService } from '@core/bridge/device-code-service'
 import { EndpointFileWriter } from '@core/bridge/endpoint-file-writer'
+import type { ExtensionHandoffModule } from '@core/bridge/extension-handoff'
 import {
   createExtensionIdentityResolver,
   parseDevTrustedExtensions,
@@ -71,6 +72,7 @@ import { app, ipcMain } from 'electron'
 import { CancellationTokenSource } from 'vscode-jsonrpc'
 import { registerTrustedIpcHandler } from '../ipc/trusted-ipc'
 import { i18n } from '../lib/i18n'
+import { getPortableProfile } from '../platform/portable-profile'
 import { getAppImageNativeHost } from './appimage-native-host-electron'
 import { isPackagedLinuxFlatpak } from './flatpak-environment'
 import { resolveNativeHostBinaryPath } from './native-host-path'
@@ -329,7 +331,13 @@ function createNativeMessagingInstallation(): NativeMessagingInstallation {
       ...(installationPlatform === 'win32'
         ? { windowsRoamingAppData: app.getPath('appData') }
         : {}),
-      ...(flatpak ? { registrationMode: 'external' as const } : {}),
+      ...(getPortableProfile() ||
+      (!app.isPackaged &&
+        process.env.MOTRIX_DEV_DISABLE_NATIVE_MESSAGING === '1')
+        ? { registrationMode: 'disabled' as const }
+        : flatpak
+          ? { registrationMode: 'external' as const }
+          : {}),
     }),
     snap,
   }
@@ -403,6 +411,7 @@ export async function syncNativeMessagingManifests(args: {
 }
 
 export async function bootstrapBridge(args: {
+  extensionHandoff?: ExtensionHandoffModule
   getMainWindow: () => Electron.BrowserWindow | null
   motrixVersion: string
   ffmpegAvailable: boolean | (() => Promise<boolean>)
@@ -698,6 +707,7 @@ export async function bootstrapBridge(args: {
     }
 
     server = new WebSocketBridgeServer({
+      extensionHandoff: args.extensionHandoff,
       pairing,
       registry,
       motrixVersion: args.motrixVersion,
@@ -716,6 +726,8 @@ export async function bootstrapBridge(args: {
       queueMbp1Dialog: (req) => dialog.queueMbp1Prompt(req),
       canAdmitExtensionIdentity: (identity) =>
         extensionPairings.canAdmitIdentity(identity),
+      onExtensionSessionsChanged: () =>
+        forwardToRenderer(BridgeEvents.ExtensionSessionsChanged, {}),
       // The only remaining signal that an extension became usable now that
       // `motrix/initialize` mints nothing (R18-10): refresh the extension
       // management projection from the authoritative MBP1 credential set, then
@@ -832,16 +844,19 @@ export async function bootstrapBridge(args: {
     )
 
     bus.on('TaskProgress', ({ sessionKey, params }) => {
-      const session = server.getSession(sessionKey)
-      session?.conn.sendNotification(Notifications.TaskProgress, params)
+      for (const session of server.getTaskNotificationSessions(sessionKey)) {
+        session.conn.sendNotification(Notifications.TaskProgress, params)
+      }
     })
     bus.on('TaskCompleted', ({ sessionKey, params }) => {
-      const session = server.getSession(sessionKey)
-      session?.conn.sendNotification(Notifications.TaskCompleted, params)
+      for (const session of server.getTaskNotificationSessions(sessionKey)) {
+        session.conn.sendNotification(Notifications.TaskCompleted, params)
+      }
     })
     bus.on('TaskError', ({ sessionKey, params }) => {
-      const session = server.getSession(sessionKey)
-      session?.conn.sendNotification(Notifications.TaskError, params)
+      for (const session of server.getTaskNotificationSessions(sessionKey)) {
+        session.conn.sendNotification(Notifications.TaskError, params)
+      }
     })
 
     // Spec 5 — global SSE firehose. BridgeStreamSource subscribes the core
@@ -944,7 +959,10 @@ export async function bootstrapBridge(args: {
     }
 
     installIpcHandler(BridgeQueries.ListPaired, () => [
-      ...extensionPairings.list().map(toPairedClientInfo),
+      ...extensionPairings.list().map((entry) => ({
+        ...toPairedClientInfo(entry),
+        installations: server.getExtensionInstallations(entry.identity),
+      })),
       ...pairing
         .listPaired()
         .filter((entry) => entry.identity.kind === 'cli')

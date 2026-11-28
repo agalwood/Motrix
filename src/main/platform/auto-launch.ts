@@ -1,6 +1,8 @@
 import { app } from 'electron'
+import { getPortableProfile } from './portable-profile'
 
 export function syncAutoLaunch(enabled: boolean): void {
+  if (getPortableProfile()) return
   // Linux login startup is managed in the desktop environment; settings link
   // to the manual instead of offering an automatic registration switch.
   if (process.platform === 'linux') return

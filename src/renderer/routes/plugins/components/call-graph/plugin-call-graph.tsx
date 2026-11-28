@@ -4,15 +4,14 @@ import {
   Background,
   type ColorMode,
   Controls,
-  type EdgeChange,
-  type EdgeSelectionChange,
+  type EdgeChangeset,
   MarkerType,
   MiniMap,
-  type NodeChange,
-  type NodeSelectionChange,
+  type NodeChangeset,
   Panel,
   ReactFlow,
   type ReactFlowInstance,
+  type SelectionChange,
   useNodesState,
 } from '@xyflow/react'
 import {
@@ -53,7 +52,7 @@ import {
 
 const NODE_WIDTH = 224
 const NODE_HEIGHT = 88
-const FIT_VIEW_OPTIONS = { padding: 0.16 } as const
+const FIT_VIEW_OPTIONS = { padding: '6.9%' } as const
 
 const nodeTypes = { pluginCallGraph: PluginCallGraphNode }
 const edgeTypes = { pluginCallGraph: PluginCallGraphEdge }
@@ -222,7 +221,7 @@ export function PluginCallGraph({
   model,
   density,
   strings,
-  colorMode = 'system',
+  colorMode,
   iconsByPluginId,
   onNodeSelect,
   onEdgeSelect,
@@ -350,10 +349,11 @@ export function PluginCallGraph({
   )
 
   const handleNodesChange = useCallback(
-    (changes: NodeChange<PluginCallGraphNodeType>[]) => {
-      applyNodeChanges(changes)
+    (changeset: NodeChangeset<PluginCallGraphNodeType>) => {
+      applyNodeChanges(changeset)
+      const changes = Array.from(changeset)
       const selectedChange = changes.find(
-        (change): change is NodeSelectionChange =>
+        (change): change is SelectionChange =>
           change.type === 'select' && change.selected
       )
       if (selectedChange) {
@@ -383,9 +383,10 @@ export function PluginCallGraph({
   )
 
   const handleEdgesChange = useCallback(
-    (changes: EdgeChange<PluginCallGraphEdgeType>[]) => {
+    (changeset: EdgeChangeset<PluginCallGraphEdgeType>) => {
+      const changes = Array.from(changeset)
       const selectedChange = changes.find(
-        (change): change is EdgeSelectionChange =>
+        (change): change is SelectionChange =>
           change.type === 'select' && change.selected
       )
       if (selectedChange) {
@@ -677,7 +678,8 @@ export function PluginCallGraph({
         fitView
         fitViewOptions={FIT_VIEW_OPTIONS}
         onlyRenderVisibleElements
-        colorMode={colorMode}
+        forceColorMode={colorMode}
+        elevateEdgesOnSelect={false}
         aria-label={strings.graphAriaLabel}
         aria-describedby={descriptionId}
         ariaLabelConfig={strings.ariaLabelConfig}

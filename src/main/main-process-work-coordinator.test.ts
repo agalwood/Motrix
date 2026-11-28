@@ -273,6 +273,43 @@ describe('MainProcessWorkCoordinator', () => {
     expect(publish).toBeGreaterThan(recovery)
   })
 
+  it('routes restored and notified HTTP migrations through the drained completion retry owner', () => {
+    const source = readFileSync(
+      path.resolve(process.cwd(), 'src/main/index.ts'),
+      'utf8'
+    )
+    const restore = source.indexOf('await sessionManager.restore(')
+    const restoreEnd = source.indexOf(
+      'await sessionManager.recoverLegacyTaskLost',
+      restore
+    )
+    const notification = source.indexOf('adapter.onDownloadComplete(')
+    const autoSave = source.indexOf(
+      'sessionManager.startAutoSave(',
+      notification
+    )
+    const polling = source.indexOf('pollingScheduler.start()', autoSave)
+    const cleanup = source.indexOf('new CompletedEngineTaskCleanup(')
+    const cleanupEnd = source.indexOf('supervisor.setStartupGuard(', cleanup)
+
+    expect(source.slice(restore, restoreEnd)).toContain(
+      'completedEngineTaskCleanup.observe(snapshot)'
+    )
+    expect(source.slice(restore, restoreEnd)).not.toContain('finalizeTask(')
+    expect(source.slice(notification, autoSave)).toContain(
+      'await completedEngineTaskCleanup.observe('
+    )
+    expect(autoSave).toBeGreaterThan(restoreEnd)
+    expect(polling).toBeGreaterThan(autoSave)
+    expect(source.slice(cleanup, cleanupEnd)).toContain('finalizeLegacyHttp:')
+    // The queue holds the mutation lock while checking its owner. The verified
+    // finalizer must not acquire the same non-reentrant lock a second time.
+    expect(source.slice(cleanup, cleanupEnd)).toContain(
+      'runTaskMutation: undefined'
+    )
+    expect(source).toContain('completedEngineTaskCleanup?.stopAndDrain()')
+  })
+
   it('anchors an authoritative reconnect poll before recording its samples', () => {
     const source = readFileSync(
       path.resolve(process.cwd(), 'src/main/index.ts'),

@@ -71,6 +71,157 @@ beforeEach(async () => {
 })
 
 describe('<AppearanceDialog>', () => {
+  it.each([
+    {
+      platform: 'darwin',
+      action: 'Save',
+      label: 'Show download progress in Dock',
+    },
+    {
+      platform: 'darwin',
+      action: 'Cancel',
+      label: 'Show download progress in Dock',
+    },
+    {
+      platform: 'win32',
+      action: 'Save',
+      label: 'Show download progress in taskbar',
+    },
+    {
+      platform: 'win32',
+      action: 'Cancel',
+      label: 'Show download progress in taskbar',
+    },
+  ])(
+    'keeps $platform progress in the draft until $action',
+    async ({ platform, action, label }) => {
+      Object.defineProperty(transport, 'platform', {
+        configurable: true,
+        value: platform,
+      })
+      const onClose = vi.fn()
+      render(
+        <AppearanceDialog
+          open
+          onClose={onClose}
+          labelKey="settings.cards.appearance.title"
+          descKey="settings.cards.appearance.desc"
+        />
+      )
+      const user = userEvent.setup()
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled()
+      )
+      const control = screen.getByRole('switch', {
+        name: label,
+      })
+      expect(control).not.toBeChecked()
+      await user.click(control)
+      expect(transport.invoke).not.toHaveBeenCalledWith(
+        Commands.UpdateSettings,
+        expect.anything()
+      )
+      await user.click(screen.getByRole('button', { name: action }))
+      if (action === 'Save') {
+        expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+          app: { showDownloadProgress: true },
+        })
+      } else {
+        expect(transport.invoke).not.toHaveBeenCalledWith(
+          Commands.UpdateSettings,
+          expect.anything()
+        )
+      }
+      expect(onClose).toHaveBeenCalledOnce()
+    }
+  )
+
+  it.each(['linux', 'web'])(
+    'preserves the hidden download progress preference on %s when saving another field',
+    async (platform) => {
+      Object.defineProperty(transport, 'platform', {
+        configurable: true,
+        value: platform,
+      })
+      vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+        if (channel === Queries.GetSettings)
+          return {
+            ...FIXTURE,
+            app: { ...FIXTURE.app, showDownloadProgress: true },
+          }
+        return { saved: true, requiresRestart: false, changedRestartKeys: [] }
+      })
+      render(
+        <AppearanceDialog
+          open
+          onClose={vi.fn()}
+          labelKey="settings.cards.appearance.title"
+          descKey="settings.cards.appearance.desc"
+        />
+      )
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled()
+      )
+      expect(
+        screen.queryByRole('switch', { name: /Show download progress/ })
+      ).toBeNull()
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('switch', { name: 'Reduce motion' }))
+      await user.click(screen.getByRole('button', { name: 'Save' }))
+      expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+        app: { reduceMotion: true },
+      })
+    }
+  )
+
+  it('keeps acceleration changes in the draft until Save', async () => {
+    render(
+      <AppearanceDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.appearance.title"
+        descKey="settings.cards.appearance.desc"
+      />
+    )
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    const control = await screen.findByRole('switch', {
+      name: 'Hardware acceleration',
+    })
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled()
+    )
+    expect(control).toBeChecked()
+    await user.click(control)
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.UpdateSettings,
+      expect.anything()
+    )
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+      app: { hardwareAcceleration: false },
+    })
+  })
+
+  it('hides the hardware acceleration switch in the web UI', async () => {
+    Object.defineProperty(transport, 'platform', {
+      configurable: true,
+      value: 'web',
+    })
+    render(
+      <AppearanceDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.appearance.title"
+        descKey="settings.cards.appearance.desc"
+      />
+    )
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled()
+    )
+    expect(
+      screen.queryByRole('switch', { name: 'Hardware acceleration' })
+    ).not.toBeInTheDocument()
+  })
   it('pins Follow system first and saves the preference only after confirmation', async () => {
     render(
       <AppearanceDialog
@@ -209,12 +360,41 @@ describe('<AppearanceDialog>', () => {
       expect.anything()
     )
   })
-  it.each(['darwin', 'win32', 'linux', 'web'])(
-    'uses the existing glass switch and saves only that preference on %s',
+  it('saves only the glass preference on macOS after confirmation', async () => {
+    render(
+      <AppearanceDialog
+        open
+        onClose={vi.fn()}
+        labelKey="settings.cards.appearance.title"
+        descKey="settings.cards.appearance.desc"
+      />
+    )
+    const toggle = await screen.findByRole('switch', {
+      name: 'Liquid Glass',
+    })
+    const user = userEvent.setup()
+    await user.click(toggle)
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.UpdateSettings,
+      expect.anything()
+    )
+    await user.click(screen.getByRole('button', { name: /save/i }))
+    expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
+      app: { liquidGlassEffect: true },
+    })
+  })
+
+  it.each(['win32', 'linux', 'web'])(
+    'hides glass on %s even when enabled in saved settings',
     async (platform) => {
       Object.defineProperty(transport, 'platform', {
         configurable: true,
         value: platform,
+      })
+      vi.mocked(transport.invoke).mockImplementation(async (channel) => {
+        if (channel === Queries.GetSettings)
+          return { app: { ...FIXTURE.app, liquidGlassEffect: true } }
+        return { saved: true }
       })
       render(
         <AppearanceDialog
@@ -224,18 +404,17 @@ describe('<AppearanceDialog>', () => {
           descKey="settings.cards.appearance.desc"
         />
       )
-      const toggle = await screen.findByRole('switch', {
-        name: 'Liquid Glass',
-      })
-      const user = userEvent.setup()
-      await user.click(toggle)
-      expect(transport.invoke).not.toHaveBeenCalledWith(
-        Commands.UpdateSettings,
-        expect.anything()
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled()
       )
-      await user.click(screen.getByRole('button', { name: /save/i }))
+      expect(
+        screen.queryByRole('switch', { name: 'Liquid Glass' })
+      ).not.toBeInTheDocument()
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('switch', { name: 'Reduce motion' }))
+      await user.click(screen.getByRole('button', { name: 'Save' }))
       expect(transport.invoke).toHaveBeenCalledWith(Commands.UpdateSettings, {
-        app: { liquidGlassEffect: true },
+        app: { reduceMotion: true },
       })
     }
   )

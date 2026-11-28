@@ -36,6 +36,22 @@ export interface Aria2RawFile {
   uris: Aria2RawUri[]
 }
 
+/** File-derived identity and selection; never contains per-file progress. */
+export interface Aria2FileMetadata {
+  firstFile?: Pick<Aria2RawFile, 'path' | 'uris'>
+  fileCount: number
+  uris: string[]
+  selectedFiles: number[]
+}
+
+/** A list sample carries cached metadata, not a fabricated empty files array. */
+export type Aria2PolledStatus = Omit<Aria2RawStatus, 'files'> & {
+  files?: never
+  fileMetadata: Aria2FileMetadata
+}
+
+export type Aria2TaskStatus = Aria2RawStatus | Aria2PolledStatus
+
 export interface Aria2RawUri {
   uri: string
   status: 'used' | 'waiting'

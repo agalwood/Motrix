@@ -1,4 +1,5 @@
 import type {
+  DownloadsOpeningView,
   FileDeletionMode,
   NotificationBadgeStyle,
 } from '@shared/schemas/app-settings'
@@ -139,8 +140,8 @@ export interface SpeedLimitAutoSettings {
 }
 
 export interface SpeedLimitSettings {
-  base: SpeedLimitProfile // always-on floor; 0 = unlimited
-  alt: SpeedLimitProfile // alternative / turtle profile
+  base: SpeedLimitProfile // standard profile; 0 = unlimited
+  alt: SpeedLimitProfile // low speed profile; 0 inherits the corresponding base limit
   turtle: TurtleState // off = base only; on = force alt; auto = triggers decide
   auto: SpeedLimitAutoSettings
 }
@@ -231,11 +232,13 @@ export interface MotrixAppSettings {
   theme: 'system' | 'light' | 'dark'
   sidebarColor: SidebarColor
   reduceMotion: boolean
+  hardwareAcceleration: boolean
   byteUnitSystem: ByteUnitPreference
   speedLimitUnits: SpeedLimitUnits
   language: LanguagePreference
   directoryPreferences: DirectoryPreferences
   defaultSaveDir: string
+  downloadsOpeningView: DownloadsOpeningView
   /** Desktop task file deletion only; the server always deletes directly. */
   fileDeletionMode: FileDeletionMode
   notifyOnComplete: boolean
@@ -255,6 +258,9 @@ export interface MotrixAppSettings {
   /** Release renderer windows while the desktop UI is closed. Background
    *  services such as downloads, notifications, and the tray keep running. */
   lightweightMode: boolean
+  /** Show download progress in the macOS Dock or Windows taskbar. Default false. */
+  showDownloadProgress: boolean
+  keepStatsBarVisible: boolean
   traySpeedometer: boolean
   /** Linux tray artwork color; auto follows the resolved application theme. */
   trayIconColor: TrayIconColor

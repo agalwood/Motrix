@@ -3,7 +3,8 @@ import { mkdtemp, readdir, readFile, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, isAbsolute, join, parse, resolve } from 'node:path'
 import type { Aria2RpcClient } from '@core/engine/aria2/aria2-rpc-client'
-import type { Aria2RawStatus } from '@core/engine/aria2/types'
+import { classifyTerminalError } from '@core/engine/aria2/translate'
+import type { Aria2TaskStatus } from '@core/engine/aria2/types'
 import type { EventBus } from '@core/events/event-bus'
 import { AsyncWorkTracker } from '@core/inspector-activity/async-work-tracker'
 import { newTaskId } from '@core/lib/ids'
@@ -23,6 +24,7 @@ import {
 } from '@core/task/actions/shared'
 import {
   applyTerminalTransition,
+  type TerminalTransitionInput,
   terminalFieldsFromRow,
 } from '@core/task/apply-terminal-transition'
 import {
@@ -81,6 +83,7 @@ const RETRY_METADATA_TIMEOUT_MULTIPLIER = 2
 export type CleanupResult = 'removed' | 'quarantined'
 
 export interface MagnetTrackerLifecycle {
+  canRestoreTask?: (task: TaskRow) => boolean
   /**
    * Coalesced / immediate TaskUpdated publication (TaskUpdatePublisher).
    * Metadata-lifecycle progress rides the trailing window; transitions that
@@ -105,6 +108,8 @@ export interface MagnetTrackerLifecycle {
   runExclusivePersistence?: <T>(operation: () => T | Promise<T>) => Promise<T>
   wallNow?: () => number
   monotonicNow?: () => number
+  /** Existing shell-owned directory for metadata work retained across restarts. */
+  metadataWorkDir?: string
   /** Trusted application-owned root for persisted `.torrent` metadata.
    * Failed-swap cleanup refuses torrent paths outside this directory. */
   torrentMetaDir?: string
@@ -236,6 +241,7 @@ export class MagnetTracker {
     if (this.stopped) return
     const all = this.db.getAllTasks()
     for (const pair of all) {
+      if (this.lifecycle.canRestoreTask?.(pair.task) === false) continue
       const metaInst = pair.instances.find(
         (i) => i.phase === TaskInstancePhase.MagnetMetadataResolution
       )
@@ -487,7 +493,12 @@ export class MagnetTracker {
       }
     }
 
-    const metadataDir = await mkdtemp(join(tmpdir(), 'motrix-magnet-metadata-'))
+    const metadataDir = await mkdtemp(
+      join(
+        this.lifecycle.metadataWorkDir ?? tmpdir(),
+        'motrix-magnet-metadata-'
+      )
+    )
     if (this.stopped) {
       await this.cleanupMetadataDir(metadataDir)
       return ''
@@ -774,7 +785,12 @@ export class MagnetTracker {
       }
     }
 
-    const metadataDir = await mkdtemp(join(tmpdir(), 'motrix-magnet-metadata-'))
+    const metadataDir = await mkdtemp(
+      join(
+        this.lifecycle.metadataWorkDir ?? tmpdir(),
+        'motrix-magnet-metadata-'
+      )
+    )
     let reservedGid: string
     try {
       reservedGid = this.reserveNewEngineGid()
@@ -894,11 +910,10 @@ export class MagnetTracker {
       )
     } catch (err) {
       if (engineDispatchStarted && entry) {
-        const marked = await this.markMetadataFailure(
-          entry,
-          'Magnet metadata retry submission failed',
-          DownloadErrorCode.BtMetadataFailed
-        )
+        const marked = await this.markMetadataFailure(entry, {
+          errorMessage: 'Magnet metadata retry submission failed',
+          errorCode: DownloadErrorCode.BtMetadataFailed,
+        })
         if (marked) await this.cleanupCacheEntryUnderMutation(entry)
       } else {
         const cached = this.cache.get(reservedGid)
@@ -928,7 +943,7 @@ export class MagnetTracker {
     }
   }
 
-  observe(raw: Aria2RawStatus): boolean {
+  observe(raw: Aria2TaskStatus): boolean {
     // Source of truth for "this gid is metadata-only, polling should
     // skip it" is the cache Map. Returning true here makes the
     // PollingScheduler's shouldSkipForPendingMagnetMetadata helper
@@ -1456,11 +1471,10 @@ export class MagnetTracker {
       // not be read or parsed. This is still a terminal, user-visible metadata
       // failure: commit DB → TaskManager → TaskUpdated before cleanup so the
       // current session can never remain stuck on FetchingMetadata.
-      const marked = await this.markMetadataFailure(
-        entry,
-        'Magnet metadata processing failed',
-        DownloadErrorCode.BtMetadataFailed
-      )
+      const marked = await this.markMetadataFailure(entry, {
+        errorMessage: 'Magnet metadata processing failed',
+        errorCode: DownloadErrorCode.BtMetadataFailed,
+      })
       if (marked) await this.cleanupCacheEntry(entry)
       return
     }
@@ -1479,8 +1493,10 @@ export class MagnetTracker {
       // cache now and primeFromDatabase restores it after restart.
       const marked = await this.markMetadataFailure(
         entry,
-        'Magnet metadata result cleanup could not be confirmed',
-        DownloadErrorCode.BtMetadataFailed,
+        {
+          errorMessage: 'Magnet metadata result cleanup could not be confirmed',
+          errorCode: DownloadErrorCode.BtMetadataFailed,
+        },
         true
       )
       if (marked) await this.cleanupCacheEntry(entry)
@@ -1563,12 +1579,50 @@ export class MagnetTracker {
     entry: MetadataInstanceCache
   ): Promise<void> {
     if (!this.getCurrentFetchingMetadataPair(gid, entry)) return
-    log.warn({ gid, taskId: entry.taskId }, 'magnet metadata fetch failed')
-    const marked = await this.markMetadataFailure(
-      entry,
-      'Magnet metadata fetch failed',
-      DownloadErrorCode.BtMetadataFailed
+    let failure: TerminalTransitionInput & {
+      errorMessage: string
+      errorCode: DownloadErrorCode
+    } = {
+      errorMessage: 'Magnet metadata fetch failed',
+      errorCode: DownloadErrorCode.BtMetadataFailed,
+    }
+    // Error notifications carry only a GID. Read its terminal result before
+    // cleanup removes it so local port/disk failures retain their real cause.
+    try {
+      const raw = await this.rpcClient.tellStatus(gid, [
+        'status',
+        'errorCode',
+        'errorMessage',
+      ])
+      if (raw?.status === 'error') {
+        const classified = classifyTerminalError(
+          raw.errorCode,
+          raw.errorMessage
+        )
+        failure = {
+          ...classified,
+          errorMessage: raw.errorMessage?.trim() || failure.errorMessage,
+          errorCode:
+            classified.errorCode &&
+            classified.errorCode !== DownloadErrorCode.Unknown
+              ? classified.errorCode
+              : DownloadErrorCode.BtMetadataFailed,
+        }
+      }
+    } catch (err) {
+      // Evicted results or a disconnected engine must still leave a retryable
+      // task, rather than stranding its parent in FetchingMetadata.
+      log.warn(
+        { err, gid, taskId: entry.taskId },
+        'failed to read magnet failure'
+      )
+    }
+    if (this.stopped) return
+    log.warn(
+      { gid, taskId: entry.taskId, errorCode: failure.errorCode },
+      'magnet metadata fetch failed'
     )
+    const marked = await this.markMetadataFailure(entry, failure)
     if (marked) await this.cleanupCacheEntry(entry)
   }
 
@@ -1586,18 +1640,19 @@ export class MagnetTracker {
   ): Promise<void> {
     if (!this.getCurrentFetchingMetadataPair(gid, entry)) return
     log.warn({ gid, taskId: entry.taskId }, 'magnet metadata fetch timed out')
-    const marked = await this.markMetadataFailure(
-      entry,
-      'Magnet metadata fetch timed out',
-      DownloadErrorCode.Timeout
-    )
+    const marked = await this.markMetadataFailure(entry, {
+      errorMessage: 'Magnet metadata fetch timed out',
+      errorCode: DownloadErrorCode.Timeout,
+    })
     if (marked) await this.cleanupCacheEntry(entry)
   }
 
   private async markMetadataFailure(
     entry: MetadataInstanceCache,
-    errorMessage: string,
-    errorCode: DownloadErrorCode,
+    failure: TerminalTransitionInput & {
+      errorMessage: string
+      errorCode: DownloadErrorCode
+    },
     cleanupQuarantined = false
   ): Promise<boolean> {
     const pair = this.getCurrentFetchingMetadataPair(entry.gid, entry)
@@ -1607,7 +1662,7 @@ export class MagnetTracker {
     const terminal = applyTerminalTransition(
       terminalFieldsFromRow(pair.task),
       TaskStatus.Error,
-      { errorMessage, errorCode },
+      failure,
       now
     )
     const updatedTask: TaskRow = {
@@ -1616,6 +1671,9 @@ export class MagnetTracker {
       finishedAt: terminal.finishedAt,
       errorMessage: terminal.errorMessage,
       errorCode: terminal.errorCode,
+      errorDetailKey: terminal.errorDetailKey,
+      errorDetailParams: terminal.errorDetailParams,
+      diagnosisRevision: terminal.diagnosisRevision,
       updatedAt: now,
     }
     const updatedInstances: TaskInstanceRow[] = pair.instances.map(

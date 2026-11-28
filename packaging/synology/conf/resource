@@ -1,0 +1,10 @@
+{
+  "data-share": {
+    "shares": [{ "name": "motrix", "permission": { "rw": ["motrix"] }, "once": true }]
+  },
+  "web-config": {
+    "nginx-static-config": {
+      "enable": [{ "type": "dsm", "relpath": "nginx/motrix.conf" }]
+    }
+  }
+}

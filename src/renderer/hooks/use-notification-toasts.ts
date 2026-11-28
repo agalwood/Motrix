@@ -43,7 +43,7 @@ const FOCUSED_COMPLETE_TOAST_ID = 'notification-complete'
  * 1. Generic error rows (`n.severity === 'error'`, any kind other than
  *    `engine-failure`) toast through `FOCUSED_ERROR_TOAST_ID`, gated on
  *    document foreground (see below) and coalesced via close-then-add
- *    (F9). Desktop event forwarding filters muted task outcomes before they
+ *    (F9). Host event forwarding filters muted task outcomes before they
  *    reach this hook. Native download notifications independently follow the
  *    system preference, including while this document is in the foreground.
  *

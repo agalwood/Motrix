@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from '@renderer/components/ui/dialog'
 import { useByteFormat } from '@renderer/hooks/use-byte-format'
+import { useExitSnapshot } from '@renderer/hooks/use-exit-snapshot'
 import { truncatePath } from '@shared/lib/path-display'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
@@ -78,6 +79,7 @@ export function RemoveTasksDialog({
   onConfirm,
 }: RemoveTasksDialogProps) {
   const { formatBytes } = useByteFormat()
+  const presentation = useExitSnapshot(open, selected)
 
   const { t } = useTranslation()
   const checkboxId = useId()
@@ -93,8 +95,8 @@ export function RemoveTasksDialog({
     }
   }, [open, preCheckDeleteFiles])
 
-  const showEstimate = deleteFiles && hasOutput(selected)
-  const title = buildTitle(selected, t)
+  const showEstimate = deleteFiles && hasOutput(presentation)
+  const title = buildTitle(presentation, t)
 
   return (
     <Dialog
@@ -123,7 +125,7 @@ export function RemoveTasksDialog({
             <WarningIcon className="size-3.5" />
             <span>
               {t('panel.downloads.action.removeFilesEstimate', {
-                bytes: formatBytes(estimateDiskUsage(selected)),
+                bytes: formatBytes(estimateDiskUsage(presentation)),
               })}
             </span>
           </div>

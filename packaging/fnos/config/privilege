@@ -1,0 +1,7 @@
+{
+  "defaults": {
+    "run-as": "root"
+  },
+  "username": "motrix",
+  "groupname": "motrix"
+}

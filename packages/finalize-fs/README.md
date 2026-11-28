@@ -2,7 +2,7 @@
 
 The sidecar performs handle-relative, identity-checked file publication and
 removal. No-replace operations never replace an existing destination. The
-separate macOS exFAT compatibility operation replaces a journaled reservation
+separate macOS exFAT/Paragon NTFS compatibility operation replaces a journaled reservation
 under the ownership assumptions below. Reparse points and
 unsafe path components remain rejected on Windows.
 
@@ -47,6 +47,12 @@ component is sanitized: directory components are user-created through native
 dialogs and are validated, not rewritten, by the platform open path.
 
 ## Linux, NFS and mounted NTFS
+
+Linux root admission uses `O_PATH` handles for intermediate directories, so
+search-only ancestors (including NAS application paths) do not require directory
+listing permission. Every component still uses `O_DIRECTORY | O_NOFOLLOW`.
+The final root is opened for reading and remains usable for directory syncing;
+missing traversal permission and an unreadable final root still fail closed.
 
 Linux NFS and NTFS-3G mounts can reject `renameat2(RENAME_NOREPLACE)` with
 `EINVAL` even when ordinary rename works. For a regular file only, the native
@@ -132,15 +138,52 @@ it does not assert support for every FUSE driver, network server, kernel, or
 mount configuration. Synchronization success remains subject to the storage
 implementation; tmpfs, in particular, is volatile across system restart.
 
-## macOS local exFAT
+## macOS exFAT, Paragon NTFS, and SMB (`smbfs`)
 
 Some FSKit exFAT volumes reject exclusive rename with `ENOTSUP` (45), which
 differs from `EOPNOTSUPP` (102) on Darwin, and do not support hard links.
 Ordinary download suffix removal can use `reserve_exfat_target` followed by
 `rename_opened_reserved`. The original no-replace operation keeps its strict
 contract. This compatibility route requires a regular file, the same parent,
-an exact `.motrix` suffix removal, a local exFAT mount, and no plugin replacement
-or staged metadata. Permission, space, I/O and other errors do not enable it.
+an exact `.motrix` suffix removal, a local exFAT, local `ufsd_NTFS`, or macOS
+`smbfs` mount, and no plugin replacement or staged metadata. Permission, space,
+I/O and other errors do not enable it.
+
+macOS `smbfs` mounts also reject `fcntl(dir_fd, F_FULLFSYNC)`,
+`renameatx_np(RENAME_EXCL)`, and `linkat` with `ENOTSUP` (45), reject
+`fgetattrlist(ATTR_VOL_UUID)` with `EINVAL` (22), and synthesize path-derived
+`st_ino` values that change across `renameat`:
+
+- When `File::sync_all()` (`F_FULLFSYNC`) returns `ENOTSUP` on a verified
+  non-local `smbfs` handle, the sidecar falls back to `fsync(fd)` and reports
+  `directory_sync_mode: "remote_acknowledged"` (mirroring Windows SMB).
+  Durability remains subject to the remote SMB server.
+- Because `ATTR_VOL_UUID` is unavailable on `smbfs`, the sidecar hashes the
+  mount source (`f_mntfromname`) with a domain tag into a 32-hex persistent
+  volume identifier so SMB credentials/hostnames are never written to journals.
+- During `rename_opened_reserved` on `smbfs`, `ensure_same_entry` binds the
+  held source file descriptor to the installed target path before reporting the
+  updated `platform_file_id`; the post-rename synthetic `st_ino` change is
+  accepted only after descriptor/path identity, size, mode, link count, and
+  mtime all match and the `.motrix` source name is confirmed absent.
+- **Shared-mount caveats**: as with exFAT and Paragon NTFS, this route relies
+  on an application-owned-name contract rather than atomic no-replace. An
+  external SMB client modifying or replacing the target between the reservation
+  check and `renameat` is outside the protection boundary.
+
+Paragon NTFS also rejects exclusive rename with `ENOTSUP`. Its volume UUID
+attribute query returns `EINVAL`, so the sidecar obtains that persistent UUID
+from the system Disk Arbitration description of the held mount's BSD device.
+Unknown NTFS/FUSE implementations and other nonlocal mounts remain unsupported by
+this compatibility route. The existing `exfat_*` wire operation names are
+retained for protocol compatibility.
+
+Paragon initializes file timestamps at whole-second precision and can quickly
+reuse a reservation's inode after publication. All ownership markers have the
+same size, which can make a new marker alias the previous marker's entry in
+the host's inode/size/time digest cache. Newly created NTFS reservations receive
+an explicit high-resolution modification time before their identity is read
+or synced. Only the private marker is timestamped; download metadata is unchanged.
 
 The host durably journals a version-3 intent containing a random reservation
 token and the volume UUID before creating the final name with
@@ -201,6 +244,21 @@ an existing disposable volume, set `MOTRIX_FINALIZE_EXFAT_ROOT` and run:
 ```sh
 cargo test --manifest-path packages/finalize-fs/Cargo.toml --locked -- --ignored --exact platform::unix::reserved::tests::exfat_reservations_preserve_conflicts_and_publish_held_files
 pnpm exec vitest run src/core/plugin/finalize/finalize-exfat.integration.test.ts
+```
+
+For a writable Paragon NTFS volume, set `MOTRIX_FINALIZE_NTFS_ROOT` instead of
+the exFAT root variable. The native suite verifies reservation ownership,
+conflicts, empty and Unicode files; the same application suite exercises
+successive publication with a shared digest cache and interrupted-publication
+recovery using a real sidecar and SQLite database. These tests create only
+unique scratch directories and never detach an NTFS volume:
+
+```sh
+MOTRIX_FINALIZE_NTFS_ROOT=/Volumes/ntfs-test cargo test \
+  --manifest-path packages/finalize-fs/Cargo.toml --locked \
+  ntfs_reservations_preserve_conflicts_and_publish_held_files -- --ignored
+MOTRIX_FINALIZE_NTFS_ROOT=/Volumes/ntfs-test pnpm exec vitest run \
+  src/core/plugin/finalize/finalize-exfat.integration.test.ts
 ```
 
 ## Windows and SMB

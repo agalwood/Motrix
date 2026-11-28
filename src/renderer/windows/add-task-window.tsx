@@ -6,6 +6,7 @@ import { PlatformServicesProvider } from '@renderer/platform/services'
 import {
   ADD_TASK_COLLAPSED_HEIGHT,
   ADD_TASK_MAX_HEIGHT,
+  TASK_FORM_WIDTH,
 } from '@shared/constants/add-task'
 import {
   addTaskUrlParamsSchema,
@@ -19,7 +20,7 @@ export function AddTaskWindow() {
   const { t } = useTranslation()
 
   useAdaptiveWindowHeight({
-    width: 640,
+    width: TASK_FORM_WIDTH,
     minHeight: ADD_TASK_COLLAPSED_HEIGHT,
     maxHeight: ADD_TASK_MAX_HEIGHT,
     enabled: __MOTRIX_TARGET__ === 'electron',
@@ -52,7 +53,9 @@ export function AddTaskWindow() {
               navigateMainTo: `/downloads/all?task=${encodeURIComponent(taskId)}`,
             })
           }
-          onCancel={() => void electronServices.closeHost({ showMain: true })}
+          onCancel={() =>
+            void electronServices.closeHost({ showMain: 'if-visible' })
+          }
           subscribeEvents
         />
       </PlatformServicesProvider>

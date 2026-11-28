@@ -12,6 +12,7 @@ vi.mock('electron', () => ({
 }))
 
 import { syncAutoLaunch } from './auto-launch'
+import { setPortableProfile } from './portable-profile'
 
 describe('syncAutoLaunch', () => {
   beforeEach(() => {
@@ -62,4 +63,23 @@ describe('syncAutoLaunch', () => {
 
     Object.defineProperty(process, 'platform', { value: originalPlatform })
   })
+})
+
+it('never adds or removes host startup entries from a portable profile', () => {
+  mockSetLoginItemSettings.mockClear()
+  setPortableProfile({
+    root: 'E:\\Motrix',
+    dataDir: '',
+    userDataDir: '',
+    tempDir: '',
+    workDir: '',
+    downloadsDir: '',
+  })
+  try {
+    syncAutoLaunch(true)
+    syncAutoLaunch(false)
+    expect(mockSetLoginItemSettings).not.toHaveBeenCalled()
+  } finally {
+    setPortableProfile(null)
+  }
 })

@@ -5,7 +5,7 @@
     "moduleResolution": "Bundler",
     "strict": true,
     "noEmit": true,
-    "types": ["@motrix/plugin-api-2-0"]
+    "types": ["@motrix/plugin-api"]
   },
   "include": ["src/**/*.ts"]
 }

@@ -685,6 +685,9 @@ export class PluginInstaller {
             .runDeactivate(pluginId)
             .catch(() => undefined)
         }
+        // Diagnostics remain on disk, but no writer may outlive its plugin.
+        // A flush/close failure aborts before any durable plugin state is removed.
+        await this.opts.capabilityHost.releaseLog?.(pluginId)
         const removedDir = path.join(
           this.opts.pluginsDir,
           '_staging',

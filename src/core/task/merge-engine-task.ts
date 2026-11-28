@@ -1,10 +1,17 @@
 import { hasLegacyImport } from '@core/legacy-import/legacy-task-policy'
 import type { DownloadTask } from '@shared/types/task'
-import { TaskStatus, TransitionPhase } from '@shared/types/task'
+import { TaskStatus, TaskType, TransitionPhase } from '@shared/types/task'
+import { hasRetainedHttpRequestContext } from '@shared/types/task-actions'
 import { shareRatio } from '@shared/utils/share-ratio'
 import { applyTerminalTransition } from './apply-terminal-transition'
 import { unsettledBtUpload } from './bt-upload-settlement'
 import { isCompletedDirectOutput } from './completed-direct-task-policy'
+import {
+  applyDirectMagnetDiskPathToInstances,
+  buildDirectMagnetIdentityPatch,
+  extractResolvedBtNameFromTask,
+  needsDirectMagnetIdentityResolution,
+} from './direct-magnet-identity'
 import { nonZeroMerge } from './non-zero-merge'
 import { syncTerminalInstanceStatus } from './task-instance'
 
@@ -20,6 +27,27 @@ export function mergeEngineTask(
   engineTask: DownloadTask,
   now = Date.now()
 ): DownloadTask {
+  if (existing.storageOperation) return existing
+  if (
+    existing.status === TaskStatus.Error &&
+    existing.engineTaskId === engineTask.engineTaskId &&
+    existing.instances.some(
+      (instance) =>
+        instance.gid === existing.engineTaskId &&
+        instance.payload.unconfirmedTorrentCreateGid === instance.gid
+    )
+  )
+    return existing
+  if (
+    existing.engineTaskId === engineTask.engineTaskId &&
+    existing.status === TaskStatus.Error &&
+    engineTask.status === TaskStatus.Paused &&
+    hasRetainedHttpRequestContext(existing)
+  ) {
+    // Engine startup retains failed native requests paused. Only explicit Retry
+    // may validate and reopen them; polling must not offer ordinary Resume.
+    return existing
+  }
   // Engine session replay and delayed notifications cannot reopen durable
   // direct history. Explicit re-add changes ownership/state before merging.
   if (
@@ -58,7 +86,10 @@ export function mergeEngineTask(
   // metrics, but do not let that engine snapshot publish a status ahead of
   // the application-owned transition.
   const nextStatus =
-    existing.transitionPhase !== TransitionPhase.Idle
+    existing.transitionPhase !== TransitionPhase.Idle ||
+    (hasLegacyImport(existing) &&
+      existing.type === TaskType.Http &&
+      protected_.status === TaskStatus.Completed)
       ? existing.status
       : protected_.status
   const terminalFields = applyTerminalTransition(
@@ -72,8 +103,24 @@ export function mergeEngineTask(
     now
   )
   const bt = protected_.bt ?? existing.bt
+  // 直连磁力在元数据接力当帧可能尚未拿到真实种子名（例如由单条完成通知触发接力），
+  // 后续常规轮询一旦获取到真实 BT 名称，立刻补齐任务名与实际落盘路径 (#2569)。
+  const resolvedDirectMagnetName = needsDirectMagnetIdentityResolution(existing)
+    ? extractResolvedBtNameFromTask(engineTask, existing.infoHash)
+    : null
+  const directMagnetIdentityPatch = resolvedDirectMagnetName
+    ? buildDirectMagnetIdentityPatch(existing, resolvedDirectMagnetName)
+    : null
+  const mergedInstances = directMagnetIdentityPatch
+    ? applyDirectMagnetDiskPathToInstances(
+        existing.instances,
+        existing.engineTaskId,
+        directMagnetIdentityPatch.diskPath
+      )
+    : existing.instances
   const merged: DownloadTask = {
     ...existing,
+    ...(directMagnetIdentityPatch ?? {}),
     ...terminalFields,
     progress,
     totalBytes: protected_.totalBytes,
@@ -88,13 +135,18 @@ export function mergeEngineTask(
     uploadedBytesBaseline: existing.uploadedBytesBaseline,
     fileCount: protected_.fileCount,
     infoHash: protected_.infoHash ?? existing.infoHash,
-    uris: protected_.uris.length > 0 ? protected_.uris : existing.uris,
+    uris:
+      !hasLegacyImport(existing) && protected_.uris.length > 0
+        ? protected_.uris
+        : existing.uris,
     bt: bt
       ? {
           ...bt,
+          // Privacy comes from torrent metadata; engine polling may not report
+          // it. Retain it across download, finalize and restored seeding polls.
+          isPrivate: existing.bt?.isPrivate ?? bt.isPrivate,
           ...(hasLegacyImport(existing)
             ? {
-                isPrivate: existing.bt?.isPrivate ?? false,
                 selectedFiles: existing.bt?.selectedFiles ?? [],
                 announceList: existing.bt?.announceList ?? [],
                 trackers: existing.bt?.trackers ?? [],
@@ -103,6 +155,7 @@ export function mergeEngineTask(
           ratio: shareRatio(uploadedBytes, protected_.totalBytes),
         }
       : undefined,
+    instances: mergedInstances,
     updatedAt: now,
   }
   if (
@@ -110,7 +163,9 @@ export function mergeEngineTask(
     merged.status === TaskStatus.Error
   ) {
     // The candidate must not mutate live instances before persistence succeeds.
-    merged.instances = existing.instances.map((instance) => ({ ...instance }))
+    if (merged.instances === existing.instances) {
+      merged.instances = existing.instances.map((instance) => ({ ...instance }))
+    }
     syncTerminalInstanceStatus(merged, merged.status)
   }
   return merged
@@ -121,6 +176,11 @@ export function hasEngineTaskDelta(
   after: DownloadTask
 ): boolean {
   return (
+    before.name !== after.name ||
+    before.filename !== after.filename ||
+    before.finalName !== after.finalName ||
+    before.diskPath !== after.diskPath ||
+    before.finalPath !== after.finalPath ||
     before.status !== after.status ||
     before.progress !== after.progress ||
     before.totalBytes !== after.totalBytes ||
@@ -137,8 +197,19 @@ export function hasEngineTaskDelta(
     before.errorCode !== after.errorCode ||
     before.finishedAt !== after.finishedAt ||
     before.infoHash !== after.infoHash ||
+    !sameValues(before.uris, after.uris) ||
+    !sameValues(before.bt?.selectedFiles, after.bt?.selectedFiles) ||
+    !sameValues(before.bt?.trackers, after.bt?.trackers) ||
+    before.bt?.comment !== after.bt?.comment ||
     before.bt?.peers !== after.bt?.peers ||
     before.bt?.seeds !== after.bt?.seeds ||
     before.bt?.ratio !== after.bt?.ratio
+  )
+}
+
+function sameValues<T>(a: readonly T[] = [], b: readonly T[] = []): boolean {
+  return (
+    a === b ||
+    (a.length === b.length && a.every((value, index) => value === b[index]))
   )
 }

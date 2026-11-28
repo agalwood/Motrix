@@ -1,5 +1,16 @@
 //! Compile-time platform facade for handle-bound filesystem operations.
 
+#[cfg(target_os = "linux")]
+pub(crate) use unix::open_removal;
+
+#[cfg(not(target_os = "linux"))]
+pub(crate) fn open_removal(_: &RootHandle, _: &str, _: &str) -> std::io::Result<ArtifactHandle> {
+    Err(std::io::Error::new(
+        std::io::ErrorKind::Unsupported,
+        "NAS removal requires Linux",
+    ))
+}
+
 #[cfg(target_os = "macos")]
 pub(crate) use unix::{exfat_volume_identity, rename_opened_reserved, reserve_exfat_target};
 
@@ -12,11 +23,22 @@ mod windows;
 #[cfg(any(windows, test))]
 mod windows_policy;
 
+#[cfg(windows)]
+pub(crate) use windows::open_rename_guard;
+
+#[cfg(not(windows))]
+pub(crate) fn open_rename_guard(
+    _: &RootHandle,
+    _: &str,
+) -> std::io::Result<Option<(ArtifactHandle, String)>> {
+    Ok(None)
+}
+
 #[cfg(unix)]
 pub(crate) use unix::{
     ArtifactHandle, RootHandle, copy_opened, copy_selected_file, create_private_root,
     open_artifact, open_artifact_for_rename, open_root, open_selected_file, remove_opened,
-    remove_private_root, rename_no_replace, rename_opened_no_replace, root_identity, sync_root,
+    remove_private_root, rename_no_replace, rename_opened_no_replace, root_identity,
 };
 #[cfg(not(any(unix, windows)))]
 pub(crate) use unsupported::{
@@ -36,7 +58,11 @@ pub(crate) fn sync_root_mode(root: &RootHandle) -> std::io::Result<&'static str>
     {
         windows::sync_root_mode(root)
     }
-    #[cfg(not(windows))]
+    #[cfg(unix)]
+    {
+        unix::sync_root_mode(root)
+    }
+    #[cfg(not(any(unix, windows)))]
     {
         sync_root(root).map(|()| "directory_flushed")
     }

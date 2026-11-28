@@ -1,18 +1,17 @@
 import path from 'node:path'
+import { normalizeBtih, parseMagnet } from '@motrix/torrent/magnet'
 import { AppError, ErrorCode } from '@shared/errors'
 import type {
   TaskCreateCommandResult,
   TorrentDuplicateConflict,
 } from '@shared/schemas/add-task'
+import { legacyTaskMetadataSchema } from '@shared/schemas/legacy-import'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskInstancePhase, TaskStatus, TaskType } from '@shared/types/task'
 import { getBtOutputReservations } from './bt-output-reservation'
 import { getBtDirectStorageLayout } from './bt-storage-layout'
 import { outputPathIdentity } from './output-path-identity'
 
-const HEX_INFO_HASH_RE = /^[a-f0-9]{40}$/i
-const BASE32_INFO_HASH_RE = /^[a-z2-7]{32}$/i
-const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
 const admissionTails = new Map<string, Promise<void>>()
 
 /**
@@ -32,11 +31,50 @@ export async function withBtOutputAdmission<T>(
   saveDir: string,
   operation: () => Promise<T>
 ): Promise<T> {
-  const key = canonicalBtPath(saveDir)
-  const release = await acquireBtAdmission(`output:${key}`)
+  return withBtOutputAdmissions([saveDir], operation)
+}
+
+const outputAdmissions = new Set<{ roots: string[]; settled: Promise<void> }>()
+
+function directoriesOverlap(a: string, b: string): boolean {
+  const within = (root: string, candidate: string) => {
+    const relative = path.relative(root, candidate)
+    return (
+      relative === '' ||
+      (relative !== '..' &&
+        !relative.startsWith(`..${path.sep}`) &&
+        !path.isAbsolute(relative))
+    )
+  }
+  return within(a, b) || within(b, a)
+}
+
+/** Atomically reserve both move roots, including descendant creation, without lock-order cycles. */
+export async function withBtOutputAdmissions<T>(
+  saveDirs: readonly string[],
+  operation: () => Promise<T>
+): Promise<T> {
+  const roots = [...new Set(saveDirs.map(canonicalBtPath))]
+  const predecessors = [...outputAdmissions].filter((entry) =>
+    roots.some((root) =>
+      entry.roots.some((other) => directoriesOverlap(root, other))
+    )
+  )
+  let release!: () => void
+  const entry = {
+    roots,
+    settled: new Promise<void>((resolve) => {
+      release = resolve
+    }),
+  }
+  // Register synchronously before yielding. Every dependency points backwards
+  // in admission order, even for simultaneous A→B and B→A moves.
+  outputAdmissions.add(entry)
   try {
+    await Promise.all(predecessors.map((previous) => previous.settled))
     return await operation()
   } finally {
+    outputAdmissions.delete(entry)
     release()
   }
 }
@@ -92,39 +130,16 @@ export interface InspectBtDuplicateInput {
 
 /** Normalize a magnet/torrent BTIH to the 40-character domain form. */
 export function normalizeBtInfoHash(value: string): string | null {
-  const trimmed = value.trim()
-  if (HEX_INFO_HASH_RE.test(trimmed)) return trimmed.toLowerCase()
-  if (!BASE32_INFO_HASH_RE.test(trimmed)) return null
-
-  let bits = 0
-  let bitCount = 0
-  const bytes: number[] = []
-  for (const char of trimmed.toUpperCase()) {
-    const digit = BASE32_ALPHABET.indexOf(char)
-    if (digit < 0) return null
-    bits = (bits << 5) | digit
-    bitCount += 5
-    while (bitCount >= 8) {
-      bitCount -= 8
-      bytes.push((bits >> bitCount) & 0xff)
-      bits &= (1 << bitCount) - 1
-    }
-  }
-  if (bytes.length !== 20) return null
-  return bytes.map((byte) => byte.toString(16).padStart(2, '0')).join('')
+  return normalizeBtih(value.trim())
 }
 
 export function extractMagnetInfoHash(uri: string): string | null {
   try {
-    const params = new URL(uri).searchParams
-    for (const xt of params.getAll('xt')) {
-      const match = /^urn:btih:(.+)$/i.exec(xt)
-      if (match) return normalizeBtInfoHash(match[1])
-    }
+    const { identity } = parseMagnet(uri)
+    return identity.kind === 'v2' ? null : identity.sha1
   } catch {
-    // Invalid magnet URIs are rejected by the request schema/engine path.
+    return null
   }
-  return null
 }
 
 export function inspectBtDuplicate(
@@ -268,6 +283,26 @@ function conflict(
 }
 
 export function isBtInfoHashRegistered(task: DownloadTask): boolean {
+  // An untouched import is only a read-only record, never an engine owner.
+  // Keep it in same-directory/path reservations, but permit a separate copy.
+  const instance = task.instances[0]
+  if (
+    !task.engineTaskId &&
+    task.instances.length === 1 &&
+    !instance.gid &&
+    !Object.hasOwn(instance.payload, 'legacyBtActivation')
+  ) {
+    const marker = legacyTaskMetadataSchema.safeParse(
+      instance.payload.legacyImport
+    )
+    if (
+      marker.success &&
+      marker.data.activation === 'inactive' &&
+      marker.data.storagePolicy === 'legacy-read-only'
+    )
+      return false
+  }
+
   // MetadataReady has already purged its metadata-only aria2 result. Error is
   // deliberately conservative: a quarantined metadata cleanup can expose an
   // Error task while its engine row is still alive, so a new owner must wait

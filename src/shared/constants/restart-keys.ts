@@ -29,4 +29,5 @@ export const APP_RESTART_REQUIRED_KEYS: ReadonlySet<keyof MotrixAppSettings> =
   new Set<keyof MotrixAppSettings>([
     'mainWindowMinWidth',
     'mainWindowMinHeight',
+    'hardwareAcceleration',
   ])

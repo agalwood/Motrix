@@ -16,14 +16,22 @@
     "MPL-2.0",
     "NOASSERTION",
     "OFL-1.1",
-    "Python-2.0"
+    "Python-2.0",
+    "PSF-2.0"
   ],
   "reviewedRepositoryLicenseFiles": {
+    "THIRD_PARTY_LICENSES/react-compiler-runtime-LICENSE-MIT": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93",
     "THIRD_PARTY_LICENSES/MPL-2.0": "5eba353fe5076ac3432177f8ab1cf75e3afcd0584251e37c3bfead5f447d040e",
     "THIRD_PARTY_LICENSES/aria2-COPYING": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643",
     "THIRD_PARTY_LICENSES/aria2-LICENSE.OpenSSL": "e05998a2537cddad682fb240371fbf859966ff8d9b34e55f2ebe55ecaef4333f"
   },
   "packageOverrides": {
+    "react-compiler-runtime@1.0.0": {
+      "fallbackLicenseFiles": [
+        "THIRD_PARTY_LICENSES/react-compiler-runtime-LICENSE-MIT"
+      ],
+      "attribution": "Copyright (c) Meta Platforms, Inc. and affiliates. The npm archive omits the root LICENSE referenced by its source headers; preserved from https://github.com/facebook/react/blob/5c15c1cd3442f28044217703b5625f98c40042ee/LICENSE at the package gitHead."
+    },
     "type-fest@4.41.0": {
       "licenseConcluded": "MIT"
     },
@@ -35,14 +43,6 @@
       "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT"],
       "attribution": "James Sumners <james.sumners@gmail.com>"
     },
-    "cross-fetch-ponyfill@1.0.3": {
-      "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT"],
-      "attribution": "ThaUnknown"
-    },
-    "data-uri-to-buffer@4.0.1": {
-      "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT"],
-      "attribution": "Copyright (c) 2014 Nathan Rajlich <nathan@tootallnate.net>"
-    },
     "lazy-val@1.0.5": {
       "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT"],
       "attribution": "Vladimir Krivosheev"
@@ -50,10 +50,6 @@
     "react-remove-scroll-bar@2.3.8": {
       "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT"],
       "attribution": "Copyright (c) 2017 Anton Korzunov"
-    },
-    "uint8-util@2.3.2": {
-      "fallbackLicenseFiles": ["THIRD_PARTY_LICENSES/rust-common-LICENSE-MIT"],
-      "attribution": "ThaUnknown"
     },
     "victory-vendor@37.3.6": {
       "packageLicenseFiles": [
@@ -72,6 +68,11 @@
         "lib-vendor/internmap/LICENSE"
       ],
       "attribution": "Vendored D3 modules; individual notices are preserved from the package."
+    },
+    "@trimjs/web-app@0.7.0": {
+      "licenseConcluded": "MIT",
+      "packageLicenseFiles": ["README.md"],
+      "attribution": "The @trimjs/web-app 0.7.0 package README declares MIT. Its package.json omits the license field and its archive contains no separate LICENSE file."
     }
   },
   "externalComponents": [

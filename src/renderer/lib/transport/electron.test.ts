@@ -8,14 +8,66 @@ import {
 } from '@shared/protocol/errors'
 import { Events } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
+import { rendererSubmissionSchema } from '@shared/schemas/renderer-submission'
+import { version as uuidVersion } from 'uuid'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ElectronTransport } from './electron'
 
 afterEach(() => {
   Reflect.deleteProperty(window, 'motrix')
+  vi.unstubAllGlobals()
 })
 
 describe('ElectronTransport', () => {
+  it('wraps submissions with distinct UUID v7 IDs without native randomUUID', async () => {
+    vi.stubGlobal('crypto', {
+      getRandomValues: crypto.getRandomValues.bind(crypto),
+    })
+    const generation = '00000000-0000-4000-8000-000000000001'
+    const invoke = vi.fn(async (channel: string, ..._args: unknown[]) =>
+      channel === Queries.GetRendererSession
+        ? {
+            generation,
+            windowId: 'add-task',
+            recovered: false,
+            submissionNeedsReview: false,
+            strings: {
+              title: '',
+              description: '',
+              recovering: '',
+              recover: '',
+              diagnostics: '',
+              downloads: '',
+              failed: '',
+              restored: '',
+            },
+          }
+        : { taskId: 'task-1' }
+    )
+    Object.defineProperty(window, 'motrix', {
+      configurable: true,
+      value: { invoke, platform: 'darwin' },
+    })
+    const transport = new ElectronTransport()
+    const args = { type: 'http', uris: ['https://example.test/file'] }
+    await expect(transport.invoke(Commands.CreateTask, args)).resolves.toEqual({
+      taskId: 'task-1',
+    })
+    await transport.invoke(Commands.CreateTask, args)
+    const submissions = invoke.mock.calls
+      .filter(([channel]) => channel === Commands.ExecuteRendererSubmission)
+      .map((call) => rendererSubmissionSchema.parse(call[1]))
+    expect(submissions).toHaveLength(2)
+    for (const submission of submissions) {
+      expect(submission).toMatchObject({
+        generation,
+        channel: Commands.CreateTask,
+        args: [args],
+      })
+      expect(uuidVersion(submission.id)).toBe(7)
+    }
+    expect(submissions[0].id).not.toBe(submissions[1].id)
+  })
   it('retains preload disposers per callback and channel without passing callbacks back across the bridge', () => {
     const first = vi.fn()
     const second = vi.fn()

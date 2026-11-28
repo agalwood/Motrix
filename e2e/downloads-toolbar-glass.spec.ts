@@ -34,6 +34,22 @@ test('toolbar glass follows the saved switch and preserves dragging, search, siz
     await page.getByRole('link', { name: 'Downloads', exact: true }).click()
     const toolbar = page.locator('[data-slot="downloads-toolbar"]')
     const layers = toolbar.locator('[data-slot="toolbar-glass"]')
+    if (process.platform !== 'darwin') {
+      await expect(toolbar).toBeVisible()
+      await expect(layers).toHaveCount(0)
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await expect(toolbar).toBeVisible()
+      await expect(layers).toHaveCount(0)
+      await page.getByRole('link', { name: 'Settings', exact: true }).click()
+      await page
+        .getByRole('button', { name: /^appearance Appearance / })
+        .click()
+      await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled()
+      await expect(
+        page.getByRole('switch', { name: 'Liquid Glass' })
+      ).toHaveCount(0)
+      return
+    }
     await expect(layers).toHaveCount(2)
     for (const layer of await layers.all()) {
       await expect(layer).toHaveAttribute('data-refraction', 'true')

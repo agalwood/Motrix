@@ -1,6 +1,20 @@
 type ShutdownAction = () => void | Promise<void>
 
+export function registerServerExitSignals(
+  requestExit: (code: number) => Promise<void>
+): void {
+  const shutdownAndExit = () => {
+    void requestExit(0)
+  }
+  // Keep ownership of the signal while asynchronous shutdown drains. A once
+  // listener disappears before signal-exit checks for application handlers and
+  // can make an in-flight atomic write re-raise the signal and abort cleanup.
+  process.on('SIGINT', shutdownAndExit)
+  process.on('SIGTERM', shutdownAndExit)
+}
+
 export interface ServerShutdownActions {
+  releaseProcessOwnership?: ShutdownAction
   gateShellWork: () => Promise<void>
   /**
    * Drain a pending coalesced TaskUpdated snapshot (TaskUpdatePublisher)
@@ -68,10 +82,13 @@ export function createServerShutdown(
       // Startup/handlers may be blocked on the engine, plugin host, or session;
       // waiting for tracked work first would deadlock the only operations able
       // to release them.
+      const pollingDrain = safely('polling', actions.stopPolling)
+      const ingressDrain = safely('http-ingress', actions.closeIngress)
+      const bridgeDrain = safely('bridge-ingress', actions.closeBridge)
       const cancellationDrain = Promise.all([
-        safely('polling', actions.stopPolling),
-        safely('http-ingress', actions.closeIngress),
-        safely('bridge-ingress', actions.closeBridge),
+        pollingDrain,
+        ingressDrain,
+        bridgeDrain,
         safely('rpc-notifications', actions.unsubscribeProducers),
         safely('dev-watcher', actions.drainDevWatcher),
         safely('plugin-host', actions.drainPluginHost),
@@ -84,6 +101,9 @@ export function createServerShutdown(
       // persistence and engine RPC alive until its unconditional resume
       // compensation settles.
       await safely('tracker', actions.disposeTracker)
+      // Media cancellation purges aria2 segments and persists the parent task.
+      // Keep RPC and Session writes available until the bridge has drained it.
+      await bridgeDrain
       await Promise.all([
         cancellationDrain,
         safely('session', actions.drainSession),
@@ -96,6 +116,9 @@ export function createServerShutdown(
       await safely('task-inspector-activity', actions.disposeActivity)
       await safely('transfer-stats', actions.disposeTransferStats)
       await safely('database', actions.closeDatabase)
+      await safely('process-ownership', () =>
+        actions.releaseProcessOwnership?.()
+      )
     })()
     return shutdownPromise
   }

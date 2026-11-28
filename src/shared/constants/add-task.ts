@@ -1,2 +1,3 @@
+export const TASK_FORM_WIDTH = 640
 export const ADD_TASK_COLLAPSED_HEIGHT = 386
 export const ADD_TASK_MAX_HEIGHT = 760

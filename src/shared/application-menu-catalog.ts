@@ -5,7 +5,7 @@ export interface ProductMenuItem {
   id: string
   commandId: CommandId
   title: string
-  section: 'app' | 'task' | 'help'
+  section: 'app' | 'file' | 'task' | 'help'
   group: string
   order: number
   scope: 'local' | 'selection' | 'list' | 'instance'
@@ -35,7 +35,7 @@ export const PRODUCT_MENU_ITEMS: readonly ProductMenuItem[] = [
     id: 'menubar.task.new',
     commandId: CommandIds.TaskNew,
     title: 'menu.task.newTask',
-    section: 'task',
+    section: 'file',
     group: '1_new',
     order: 10,
     scope: 'local',
@@ -44,7 +44,7 @@ export const PRODUCT_MENU_ITEMS: readonly ProductMenuItem[] = [
     id: 'menubar.task.newBt',
     commandId: CommandIds.TaskNewBt,
     title: 'menu.task.newBtTask',
-    section: 'task',
+    section: 'file',
     group: '1_new',
     order: 20,
     scope: 'local',
@@ -53,9 +53,18 @@ export const PRODUCT_MENU_ITEMS: readonly ProductMenuItem[] = [
     id: 'menubar.task.openFile',
     commandId: CommandIds.TaskOpenFile,
     title: 'menu.task.openFile',
-    section: 'task',
+    section: 'file',
     group: '1_new',
     order: 30,
+    scope: 'local',
+  },
+  {
+    id: 'menubar.file.createTorrent',
+    commandId: CommandIds.CreateTorrentFile,
+    title: 'createTorrent.menuLabel',
+    section: 'file',
+    group: '2_create',
+    order: 10,
     scope: 'local',
   },
   {

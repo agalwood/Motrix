@@ -176,7 +176,7 @@ export function DashboardTileFrame({
                 <RemoveIcon aria-hidden />
               </Button>
             </ControlTooltip>
-            <DropdownMenu onOpenChange={() => setHintReason(null)}>
+            <DropdownMenu onOpenChange={(open) => open && setHintReason(null)}>
               <DropdownMenuTrigger
                 render={
                   <Button

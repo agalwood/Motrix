@@ -98,31 +98,31 @@ describe('computeEffectiveLimits', () => {
       upload: 80_000,
     })
   })
-  it('on → min(base, alt); base 0 → alt', () => {
+  it('on → alt when standard limits are unlimited', () => {
     expect(computeEffectiveLimits(make({ turtle: 'on' }), noon)).toEqual({
       download: 500_000,
       upload: 50_000,
     })
   })
-  it('on → base wins when smaller than alt', () => {
+  it('on → explicit low speed limits replace smaller standard limits', () => {
     const s = make({
       turtle: 'on',
       base: { download: 100_000, upload: 10_000 },
     })
     expect(computeEffectiveLimits(s, noon)).toEqual({
-      download: 100_000,
-      upload: 10_000,
+      download: 500_000,
+      upload: 50_000,
     })
   })
-  it('on → axes computed independently (base wins one, alt the other)', () => {
+  it('on → each empty low speed limit inherits its standard value', () => {
     const s = make({
       turtle: 'on',
       base: { download: 100_000, upload: 200_000 },
-      alt: { download: 500_000, upload: 50_000 },
+      alt: { download: 0, upload: 50_000 },
     })
     expect(computeEffectiveLimits(s, noon)).toEqual({
-      download: 100_000, // base < alt
-      upload: 50_000, // alt < base
+      download: 100_000,
+      upload: 50_000,
     })
   })
   it('auto idle (no trigger) → base', () => {
@@ -143,15 +143,14 @@ describe('computeEffectiveLimits', () => {
       upload: 50_000,
     })
   })
-  it('auto + base + active schedule → base & alt coexist (min)', () => {
-    // The core gap this refactor closes: 10 MB/s base, throttle to alt at night.
+  it('auto + active schedule → selected low speed limits replace standard limits', () => {
     const s = make({
       turtle: 'auto',
-      base: { download: 10_000_000, upload: 1_000_000 },
+      base: { download: 100_000, upload: 1_000_000 },
     })
     s.auto.schedule = { enabled: true, from: '00:00', to: '23:59', days: [] }
     expect(computeEffectiveLimits(s, noon)).toEqual({
-      download: 500_000, // alt < base
+      download: 500_000,
       upload: 50_000,
     })
   })
@@ -184,5 +183,37 @@ describe('computeEffectiveLimits', () => {
       download: 500_000,
       upload: 50_000,
     })
+  })
+
+  it('auto applies adaptive headroom to the selected profile without reinstating the standard cap', () => {
+    const s = make({
+      turtle: 'auto',
+      base: { download: 100_000, upload: 10_000 },
+      alt: { download: 512_000, upload: 50_000 },
+    })
+    s.auto.videoApp.enabled = true
+    s.auto.adaptive.enabled = true
+    s.auto.adaptive.linkDown = 500_000
+    s.auto.adaptive.linkUp = 100_000
+    s.auto.adaptive.headroomPercent = 80
+    expect(
+      computeEffectiveLimits(s, { ...noon, videoAppRunning: true })
+    ).toEqual({
+      download: 400_000,
+      upload: 50_000,
+    })
+  })
+
+  it('returns to standard limits when an automatic trigger ends', () => {
+    const s = make({
+      turtle: 'auto',
+      base: { download: 100_000, upload: 10_000 },
+      alt: { download: 512_000, upload: 0 },
+    })
+    s.auto.videoApp.enabled = true
+    expect(
+      computeEffectiveLimits(s, { ...noon, videoAppRunning: true })
+    ).toEqual({ download: 512_000, upload: 10_000 })
+    expect(computeEffectiveLimits(s, noon)).toEqual(s.base)
   })
 })

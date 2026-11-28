@@ -15,6 +15,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { FormProvider, useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { v7 as uuidv7 } from 'uuid'
 import { OperationFields } from './operation-fields'
 import { OperationIcon } from './operation-icon'
 import { OperationSkeleton } from './operation-skeleton'
@@ -412,8 +413,7 @@ function OperationFormContent({
         return
       }
       const key =
-        useOperationSessions.getState().sessions[sessionKey]?.key ??
-        crypto.randomUUID()
+        useOperationSessions.getState().sessions[sessionKey]?.key ?? uuidv7()
       save({ key })
       if (cancelRequested.current) return
       let next = await invokeOperation<OperationJob>(

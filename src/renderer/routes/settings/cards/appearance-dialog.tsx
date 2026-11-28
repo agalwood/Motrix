@@ -62,9 +62,12 @@ type AppearanceFields = Pick<
   | 'theme'
   | 'sidebarColor'
   | 'reduceMotion'
+  | 'hardwareAcceleration'
   | 'language'
   | 'byteUnitSystem'
   | 'traySpeedometer'
+  | 'showDownloadProgress'
+  | 'keepStatsBarVisible'
   | 'trayIconColor'
   | 'liquidGlassEffect'
 >
@@ -76,9 +79,12 @@ const DEFAULTS: AppearanceFields = {
   theme: DEFAULT_APP_SETTINGS.theme,
   sidebarColor: DEFAULT_APP_SETTINGS.sidebarColor,
   reduceMotion: DEFAULT_APP_SETTINGS.reduceMotion,
+  hardwareAcceleration: DEFAULT_APP_SETTINGS.hardwareAcceleration,
   language: DEFAULT_APP_SETTINGS.language,
   byteUnitSystem: DEFAULT_APP_SETTINGS.byteUnitSystem,
   traySpeedometer: DEFAULT_APP_SETTINGS.traySpeedometer,
+  showDownloadProgress: DEFAULT_APP_SETTINGS.showDownloadProgress,
+  keepStatsBarVisible: DEFAULT_APP_SETTINGS.keepStatsBarVisible,
   trayIconColor: DEFAULT_APP_SETTINGS.trayIconColor,
   liquidGlassEffect: DEFAULT_APP_SETTINGS.liquidGlassEffect,
 }
@@ -110,9 +116,15 @@ export function AppearanceDialog({
         theme: all.app.theme,
         sidebarColor: all.app.sidebarColor ?? DEFAULTS.sidebarColor,
         reduceMotion: all.app.reduceMotion ?? DEFAULTS.reduceMotion,
+        hardwareAcceleration:
+          all.app.hardwareAcceleration ?? DEFAULTS.hardwareAcceleration,
         language: all.app.language,
         byteUnitSystem: all.app.byteUnitSystem ?? DEFAULTS.byteUnitSystem,
         traySpeedometer: all.app.traySpeedometer,
+        showDownloadProgress:
+          all.app.showDownloadProgress ?? DEFAULTS.showDownloadProgress,
+        keepStatsBarVisible:
+          all.app.keepStatsBarVisible ?? DEFAULTS.keepStatsBarVisible,
         trayIconColor: all.app.trayIconColor ?? DEFAULTS.trayIconColor,
         liquidGlassEffect: all.app.liquidGlassEffect,
       })
@@ -197,6 +209,7 @@ export function AppearanceDialog({
     label: string
   }>
   const isMac = transport.platform === 'darwin'
+  const isWindows = transport.platform === 'win32'
   const isLinux = transport.platform === 'linux'
   const trayIconColorOptions = [
     { value: 'auto', label: t('settings.appearance.trayIconColorAuto') },
@@ -324,30 +337,57 @@ export function AppearanceDialog({
                         </SettingsFormRow>
                       )}
                     />
-                    <FormField
-                      control={form.control}
-                      name="liquidGlassEffect"
-                      render={({ field }) => (
-                        <SettingsFormRow>
-                          <div className="space-y-1">
-                            <FormLabel>
-                              {t('settings.appearance.liquidGlassEffect')}
-                            </FormLabel>
-                            <FormDescription className="text-xs">
-                              {t('settings.appearance.liquidGlassEffectDesc')}
-                              {isMac &&
-                                ` ${t('settings.appearance.liquidGlassEffectMacDesc')}`}
-                            </FormDescription>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </SettingsFormRow>
-                      )}
-                    />
+                    {isMac && (
+                      <FormField
+                        control={form.control}
+                        name="liquidGlassEffect"
+                        render={({ field }) => (
+                          <SettingsFormRow>
+                            <div className="space-y-1">
+                              <FormLabel>
+                                {t('settings.appearance.liquidGlassEffect')}
+                              </FormLabel>
+                              <FormDescription className="text-xs">
+                                {t('settings.appearance.liquidGlassEffectDesc')}
+                                {` ${t('settings.appearance.liquidGlassEffectMacDesc')}`}
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </SettingsFormRow>
+                        )}
+                      />
+                    )}
+                    {transport.platform !== 'web' && (
+                      <FormField
+                        control={form.control}
+                        name="hardwareAcceleration"
+                        render={({ field }) => (
+                          <SettingsFormRow>
+                            <div className="space-y-1">
+                              <FormLabel>
+                                {t('settings.appearance.hardwareAcceleration')}
+                              </FormLabel>
+                              <FormDescription className="text-xs">
+                                {t(
+                                  'settings.appearance.hardwareAccelerationDesc'
+                                )}
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </SettingsFormRow>
+                        )}
+                      />
+                    )}
                     <Separator className="my-4" />
                     <h3 className="text-sm font-semibold">
                       {t('settings.appearance.languageAndDisplay')}
@@ -430,11 +470,39 @@ export function AppearanceDialog({
                         </SettingsFormRow>
                       )}
                     />
-                    {(isMac || isLinux) && (
+                    <FormField
+                      control={form.control}
+                      name="keepStatsBarVisible"
+                      render={({ field }) => (
+                        <SettingsFormRow>
+                          <div className="space-y-1">
+                            <FormLabel>
+                              {t('settings.appearance.keepStatsBarVisible')}
+                            </FormLabel>
+                            <FormDescription className="text-xs">
+                              {t('settings.appearance.keepStatsBarVisibleDesc')}
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </SettingsFormRow>
+                      )}
+                    />
+                    {(isMac || isWindows || isLinux) && (
                       <>
                         <Separator className="my-4" />
                         <h3 className="text-sm font-semibold">
-                          {t('settings.appearance.menuBar')}
+                          {t(
+                            isMac
+                              ? 'settings.appearance.dockAndMenuBar'
+                              : isWindows
+                                ? 'settings.appearance.taskbar'
+                                : 'settings.appearance.menuBar'
+                          )}
                         </h3>
                       </>
                     )}
@@ -476,6 +544,38 @@ export function AppearanceDialog({
                                   </SelectGroup>
                                 </SelectContent>
                               </Select>
+                            </FormControl>
+                          </SettingsFormRow>
+                        )}
+                      />
+                    )}
+                    {(isMac || isWindows) && (
+                      <FormField
+                        control={form.control}
+                        name="showDownloadProgress"
+                        render={({ field }) => (
+                          <SettingsFormRow>
+                            <div className="space-y-1">
+                              <FormLabel>
+                                {t(
+                                  isMac
+                                    ? 'settings.appearance.dockProgress'
+                                    : 'settings.appearance.taskbarProgress'
+                                )}
+                              </FormLabel>
+                              <FormDescription className="text-xs">
+                                {t(
+                                  isMac
+                                    ? 'settings.appearance.dockProgressDesc'
+                                    : 'settings.appearance.taskbarProgressDesc'
+                                )}
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
                             </FormControl>
                           </SettingsFormRow>
                         )}

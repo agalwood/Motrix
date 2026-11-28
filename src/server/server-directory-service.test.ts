@@ -45,6 +45,25 @@ afterEach(async () => {
 })
 
 describe('ServerDirectoryService', () => {
+  it('accepts readable sources without weakening save-directory checks', async () => {
+    const { downloads, policy } = await fixture()
+    const service = new ServerDirectoryService(policy, {
+      access: async (candidate, mode) => {
+        if (mode !== undefined && mode & constants.W_OK)
+          throw Object.assign(new Error('read only'), { code: 'EACCES' })
+        return access(candidate, mode)
+      },
+      opendir,
+      mkdir,
+    })
+    expect(
+      await service.validate({ path: downloads, access: 'read' })
+    ).toMatchObject({ ok: true })
+    expect(await service.validate({ path: downloads })).toMatchObject({
+      ok: false,
+      error: { code: 'permissionDenied' },
+    })
+  })
   it('lists only immediate authorized directories with deterministic natural order and hidden filter', async () => {
     const { root, downloads, service } = await fixture()
     await Promise.all(

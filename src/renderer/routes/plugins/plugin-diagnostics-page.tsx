@@ -1,4 +1,3 @@
-import '@xyflow/react/dist/style.css'
 import { PanelShell } from '@renderer/components/desktop-kit/panel/panel-shell'
 import { Button } from '@renderer/components/ui/button'
 import type { AriaLabelConfig, ColorMode } from '@xyflow/react'
@@ -163,10 +162,10 @@ export function PluginDiagnosticsPage() {
     setQuery(nextQuery)
     setSelection(null)
   }
-  const graphColorMode: ColorMode =
+  const graphColorMode: ColorMode | undefined =
     resolvedTheme === 'dark' || resolvedTheme === 'light'
       ? resolvedTheme
-      : 'system'
+      : undefined
 
   const locale = i18n.resolvedLanguage || i18n.language
   const localizedStrings = useMemo(() => {

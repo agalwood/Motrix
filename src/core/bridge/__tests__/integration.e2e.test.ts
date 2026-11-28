@@ -9,6 +9,7 @@ import {
 import {
   type IssuedCredential,
   initializeParams,
+  installationSessionKey,
   mdxpOverChannel,
   pairAndExchange,
   reconnect,
@@ -115,7 +116,9 @@ describe('integration: ext ↔ Motrix end-to-end (MDXP spec appendix B.2)', () =
 
     // --- 4. server pushes $/task/progress + $/task/completed, sealed by the
     // session's own envelope and opened by the client's.
-    const session = server.getSession(`chromium:${EXTENSION_ID}`)
+    const session = server.getSession(
+      installationSessionKey(`chrome-extension://${EXTENSION_ID}`)
+    )
     if (!session) throw new Error('session not found after submit')
     session.conn.sendNotification('$/task/progress', {
       taskId: 'task-1',

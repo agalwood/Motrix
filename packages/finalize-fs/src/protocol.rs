@@ -50,6 +50,17 @@ pub(crate) enum Request {
         #[serde(default)]
         rename_only: bool,
     },
+    OpenRenameGuard {
+        request_id: u64,
+        root: u64,
+        relative: String,
+    },
+    OpenRemoval {
+        request_id: u64,
+        root: u64,
+        relative: String,
+        expected_identity: String,
+    },
     RenameOpenedNoReplace {
         request_id: u64,
         artifact: u64,
@@ -137,6 +148,8 @@ impl Request {
             Self::SanitizeName { .. } => "sanitize_name",
             Self::OpenRoot { .. } => "open_root",
             Self::OpenArtifact { .. } => "open_artifact",
+            Self::OpenRenameGuard { .. } => "open_rename_guard",
+            Self::OpenRemoval { .. } => "open_removal",
             Self::RenameOpenedNoReplace { .. } => "rename_opened_no_replace",
             Self::LinkOpenedNoReplace { .. } => "link_opened_no_replace",
             Self::ExfatVolumeIdentity { .. } => "exfat_volume_identity",
@@ -176,6 +189,10 @@ pub(crate) struct Response<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) held_artifacts: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) held_file_write_exclusion: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) synced_rename_guard: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) reserved_exfat_rename: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) token_exfat_reservation: Option<bool>,
@@ -213,6 +230,8 @@ impl<'a> Response<'a> {
             held_roots: None,
             directory_sync: None,
             held_artifacts: None,
+            held_file_write_exclusion: None,
+            synced_rename_guard: None,
             reserved_exfat_rename: None,
             token_exfat_reservation: None,
             volume_id: None,

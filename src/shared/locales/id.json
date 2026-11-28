@@ -4,10 +4,12 @@
     "help": "Server ini memerlukan token operator. Pada host, atur MOTRIX_OPERATOR_TOKEN atau baca token dari <dataDir>/operator-token, lalu tempelkan di bawah ini.",
     "placeholder": "Token operator",
     "error": "Token operator tidak valid. Periksa MOTRIX_OPERATOR_TOKEN atau <dataDir>/operator-token pada host dan coba lagi.",
-    "submit": "Buka akses"
+    "submit": "Buka akses",
+    "nasSessionExpired": "Sesi administrator NAS tidak dapat diverifikasi. Buka Motrix dari desktop NAS.",
+    "openDsm": "Open DSM to sign in"
   },
   "operatorAdmin": {
-    "help": "Penggunaan:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\nPerintah ini hanya berkomunikasi dengan server Motrix yang berjalan melalui loopback kontainer.",
+    "help": "Penggunaan:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nPerintah ini hanya berkomunikasi dengan server Motrix yang berjalan melalui loopback kontainer.\n\n  motrix-admin token set [--stdin] [--json]\nSet a custom administrator token; weak tokens are accepted with a warning.",
     "errorPrefix": "motrix-admin: {{message}}",
     "usageHint": "Jalankan `motrix-admin --help` untuk petunjuk penggunaan.",
     "pending": {
@@ -55,6 +57,35 @@
         "loopback": "Server Motrix yang berjalan tidak tersedia melalui loopback kontainer.",
         "approvalNotReady": "Persetujuan pemasangan belum siap pada server Motrix yang berjalan."
       }
+    },
+    "extension": {
+      "heading": "Pending browser Extension pairing requests",
+      "identityNotice": "Verify that you initiated this request. Origin and claimed identity alone do not prove who is connecting. Terminal recording can capture the pairing code.",
+      "row": "{{index}}. {{browser}} [{{identity}}] Origin: {{origin}}; claimed ID: {{claimedId}}; Server: {{authority}}; {{seconds}} s remaining",
+      "select": "Enter the number of one request (Ctrl+C to exit): ",
+      "code": "Pairing code: {{code}}",
+      "instructions": "Type this code into the browser Extension. It expires at the original deadline. Ctrl+C closes this view without approving or denying the request.",
+      "none": "No pending Extension pairing requests. Start pairing in the Extension, then run this command again. If requests remain absent, check the remote Extension configuration.",
+      "ended": "The selected pairing request has ended. Check the Extension for its outcome.",
+      "ttyRequired": "Extension pairing requires interactive input, output and error terminals. Piping, redirection and JSON output are not supported.",
+      "cancelled": "Pairing code view closed. No approval or denial was sent.",
+      "invalidSelection": "Select exactly one listed request by its number.",
+      "unavailable": "The selected request expired, ended or changed. Start a new pairing attempt in the Extension."
+    },
+    "token": {
+      "weak": "This token may be easy to guess. Consider a longer, unique passphrase. You can still save it.",
+      "invalid": "Enter a nonblank token of up to 1,024 characters, without control characters.",
+      "mismatch": "The new tokens do not match.",
+      "incorrectToken": "The current token is incorrect. Check it and try again.",
+      "managed": "This token is managed by MOTRIX_OPERATOR_TOKEN. Change the deployment environment variable and restart the server.",
+      "unavailable": "The token could not be saved. The previous token is still active. Check server storage and retry.",
+      "rateLimited": "Too many attempts. Wait a minute and try again.",
+      "unknown": "The result could not be confirmed. Check the token file on the server before retrying.",
+      "prompt": "New token (input hidden):",
+      "confirm": "Confirm new token:",
+      "saved": "Token updated. Existing sessions have been signed out. Downloads continue.",
+      "ttyRequired": "Use an interactive terminal, or token set --stdin to read the token from standard input.",
+      "cancelled": "Token change cancelled."
     }
   },
   "common": {
@@ -316,7 +347,7 @@
         "loading": "Memuat aktivitas",
         "unavailable": "Aktivitas tidak tersedia",
         "retry": "Coba lagi",
-        "stale": "Aktivitas mungkin belum diperbarui",
+        "refreshFailed": "Gagal memuat ulang",
         "coverageDegraded": "Data aktivitas mungkin tidak lengkap sejak {{time}}",
         "rangeSummary": "{{weeks}} minggu aktivitas unduhan, {{start}} hingga {{end}}",
         "completedIntensity": "Intensitas warna menunjukkan unduhan selesai",
@@ -588,7 +619,7 @@
         "down": "Kecepatan unduh",
         "up": "Kecepatan unggah",
         "eta": "Perkiraan sisa",
-        "connections": "Peer",
+        "connections": "Koneksi",
         "status": "Status",
         "createdAt": "Tanggal dibuat",
         "finishedAt": "Tanggal selesai"
@@ -857,6 +888,7 @@
       },
       "action": {
         "pause": "Jeda",
+        "pausing": "Menjeda…",
         "queueMoveFailed": "Antrean tunggu tidak dapat diperbarui.",
         "queueTaskStarted": "Tugas sudah tidak ada dalam antrean tunggu.",
         "queueMoveHint": "Posisi dalam antrean menentukan unduhan mana yang dimulai berikutnya. Pengurutan kolom disimpan secara terpisah.",
@@ -915,7 +947,15 @@
         "redownloadOverwriteTitle": "File Already Exists",
         "redownloadOverwriteDescription": "“{{name}}” already exists in the download directory. Re-downloading will overwrite or rename it. Do you want to continue?",
         "redownloadCredentialsExpired": "Original request options have expired. Please review and submit.",
-        "redownloadStarted": "Re-download started"
+        "redownloadStarted": "Re-download started",
+        "retryDialogTitle": "Coba unduh lagi",
+        "retryDialogDescription": "Edit parameter permintaan untuk {{name}} guna memulai unduhan baru. Tugas yang gagal dan file parsialnya akan disimpan.",
+        "retryDialogProgress": "Unduhan {{current}} dari {{total}}",
+        "downloadToDevice": "Download to this device",
+        "revealInFileStation": "Show in File Station",
+        "nasFileUnavailable": "File access could not be authorized. Check the account and folder permissions.",
+        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again.",
+        "fnosHostRequired": "Buka Motrix dari desktop fnOS atau aplikasi seluler untuk menggunakan tindakan berkas ini."
       },
       "titleCount": "{{shown}} ditampilkan · {{total}} total",
       "type": {
@@ -995,6 +1035,11 @@
   },
   "task": {
     "add": {
+      "extraHeaders": "Header tambahan",
+      "headerName": "Nama header",
+      "headerValue": "Nilai header",
+      "addHeader": "Tambah header",
+      "removeHeader": "Hapus header",
       "title": "Tugas baru",
       "links": "Tautan",
       "torrent": "Torrent",
@@ -1006,6 +1051,7 @@
       "createFailedByPlugin": "Tugas tidak dapat dibuat: plugin “{{pluginId}}” menghentikannya ({{detail}}). Nonaktifkan plugin tersebut di Pengaturan → Plugin, lalu coba lagi.",
       "createFailedPathTooLong": "Tugas tidak dapat dibuat: panjang jalur tujuan adalah {{length}} karakter, melebihi batas Windows yaitu {{limit}}. Pilih jalur folder penyimpanan atau nama berkas yang lebih pendek.",
       "parseFailed": "Gagal mengurai berkas torrent.",
+      "unsupportedTorrent": "Torrent ini menggunakan fitur yang tidak didukung oleh mesin unduhan saat ini.",
       "urlsCount_other": "{{count}} URL",
       "urlsWithInvalid": "{{valid}} valid, {{invalid}} tidak valid",
       "validUrlCount": "{{count}} valid",
@@ -1087,6 +1133,7 @@
         "doc": "Dokumen"
       },
       "errors": {
+        "headerNameRequired": "Beri nama setiap header yang memiliki nilai.",
         "urlsRequired": "Setidaknya satu URL diperlukan",
         "saveDirRequired": "Folder penyimpanan diperlukan",
         "noFilesSelected": "Pilih setidaknya satu berkas",
@@ -1097,7 +1144,9 @@
         "failed": "{{name}} tidak dapat dimulai secara otomatis. Buka detail tugas untuk memilih berkas dan mencoba lagi."
       },
       "undoCorrection": "Urungkan koreksi URL",
-      "submissionUnconfirmed": "Hasilnya belum terkonfirmasi. Saat dicoba lagi, permintaan awal akan diperiksa sebelum membuat tugas lain."
+      "submissionUnconfirmed": "Hasilnya belum terkonfirmasi. Saat dicoba lagi, permintaan awal akan diperiksa sebelum membuat tugas lain.",
+      "selectNasTorrent": "Choose a torrent from the NAS",
+      "fnosAuthorizationPopupBlocked": "Izinkan pop-up untuk situs ini, lalu pilih folder lagi."
     },
     "detail": {
       "peers": "Peer: {{count}}",
@@ -1140,7 +1189,8 @@
         "resumeSourceChanged": "Berkas parsial tetap disimpan karena berkas di server telah berubah sejak unduhan dimulai.",
         "resumeRangeUnsupported": "Berkas parsial tetap disimpan karena server tidak mendukung pelanjutan unduhan berdasarkan rentang byte secara aman.",
         "resumeValidationFailed": "Berkas parsial tetap disimpan karena Motrix tidak dapat memastikan bahwa berkas di server belum berubah.",
-        "mediaInterrupted": "Unduhan media ini terputus saat aplikasi dimulai ulang dan tidak dapat dilanjutkan. Tambahkan kembali untuk mencoba lagi."
+        "mediaInterrupted": "Unduhan media ini terputus saat aplikasi dimulai ulang dan tidak dapat dilanjutkan. Tambahkan kembali untuk mencoba lagi.",
+        "portableExternalPath": "This task uses a location outside the portable folder. The application moved or the original directory is unavailable. Check the download location before retrying."
       }
     },
     "error": {
@@ -1149,6 +1199,7 @@
         "recoveryFailed": "Unduhan tidak dapat dipulihkan: {{cause}}",
         "recoveryOutputConflict": "Berkas sementara dan berkas akhir sama-sama ada; keduanya tetap disimpan untuk diperiksa secara manual",
         "filesMissing": "Berkas tidak ditemukan setelah aplikasi dimulai ulang",
+        "sourceHash": "SHA-256 dari penerbit",
         "renameFileFailed": "Gagal mengganti nama berkas: {{cause}}",
         "renameDirFailed": "Gagal mengganti nama direktori: {{cause}}",
         "pluginChainAborted": "Rangkaian plugin dihentikan: {{cause}}",
@@ -1168,6 +1219,7 @@
         "checksumMismatch": "Checksum berkas tidak cocok",
         "tooManyRedirects": "Terlalu banyak pengalihan",
         "serverError": "Server mengembalikan kesalahan",
+        "btPortBindFailed": "Port dengar BitTorrent tidak tersedia",
         "btMetadataFailed": "Metadata torrent tidak dapat diambil",
         "btTrackerError": "Koneksi ke pelacak gagal",
         "generic": "Unduhan gagal"
@@ -1181,7 +1233,38 @@
         "pathTooLong": "Perpendek jalur folder penyimpanan atau nama berkas, lalu coba lagi",
         "checksumMismatch": "Berkas unduhan mungkin rusak; unduh ulang untuk memverifikasinya",
         "tooManyRedirects": "Tautan sumber mungkin rusak; coba tautan lain",
+        "btPortBindFailed": "Ubah port dengar BT di pengaturan BitTorrent, mulai ulang mesin, lalu coba lagi",
         "btMetadataFailed": "Periksa tautan magnet atau tambahkan pelacak, lalu coba lagi"
+      }
+    },
+    "storage": {
+      "move": "Move files…",
+      "locate": "Find existing files…",
+      "recheck": "Check files…",
+      "moveDescription": "Choose a new folder for your downloaded files. Seeding pauses while they move.",
+      "locateDescription": "Choose where your downloaded files are now. Motrix will check them so you can continue seeding.",
+      "recheckDescription": "Check that your downloaded files are complete. This will not change the files or download them again.",
+      "directory": "Folder",
+      "name": "File or folder name",
+      "resume": "Continue seeding after checking",
+      "checking": "Checking files…",
+      "moving": "Moving files…",
+      "resuming": "Starting seeding…",
+      "verifiedPercent": "Verified: {{percent}}%",
+      "checkFailed": "Check failed",
+      "verified": "Your files are ready to seed.",
+      "resumed": "Seeding has resumed.",
+      "incomplete": "Some files are missing or incomplete. Check that you selected the right folder and try again.",
+      "resumeFailed": "The new location is saved. Select Re-seed to try sharing the files again.",
+      "useExisting": "Check and use these files",
+      "errors": {
+        "unavailable": "This task cannot be moved or checked yet.",
+        "busy": "Another file operation is still running. Please wait for it to finish.",
+        "destination": "Choose a different folder or file name. The location may already contain these files or be inside the current folder.",
+        "conflict": "Another download is using these files. Open that task to change their location.",
+        "engine": "Motrix could not stop this task. Please try again.",
+        "failed": "Motrix could not access or move the files. Check the folder, available space, and permission to use it.",
+        "cancelled": "Check cancelled."
       }
     }
   },
@@ -1220,6 +1303,10 @@
       "integration": {
         "title": "Integrasi",
         "desc": "Ekstensi browser, CLI, integrasi sistem"
+      },
+      "nas": {
+        "title": "Synology NAS",
+        "desc": "Download folders and client connections"
       }
     },
     "general": {
@@ -1274,6 +1361,12 @@
       "themeDark": "Gelap",
       "language": "Bahasa",
       "traySpeedometer": "Tampilkan kecepatan di bar menu",
+      "dockAndMenuBar": "Dock dan bar menu",
+      "taskbar": "Bilah tugas",
+      "taskbarProgress": "Tampilkan progres unduhan di bilah tugas",
+      "taskbarProgressDesc": "Tampilkan progres gabungan unduhan aktif pada tombol jendela utama di bilah tugas.",
+      "dockProgress": "Tampilkan progres unduhan di Dock",
+      "dockProgressDesc": "Tampilkan progres gabungan unduhan aktif pada ikon Dock.",
       "traySpeedometerDesc": "Lihat kecepatan unduh dan unggah di samping ikon aplikasi.",
       "trayIconColor": "Warna ikon baki",
       "trayIconColorDesc": "Pilih warna yang terlihat jelas pada panel sistem.",
@@ -1282,6 +1375,10 @@
       "trayIconColorDark": "Ikon gelap (panel terang)",
       "reduceMotion": "Kurangi gerakan",
       "reduceMotionDesc": "Gunakan lebih sedikit animasi dalam aplikasi.",
+      "hardwareAcceleration": "Akselerasi perangkat keras",
+      "hardwareAccelerationDesc": "Menggunakan kartu grafis agar tampilan lebih lancar. Matikan jika jendela berkedip atau Motrix berhenti mendadak. Perubahan berlaku setelah Motrix dimulai ulang.",
+      "hardwareAccelerationRecoveryTitle": "Akselerasi perangkat keras dimatikan",
+      "hardwareAccelerationRecoveryBody": "Motrix mematikan akselerasi perangkat keras setelah tampilan berulang kali mengalami gangguan. Anda dapat mengaktifkannya kembali di Pengaturan → Tampilan, lalu memulai ulang Motrix.",
       "liquidGlassEffect": "Liquid Glass",
       "liquidGlassEffectDesc": "Terapkan efek kaca semitransparan pada bilah alat unduhan.",
       "liquidGlassEffectMacDesc": "Juga diterapkan pada jendela di macOS 26 ke atas. Jendela akan dibuka ulang saat opsi ini diubah.",
@@ -1295,6 +1392,8 @@
       "runModeLinuxDesc": "Ketersediaan baki sistem dan perilaku aktivasinya bergantung pada lingkungan desktop.",
       "lightweightMode": "Mode ringan",
       "lightweightModeDesc": "Hemat memori saat jendela ditutup. Unduhan tetap berjalan, tetapi jendela lebih lama dibuka kembali dan isian yang belum disimpan akan dihapus.",
+      "keepStatsBarVisible": "Tetap tampilkan statistik saat detail terbuka",
+      "keepStatsBarVisibleDesc": "Pertahankan bilah statistik unduhan di bawah panel detail tugas.",
       "byteUnitSystem": "Satuan ukuran dan kecepatan",
       "byteUnitSystemDesc": "Pilih cara menampilkan ukuran berkas dan kecepatan.",
       "byteUnitDecimal": "Desimal ({{megabyte}}, {{gigabyte}} · 1000)",
@@ -1400,7 +1499,12 @@
         "channelStable": "Stabil",
         "channelBeta": "Beta",
         "channelBetaWarning": "Versi beta mungkin kurang stabil. Anda juga akan menerima rilis stabil yang lebih baru. Beralih kembali menghentikan pembaruan beta tanpa menurunkan versi.",
-        "channelSaveError": "Saluran pembaruan tidak dapat disimpan. Coba lagi."
+        "channelSaveError": "Saluran pembaruan tidak dapat disimpan. Coba lagi.",
+        "installing": "Memasang…",
+        "installingDescription": "Menyiapkan pembaruan. Motrix akan dimulai ulang setelah siap.",
+        "manualDownload": "Unduh manual",
+        "manualInstall": "Unduh versi baru, tutup Motrix, lalu ganti aplikasi yang terpasang.",
+        "manualCrossVolume": "Pemasangan otomatis antar disk saat ini tidak tersedia. Unduh versi baru dan ganti Motrix secara manual."
       },
       "details": {
         "author": "Pembuat",
@@ -1602,7 +1706,7 @@
         "turtle_auto": "Otomatis",
         "unitFor": "Satuan untuk {{field}}",
         "baseSection": "Batas standar",
-        "baseSectionDesc": "Digunakan untuk unduhan sehari-hari dan dipatuhi dalam semua mode.",
+        "baseSectionDesc": "Digunakan dalam mode standar dan saat tidak ada aturan kecepatan rendah yang aktif.",
         "baseDownload": "Unduh",
         "baseDownloadDesc": "Kecepatan unduh maksimum untuk penggunaan sehari-hari.",
         "baseUpload": "Unggah",
@@ -1612,7 +1716,7 @@
         "standardLimit": "Gunakan standar",
         "useStandardLimit": "Gunakan batas standar",
         "altSection": "Batas kecepatan rendah",
-        "altSectionDesc": "Digunakan dalam mode Kecepatan rendah atau oleh aturan terjadwal. Batas ini hanya dapat mengurangi batas standar.",
+        "altSectionDesc": "Digunakan dalam mode kecepatan rendah atau saat aturan otomatis memilih profil ini.",
         "altDownload": "Unduh",
         "altDownloadDesc": "Kecepatan unduh maksimum saat mode Kecepatan rendah aktif.",
         "altUpload": "Unggah",
@@ -1683,7 +1787,7 @@
           "adaptiveRulePending": "mencadangkan {{reserved}}% bandwidth untuk aplikasi lain setelah bandwidth koneksi dimasukkan",
           "ruleSeparator": " dan ",
           "autoRules": "Motrix akan {{rules}}.",
-          "lowerWins": "Batas aktif terendah yang berlaku."
+          "profileSelection": "Batas mode yang dipilih berlaku. Batas kecepatan rendah yang kosong mengikuti batas standar; mode otomatis dapat menambahkan batas adaptif."
         },
         "bandwidthUsed": "Motrix dapat menggunakan hingga {{motrix}}%.",
         "bandwidthPending": "Masukkan kedua kecepatan koneksi untuk menerapkan batas ini."
@@ -1692,6 +1796,8 @@
       "defaultDownloadFolder": "Folder unduhan bawaan",
       "autofillFromClipboard": "Isi tautan dari papan klip secara otomatis",
       "fillInLinksWhenOpeningNewTask": "Tautan yang disalin akan diisi secara otomatis saat membuka tugas baru.",
+      "openingView": "Saat membuka unduhan, tampilkan",
+      "rememberLastSelection": "Ingat pilihan terakhir",
       "saveFolders": "Folder penyimpanan",
       "description": "Berkas, kecepatan unduh, dan koneksi"
     },
@@ -1790,6 +1896,12 @@
       "hideSecret": "Sembunyikan rahasia"
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "system": {
         "title": "Aplikasi bawaan",
         "protocolMagnet": "Buka tautan magnet dengan Motrix",
@@ -1847,8 +1959,14 @@
           "store": "Pasang",
           "development": "Pengembangan"
         },
+        "pendingTitle": "Browser pairing requests",
+        "pendingEmpty": "Start pairing in your extension.",
         "pairedTitle": "Ekstensi terhubung",
         "pairedEmpty": "Belum ada ekstensi yang terhubung.",
+        "profile": "Profil browser {{number}}",
+        "connected": "Terhubung",
+        "disconnected": "Tidak terhubung",
+        "revokeAll": "Putuskan semua",
         "lastActive": "Terakhir aktif",
         "revoke": "Putuskan koneksi",
         "disconnecting": "Memutuskan koneksi…",
@@ -1874,7 +1992,10 @@
             "attested": "Ekstensi terverifikasi",
             "unverified": "Ekstensi belum terverifikasi"
           },
-          "identityUnverifiedWarning": "Identitas ekstensi ini tidak dapat diverifikasi. Lanjutkan hanya jika Anda memercayainya."
+          "identityUnverifiedWarning": "Identitas ekstensi ini tidak dapat diverifikasi. Lanjutkan hanya jika Anda memercayainya.",
+          "claim": "Pasangkan dengan akun saat ini",
+          "claimDesc": "Ekstensi akan menggunakan izin akun ini. Selanjutnya, masukkan kode pemasangan di ekstensi untuk menyelesaikannya.",
+          "account": "Akun saat ini: {{name}}"
         },
         "pairUnavailable": "Permintaan pemasangan ini tidak lagi tertunda — coba pasangkan lagi dari ekstensi browser.",
         "trustedExtensions": "Ekstensi tepercaya",
@@ -2053,7 +2174,8 @@
           "missing": "Tidak ditemukan",
           "untrusted": "Diblokir oleh macOS",
           "unconfigured": "Belum diatur",
-          "version_mismatch": "Tidak didukung"
+          "version_mismatch": "Tidak didukung",
+          "verificationUnavailable": "Verifikasi tidak tersedia"
         },
         "stagingMB": "Batas berkas sementara (MB)",
         "stagingMBDesc": "Ruang untuk berkas perantara, per plugin dan tugas.",
@@ -2176,6 +2298,46 @@
       "originMismatchBody": "Pembaruan waktu nyata tidak tersedia. Gunakan alamat server yang dikonfigurasi atau minta administrator memperbaikinya.",
       "disconnectedTitle": "Koneksi pembaruan waktu nyata terputus.",
       "disconnectedBody": "Beberapa informasi mungkin terlambat diperbarui. Jika masalah berlanjut, periksa koneksi server dan konfigurasi proxy."
+    },
+    "portable": {
+      "title": "Portable mode",
+      "startupError": "Motrix could not open its portable data directory. Check that the data folder beside Motrix.exe is writable and that no external profile override is set. Motrix has not switched to the system profile.",
+      "integrationUnavailable": "Portable mode keeps system settings unchanged. Startup registration, file associations, and system tool installation are unavailable.",
+      "browserDescription": "The local bridge remains available while Motrix is running. Portable mode does not register a browser launcher or change existing browser integration.",
+      "updateDescription": "Download the Windows ZIP, exit Motrix, and move the entire data folder to the new version. Portable mode never runs the installer.",
+      "recoveryError": "Portable data could not be recovered safely. Keep the data folder and check the logs and directory permissions before retrying. Motrix has stopped without using the system profile.",
+      "enginePathDescription": "Portable mode manages engine state inside the data folder for the current application location."
+    },
+    "nas": {
+      "description": "Shared by all DSM administrators. Restart Motrix in Package Center to apply changes.",
+      "account": "Current DSM account: {{username}}",
+      "restartRequired": "Settings saved. Restart Motrix in Package Center to apply them.",
+      "storageUnavailable": "Download folders unavailable",
+      "storageRecoveryHint": "Downloads are paused. Restore the original folders or authorize a different path, then restart Motrix in Package Center.",
+      "roots": "Authorized download folders",
+      "rootsHint": "One existing folder per line. Both your account and the system user motrix need read/write access. Removing the default makes the first folder the new default.",
+      "extensionEnabled": "Enable browser extension connections",
+      "extensionHint": "Use a DSM certificate hostname that resolves to the NAS LAN address.",
+      "webAddress": "Motrix Web address",
+      "webAddressHint": "Use the address you normally open, including /motrix/. You can fill it from this browser.",
+      "useCurrentAddress": "Use this DSM address",
+      "extensionAddress": "Extension connection address",
+      "allowHttp": "Allow pairing codes over HTTP",
+      "allowHttpHint": "Enable only on a trusted network. HTTPS does not require this option.",
+      "clientPort": "Direct client port",
+      "clientPortHint": "Direct clients use this port (1024–65535). DSM HTTPS addresses use the DSM port.",
+      "activeConnections": "Current connection addresses",
+      "cliAddress": "CLI endpoint",
+      "sessionHint": "Clients use their paired DSM account’s current permissions. After DSM logout, session expiration or a package restart, reopen Motrix with that account; pairing again is not required.",
+      "copy": "Copy address",
+      "openSettings": "Configure NAS connections",
+      "errors": {
+        "invalid": "Check the folder paths, port and connection addresses. HTTP code delivery requires explicit permission.",
+        "folderUnavailable": "Check that each folder is on a mounted volume and writable by the internal system user motrix.",
+        "permissionDenied": "The account or folder cannot be authorized. Check DSM shared-folder permissions for your account and the internal system user motrix.",
+        "unavailable": "Package settings are unavailable. Try again after the service has recovered.",
+        "conflict": "The saved configuration changed. Reload before editing again; your unsaved changes will be replaced."
+      }
     }
   },
   "errors": {
@@ -3130,12 +3292,21 @@
     "freshDescription": "Choose where to save the new download. Motrix will create a separate folder and open the download form for you to confirm. It will start from the beginning and leave your old files untouched.",
     "freshDestination": "Choose where to save the new download",
     "chooseDestination": "Choose another location…",
+    "requestSettingsHelp": "Untuk file cookie lama, masukkan header Cookie yang diperlukan. Untuk nama pengguna dan kata sandi HTTP, masukkan header Authorization yang setara. Masukkan kredensial proksi di URL proksi.",
+    "unsupportedOptions": "Opsi yang tidak didukung: {{options}}",
+    "ignoredOptions": "Opsi yang tidak didukung diabaikan: {{options}}",
+    "currentProxyDescription": "Unduhan yang dimigrasikan menggunakan pengaturan proxy unduhan Motrix saat ini. Pengaturan proxy lama tidak dipertahankan.",
+    "requestOptions": "Pengaturan permintaan tersimpan: {{options}}",
+    "requestSettingsDescription": "Pengaturan permintaan lama tidak disalin. Masukkan kembali di bagian Lanjutan sebelum mengunduh ke folder baru.",
+    "reconfigureDownload": "Atur ulang dan unduh…",
     "reasons": {
       "fresh-download-required": "Needs a new download",
       "verification-required": "Existing files need checking",
       "metadata-required": "Original torrent file needed",
       "selection-required": "Choose which files to download",
-      "unsupported-options": "Download details need checking",
+      "request-settings-required": "Pengaturan permintaan tersimpan akan diperiksa sebelum melanjutkan",
+      "mirrors-unsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "unsupported-options": "Opsi unduhan tidak didukung",
       "invalid-record": "Couldn’t read this task",
       "unsafe-path": "File location needs checking",
       "already-imported": "Already imported",
@@ -3178,14 +3349,21 @@
       "payloadMissing": "Some original files are missing, including files previously left unselected. All are needed to resume this task. Download again in a new folder.",
       "payloadUnsafe": "The original files can’t be updated safely because of file links or permissions. Keep them and download again in a new folder.",
       "controlRequired": "The saved download progress is missing. Download again in a new folder.",
-      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder."
+      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder.",
+      "httpContentChanged": "Data yang diunduh berbeda dari konten server.",
+      "httpRangeUnsupported": "Server tidak mendukung rentang byte yang diperlukan.",
+      "httpValidatorRequired": "Server tidak menyediakan pengenal versi sumber daya yang andal.",
+      "httpVerificationFailed": "Data yang diunduh tidak dapat diverifikasi.",
+      "httpRequestUnsupported": "Mesin atau pengaturan permintaan tidak mendukung kelanjutan yang aman.",
+      "httpVerificationCancelled": "Verifikasi dibatalkan.",
+      "httpRedirectUnsupported": "Tautan yang dialihkan tidak dapat dilanjutkan dengan aman di lokasi asli."
     },
     "resultIncompleteTitle": "Migration is incomplete",
     "resultStoppedTitle": "Migration stopped",
-    "activationRequired": "Download again in a new folder to keep the original files.",
+    "activationRequired": "Buka detail tugas untuk memverifikasi dan melanjutkan unduhan.",
     "chooseTorrent": "Choose torrent…",
     "torrentFile": "Torrent file",
-    "verifyAndContinue": "Verify and continue",
+    "verifyAndContinue": "Verifikasi dan lanjutkan",
     "verifyDescription": "Motrix will verify the original files, then continue with your previous file selection. While downloading, it may upload data and write shared pieces to unselected files. It won’t seed automatically when finished.",
     "authorizeOriginalDirectory": "Choose the original download folder",
     "verifyReady": "Verify your existing files to continue this download, or start again in a new folder.",
@@ -3293,7 +3471,10 @@
         "remaining": "Remaining"
       }
     },
-    "importSelected": "Migrate"
+    "importSelected": "Migrate",
+    "httpResumeDescription": "Motrix akan membandingkan semua rentang yang diunduh dengan server, lalu melanjutkan di folder asli. Verifikasi mentransfer ulang rentang tersebut; pengaturan permintaan tersimpan tetap di memori.",
+    "httpVerifying": "Menyiapkan atau memverifikasi…",
+    "httpOriginalFilesKept": "Berkas yang ada dipertahankan."
   },
   "rendererRecovery": {
     "title": "Antarmuka perlu dipulihkan",
@@ -3355,5 +3536,56 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "Buat torrent",
+    "source": "Konten untuk dibagikan",
+    "options": "Opsi torrent",
+    "trackers": "Tracker",
+    "trackersPlaceholder": "Satu URL announce per baris",
+    "webSeeds": "Web seed",
+    "webSeedsPlaceholder": "Satu URL HTTP(S) per baris (opsional)",
+    "comment": "Komentar",
+    "private": "Torrent privat",
+    "privateDesc": "Nonaktifkan DHT dan pertukaran peer; distribusi hanya via tracker.",
+    "pieceLength": "Ukuran potongan",
+    "pieceAuto": "Otomatis",
+    "hashing": "Menghitung hash…",
+    "resultName": "Nama",
+    "resultSize": "Ukuran",
+    "resultInfoHash": "Hash info",
+    "saveFile": "Simpan .torrent",
+    "create": "Buat",
+    "savedToast": "Torrent disimpan ke {{path}}",
+    "createFailed": "Tidak dapat membuat torrent",
+    "saveFailed": "Tidak dapat menyimpan file torrent",
+    "seedAfter": "Mulai menyemai setelah menyimpan",
+    "seedFailed": "Tugas penyemaian tidak dapat dimulai.",
+    "seedSubmitted": "Tugas penyemaian telah dikirim.",
+    "invalidOptions": "Maksimal {{limit}} URL valid per daftar. Torrent privat memerlukan pelacak.",
+    "menuLabel": "Buat berkas torrent…",
+    "downloadRequested": "Unduhan diminta: {{path}}"
+  },
+  "operatorToken": {
+    "title": "Access password",
+    "change": "Change password",
+    "effect": "Other devices will need to sign in again.",
+    "currentToken": "Current password",
+    "newToken": "New password",
+    "confirmation": "Confirm new password",
+    "weak": "If you plan to access Motrix over the public internet, use a stronger password.",
+    "invalid": "Remove line breaks and other control characters.",
+    "mismatch": "The passwords do not match.",
+    "incorrectToken": "The current password is incorrect. Try again.",
+    "managed": "This password is managed by the server administrator.",
+    "unavailable": "Could not save. Your current password still works. Try again later.",
+    "rateLimited": "Too many attempts. Wait a minute and try again.",
+    "unknown": "Connection interrupted. The change could not be confirmed.",
+    "saved": "Access password updated.",
+    "saving": "Updating…",
+    "update": "Update password",
+    "requiredCurrent": "Enter your current password.",
+    "requiredNew": "Enter a new password.",
+    "tooLong": "This password is too long. Shorten it and try again."
   }
 }

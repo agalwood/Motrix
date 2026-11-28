@@ -4,10 +4,12 @@
     "help": "Questo server richiede il token operatore. Sull’host, imposta MOTRIX_OPERATOR_TOKEN oppure leggi il token da <dataDir>/operator-token e incollalo qui sotto.",
     "placeholder": "Token operatore",
     "error": "Token operatore non valido. Controlla MOTRIX_OPERATOR_TOKEN o <dataDir>/operator-token sull’host e riprova.",
-    "submit": "Sblocca"
+    "submit": "Sblocca",
+    "nasSessionExpired": "Impossibile verificare la sessione di amministratore NAS. Apri Motrix dal desktop del NAS.",
+    "openDsm": "Open DSM to sign in"
   },
   "operatorAdmin": {
-    "help": "Utilizzo:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\nIl comando comunica esclusivamente con il server Motrix in esecuzione tramite l’interfaccia di loopback del container.",
+    "help": "Utilizzo:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nIl comando comunica esclusivamente con il server Motrix in esecuzione tramite l’interfaccia di loopback del container.\n\n  motrix-admin token set [--stdin] [--json]\nSet a custom administrator token; weak tokens are accepted with a warning.",
     "errorPrefix": "motrix-admin: {{message}}",
     "usageHint": "Esegui `motrix-admin --help` per le istruzioni d’uso.",
     "pending": {
@@ -55,6 +57,35 @@
         "loopback": "Il server Motrix in esecuzione non è disponibile sull’interfaccia di loopback del container.",
         "approvalNotReady": "L’approvazione delle associazioni non è ancora pronta nel server Motrix in esecuzione."
       }
+    },
+    "extension": {
+      "heading": "Pending browser Extension pairing requests",
+      "identityNotice": "Verify that you initiated this request. Origin and claimed identity alone do not prove who is connecting. Terminal recording can capture the pairing code.",
+      "row": "{{index}}. {{browser}} [{{identity}}] Origin: {{origin}}; claimed ID: {{claimedId}}; Server: {{authority}}; {{seconds}} s remaining",
+      "select": "Enter the number of one request (Ctrl+C to exit): ",
+      "code": "Pairing code: {{code}}",
+      "instructions": "Type this code into the browser Extension. It expires at the original deadline. Ctrl+C closes this view without approving or denying the request.",
+      "none": "No pending Extension pairing requests. Start pairing in the Extension, then run this command again. If requests remain absent, check the remote Extension configuration.",
+      "ended": "The selected pairing request has ended. Check the Extension for its outcome.",
+      "ttyRequired": "Extension pairing requires interactive input, output and error terminals. Piping, redirection and JSON output are not supported.",
+      "cancelled": "Pairing code view closed. No approval or denial was sent.",
+      "invalidSelection": "Select exactly one listed request by its number.",
+      "unavailable": "The selected request expired, ended or changed. Start a new pairing attempt in the Extension."
+    },
+    "token": {
+      "weak": "This token may be easy to guess. Consider a longer, unique passphrase. You can still save it.",
+      "invalid": "Enter a nonblank token of up to 1,024 characters, without control characters.",
+      "mismatch": "The new tokens do not match.",
+      "incorrectToken": "The current token is incorrect. Check it and try again.",
+      "managed": "This token is managed by MOTRIX_OPERATOR_TOKEN. Change the deployment environment variable and restart the server.",
+      "unavailable": "The token could not be saved. The previous token is still active. Check server storage and retry.",
+      "rateLimited": "Too many attempts. Wait a minute and try again.",
+      "unknown": "The result could not be confirmed. Check the token file on the server before retrying.",
+      "prompt": "New token (input hidden):",
+      "confirm": "Confirm new token:",
+      "saved": "Token updated. Existing sessions have been signed out. Downloads continue.",
+      "ttyRequired": "Use an interactive terminal, or token set --stdin to read the token from standard input.",
+      "cancelled": "Token change cancelled."
     }
   },
   "common": {
@@ -318,7 +349,7 @@
         "loading": "Caricamento delle attività",
         "unavailable": "Dati sulle attività non disponibili",
         "retry": "Riprova",
-        "stale": "I dati sulle attività potrebbero non essere aggiornati",
+        "refreshFailed": "Aggiornamento non riuscito",
         "coverageDegraded": "I dati sulle attività potrebbero essere incompleti da {{time}}",
         "rangeSummary": "{{weeks}} settimane di attività di download, da {{start}} a {{end}}",
         "completedIntensity": "L’intensità del colore indica i download completati",
@@ -594,7 +625,7 @@
         "down": "Velocità di download",
         "up": "Velocità di caricamento",
         "eta": "Tempo rimanente",
-        "connections": "Peer",
+        "connections": "Connessioni",
         "status": "Stato",
         "createdAt": "Data di creazione",
         "finishedAt": "Data di completamento"
@@ -881,6 +912,7 @@
       },
       "action": {
         "pause": "Metti in pausa",
+        "pausing": "Messa in pausa…",
         "queueMoveFailed": "Impossibile aggiornare la coda di attesa.",
         "queueTaskStarted": "L’attività non è più nella coda di attesa.",
         "queueMoveHint": "La posizione in coda determina quale download in attesa partirà per primo. L’ordinamento delle colonne viene salvato separatamente.",
@@ -939,7 +971,15 @@
         "redownloadOverwriteTitle": "File Already Exists",
         "redownloadOverwriteDescription": "“{{name}}” already exists in the download directory. Re-downloading will overwrite or rename it. Do you want to continue?",
         "redownloadCredentialsExpired": "Original request options have expired. Please review and submit.",
-        "redownloadStarted": "Re-download started"
+        "redownloadStarted": "Re-download started",
+        "retryDialogTitle": "Riprova il download",
+        "retryDialogDescription": "Modifica i parametri della richiesta per {{name}} per avviare un nuovo download. L’attività non riuscita e il suo file parziale verranno conservati.",
+        "retryDialogProgress": "Download {{current}} di {{total}}",
+        "downloadToDevice": "Download to this device",
+        "revealInFileStation": "Show in File Station",
+        "nasFileUnavailable": "File access could not be authorized. Check the account and folder permissions.",
+        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again.",
+        "fnosHostRequired": "Apri Motrix dal desktop fnOS o dall’app mobile per usare questa azione sui file."
       },
       "titleCount": "Visualizzati: {{shown}} · Totale: {{total}}",
       "type": {
@@ -1019,6 +1059,11 @@
   },
   "task": {
     "add": {
+      "extraHeaders": "Intestazioni aggiuntive",
+      "headerName": "Nome dell’intestazione",
+      "headerValue": "Valore dell’intestazione",
+      "addHeader": "Aggiungi intestazione",
+      "removeHeader": "Rimuovi intestazione",
       "title": "Nuova attività",
       "links": "Link",
       "torrent": "Torrent",
@@ -1030,6 +1075,7 @@
       "createFailedByPlugin": "Impossibile creare l’attività: il plugin “{{pluginId}}” l’ha bloccata ({{detail}}). Disattiva il plugin in Impostazioni → Plugin, quindi riprova.",
       "createFailedPathTooLong": "Impossibile creare l’attività: il percorso di destinazione contiene {{length}} caratteri e supera il limite di Windows di {{limit}}. Scegli un percorso di salvataggio o un nome file più corto.",
       "parseFailed": "Impossibile analizzare il file torrent.",
+      "unsupportedTorrent": "Questo torrent utilizza funzionalità non supportate dal motore di download attuale.",
       "urlsCount_one": "{{count}} URL",
       "urlsCount_other": "{{count}} URL",
       "urlsCount_many": "{{count}} URL",
@@ -1113,6 +1159,7 @@
         "doc": "Documento"
       },
       "errors": {
+        "headerNameRequired": "Assegna un nome a ogni intestazione con un valore.",
         "urlsRequired": "È richiesto almeno un URL",
         "saveDirRequired": "È richiesta una cartella di salvataggio",
         "noFilesSelected": "Seleziona almeno un file",
@@ -1123,7 +1170,9 @@
         "failed": "Impossibile avviare {{name}} automaticamente. Apri i dettagli dell’attività per selezionare i file e riprovare."
       },
       "undoCorrection": "Annulla correzione URL",
-      "submissionUnconfirmed": "L’esito non è confermato. Un nuovo tentativo verificherà la richiesta originale prima di creare un’altra attività."
+      "submissionUnconfirmed": "L’esito non è confermato. Un nuovo tentativo verificherà la richiesta originale prima di creare un’altra attività.",
+      "selectNasTorrent": "Choose a torrent from the NAS",
+      "fnosAuthorizationPopupBlocked": "Consenti i popup per questo sito, quindi seleziona di nuovo la cartella."
     },
     "detail": {
       "peers": "Peer: {{count}}",
@@ -1168,7 +1217,8 @@
         "resumeSourceChanged": "Il file parziale è stato conservato perché il file remoto è cambiato dall’inizio del download.",
         "resumeRangeUnsupported": "Il file parziale è stato conservato perché il server non supporta la ripresa sicura tramite intervalli di byte.",
         "resumeValidationFailed": "Il file parziale è stato conservato perché Motrix non ha potuto verificare che il file remoto sia rimasto invariato.",
-        "mediaInterrupted": "Questo download multimediale è stato interrotto da un riavvio dell’app e non può essere ripreso. Aggiungilo di nuovo per riprovare."
+        "mediaInterrupted": "Questo download multimediale è stato interrotto da un riavvio dell’app e non può essere ripreso. Aggiungilo di nuovo per riprovare.",
+        "portableExternalPath": "This task uses a location outside the portable folder. The application moved or the original directory is unavailable. Check the download location before retrying."
       }
     },
     "error": {
@@ -1177,6 +1227,7 @@
         "recoveryFailed": "Impossibile recuperare il download: {{cause}}",
         "recoveryOutputConflict": "Sono presenti sia il file temporaneo sia quello finale; entrambi sono stati conservati per la verifica manuale",
         "filesMissing": "Mancano dei file dopo il riavvio dell’app",
+        "sourceHash": "SHA-256 dell’editore",
         "renameFileFailed": "Impossibile rinominare il file: {{cause}}",
         "renameDirFailed": "Impossibile rinominare la cartella: {{cause}}",
         "pluginChainAborted": "Catena di plugin interrotta: {{cause}}",
@@ -1196,6 +1247,7 @@
         "checksumMismatch": "La somma di controllo del file non corrisponde",
         "tooManyRedirects": "Troppi reindirizzamenti",
         "serverError": "Il server ha restituito un errore",
+        "btPortBindFailed": "La porta di ascolto BitTorrent non è disponibile",
         "btMetadataFailed": "Impossibile recuperare i metadati del torrent",
         "btTrackerError": "Connessione al tracker non riuscita",
         "generic": "Download non riuscito"
@@ -1209,7 +1261,38 @@
         "pathTooLong": "Accorcia il percorso della cartella di salvataggio o il nome del file, quindi riprova",
         "checksumMismatch": "Il file scaricato potrebbe essere danneggiato; scaricalo di nuovo per verificarlo",
         "tooManyRedirects": "Il link di origine potrebbe non funzionare; prova un altro link",
+        "btPortBindFailed": "Modifica la porta di ascolto BT nelle impostazioni BitTorrent, riavvia il motore e riprova",
         "btMetadataFailed": "Controlla il link magnet o aggiungi altri tracker, quindi riprova"
+      }
+    },
+    "storage": {
+      "move": "Move files…",
+      "locate": "Find existing files…",
+      "recheck": "Check files…",
+      "moveDescription": "Choose a new folder for your downloaded files. Seeding pauses while they move.",
+      "locateDescription": "Choose where your downloaded files are now. Motrix will check them so you can continue seeding.",
+      "recheckDescription": "Check that your downloaded files are complete. This will not change the files or download them again.",
+      "directory": "Folder",
+      "name": "File or folder name",
+      "resume": "Continue seeding after checking",
+      "checking": "Checking files…",
+      "moving": "Moving files…",
+      "resuming": "Starting seeding…",
+      "verifiedPercent": "Verified: {{percent}}%",
+      "checkFailed": "Check failed",
+      "verified": "Your files are ready to seed.",
+      "resumed": "Seeding has resumed.",
+      "incomplete": "Some files are missing or incomplete. Check that you selected the right folder and try again.",
+      "resumeFailed": "The new location is saved. Select Re-seed to try sharing the files again.",
+      "useExisting": "Check and use these files",
+      "errors": {
+        "unavailable": "This task cannot be moved or checked yet.",
+        "busy": "Another file operation is still running. Please wait for it to finish.",
+        "destination": "Choose a different folder or file name. The location may already contain these files or be inside the current folder.",
+        "conflict": "Another download is using these files. Open that task to change their location.",
+        "engine": "Motrix could not stop this task. Please try again.",
+        "failed": "Motrix could not access or move the files. Check the folder, available space, and permission to use it.",
+        "cancelled": "Check cancelled."
       }
     }
   },
@@ -1248,6 +1331,10 @@
       "integration": {
         "title": "Integrazione",
         "desc": "Estensioni del browser, CLI, integrazione con il sistema"
+      },
+      "nas": {
+        "title": "Synology NAS",
+        "desc": "Download folders and client connections"
       }
     },
     "general": {
@@ -1302,6 +1389,12 @@
       "themeDark": "Scuro",
       "language": "Lingua",
       "traySpeedometer": "Mostra velocità nella barra dei menu",
+      "dockAndMenuBar": "Dock e barra dei menu",
+      "taskbar": "Barra delle applicazioni",
+      "taskbarProgress": "Mostra l’avanzamento dei download nella barra delle applicazioni",
+      "taskbarProgressDesc": "Mostra l’avanzamento complessivo dei download attivi sul pulsante della finestra principale nella barra delle applicazioni.",
+      "dockProgress": "Mostra l’avanzamento dei download nel Dock",
+      "dockProgressDesc": "Mostra l’avanzamento complessivo dei download attivi sull’icona del Dock.",
       "traySpeedometerDesc": "Visualizza le velocità di download e caricamento accanto all’icona dell’app.",
       "trayIconColor": "Colore dell’icona nell’area di notifica",
       "trayIconColorDesc": "Scegli un colore ben visibile sul pannello di sistema.",
@@ -1310,6 +1403,10 @@
       "trayIconColorDark": "Icona scura (pannello chiaro)",
       "reduceMotion": "Riduci movimento",
       "reduceMotionDesc": "Usa meno animazioni nell’app.",
+      "hardwareAcceleration": "Accelerazione hardware",
+      "hardwareAccelerationDesc": "Usa la scheda grafica per una visualizzazione più fluida. Disattivala se la finestra sfarfalla o Motrix si arresta. Le modifiche si applicano dopo il riavvio di Motrix.",
+      "hardwareAccelerationRecoveryTitle": "Accelerazione hardware disattivata",
+      "hardwareAccelerationRecoveryBody": "Motrix ha disattivato l’accelerazione hardware dopo ripetuti arresti della visualizzazione. Puoi riattivarla in Impostazioni → Aspetto, quindi riavviare Motrix.",
       "liquidGlassEffect": "Liquid Glass",
       "liquidGlassEffectDesc": "Applica un effetto vetro traslucido alla barra degli strumenti dei download.",
       "liquidGlassEffectMacDesc": "Si applica anche alla finestra su macOS 26 e versioni successive. La finestra viene riaperta quando cambi questa impostazione.",
@@ -1323,6 +1420,8 @@
       "runModeLinuxDesc": "La disponibilità dell’area di notifica e il comportamento di attivazione dipendono dall’ambiente desktop.",
       "lightweightMode": "Modalità leggera",
       "lightweightModeDesc": "Risparmia memoria quando la finestra è chiusa. I download continuano, ma la riapertura richiede più tempo e i dati non salvati vengono cancellati.",
+      "keepStatsBarVisible": "Mantieni visibili le statistiche con i dettagli aperti",
+      "keepStatsBarVisibleDesc": "Mantieni la barra delle statistiche di download sotto il pannello dei dettagli dell’attività.",
       "byteUnitSystem": "Unità di dimensione e velocità",
       "byteUnitSystemDesc": "Scegli come visualizzare le dimensioni dei file e le velocità.",
       "byteUnitDecimal": "Decimali ({{megabyte}}, {{gigabyte}} · 1000)",
@@ -1428,7 +1527,12 @@
         "channelStable": "Stabile",
         "channelBeta": "Beta",
         "channelBetaWarning": "Le versioni beta possono essere meno stabili. Riceverai anche le nuove versioni stabili. Tornando al canale stabile, gli aggiornamenti beta si interrompono senza installare una versione precedente.",
-        "channelSaveError": "Impossibile salvare il canale di aggiornamento. Riprova."
+        "channelSaveError": "Impossibile salvare il canale di aggiornamento. Riprova.",
+        "installing": "Installazione…",
+        "installingDescription": "Preparazione dell’aggiornamento. Motrix si riavvierà quando sarà pronto.",
+        "manualDownload": "Scarica manualmente",
+        "manualInstall": "Scarica la nuova versione, chiudi Motrix e sostituisci l’applicazione installata.",
+        "manualCrossVolume": "L’installazione automatica tra dischi non è attualmente disponibile. Scarica la nuova versione e sostituisci Motrix manualmente."
       },
       "details": {
         "author": "Autore",
@@ -1630,7 +1734,7 @@
         "turtle_auto": "Automatica",
         "unitFor": "Unità per {{field}}",
         "baseSection": "Limiti standard",
-        "baseSectionDesc": "Usati per i download quotidiani e rispettati in ogni modalità.",
+        "baseSectionDesc": "Usati in modalità standard e quando nessuna regola di bassa velocità è attiva.",
         "baseDownload": "Download",
         "baseDownloadDesc": "Velocità massima di download per l’uso quotidiano.",
         "baseUpload": "Caricamento",
@@ -1640,7 +1744,7 @@
         "standardLimit": "Usa standard",
         "useStandardLimit": "Usa limite standard",
         "altSection": "Limiti a bassa velocità",
-        "altSectionDesc": "Usati nella modalità Bassa velocità o dalle regole pianificate. Questi limiti possono solo ridurre i limiti standard.",
+        "altSectionDesc": "Usati in modalità lenta o quando una regola automatica seleziona questo profilo.",
         "altDownload": "Download",
         "altDownloadDesc": "Velocità massima di download quando è attiva la modalità Bassa velocità.",
         "altUpload": "Caricamento",
@@ -1711,7 +1815,7 @@
           "adaptiveRulePending": "riserverà il {{reserved}}% della banda per le altre app una volta specificata la banda della connessione",
           "ruleSeparator": " e ",
           "autoRules": "Motrix {{rules}}.",
-          "lowerWins": "Si applica il limite attivo più basso."
+          "profileSelection": "Si applicano i limiti della modalità selezionata. I limiti vuoti della modalità lenta usano quelli standard; la modalità automatica può aggiungere un limite adattivo."
         },
         "bandwidthUsed": "Motrix può usare fino al {{motrix}}%.",
         "bandwidthPending": "Inserisci entrambe le velocità della connessione per applicare questo limite."
@@ -1720,6 +1824,8 @@
       "defaultDownloadFolder": "Cartella download predefinita",
       "autofillFromClipboard": "Compila automaticamente i link dagli appunti",
       "fillInLinksWhenOpeningNewTask": "I link copiati vengono inseriti automaticamente all’apertura di una nuova attività.",
+      "openingView": "All’apertura dei download, mostra",
+      "rememberLastSelection": "Ricorda l’ultima selezione",
       "saveFolders": "Cartelle di salvataggio",
       "description": "File, velocità di download e connessioni"
     },
@@ -1818,6 +1924,12 @@
       "hideSecret": "Nascondi segreto"
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "system": {
         "title": "App predefinita",
         "protocolMagnet": "Apri i link magnet con Motrix",
@@ -1875,8 +1987,14 @@
           "store": "Installa",
           "development": "Sviluppo"
         },
+        "pendingTitle": "Browser pairing requests",
+        "pendingEmpty": "Start pairing in your extension.",
         "pairedTitle": "Estensioni collegate",
         "pairedEmpty": "Nessuna estensione collegata.",
+        "profile": "Profilo del browser {{number}}",
+        "connected": "Connesso",
+        "disconnected": "Non connesso",
+        "revokeAll": "Disconnetti tutti",
         "lastActive": "Ultima attività",
         "revoke": "Scollega",
         "disconnecting": "Disconnessione…",
@@ -1902,7 +2020,10 @@
             "attested": "Estensione verificata",
             "unverified": "Estensione non verificata"
           },
-          "identityUnverifiedWarning": "Impossibile verificare l’identità di questa estensione. Continua solo se la ritieni affidabile."
+          "identityUnverifiedWarning": "Impossibile verificare l’identità di questa estensione. Continua solo se la ritieni affidabile.",
+          "claim": "Associa all’account attuale",
+          "claimDesc": "L’estensione userà i permessi di questo account. Inserisci quindi il codice nell’estensione per completare l’associazione.",
+          "account": "Account attuale: {{name}}"
         },
         "pairUnavailable": "Questa richiesta di associazione non è più in attesa: riprova dall’estensione del browser.",
         "trustedExtensions": "Estensioni attendibili",
@@ -2083,7 +2204,8 @@
           "missing": "Non trovato",
           "untrusted": "Bloccato da macOS",
           "unconfigured": "Non impostato",
-          "version_mismatch": "Non supportato"
+          "version_mismatch": "Non supportato",
+          "verificationUnavailable": "Verifica non disponibile"
         },
         "stagingMB": "Limite dei file temporanei (MB)",
         "stagingMBDesc": "Spazio per i file intermedi, per plugin e attività.",
@@ -2206,6 +2328,46 @@
       "originMismatchBody": "Gli aggiornamenti in tempo reale non sono disponibili. Usa l’indirizzo configurato del server o chiedi all’amministratore di correggerlo.",
       "disconnectedTitle": "La connessione per gli aggiornamenti in tempo reale è interrotta.",
       "disconnectedBody": "Alcune informazioni potrebbero arrivare in ritardo. Se il problema persiste, controlla la connessione al server e la configurazione del proxy."
+    },
+    "portable": {
+      "title": "Portable mode",
+      "startupError": "Motrix could not open its portable data directory. Check that the data folder beside Motrix.exe is writable and that no external profile override is set. Motrix has not switched to the system profile.",
+      "integrationUnavailable": "Portable mode keeps system settings unchanged. Startup registration, file associations, and system tool installation are unavailable.",
+      "browserDescription": "The local bridge remains available while Motrix is running. Portable mode does not register a browser launcher or change existing browser integration.",
+      "updateDescription": "Download the Windows ZIP, exit Motrix, and move the entire data folder to the new version. Portable mode never runs the installer.",
+      "recoveryError": "Portable data could not be recovered safely. Keep the data folder and check the logs and directory permissions before retrying. Motrix has stopped without using the system profile.",
+      "enginePathDescription": "Portable mode manages engine state inside the data folder for the current application location."
+    },
+    "nas": {
+      "description": "Shared by all DSM administrators. Restart Motrix in Package Center to apply changes.",
+      "account": "Current DSM account: {{username}}",
+      "restartRequired": "Settings saved. Restart Motrix in Package Center to apply them.",
+      "storageUnavailable": "Download folders unavailable",
+      "storageRecoveryHint": "Downloads are paused. Restore the original folders or authorize a different path, then restart Motrix in Package Center.",
+      "roots": "Authorized download folders",
+      "rootsHint": "One existing folder per line. Both your account and the system user motrix need read/write access. Removing the default makes the first folder the new default.",
+      "extensionEnabled": "Enable browser extension connections",
+      "extensionHint": "Use a DSM certificate hostname that resolves to the NAS LAN address.",
+      "webAddress": "Motrix Web address",
+      "webAddressHint": "Use the address you normally open, including /motrix/. You can fill it from this browser.",
+      "useCurrentAddress": "Use this DSM address",
+      "extensionAddress": "Extension connection address",
+      "allowHttp": "Allow pairing codes over HTTP",
+      "allowHttpHint": "Enable only on a trusted network. HTTPS does not require this option.",
+      "clientPort": "Direct client port",
+      "clientPortHint": "Direct clients use this port (1024–65535). DSM HTTPS addresses use the DSM port.",
+      "activeConnections": "Current connection addresses",
+      "cliAddress": "CLI endpoint",
+      "sessionHint": "Clients use their paired DSM account’s current permissions. After DSM logout, session expiration or a package restart, reopen Motrix with that account; pairing again is not required.",
+      "copy": "Copy address",
+      "openSettings": "Configure NAS connections",
+      "errors": {
+        "invalid": "Check the folder paths, port and connection addresses. HTTP code delivery requires explicit permission.",
+        "folderUnavailable": "Check that each folder is on a mounted volume and writable by the internal system user motrix.",
+        "permissionDenied": "The account or folder cannot be authorized. Check DSM shared-folder permissions for your account and the internal system user motrix.",
+        "unavailable": "Package settings are unavailable. Try again after the service has recovered.",
+        "conflict": "The saved configuration changed. Reload before editing again; your unsaved changes will be replaced."
+      }
     }
   },
   "errors": {
@@ -3174,12 +3336,21 @@
     "freshDescription": "Choose where to save the new download. Motrix will create a separate folder and open the download form for you to confirm. It will start from the beginning and leave your old files untouched.",
     "freshDestination": "Choose where to save the new download",
     "chooseDestination": "Choose another location…",
+    "requestSettingsHelp": "Per i vecchi file cookie, inserisci l’intestazione Cookie necessaria. Per nomi utente e password HTTP, inserisci un’intestazione Authorization equivalente. Inserisci le credenziali del proxy nel relativo URL.",
+    "unsupportedOptions": "Opzioni non supportate: {{options}}",
+    "ignoredOptions": "Opzioni non supportate omesse: {{options}}",
+    "currentProxyDescription": "I download migrati usano le impostazioni proxy di download attuali di Motrix. Le vecchie impostazioni non vengono mantenute.",
+    "requestOptions": "Impostazioni di richiesta salvate: {{options}}",
+    "requestSettingsDescription": "Le vecchie impostazioni di richiesta non sono state copiate. Reinseriscile in Avanzate prima di scaricare in una nuova cartella.",
+    "reconfigureDownload": "Riconfigura e scarica…",
     "reasons": {
       "fresh-download-required": "Needs a new download",
       "verification-required": "Existing files need checking",
       "metadata-required": "Original torrent file needed",
       "selection-required": "Choose which files to download",
-      "unsupported-options": "Download details need checking",
+      "request-settings-required": "Le impostazioni di richiesta salvate verranno controllate prima della ripresa",
+      "mirrors-unsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "unsupported-options": "Opzioni di download non supportate",
       "invalid-record": "Couldn’t read this task",
       "unsafe-path": "File location needs checking",
       "already-imported": "Already imported",
@@ -3222,14 +3393,21 @@
       "payloadMissing": "Some original files are missing, including files previously left unselected. All are needed to resume this task. Download again in a new folder.",
       "payloadUnsafe": "The original files can’t be updated safely because of file links or permissions. Keep them and download again in a new folder.",
       "controlRequired": "The saved download progress is missing. Download again in a new folder.",
-      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder."
+      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder.",
+      "httpContentChanged": "I dati scaricati differiscono dal contenuto del server.",
+      "httpRangeUnsupported": "Il server non supporta gli intervalli di byte richiesti.",
+      "httpValidatorRequired": "Il server non fornisce un identificatore affidabile della versione della risorsa.",
+      "httpVerificationFailed": "Impossibile verificare i dati scaricati.",
+      "httpRequestUnsupported": "Il motore o le impostazioni di richiesta non consentono una ripresa sicura.",
+      "httpVerificationCancelled": "Verifica annullata.",
+      "httpRedirectUnsupported": "I collegamenti reindirizzati non possono essere ripresi in sicurezza nella posizione originale."
     },
     "resultIncompleteTitle": "Migration is incomplete",
     "resultStoppedTitle": "Migration stopped",
-    "activationRequired": "Download again in a new folder to keep the original files.",
+    "activationRequired": "Apri i dettagli dell’attività per verificare e riprendere il download.",
     "chooseTorrent": "Choose torrent…",
     "torrentFile": "Torrent file",
-    "verifyAndContinue": "Verify and continue",
+    "verifyAndContinue": "Verifica e continua",
     "verifyDescription": "Motrix will verify the original files, then continue with your previous file selection. While downloading, it may upload data and write shared pieces to unselected files. It won’t seed automatically when finished.",
     "authorizeOriginalDirectory": "Choose the original download folder",
     "verifyReady": "Verify your existing files to continue this download, or start again in a new folder.",
@@ -3341,7 +3519,10 @@
         "remaining": "Remaining"
       }
     },
-    "importSelected": "Migrate"
+    "importSelected": "Migrate",
+    "httpResumeDescription": "Motrix confronterà tutti gli intervalli scaricati con il server, poi riprenderà nella cartella originale. La verifica trasferisce di nuovo questi intervalli; le impostazioni di richiesta salvate restano in memoria.",
+    "httpVerifying": "Preparazione o verifica…",
+    "httpOriginalFilesKept": "I file esistenti sono stati conservati."
   },
   "rendererRecovery": {
     "title": "L’interfaccia deve essere ripristinata",
@@ -3403,5 +3584,56 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "Crea torrent",
+    "source": "Contenuto da condividere",
+    "options": "Opzioni torrent",
+    "trackers": "Tracker",
+    "trackersPlaceholder": "Un URL announce per riga",
+    "webSeeds": "Web seed",
+    "webSeedsPlaceholder": "Un URL HTTP(S) per riga (facoltativo)",
+    "comment": "Commento",
+    "private": "Torrent privato",
+    "privateDesc": "Disattiva DHT e scambio tra peer; distribuzione solo via tracker.",
+    "pieceLength": "Dimensione pezzi",
+    "pieceAuto": "Automatica",
+    "hashing": "Calcolo degli hash…",
+    "resultName": "Nome",
+    "resultSize": "Dimensione",
+    "resultInfoHash": "Hash info",
+    "saveFile": "Salva .torrent",
+    "create": "Crea",
+    "savedToast": "Torrent salvato in {{path}}",
+    "createFailed": "Impossibile creare il torrent",
+    "saveFailed": "Impossibile salvare il file torrent",
+    "seedAfter": "Avvia la condivisione dopo il salvataggio",
+    "seedFailed": "Impossibile avviare la condivisione.",
+    "seedSubmitted": "La richiesta di condivisione è stata inviata.",
+    "invalidOptions": "Ogni elenco accetta fino a {{limit}} URL validi. I torrent privati richiedono un tracker.",
+    "menuLabel": "Crea file torrent…",
+    "downloadRequested": "Download richiesto: {{path}}"
+  },
+  "operatorToken": {
+    "title": "Access password",
+    "change": "Change password",
+    "effect": "Other devices will need to sign in again.",
+    "currentToken": "Current password",
+    "newToken": "New password",
+    "confirmation": "Confirm new password",
+    "weak": "If you plan to access Motrix over the public internet, use a stronger password.",
+    "invalid": "Remove line breaks and other control characters.",
+    "mismatch": "The passwords do not match.",
+    "incorrectToken": "The current password is incorrect. Try again.",
+    "managed": "This password is managed by the server administrator.",
+    "unavailable": "Could not save. Your current password still works. Try again later.",
+    "rateLimited": "Too many attempts. Wait a minute and try again.",
+    "unknown": "Connection interrupted. The change could not be confirmed.",
+    "saved": "Access password updated.",
+    "saving": "Updating…",
+    "update": "Update password",
+    "requiredCurrent": "Enter your current password.",
+    "requiredNew": "Enter a new password.",
+    "tooLong": "This password is too long. Shorten it and try again."
   }
 }

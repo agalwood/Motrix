@@ -411,7 +411,7 @@ test.describe('add task', () => {
     })
   }
 
-  test('http url submitted via the add-task window appears in Downloads', async ({
+  test('http url submitted via the add-task window reveals hidden main and appears in Downloads', async ({
     electronApp,
     mainWindow,
     httpFixture,
@@ -437,11 +437,23 @@ test.describe('add task', () => {
       .getByRole('textbox', { name: 'URLs' })
       .fill(httpFixture.fileUrl)
 
-    // FooterActions renders the submit as <Button> with text "Download"
-    // (common.download). After submit the AddTaskWindow auto-closes
-    // via electronServices.closeHost; we don't assert on that since
-    // hide-vs-close is a window-manager detail.
+    // Successful creation still reveals main, even if it was hidden while
+    // the add-task window was open.
+    await electronApp.evaluate(({ BrowserWindow }) => {
+      BrowserWindow.getAllWindows()
+        .find((window) => window.webContents.getURL().includes('w=main'))
+        ?.hide()
+    })
     await addTaskPage.getByRole('button', { name: 'Download' }).click()
+    await expect
+      .poll(() =>
+        electronApp.evaluate(({ BrowserWindow }) =>
+          BrowserWindow.getAllWindows()
+            .find((window) => window.webContents.getURL().includes('w=main'))
+            ?.isVisible()
+        )
+      )
+      .toBe(true)
 
     // Switch the main window to the Downloads route. NavLink renders
     // an <a>; getByRole('link') is the stable accessor across i18n.

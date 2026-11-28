@@ -218,10 +218,14 @@ describe('wireCommandSystem', () => {
       pluginsDir: tmp,
     })
 
-    const r = await capabilityHost.commands.execute('pub.a', 'pub.b.run', {})
-    expect(r).toEqual({ ok: true })
-    expect(invocations).toEqual(['pub.b.run', 'pub.c.run'])
-    expect(depthSnapshot).toBe(2)
+    try {
+      const r = await capabilityHost.commands.execute('pub.a', 'pub.b.run', {})
+      expect(r).toEqual({ ok: true })
+      expect(invocations).toEqual(['pub.b.run', 'pub.c.run'])
+      expect(depthSnapshot).toBe(2)
+    } finally {
+      await sys.audit.drain()
+    }
   })
 
   it('refreshSchemas re-installs validators after registry change', async () => {

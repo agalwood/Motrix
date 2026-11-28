@@ -21,6 +21,7 @@ import type { TaskPiecesResult } from '@shared/types/pieces'
 import type { GlobalStats } from '@shared/types/stats'
 import type { DownloadTask, TaskFile } from '@shared/types/task'
 import type { FileAllocation } from '@shared/types/tuning'
+import type { TaskCookieDiagnostic } from './task-cookie-error'
 
 export interface OutputFilePath {
   /** Engine-neutral, zero-based file index. */
@@ -79,6 +80,8 @@ export interface AddTorrentParams {
   // not exist"). Used by SessionManager when re-adding a task whose data
   // file is still on disk from a prior session.
   checkIntegrity?: boolean
+  /** Verified adoption must not inherit overwrite, rename or unchecked-seeding settings. */
+  preserveExistingFiles?: boolean
   isPrivate?: boolean
   /** Prefer early and late pieces for a metadata-confirmed video-only
    * torrent. Concrete adapters translate this product policy. */
@@ -105,7 +108,16 @@ export interface DownloadCookie {
   expiresAt?: number
 }
 
+export interface PreparedDownloadCookies {
+  cookies: DownloadCookie[]
+  discarded: TaskCookieDiagnostic[]
+}
+
 export interface CreateDownloadParams {
+  /** Require durable native request retention; fail if the engine changed. */
+  retainRequestContext?: boolean
+  /** Explicit in-place legacy HTTP activation after content verification. */
+  legacyCheckpointActivation?: { token: string; targetPath: string }
   uris: string[]
   saveDir: string
   /** Optional caller-reserved aria2 GID. aria2 accepts exactly 16
@@ -129,6 +141,8 @@ export interface CreateDownloadParams {
    *  max-connection-per-server. Caller is responsible for clamping. */
   connections?: number
   proxy?: string
+  /** Explicit bypass context for verified legacy HTTP restoration. */
+  noProxy?: string
   /** Engine-agnostic passthrough for shell-supplied options, such as a
    *  referer. The adapter honors keys it understands. */
   extraEngineOptions?: Record<string, string | string[]>
@@ -170,7 +184,24 @@ export interface LegacyBtBindingProof {
   trackers: string[]
   isPrivate: boolean
 }
+export interface LegacyHttpBindingProof {
+  engineTaskId: string
+  saveDir: string
+  targetPath: string
+  uri: string
+  expected: { totalBytes: number; pieceBytes: number }
+  entityTag: string
+  fileIdentity: { device: string; inode: string }
+  /** Ephemeral original context required before the first unpause; never persisted. */
+  request?: Pick<
+    CreateDownloadParams,
+    'headers' | 'userAgent' | 'proxy' | 'noProxy'
+  >
+}
+
 export interface EngineAdapter {
+  /** Prove the original output, source and version-pinned HTTP request belong to this GID. */
+  verifyLegacyHttpBinding?(input: LegacyHttpBindingProof): Promise<boolean>
   /** Prove exact native BT ownership, selection and safe restoration options. */
   verifyLegacyBtBinding?(input: LegacyBtBindingProof): Promise<boolean>
   configureBtTrackerPolicy?(policy: BtTrackerPolicy): void
@@ -194,8 +225,24 @@ export interface EngineAdapter {
   getDirectResourceMetadataProfile?(): DirectResourceMetadataProfile | null
 
   createDownload(params: CreateDownloadParams): Promise<string>
+  /** Side-effect-free credential adaptation. Diagnostics must never contain credentials. */
+  prepareDownloadCookies?(
+    cookies: readonly DownloadCookie[]
+  ): PreparedDownloadCookies
   pauseTask(engineTaskId: string): Promise<void>
   resumeTask(engineTaskId: string): Promise<void>
+  /** Engine-owned HTTP continuation; credentials remain inside the engine. */
+  supportsDirectTaskRetry?(): Promise<boolean>
+  canRetryDirectTask?(input: {
+    engineTaskId: string
+    uri: string
+    outputPath: string
+  }): Promise<boolean>
+  retryDirectTask?(input: {
+    engineTaskId: string
+    uri: string
+    outputPath: string
+  }): Promise<void>
   removeTask(engineTaskId: string): Promise<void>
 
   /**
@@ -297,6 +344,8 @@ export interface EngineAdapter {
 
   /** Live capability check; compiled-in support alone does not authorize import. */
   supportsLegacyCheckpointImport?(): Promise<boolean>
+  /** HTTP checkpoint import is available and ambient cumulative headers are absent. */
+  supportsLegacyHttpActivation?(): Promise<boolean>
   /** Both checkpoint import and read-only torrent restoration are available live. */
   supportsLegacyBtActivation?(): Promise<boolean>
   /** Inspect bounded opaque legacy bytes without opening or writing payloads. */

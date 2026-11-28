@@ -12,6 +12,7 @@ import {
 } from '@core/ffmpeg/ffmpeg-service'
 import { ensureDirectory } from '@core/fs/ensure-directory'
 import { pathExists } from '@core/fs/path-exists'
+import { newTaskId } from '@core/lib/ids'
 import { getLogger } from '@core/logger'
 import type { assembleSegments } from '@core/media/segment-assembler'
 import type { SegmentDecryptor } from '@core/media/segment-decryptor'
@@ -195,7 +196,7 @@ export class MediaTaskCoordinator {
       throw new Error('MediaTaskCoordinator is stopped')
     }
 
-    const taskId = job.taskId ?? this.deps.mintTaskId?.() ?? crypto.randomUUID()
+    const taskId = job.taskId ?? this.deps.mintTaskId?.() ?? newTaskId()
     let accepted = false
     let resolveAccepted!: () => void
     let rejectAccepted!: (error: unknown) => void
@@ -235,7 +236,7 @@ export class MediaTaskCoordinator {
    * contract. Production bridge and desktop submit paths use submit().
    */
   async start(job: MediaJob): Promise<{ taskId: string }> {
-    const taskId = job.taskId ?? this.deps.mintTaskId?.() ?? crypto.randomUUID()
+    const taskId = job.taskId ?? this.deps.mintTaskId?.() ?? newTaskId()
     return this.run(job, taskId)
   }
 
@@ -871,16 +872,17 @@ export class MediaTaskCoordinator {
           () => this.persistBestEffort(taskId, 'failure')
         )
       }
-      // DIAGNOSTIC: on a genuine failure (not a user cancel) log the RAW error
-      // — for a mux failure this carries the ffmpeg stderr tail (which input
-      // was invalid) — and preserve tmpDir so the bad inputs can be inspected
-      // (ffprobe video.* / audio.*). The next *successful* run still cleans up.
+      // 默认在失败后立即清理临时目录，避免数 GB 分片与中间产物长期滞留在系统临时盘 (#2532)；
+      // 仅当开发者显式设置 MOTRIX_KEEP_FAILED_MEDIA_TMP=1 时保留目录用于离线排查。
       if (!state.cancelled) {
+        const keepFailedTmp = process.env.MOTRIX_KEEP_FAILED_MEDIA_TMP === '1'
         log.warn(
-          { taskId, tmpDir, err: (err as Error).message },
-          'media task failed; preserving tmpDir for inspection'
+          { taskId, tmpDir, keepFailedTmp, err: (err as Error).message },
+          keepFailedTmp
+            ? 'media task failed; preserving tmpDir for inspection'
+            : 'media task failed; cleaning up tmpDir'
         )
-        keepTmp = true
+        keepTmp = keepFailedTmp
       }
       throw err
     } finally {

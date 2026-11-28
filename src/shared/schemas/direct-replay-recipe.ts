@@ -19,6 +19,12 @@ const validatorValueSchema = z
   .max(512)
   .refine((value) => !/[\r\n]/.test(value), 'validator contains CR/LF')
 
+// Bind a redirected validator to its resource without storing signed URLs.
+const resourceUrlHashSchema = z
+  .string()
+  .regex(/^[a-f0-9]{64}$/)
+  .optional()
+
 export const directResourceValidatorSchema = z.discriminatedUnion('kind', [
   z
     .object({
@@ -32,6 +38,7 @@ export const directResourceValidatorSchema = z.discriminatedUnion('kind', [
       ),
       contentLength: z.number().int().nonnegative().optional(),
       capturedAt: z.number().int().nonnegative(),
+      resourceUrlHash: resourceUrlHashSchema,
     })
     .strict(),
   z
@@ -43,6 +50,7 @@ export const directResourceValidatorSchema = z.discriminatedUnion('kind', [
       ),
       contentLength: z.number().int().nonnegative(),
       capturedAt: z.number().int().nonnegative(),
+      resourceUrlHash: resourceUrlHashSchema,
     })
     .strict(),
 ])
@@ -53,6 +61,8 @@ const directReplayV1Schema = z
     connections: z.number().int().min(1).max(128).optional(),
     requestModifiers: z.array(directReplayRequestModifierSchema).max(5),
     replayability: z.enum(['uri-only', 'requires-credentials']),
+    /** The engine owns a durable request context; availability still needs checking. */
+    engineContextVersion: z.literal(1).optional(),
     resourceValidator: directResourceValidatorSchema.optional(),
   })
   .strict()

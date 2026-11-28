@@ -27,6 +27,7 @@ export function ActivityTile({
     void activity.retry()
   }
 
+  let notice: ReactNode
   let content: ReactNode
   if (activity.status === 'loading') {
     content = (
@@ -55,7 +56,9 @@ export function ActivityTile({
   } else {
     const { snapshot } = activity
     const statusMessages = [
-      activity.status === 'stale' ? t(`${KEY_ROOT}.stale`) : null,
+      activity.status === 'refreshFailed'
+        ? t(`${KEY_ROOT}.refreshFailed`)
+        : null,
       snapshot.coverage.coverageGapAt !== null
         ? t(`${KEY_ROOT}.coverageDegraded`, {
             time: formatDateTime(
@@ -65,42 +68,45 @@ export function ActivityTile({
           })
         : null,
     ].filter((message): message is string => message !== null)
-    content = (
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <ActivityCalendar
-          snapshot={snapshot}
-          contentLevel={viewport.contentLevel}
-          interactive={interactive}
-          className={statusMessages.length > 0 ? 'min-h-12 flex-1' : 'flex-1'}
-        />
-        {statusMessages.length > 0 ? (
-          <div
-            role="status"
-            aria-live="polite"
-            className="flex shrink-0 items-center justify-between gap-2 pt-1 text-[9px] leading-3 text-muted-foreground"
+    notice = statusMessages.length > 0 && (
+      <div
+        role="status"
+        aria-live="polite"
+        className="flex max-w-[64cqw] items-center gap-1 text-[10px] leading-3 text-muted-foreground"
+      >
+        <span className="min-w-0 truncate" title={statusMessages.join(' · ')}>
+          {statusMessages.join(' · ')}
+        </span>
+        {activity.status === 'refreshFailed' && (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-5 shrink-0 px-1.5 text-[10px]"
+            onClick={retry}
           >
-            <span className="min-w-0 truncate">
-              {statusMessages.join('; ')}
-            </span>
-            {activity.status === 'stale' ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className="h-5 shrink-0 px-1.5 text-[9px]"
-                onClick={retry}
-              >
-                {t(`${KEY_ROOT}.retry`)}
-              </Button>
-            ) : null}
-          </div>
-        ) : null}
+            {t(`${KEY_ROOT}.retry`)}
+          </Button>
+        )}
       </div>
+    )
+    content = (
+      <ActivityCalendar
+        snapshot={snapshot}
+        contentLevel={viewport.contentLevel}
+        interactive={interactive}
+        className="min-h-0 flex-1"
+      />
     )
   }
 
   return (
-    <TileShell label={t(`${KEY_ROOT}.title`)} bodyClassName="overflow-hidden">
+    <TileShell
+      label={t(`${KEY_ROOT}.title`)}
+      bodyClassName="overflow-hidden"
+      className="@container"
+      action={notice}
+    >
       <span className="sr-only">{t(`${KEY_ROOT}.completedIntensity`)}</span>
       {content}
     </TileShell>

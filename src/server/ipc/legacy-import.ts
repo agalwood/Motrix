@@ -17,10 +17,13 @@ async function desktopOnly(): Promise<never> {
 export function unsupportedLegacyImportCommands(): CommandHandlerMap {
   return {
     [Commands.ActivateLegacyBt]: desktopOnly,
+    [Commands.ActivateLegacyHttp]: desktopOnly,
+    [Commands.CancelLegacyHttpActivation]: desktopOnly,
     [Commands.PickLegacyImportSource]: desktopOnly,
     [Commands.RevealLegacyImportSource]: desktopOnly,
     [Commands.PickLegacyTorrentMetadata]: desktopOnly,
     [Commands.CommitLegacyImport]: desktopOnly,
+    [Commands.ReleaseLegacyImportPreview]: desktopOnly,
     [Commands.CancelLegacyImport]: desktopOnly,
     [Commands.RetryLegacyImport]: desktopOnly,
     [Commands.DismissLegacyImportInvitation]: desktopOnly,
@@ -37,6 +40,7 @@ export function unsupportedLegacyImportQueries(): QueryHandlerMap {
       invitationPending: false,
     }),
     [Queries.GetLegacyBtActivationAvailability]: desktopOnly,
+    [Queries.GetLegacyHttpActivationAvailability]: desktopOnly,
     [Queries.DiscoverLegacyImport]: desktopOnly,
     [Queries.ScanLegacyImport]: desktopOnly,
     [Queries.GetLegacyImportRun]: desktopOnly,

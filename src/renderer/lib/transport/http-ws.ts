@@ -2,8 +2,11 @@ import {
   refreshOperatorSession,
   useOperatorSession,
 } from '@renderer/lib/operator-auth'
+import { fnosFileAction, isFnos } from '@renderer/platform/fnos'
+import { isSynology, synologyFileAction } from '@renderer/platform/nas'
 import { ErrorCode } from '@shared/errors'
 import { BridgeCommands, BridgeQueries } from '@shared/protocol/bridge'
+import { Commands } from '@shared/protocol/commands'
 import {
   ProtocolEnvelopeError,
   parseProtocolEnvelope,
@@ -11,12 +14,22 @@ import {
 } from '@shared/protocol/errors'
 import type { EventChannel } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
+import { openTaskFilePayloadSchema } from '@shared/schemas/open-task-file'
+import {
+  FNOS_EVENT_PROTOCOL,
+  FNOS_EVENT_TICKET_PREFIX,
+  fnosEventTicketSchema,
+  isNasAuthMode,
+} from '@shared/schemas/operator-auth'
 import {
   WEB_EVENT_CONNECT_TIMEOUT_MS,
   WEB_EVENT_STALE_MS,
+  type WebEventRenewal,
   webEventFrameSchema,
   webEventHeartbeatSchema,
+  webEventRenewalSchema,
 } from '@shared/schemas/web-event-stream'
+import { webOriginHeaders } from '../web-base-url'
 import type {
   AnyChannel,
   EventListener,
@@ -63,6 +76,7 @@ export class HttpWsTransport implements Transport {
   private lastMessageAt = 0
   private supportsHeartbeat = false
   private watchingForeground = false
+  private fnosTicketRequest: AbortController | null = null
 
   private readonly onForeground = () => {
     if (document.visibilityState === 'hidden') return
@@ -106,13 +120,37 @@ export class HttpWsTransport implements Transport {
     const session = useOperatorSession.getState()
     if (session.state === 'locked' || session.state === 'logging-out')
       throw new Error('Operator session is locked')
+    if (
+      isSynology() &&
+      session.status?.nasCapabilities?.fileActions &&
+      (channel === Commands.OpenTaskFile || channel === Commands.RevealInFolder)
+    ) {
+      const { taskId } = openTaskFilePayloadSchema.parse(args[0])
+      return synologyFileAction(
+        taskId,
+        channel === Commands.OpenTaskFile ? 'open' : 'reveal'
+      )
+    }
+    if (
+      isFnos() &&
+      (channel === Commands.OpenTaskFile || channel === Commands.RevealInFolder)
+    ) {
+      const { taskId } = openTaskFilePayloadSchema.parse(args[0])
+      return fnosFileAction(
+        taskId,
+        channel === Commands.OpenTaskFile ? 'open' : 'reveal'
+      )
+    }
     const kind = rpcKindFor(channel)
     const isInspectorActivity = channel === Queries.GetTaskInspectorActivity
     const res = await this.fetchFn(
       `${this.baseUrl}/rpc/${kind}/${encodeURIComponent(channel)}`,
       {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          ...(isNasAuthMode(session.status?.mode) ? webOriginHeaders() : {}),
+        },
         // Send the operator session cookie (Spec 9). Same-origin is the fetch
         // default, but set it explicitly so the control-plane auth is obvious.
         credentials: 'same-origin',
@@ -177,6 +215,7 @@ export class HttpWsTransport implements Transport {
       useOperatorSession.getState().state === 'locked' ||
       useOperatorSession.getState().state === 'logging-out' ||
       this.socket ||
+      this.fnosTicketRequest ||
       this.reconnectTimer !== null ||
       !this.WSCtor ||
       !this.hasEventListeners()
@@ -184,10 +223,56 @@ export class HttpWsTransport implements Transport {
       return
     }
 
+    if (isNasAuthMode(useOperatorSession.getState().status?.mode)) {
+      const pending = new AbortController()
+      this.fnosTicketRequest = pending
+      const sessionEpoch = useOperatorSession.getState().epoch
+      const epoch = ++this.socketEpoch
+      this.publishConnectionState('connecting')
+      void this.fetchFn(`${this.baseUrl}/rpc/auth/event-ticket`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: webOriginHeaders(),
+        signal: AbortSignal.any([pending.signal, AbortSignal.timeout(15_000)]),
+      })
+        .then(async (response) => {
+          if (response.status === 401 || response.status === 403)
+            void refreshOperatorSession(sessionEpoch)
+          if (!response.ok) throw new Error('fnOS event authorization failed')
+          const { ticket } = fnosEventTicketSchema.parse(await response.json())
+          if (this.fnosTicketRequest !== pending || this.socketEpoch !== epoch)
+            return
+          this.fnosTicketRequest = null
+          if (
+            !this.hasEventListeners() ||
+            useOperatorSession.getState().epoch !== sessionEpoch ||
+            useOperatorSession.getState().state !== 'authenticated'
+          )
+            return
+          this.connectSocket([
+            FNOS_EVENT_PROTOCOL,
+            `${FNOS_EVENT_TICKET_PREFIX}${ticket}`,
+          ])
+        })
+        .catch(() => {
+          if (this.fnosTicketRequest !== pending) return
+          this.fnosTicketRequest = null
+          this.publishConnectionState('disconnected')
+          this.scheduleReconnect()
+        })
+      return
+    }
+    this.connectSocket()
+  }
+
+  private connectSocket(protocols?: string[]): void {
+    if (!this.WSCtor) return
     const wsUrl = `${this.baseUrl.replace(/^http/, 'ws')}/rpc/events`
     let socket: WebSocket
     try {
-      socket = new this.WSCtor(wsUrl)
+      socket = protocols
+        ? new this.WSCtor(wsUrl, protocols)
+        : new this.WSCtor(wsUrl)
     } catch {
       this.publishConnectionState('disconnected')
       this.scheduleReconnect()
@@ -209,6 +294,37 @@ export class HttpWsTransport implements Transport {
     )
     this.publishConnectionState('connecting')
 
+    const lifetime = new AbortController()
+    let renewing = false
+    const renew = async (frame: WebEventRenewal) => {
+      if (renewing) return
+      renewing = true
+      const session = useOperatorSession.getState()
+      try {
+        const res = await this.fetchFn(`${this.baseUrl}/rpc/auth/event-renew`, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            ...webOriginHeaders(),
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify(frame),
+          signal: AbortSignal.any([
+            lifetime.signal,
+            AbortSignal.timeout(12_000),
+          ]),
+        })
+        if (!this.isCurrentSocket(socket, epoch)) return
+        if (res.status === 401 || res.status === 403)
+          void refreshOperatorSession(session.epoch)
+        if (!res.ok) this.retireSocket(socket, epoch)
+      } catch {
+        this.retireSocket(socket, epoch)
+      } finally {
+        renewing = false
+      }
+    }
+
     socket.addEventListener('open', () => {
       if (!this.isCurrentSocket(socket, epoch)) return
       this.clearDeadline()
@@ -223,6 +339,14 @@ export class HttpWsTransport implements Transport {
           this.supportsHeartbeat = true
           this.receivedMessage(socket, epoch)
           return
+        }
+        if (useOperatorSession.getState().status?.mode === 'synologyDsm') {
+          const renewal = webEventRenewalSchema.safeParse(data)
+          if (renewal.success) {
+            this.receivedMessage(socket, epoch)
+            void renew(renewal.data)
+            return
+          }
         }
         const parsed = webEventFrameSchema.safeParse(data)
         if (!parsed.success) return
@@ -242,6 +366,7 @@ export class HttpWsTransport implements Transport {
       }
     })
     socket.addEventListener('close', () => {
+      lifetime.abort()
       if (!this.isCurrentSocket(socket, epoch)) return
       this.clearDeadline()
       this.socket = null
@@ -321,6 +446,9 @@ export class HttpWsTransport implements Transport {
   }
 
   private stopSocket(): void {
+    const ticketRequest = this.fnosTicketRequest
+    this.fnosTicketRequest = null
+    ticketRequest?.abort()
     this.clearDeadline()
     this.watchingForeground = false
     window.removeEventListener('online', this.onForeground)

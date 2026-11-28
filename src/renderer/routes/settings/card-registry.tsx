@@ -1,4 +1,4 @@
-import type { ComponentType, ReactElement } from 'react'
+import { type ComponentType, lazy, type ReactElement, Suspense } from 'react'
 import { AboutDialog } from './cards/about-dialog'
 import { AdvancedDialog } from './cards/advanced-dialog'
 import { AppearanceDialog } from './cards/appearance-dialog'
@@ -8,6 +8,15 @@ import { DownloadsDialog } from './cards/downloads-dialog'
 import { GeneralDialog } from './cards/general-dialog'
 import { IntegrationDialog } from './cards/integration/integration-dialog'
 import { NetworkDialog } from './cards/network-dialog'
+
+const NasDialog =
+  __MOTRIX_TARGET__ === 'web'
+    ? lazy(() =>
+        import('./cards/nas-dialog').then((module) => ({
+          default: module.NasDialog,
+        }))
+      )
+    : () => null
 
 const iconGeneral1x = new URL('./icons/icon-general@1x.webp', import.meta.url)
   .href
@@ -145,7 +154,22 @@ export const SETTINGS_CARDS: readonly SettingsCard[] = [
   },
 ] as const
 
-export function findCard(id: string | undefined): SettingsCard | undefined {
+export const NAS_SETTINGS_CARD: SettingsCard = {
+  id: 'nas',
+  icon: createSettingsIcon('nas', iconNetwork1x, iconNetwork2x),
+  labelKey: 'settings.cards.nas.title',
+  descKey: 'settings.cards.nas.desc',
+  Dialog: (props) => (
+    <Suspense fallback={null}>
+      <NasDialog {...props} />
+    </Suspense>
+  ),
+}
+
+export function findCard(
+  id: string | undefined,
+  cards: readonly SettingsCard[] = SETTINGS_CARDS
+): SettingsCard | undefined {
   if (!id) return undefined
-  return SETTINGS_CARDS.find((c) => c.id === id)
+  return cards.find((c) => c.id === id)
 }

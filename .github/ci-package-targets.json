@@ -1,0 +1,62 @@
+[
+  {
+    "target": "darwin-arm64",
+    "os": "macos-26",
+    "platform": "darwin",
+    "arch": "arm64",
+    "rust_target": "aarch64-apple-darwin",
+    "electron_builder_args": "--mac --arm64",
+    "resources_dir": "release/mac-arm64/Motrix.app/Contents/Resources",
+    "app_path": "release/mac-arm64/Motrix.app"
+  },
+  {
+    "target": "darwin-x64",
+    "os": "macos-26-intel",
+    "platform": "darwin",
+    "arch": "x64",
+    "rust_target": "x86_64-apple-darwin",
+    "electron_builder_args": "--mac --x64",
+    "resources_dir": "release/mac/Motrix.app/Contents/Resources",
+    "app_path": "release/mac/Motrix.app"
+  },
+  {
+    "target": "linux-x64",
+    "os": "ubuntu-22.04",
+    "platform": "linux",
+    "arch": "x64",
+    "rust_target": "x86_64-unknown-linux-musl",
+    "electron_builder_args": "--linux --x64",
+    "resources_dir": "release/linux-unpacked/resources",
+    "app_path": "release/linux-unpacked"
+  },
+  {
+    "target": "linux-arm64",
+    "os": "ubuntu-22.04-arm",
+    "platform": "linux",
+    "arch": "arm64",
+    "rust_target": "aarch64-unknown-linux-musl",
+    "electron_builder_args": "--linux --arm64",
+    "resources_dir": "release/linux-arm64-unpacked/resources",
+    "app_path": "release/linux-arm64-unpacked"
+  },
+  {
+    "target": "win32-x64",
+    "os": "windows-2025",
+    "platform": "win32",
+    "arch": "x64",
+    "rust_target": "x86_64-pc-windows-msvc",
+    "electron_builder_args": "--win dir --x64",
+    "resources_dir": "release/win-unpacked/resources",
+    "app_path": "release/win-unpacked"
+  },
+  {
+    "target": "win32-arm64",
+    "os": "windows-11-arm",
+    "platform": "win32",
+    "arch": "arm64",
+    "rust_target": "aarch64-pc-windows-msvc",
+    "electron_builder_args": "--win dir --arm64",
+    "resources_dir": "release/win-arm64-unpacked/resources",
+    "app_path": "release/win-arm64-unpacked"
+  }
+]

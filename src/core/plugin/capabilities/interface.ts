@@ -64,6 +64,10 @@ export interface CapabilityHost {
   setLocale(locale: SupportedLocale): void
   onLocaleChange(handler: (lang: string) => void): () => void
   flush(): Promise<void>
+  /** Release a quiesced plugin's diagnostic writer without deleting its history. */
+  releaseLog?(pluginId: string): Promise<void>
+  /** Close all diagnostic writers during host shutdown. */
+  closeLogs?(): Promise<void>
 
   // ── Plan B ────────────────────────────────────────────────────────────────
   /** Shared outbound HTTP host (jar injected per-request by the bridge). */

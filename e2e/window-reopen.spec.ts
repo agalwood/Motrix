@@ -5,6 +5,7 @@ import { CURRENT_SETTINGS_VERSION } from '../src/core/settings/migrations'
 import { RunMode } from '../src/shared/constants'
 import {
   expect,
+  findAddTaskWindow,
   launchMotrix,
   test,
   waitForQueryHandlers,
@@ -29,6 +30,70 @@ async function windowState(app: ElectronApplication, id = 'main') {
       ? { visible: win.isVisible(), minimized: win.isMinimized() }
       : null
   }, id)
+}
+
+for (const state of ['visible', 'hidden', 'released'] as const) {
+  test(`cancelling a new task preserves a ${state} main window`, async ({
+    userDataDir,
+    rpcPort,
+  }) => {
+    await writeFile(
+      path.join(userDataDir, 'settings.json'),
+      JSON.stringify({
+        version: CURRENT_SETTINGS_VERSION,
+        onboarding: { disclaimerAccepted: true },
+        tracker: { autoSync: false },
+        app: {
+          language: 'en-US',
+          autofillClipboardLinks: false,
+          runMode: RunMode.Standard,
+          lightweightMode: state === 'released',
+        },
+      })
+    )
+    const app = await launchMotrix({ userDataDir, rpcPort })
+    try {
+      const main = await app.firstWindow()
+      await main.waitForLoadState('domcontentloaded')
+      await waitForQueryHandlers(main)
+      await expect
+        .poll(() => windowState(app))
+        .toEqual({ visible: true, minimized: false })
+      if (state !== 'visible') {
+        await app.evaluate(({ BrowserWindow }) => {
+          BrowserWindow.getAllWindows()
+            .find((window) => window.webContents.getURL().includes('w=main'))
+            ?.close()
+        })
+      }
+      const expectedMain =
+        state === 'released'
+          ? null
+          : { visible: state === 'visible', minimized: false }
+      await expect.poll(() => windowState(app)).toEqual(expectedMain)
+
+      const magnetUri =
+        'magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567'
+      await app.evaluate(({ app: electronApp }, uri) => {
+        electronApp.emit(
+          'open-url',
+          { preventDefault: () => undefined } as Electron.Event,
+          uri
+        )
+      }, magnetUri)
+      const addTask = await findAddTaskWindow(app)
+      await expect(addTask.getByRole('textbox', { name: 'URLs' })).toHaveValue(
+        magnetUri
+      )
+      expect(await windowState(app)).toEqual(expectedMain)
+      await addTask.getByRole('button', { name: 'Cancel', exact: true }).click()
+      await expect.poll(() => addTask.isClosed()).toBe(true)
+
+      expect(await windowState(app)).toEqual(expectedMain)
+    } finally {
+      await app.close()
+    }
+  })
 }
 
 test('a second launch restores a minimized main window', async ({

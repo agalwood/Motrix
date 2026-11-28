@@ -13,6 +13,7 @@ import {
   type FfmpegDetectionResult,
 } from '@core/plugin/capabilities/ffmpeg-detect'
 import type { SettingsManager } from '@core/settings/settings-manager'
+import { probeServerFfmpeg } from './verified-ffmpeg-server'
 
 export interface ServerFfmpegDetectOptions {
   settingsManager: SettingsManager
@@ -25,10 +26,13 @@ export function makeServerFfmpegDetect(
 ): () => Promise<FfmpegDetectionResult> {
   const userDataBinariesDir = path.join(opts.userDataDir, 'binaries')
   return async () =>
-    detectInOrder({
-      manualPath: opts.settingsManager.get().media.ffmpegBinaryPath,
-      userDataBinariesDir,
-      platform: process.platform,
-      envPath: process.env.MOTRIX_FFMPEG_PATH ?? null,
-    })
+    detectInOrder(
+      {
+        manualPath: opts.settingsManager.get().media.ffmpegBinaryPath,
+        userDataBinariesDir,
+        platform: process.platform,
+        envPath: process.env.MOTRIX_FFMPEG_PATH ?? null,
+      },
+      (candidate) => probeServerFfmpeg(opts.userDataDir, candidate)
+    )
 }

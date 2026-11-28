@@ -27,6 +27,7 @@ const COUNTDOWN_MS = 60_000
 
 function isFinished(task: DownloadTask): boolean {
   return (
+    !task.storageOperation &&
     (task.status === TaskStatus.Completed ||
       task.status === TaskStatus.Seeding) &&
     task.transitionPhase === TransitionPhase.Idle

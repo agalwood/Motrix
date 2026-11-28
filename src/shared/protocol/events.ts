@@ -16,6 +16,7 @@ export const Events = {
   CompletionShutdownChanged: 'event:completionShutdownChanged',
   TaskUpdated: 'event:taskUpdated',
   TaskFilesUpdated: 'event:taskFilesUpdated',
+  BtStorageProgress: 'event:btStorageProgress',
   TaskActivityUpdated: 'event:taskActivityUpdated',
   TaskInspectorActivityUpdated: 'event:taskInspectorActivityUpdated',
   StatsUpdated: 'event:statsUpdated',
@@ -47,6 +48,8 @@ export const Events = {
   LiquidGlassChanged: 'event:liquidGlassChanged',
   // Payload: { sidebarColor: SidebarColor }.
   SidebarColorChanged: 'event:sidebarColorChanged',
+  DownloadsOpeningViewChanged: 'event:downloadsOpeningViewChanged',
+  StatsBarVisibilityChanged: 'event:statsBarVisibilityChanged',
   // Payload: { color: string | null }, an RGB hex color from the desktop host.
   SystemAccentColorChanged: 'event:systemAccentColorChanged',
   // Payload: { byteUnitSystem: ByteUnitPreference }.
@@ -124,6 +127,8 @@ export const Events = {
   // Payload: EngineCompatibilityWarningPayload. Internal shell signal; the
   // resulting durable NotificationAdded event is what reaches renderers.
   EngineCompatibilityWarning: 'event:engineCompatibilityWarning',
+  // A 0..1 fraction delivered only to the creator window that owns the operation.
+  CreateTorrentProgress: 'event:createTorrentProgress',
   RendererTaskMenuRequested: 'event:rendererTaskMenuRequested',
   ApplicationMenuChanged: 'event:applicationMenuChanged',
   // No payload; only the main window's current Downloads list handles this.

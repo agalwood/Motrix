@@ -1,0 +1,56 @@
+#!/bin/bash
+set -euo pipefail
+umask 077
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+[[ "$(id -u)" == 0 ]] || { echo 'Motrix lifecycle requires root preparation' >&2; exit 1; }
+: "${TRIM_APPDEST:?Missing application directory}"
+: "${TRIM_PKGVAR:?Missing application data directory}"
+case "${1:-}" in start|stop|status) ;; *) exit 1 ;; esac
+cmd_dir="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
+protected() {
+  [[ ! -L "$1" && "$(stat -c %u -- "$1")" == 0 ]] &&
+    (( (8#$(stat -c %a -- "$1") & 8#022) == 0 ))
+}
+for file in "$cmd_dir" "$cmd_dir/authority-lifecycle.mjs" "$cmd_dir/account-authority.mjs"; do
+  protected "$file" || exit 1
+done
+runtime=/run/motrix-account-authority
+if [[ ! -e "$runtime" && ! -L "$runtime" ]]; then mkdir -m 0755 -- "$runtime"; fi
+[[ -d "$runtime" ]] || exit 1
+protected "$runtime" || exit 1
+exec 9>"$runtime/lifecycle.lock"
+flock -w 90 9 || exit 1
+node_sha256='@FNOS_NODE_SHA256@'
+node_size='@FNOS_NODE_SIZE@'
+[[ "$node_sha256" =~ ^[a-f0-9]{64}$ && "$node_size" =~ ^[0-9]+$ ]] || exit 1
+executable_dir="$cmd_dir/.authority-runtime"
+if [[ ! -e "$executable_dir" && ! -L "$executable_dir" ]]; then mkdir -m 0700 -- "$executable_dir"; fi
+[[ -d "$executable_dir" ]] || exit 1
+protected "$executable_dir" || exit 1
+node="$executable_dir/node-$node_sha256"
+if [[ ! -e "$node" ]]; then
+  temporary="$(mktemp "$executable_dir/.node-XXXXXXXX")"
+  trap 'rm -f -- "$temporary"' EXIT
+  # The application payload is writable by the package user. Copy a bounded
+  # snapshot, then verify it before executing anything as root.
+  timeout 15 head -c "$((node_size + 1))" -- "$TRIM_APPDEST/runtime/bin/node" > "$temporary"
+  [[ "$(stat -c %s -- "$temporary")" == "$node_size" ]]
+  [[ "$(sha256sum -- "$temporary" | cut -d ' ' -f 1)" == "$node_sha256" ]]
+  chmod 0500 -- "$temporary"
+  mv -T -- "$temporary" "$node"
+  trap - EXIT
+fi
+protected "$node"
+[[ "$(sha256sum -- "$node" | cut -d ' ' -f 1)" == "$node_sha256" ]]
+exec env -i PATH="$PATH" \
+  TRIM_APPDEST="$TRIM_APPDEST" TRIM_PKGVAR="$TRIM_PKGVAR" \
+  TRIM_DATA_SHARE_PATHS="${TRIM_DATA_SHARE_PATHS:-}" TRIM_API_TOKEN="${TRIM_API_TOKEN:-}" \
+  TRIM_SERVICE_PORT="${TRIM_SERVICE_PORT:-16802}" \
+  wizard_client_port="${wizard_client_port:-}" \
+  wizard_extension_enabled="${wizard_extension_enabled:-false}" \
+  wizard_extension_url="${wizard_extension_url:-}" \
+  wizard_operator_url="${wizard_operator_url:-}" \
+  wizard_allow_operator_http="${wizard_allow_operator_http:-false}" \
+  TRIM_SYS_LANGUAGE="${TRIM_SYS_LANGUAGE:-zh-CN}" TRIM_TEMP_LOGFILE="${TRIM_TEMP_LOGFILE:-}" \
+  MOTRIX_FNOS_API_SOCKET="${MOTRIX_FNOS_API_SOCKET:-/var/run/trim_open_gateway_apiscope.socket}" \
+  "$node" "$cmd_dir/authority-lifecycle.mjs" "$1"

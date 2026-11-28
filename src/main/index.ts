@@ -17,8 +17,9 @@ import {
   PollingScheduler,
   type PollingTaskUpdateSource,
 } from '@core/engine/aria2/polling-scheduler'
+import { TASK_STATUS_FIELDS } from '@core/engine/aria2/task-status-fields'
 import { translateRawToTask } from '@core/engine/aria2/translate'
-import type { Aria2RawStatus } from '@core/engine/aria2/types'
+import type { Aria2TaskStatus } from '@core/engine/aria2/types'
 import { WebSocketTransport } from '@core/engine/aria2/web-socket-transport'
 import {
   ENGINE_READY_TIMEOUT_MS,
@@ -26,6 +27,10 @@ import {
 } from '@core/engine/engine-supervisor'
 import { EventBus } from '@core/events/event-bus'
 import { locateFfmpeg } from '@core/ffmpeg/ffmpeg-locator'
+import {
+  canonicalizeFinalizeCommitRequest,
+  canonicalizeSaveDir,
+} from '@core/fs/canonicalize-save-dir'
 import { pathExists } from '@core/fs/path-exists'
 import { GeoIPManager } from '@core/geoip/geo-ip-manager'
 import { LocaleCoordinator } from '@core/i18n/locale-coordinator'
@@ -37,6 +42,7 @@ import {
   taskInspectorActivityEnvironment,
 } from '@core/inspector-activity'
 import { LegacyBtActivationService } from '@core/legacy-import/bt-activation-service'
+import { LegacyHttpActivationService } from '@core/legacy-import/http-activation-service'
 import { LegacyImportService } from '@core/legacy-import/import-service'
 import {
   getLegacyQuarantinedGids,
@@ -68,11 +74,16 @@ import { RegistryClient } from '@core/plugin/registry/registry-client'
 import type { PluginHookRuntime } from '@core/plugin/runtime/plugin-hook-runtime'
 import { createPluginRuntime } from '@core/plugin/runtime/runtime-factory'
 import { PluginRuntimeStartupCoordinator } from '@core/plugin/runtime/startup-coordinator'
+import { LibsodiumSecretStore } from '@core/plugin/secret-store-libsodium'
 import { PluginSecurityService } from '@core/plugin/security/security-service'
 import { PluginStateStore } from '@core/plugin/state/plugin-state-store'
 import { BuiltinUpdater } from '@core/plugin/update/builtin-updater'
 import { AppliedDownloadProxyPolicy } from '@core/proxy/applied-download-proxy-policy'
 import { ProxyBridgeManager } from '@core/proxy/proxy-bridge-manager'
+import {
+  DownloadHandoffJournal,
+  readHandoffActivationOwners,
+} from '@core/session/download-handoff-journal'
 import type { DurableFinalizeRuntime } from '@core/session/durable-finalize-runtime'
 import { MotrixDatabase } from '@core/session/motrix-database'
 import { SessionManager } from '@core/session/session-manager'
@@ -119,6 +130,7 @@ import {
 } from '@core/task/task-recovery-service'
 import { TaskUpdatePublisher } from '@core/task/task-update-publisher'
 import { TorrentMetaStoreImpl } from '@core/task/torrent-meta-store'
+import { reconcileFollowedMagnetTasks } from '@core/torrent/magnet-follow-reconciler'
 import { MagnetTracker } from '@core/torrent/magnet-tracker'
 import { shouldSkipForPendingMagnetMetadata } from '@core/torrent/metadata-task-filter'
 import { TorrentParser } from '@core/torrent/torrent-parser'
@@ -138,11 +150,13 @@ import {
   resolveTaskRoute,
 } from '@shared/lib/task-navigation'
 import { Events } from '@shared/protocol/events'
+import { Queries } from '@shared/protocol/queries'
 import {
   DEFAULT_BYTE_UNIT_PREFERENCE,
   resolveByteUnitSystem,
 } from '@shared/schemas/byte-unit-system'
 import { REGISTRY_CACHE_FILENAME } from '@shared/schemas/registry'
+import { CliToolReason } from '@shared/types/cli-tool'
 import { EngineState } from '@shared/types/engine'
 import type { AppNotification } from '@shared/types/notification'
 import { getHiddenNotificationKinds } from '@shared/types/notification'
@@ -154,6 +168,7 @@ import {
   app,
   type BrowserWindow,
   dialog,
+  ipcMain,
   autoUpdater as nativeAutoUpdater,
   powerMonitor,
   shell,
@@ -161,6 +176,10 @@ import {
 } from 'electron'
 import { bootstrapBridge, createNativeMessagingInstaller } from './bridge'
 import { BridgeManager } from './bridge/bridge-manager'
+import {
+  activateDesktopHandoff,
+  desktopDownloadHandoff,
+} from './bridge/desktop-download-handoff'
 import { isPackagedLinuxFlatpak } from './bridge/flatpak-environment'
 import { resolvePackagedLinuxSnapEnvironment } from './bridge/snap-environment'
 import { CliToolService } from './cli/cli-tool-service'
@@ -183,6 +202,7 @@ import { registerDisclaimerIpc } from './ipc/disclaimer'
 import { setupEventForwarding } from './ipc/events'
 import { registerNotificationIpc } from './ipc/notifications'
 import { registerQueryHandlers } from './ipc/queries'
+import { registerTrustedIpcHandler } from './ipc/trusted-ipc'
 import { setupLauncher } from './launcher'
 import {
   defaultLegacyRoots,
@@ -207,8 +227,19 @@ import { setupCompletionShutdown } from './platform/completion-shutdown'
 import { resolveDefaultSaveDirOptions } from './platform/default-save-dir'
 import { resolveDesktopBackgroundPolicy } from './platform/desktop-background-policy'
 import { resolveDistributionContext } from './platform/distribution-context'
+import { setupDownloadProgress } from './platform/download-progress'
 import { removePathRecursive, renameAtomic } from './platform/fs-helpers'
+import { setupGraphicsRecovery } from './platform/graphics-recovery-runtime'
+import { getMacUpdateInstallBlockReason } from './platform/mac-update-install-policy'
 import { setupNativeThemeSync } from './platform/native-theme-sync'
+import {
+  getPortableProfile,
+  PortableProfileError,
+} from './platform/portable-profile'
+import {
+  portableEngineStateDirectory,
+  relocatePortableProfile,
+} from './platform/portable-relocation'
 import { setupPowerManager } from './platform/power-manager'
 import { createProtocolManager } from './platform/protocol-manager'
 import { isElectronSelfUpdateSupported } from './platform/self-update-policy'
@@ -271,12 +302,34 @@ if (process.platform === 'linux') {
   app.commandLine.appendSwitch('password-store', 'basic')
 }
 
-const platform = createElectronPlatformServices(distributionContext)
+const platform = (() => {
+  try {
+    return createElectronPlatformServices(distributionContext)
+  } catch (error) {
+    if (error instanceof PortableProfileError) {
+      dialog.showErrorBox(
+        i18n.t('settings.portable.title'),
+        i18n.t('settings.portable.startupError')
+      )
+      app.exit(1)
+    }
+    throw error
+  }
+})()
+const portableProfile = getPortableProfile()
 const rendererUrlPolicy = initializeRendererUrlPolicy({
   isPackaged: app.isPackaged,
   appPath: app.getAppPath(),
   devServerUrl: app.isPackaged ? null : process.env.VITE_DEV_SERVER_URL,
 })
+
+// Immutable startup capability must be available before onboarding or settings
+// windows mount; late service registration can still be waiting on plugin IO.
+registerTrustedIpcHandler(Queries.GetPortableMode, () => ({
+  enabled: Boolean(portableProfile),
+  dataDirectory: portableProfile?.dataDir,
+}))
+app.once('will-quit', () => ipcMain.removeHandler(Queries.GetPortableMode))
 
 // ─── Logger ─────────────────────────────────────────────
 
@@ -309,6 +362,7 @@ const speedHistoryStore = new SpeedHistoryStore()
 const taskSpeedHistoryStore = new TaskSpeedHistoryStore()
 const torrentParser = new TorrentParser()
 let windowManager: WindowManager
+let graphicsRuntime: ReturnType<typeof setupGraphicsRecovery> | undefined
 let rendererRecovery:
   | ReturnType<typeof createRendererRecoveryRuntime>
   | undefined
@@ -348,20 +402,25 @@ const settingsFlatpakEnvironment =
     isPackaged: app.isPackaged,
     env: process.env,
   })
-const defaultSaveDirOptions = resolveDefaultSaveDirOptions({
-  snapEnvironment: settingsSnapEnvironment,
-  getSystemDownloadsDir: () => app.getPath('downloads'),
-  getHomeDir: homedir,
-  ensureDirectory: (directory) => mkdirSync(directory, { recursive: true }),
-  onSystemDownloadsDirError: (error, fallbackDir) =>
-    log.warn(
-      { err: error, fallbackDir },
-      'system downloads directory unavailable; using home fallback'
-    ),
-})
+const defaultSaveDirOptions = portableProfile
+  ? { defaultSaveDir: portableProfile.downloadsDir }
+  : resolveDefaultSaveDirOptions({
+      snapEnvironment: settingsSnapEnvironment,
+      getSystemDownloadsDir: () => app.getPath('downloads'),
+      getHomeDir: homedir,
+      ensureDirectory: (directory) => mkdirSync(directory, { recursive: true }),
+      onSystemDownloadsDirError: (error, fallbackDir) =>
+        log.warn(
+          { err: error, fallbackDir },
+          'system downloads directory unavailable; using home fallback'
+        ),
+    })
 const cliToolService = new CliToolService({
+  manualOnlyReason: portableProfile ? CliToolReason.Portable : undefined,
   directInstallSupported:
-    !settingsFlatpakEnvironment && settingsSnapEnvironment === null,
+    !portableProfile &&
+    !settingsFlatpakEnvironment &&
+    settingsSnapEnvironment === null,
 })
 const settingsManager = new SettingsManager(settingsPath, {
   defaultByteUnitSystem: resolveByteUnitSystem(
@@ -373,6 +432,11 @@ const settingsManager = new SettingsManager(settingsPath, {
   }),
   ...defaultSaveDirOptions,
   onChange: (old, updated) => {
+    if (old.app.hardwareAcceleration !== updated.app.hardwareAcceleration) {
+      graphicsRuntime?.recovery.preferenceChanged(
+        updated.app.hardwareAcceleration
+      )
+    }
     eventBus.emit(Events.SettingsChanged, { old, updated })
     if (
       old.app.notifyInAppOnComplete !== updated.app.notifyInAppOnComplete ||
@@ -380,6 +444,14 @@ const settingsManager = new SettingsManager(settingsPath, {
       old.app.notificationBadgeStyle !== updated.app.notificationBadgeStyle
     ) {
       eventBus.emit(Events.NotificationsChanged)
+    }
+    if (old.app.downloadsOpeningView !== updated.app.downloadsOpeningView) {
+      eventBus.emit(Events.DownloadsOpeningViewChanged)
+    }
+    if (old.app.keepStatsBarVisible !== updated.app.keepStatsBarVisible) {
+      eventBus.emit(Events.StatsBarVisibilityChanged, {
+        keepStatsBarVisible: updated.app.keepStatsBarVisible,
+      })
     }
     if (old.app.sidebarColor !== updated.app.sidebarColor) {
       eventBus.emit(Events.SidebarColorChanged, {
@@ -459,7 +531,13 @@ log.info({ extraDir: platform.extraResourceDir }, 'resolved extra directory')
 
 const configBuilder = new Aria2ConfigBuilder(
   path.join(platform.extraResourceDir, 'aria2.conf'),
-  platform.userDataDir
+  platform.userDataDir,
+  {
+    supervisorPid: process.pid,
+    ...(portableProfile
+      ? { persistenceDirectory: portableEngineStateDirectory(portableProfile) }
+      : {}),
+  }
 )
 const trustStore = new Aria2TrustStore(platform.userDataDir)
 
@@ -505,6 +583,7 @@ let supervisor: EngineSupervisor
 let pluginHttpClient: PluginHttpClient | undefined
 let proxyBridge: ProxyBridgeManager
 let speedLimitController: SpeedLimitController
+let handoffJournal: DownloadHandoffJournal | undefined
 let sessionManager: SessionManager
 let completedEngineTaskCleanup: CompletedEngineTaskCleanup
 let pollingScheduler: PollingScheduler
@@ -539,6 +618,7 @@ let segmentClient: Aria2SegmentClient | null = null
 let disposeIpcIngress: (() => void) | null = null
 let legacyImportService: LegacyImportService | null = null
 let legacyBtActivationService: LegacyBtActivationService | null = null
+let legacyHttpActivationService: LegacyHttpActivationService | null = null
 let pendingDisclaimerGate: DisclaimerGate | null = null
 const mainProcessWork = new MainProcessWorkCoordinator()
 const pollingNotificationUnsubscribers: Array<() => void> = []
@@ -592,6 +672,7 @@ function performCleanup(): Promise<void> {
     // the drain: startup can be blocked on the engine/plugin/session that only
     // those teardown operations can release.
     void legacyBtActivationService?.drain()
+    void legacyHttpActivationService?.drain()
     const acceptedWorkDrain = mainProcessWork.stopAndDrain()
     postDeliveryAbortController?.abort()
     await ingressClose
@@ -669,6 +750,9 @@ function performCleanup(): Promise<void> {
     await safely('legacy-bt-activation', () =>
       legacyBtActivationService?.drain()
     )
+    await safely('legacy-http-activation', () =>
+      legacyHttpActivationService?.drain()
+    )
     await safely('legacy-import', () => legacyImportService?.drain())
     await safely('database', () => {
       if (motrixDb?.database.open) motrixDb.close()
@@ -694,9 +778,9 @@ function dispatchWhenReady(
   payload: unknown,
   resolvePayload?: () => unknown
 ) {
-  const id = (['main', 'add-task', 'onboarding'] as const).find(
-    (id) => windowManager?.get(id) === win
-  )
+  const id = (
+    ['main', 'add-task', 'onboarding', 'create-torrent'] as const
+  ).find((id) => windowManager?.get(id) === win)
   if (!id || win.isDestroyed()) return
   if (rendererRecovery?.intents.deliver(id, channel, payload, resolvePayload))
     return
@@ -816,6 +900,13 @@ const launcher = setupLauncher({
   },
 })
 
+// Run synchronously before ready, after the launcher owns this profile.
+// SettingsManager loads asynchronously after ready, which is too late for
+// Electron's hardware acceleration switch.
+if (app.hasSingleInstanceLock()) {
+  graphicsRuntime = setupGraphicsRecovery(platform.userDataDir, settingsPath)
+}
+
 function runShellAsyncWork(
   label: string,
   operation: () => Promise<void>
@@ -842,12 +933,36 @@ function runShellAsyncWork(
 // ─── Polling Callback ───────────────────────────────────
 
 async function handlePolledTasks(
-  rawTasks: Aria2RawStatus[],
+  rawTasks: Aria2TaskStatus[],
   source: PollingTaskUpdateSource
 ): Promise<void> {
   if (supervisor.getState() !== EngineState.Ready) return
   let dirty = false
+  // 优先接力已完成并自动跟进真实 BT 子任务的磁力元数据记录，防止残留哈希命名磁力任务 (#2552, #2569)
+  const followedResult = await reconcileFollowedMagnetTasks(rawTasks, {
+    taskManager,
+    persistTask,
+    lookupFollowedTask: (gid) => rpcClient.tellStatus(gid, TASK_STATUS_FIELDS),
+    retireMetadataGid: (gid) => {
+      runShellAsyncWork('followed magnet metadata eviction', async () => {
+        try {
+          if (!mainProcessWork.isAccepting()) return
+          await aria2Adapter.removeDownloadResult(gid)
+        } catch (err) {
+          log.warn(
+            { err, gid },
+            'failed to remove followed magnet metadata result'
+          )
+        }
+      })
+    },
+    log,
+  })
+  if (followedResult.dirty) dirty = true
   for (const raw of rawTasks) {
+    if (followedResult.skippedGids.has(raw.gid)) {
+      continue
+    }
     if (shouldSkipForPendingMagnetMetadata(raw, magnetTracker)) {
       continue
     }
@@ -909,6 +1024,7 @@ async function handlePolledTasks(
             existing.status,
             merged,
             {
+              isCurrent: () => taskManager.getById(existing.id) === existing,
               persistTaskWithOccurrence,
               occurrenceDispatcher,
               publish: (task) => taskManager.set(task.id, task),
@@ -928,7 +1044,7 @@ async function handlePolledTasks(
           // Nothing was published and nothing is durable: leave the prior
           // in-memory state (and its aria2 row) alone so the next poll
           // observes the same delta and retries.
-          if (outcome === 'persist-failed') continue
+          if (outcome === 'persist-failed' || outcome === 'stale') continue
           publishedTerminal = outcome === 'published'
           if (
             outcome === 'not-terminal' &&
@@ -945,7 +1061,13 @@ async function handlePolledTasks(
               )
           }
           if (
-            shouldEvictFromEngine(existing.status, merged.status, existing.type)
+            !hasLegacyImport(existing) &&
+            shouldEvictFromEngine(
+              existing.status,
+              merged.status,
+              existing.type,
+              existing
+            )
           ) {
             // Either BT/Magnet seeding just satisfied its ratio/time target,
             // or the task just landed in Error (see shouldEvictFromEngine).
@@ -989,12 +1111,32 @@ async function handlePolledTasks(
         // trigger never ran, plus placeholder rows written by older magnet
         // swaps. The helper validates structural completeness before its
         // early-exit, so the steady-state cost remains ~one prepared query.
+        if (!publishedTerminal && taskManager.getById(existing.id) !== existing)
+          continue
         if (merged.fileCount > 0) {
           runShellAsyncWork('task-files sync', () =>
             syncTaskFilesIfIncomplete(existing.id, merged.engineTaskId)
           )
         }
-        if (!publishedTerminal) taskManager.set(existing.id, merged)
+        if (!publishedTerminal) {
+          taskManager.set(existing.id, merged)
+          // 直连磁力在轮询中补全真实名称与路径后立刻触发一次保存，避免退出丢失 (#2569)
+          if (
+            existing.name !== merged.name ||
+            existing.finalName !== merged.finalName ||
+            existing.diskPath !== merged.diskPath ||
+            existing.finalPath !== merged.finalPath
+          ) {
+            void sessionManager
+              .requestSave()
+              .catch((err) =>
+                log.warn(
+                  { err, taskId: existing.id },
+                  'direct magnet identity save failed'
+                )
+              )
+          }
+        }
         dirty = true
       }
     } else {
@@ -1218,18 +1360,20 @@ function buildFinalizeDeps(adapter: Aria2Adapter) {
       if (!durableFinalizeRuntime) {
         throw new Error('durable finalize runtime is unavailable')
       }
+      // 兼容符号链接保存目录（如 macOS 将 ~/Downloads 软链至外置盘）的存量任务落盘
+      const normalized = await canonicalizeFinalizeCommitRequest(input)
       const post =
-        input.occurrence?.type === 'terminal' && pluginHookRuntime
+        normalized.occurrence?.type === 'terminal' && pluginHookRuntime
           ? await pluginHookRuntime.prepareTerminal(
-              input.task,
-              input.occurrence
+              normalized.task,
+              normalized.occurrence
             )
           : { postDeliveries: [], beforeCommit: () => undefined }
       await durableFinalizeRuntime.commit({
-        ...input,
+        ...normalized,
         postDeliveries: post.postDeliveries,
         beforeCommit: () => {
-          input.beforeCommit?.()
+          normalized.beforeCommit?.()
           post.beforeCommit()
         },
       })
@@ -1342,9 +1486,33 @@ async function startEngineAndRestore(
   try {
     await appliedDownloadProxyPolicy.runWithSnapshot(
       async (_snapshot, lease) => {
+        if (handoffJournal) {
+          const directories = createDownloadDirectories({
+            getSettings: () => settingsManager.getApp(),
+          })
+          for (const taskId of handoffJournal.pendingActivations()) {
+            try {
+              await activateDesktopHandoff(
+                handoffJournal,
+                motrixDb,
+                adapter,
+                taskId,
+                directories.resolveSelection
+              )
+            } catch {
+              log.warn(
+                { taskId },
+                'download handoff activation remains pending'
+              )
+            }
+          }
+        }
         await legacyBtActivationService?.recover()
-        await sessionManager.restore(lease.assertCurrent, (snapshot) =>
-          completedEngineTaskCleanup.observe(snapshot)
+        await legacyHttpActivationService?.recover()
+        await sessionManager.restore(
+          lease.assertCurrent,
+          (snapshot) => completedEngineTaskCleanup.observe(snapshot),
+          readHandoffActivationOwners(motrixDb)
         )
         await sessionManager.recoverLegacyTaskLost(lease.assertCurrent)
       }
@@ -1376,6 +1544,9 @@ async function startEngineAndRestore(
     // flowing. See design spec §6.6.
     const finalizeDepsFactory = () => buildFinalizeDeps(adapter)
     recoveryService = new TaskRecoveryServiceImpl({
+      canRecoverAutomatically: (task) =>
+        !portableProfile ||
+        task.errorDetailKey !== 'task.recovery.startup.portableExternalPath',
       hasPendingFinalization: async (taskId) =>
         (await durableFinalizeRuntime?.hasPendingFinalization(taskId)) ?? false,
       taskManager: {
@@ -1390,7 +1561,8 @@ async function startEngineAndRestore(
         listActiveAndWaiting: () => adapter.listActiveAndWaiting(),
       },
       fs: defaultRecoveryFs,
-      finalizeTask: (taskId) => finalizeTask(taskId, finalizeDepsFactory()),
+      finalizeTask: (taskId, recoverySha256) =>
+        finalizeTask(taskId, { ...finalizeDepsFactory(), recoverySha256 }),
       activityRecorder: requireTaskActivityService(),
       recordTransition: (input: RuntimeTransitionInput) =>
         taskInspectorActivityRuntime?.recordTransition(input),
@@ -1522,6 +1694,13 @@ async function startEngineAndRestore(
           ) {
             return
           }
+          if (hasLegacyImport(task) && task.type === TaskType.Http) {
+            await completedEngineTaskCleanup.observe({
+              ...task,
+              status: TaskStatus.Completed,
+            })
+            return
+          }
           if (shouldSkipEngineCompletionFinalize(task)) return
           try {
             await finalizeTask(task.id, finalizeDepsFactory())
@@ -1578,7 +1757,21 @@ async function initializeMainProcess(): Promise<void> {
   // Only the minimum work needed before the window can open:
   // settings (for window bounds/run mode) and WindowManager.
 
+  if (portableProfile) {
+    if (!app.hasSingleInstanceLock()) return
+    try {
+      await relocatePortableProfile(portableProfile, motrixDb.database)
+    } catch (error) {
+      throw new PortableProfileError('Portable startup recovery failed', {
+        cause: error,
+      })
+    }
+  }
   await settingsManager.load()
+  if (graphicsRuntime?.recovery.recoveredAtStartup) {
+    await settingsManager.update({ app: { hardwareAcceleration: false } })
+    graphicsRuntime.recovery.completeRecovery()
+  }
   pluginHttpClient = new PluginHttpClient(() => settingsManager.getProxy())
   if (!mainProcessWork.isAccepting()) return
 
@@ -1727,9 +1920,14 @@ async function initializeMainProcess(): Promise<void> {
       prewarmAddTask: () => !settingsManager.getApp().lightweightMode,
     },
   })
-  // Apply the persisted theme before opening windows. Renderer-drawn Windows
-  // controls inherit the same theme through CSS without native overlay sync.
-  setupNativeThemeSync(eventBus, settingsManager)
+  // Apply the persisted theme before opening windows and keep native Linux
+  // caption symbols readable over the renderer's changing title-bar surface.
+  const nativeThemeSync = setupNativeThemeSync(
+    eventBus,
+    settingsManager,
+    (dark) => windowManager.updateWindowControlsTheme(dark)
+  )
+  app.once('will-quit', () => nativeThemeSync.destroy())
   const systemAccentSync = setupSystemAccentColorSync(eventBus)
   app.once('will-quit', () => systemAccentSync.destroy())
   // Install forwarding before the onboarding window becomes interactive.
@@ -1759,7 +1957,7 @@ async function initializeMainProcess(): Promise<void> {
     getMainWindow: () => windowManager?.get('main') ?? null,
     showMainWindow: () => windowManager?.show('main'),
     getAppSettings: () => settingsManager.getApp(),
-    translate: i18n.t.bind(i18n),
+    translate: (key, params = {}) => i18n.t(key, params),
     getTaskStatus: (taskId) => taskManager.getById(taskId)?.status ?? null,
     navigateToTask,
     navigateToDownloads: () => {
@@ -1800,7 +1998,7 @@ async function initializeMainProcess(): Promise<void> {
   const legacyNavigation = new LegacyImportNavigation({
     hasConsent: () => gate.isAccepted() && mainProcessWork.isAccepting(),
     getService: getLegacyImportService,
-    roots: defaultLegacyRoots,
+    roots: portableProfile ? () => [] : defaultLegacyRoots,
     changed: () => {
       const mainWindow = windowManager?.get('main')
       if (mainWindow)
@@ -1845,8 +2043,32 @@ async function initializeMainProcess(): Promise<void> {
     }
     return legacyBtActivationService
   }
+  const getLegacyHttpActivationService = () => {
+    if (!legacyHttpActivationService) {
+      getLegacyImportService()
+      legacyHttpActivationService = new LegacyHttpActivationService({
+        proxyPolicy: appliedDownloadProxyPolicy,
+        db: motrixDb,
+        taskManager,
+        adapter,
+        backupRoot: legacyBackupRoot,
+        isProcessRunning: legacyPidRunning,
+        publishTasks: publishTaskUpdateNow,
+        runTaskMutation: (taskIds, operation) =>
+          taskInspectorActivityRuntime
+            ? taskInspectorActivityRuntime.runTaskMutation(taskIds, operation)
+            : operation(),
+        runExclusivePersistence: (operation) =>
+          sessionManager
+            ? sessionManager.runExclusivePersistence(operation)
+            : Promise.resolve().then(operation),
+      })
+    }
+    return legacyHttpActivationService
+  }
   const disposeLegacyImportIpc = registerLegacyImportIpc({
     getActivationService: getLegacyBtActivationService,
+    getHttpActivationService: getLegacyHttpActivationService,
     getService: getLegacyImportService,
     hasConsent: () => gate.isAccepted() && mainProcessWork.isAccepting(),
     getTask: (taskId) => taskManager.getById(taskId),
@@ -1977,7 +2199,30 @@ async function initializeMainProcess(): Promise<void> {
   )
 
   if (!legacyImportService) motrixDb.init()
+  try {
+    const override = process.env.MOTRIX_DOWNLOAD_HANDOFF
+    const enabled = override === undefined || override === '1'
+    if (
+      enabled ||
+      motrixDb.database
+        .prepare(
+          "SELECT 1 FROM sqlite_master WHERE type='table' AND name='handoff_instance'"
+        )
+        .get()
+    ) {
+      handoffJournal = new DownloadHandoffJournal(
+        motrixDb,
+        await LibsodiumSecretStore.create({
+          userDataDir: platform.userDataDir,
+        }),
+        () => enabled
+      )
+    }
+  } catch {
+    log.warn('download handoff ledger unavailable')
+  }
   getLegacyBtActivationService()
+  getLegacyHttpActivationService()
   legacyImportService?.setPersistenceLane((operation) =>
     sessionManager
       ? sessionManager.runExclusivePersistence(operation)
@@ -2180,7 +2425,9 @@ async function initializeMainProcess(): Promise<void> {
   // here so SessionManager.restore() can skip aria2-restored segment downloads
   // (phantom-task guard); the bridge bootstrap reuses the same value for the
   // coordinator's tmpRoot and the poll loop's suppression.
-  const mediaTmpDir = path.join(app.getPath('temp'), 'motrix-media')
+  const mediaTmpDir = portableProfile
+    ? path.join(portableProfile.workDir, 'media')
+    : path.join(app.getPath('temp'), 'motrix-media')
   mediaTmpRoot = mediaTmpDir
   sessionManager = new SessionManager(
     taskManager,
@@ -2208,10 +2455,19 @@ async function initializeMainProcess(): Promise<void> {
     dispatch: (occurrence) => occurrenceDispatcher.dispatch(occurrence),
     prepareFiles: (task) =>
       syncTaskFilesIfIncomplete(task.id, task.engineTaskId),
+    // Cleanup owns the mutation lock across its exact-owner check and retry.
+    finalizeLegacyHttp: (taskId) =>
+      finalizeTask(taskId, {
+        ...buildFinalizeDeps(adapter),
+        runTaskMutation: undefined,
+      }),
     runTaskMutation: (ids, operation) =>
       activeTaskInspectorActivityRuntime.runTaskMutation(ids, operation),
     log,
   })
+  supervisor.setSessionRecoveryStore(
+    sessionManager.getEngineSessionRecoveryStore()
+  )
   supervisor.setStartupGuard(
     new CompletedTaskStartupGuard({
       completedGids: () => sessionManager.getCompletedDirectEngineTaskIds(),
@@ -2336,6 +2592,10 @@ async function initializeMainProcess(): Promise<void> {
       runExclusivePersistence: (operation) =>
         sessionManager.runExclusivePersistence(operation),
       torrentMetaDir: path.join(platform.userDataDir, 'torrents'),
+      metadataWorkDir: portableProfile?.workDir,
+      canRestoreTask: (task) =>
+        !portableProfile ||
+        task.errorDetailKey !== 'task.recovery.startup.portableExternalPath',
       occurrenceDispatcher,
     }
   )
@@ -2363,7 +2623,8 @@ async function initializeMainProcess(): Promise<void> {
     : null
   const updatesSupported =
     !distributionContext.isWindowsPackage &&
-    (updateSimulatorEnabled ||
+    (Boolean(portableProfile) ||
+      updateSimulatorEnabled ||
       isElectronSelfUpdateSupported({
         hasUpdateMetadata,
         isPackaged: app.isPackaged,
@@ -2385,9 +2646,25 @@ async function initializeMainProcess(): Promise<void> {
     channel: settingsManager.getApp().updateChannel,
     isWindowsPackage: distributionContext.isWindowsPackage,
     supported: updatesSupported,
-    loadUpdater: async () =>
-      developmentUpdateSimulator ??
-      (await import('electron-updater')).default.autoUpdater,
+    getInstallBlockReason: () =>
+      portableProfile
+        ? 'portable'
+        : getMacUpdateInstallBlockReason({
+            platform: process.platform,
+            isPackaged: app.isPackaged,
+            execPath: process.execPath,
+            temporaryDirectory: app.getPath('temp'),
+          }),
+    loadUpdater: async () => {
+      if (developmentUpdateSimulator) return developmentUpdateSimulator
+      const updater = (await import('electron-updater')).default.autoUpdater
+      if (portableProfile)
+        updater.setFeedURL({
+          provider: 'generic',
+          url: 'https://dl.motrix.app/releases/',
+        })
+      return updater
+    },
     getManagedMessage: () => i18n.t('settings.about.update.managedDescription'),
   })
   if (!mainProcessWork.isAccepting()) return
@@ -2597,6 +2874,7 @@ async function initializeMainProcess(): Promise<void> {
       eventBus,
       publishTaskUpdate,
       activityRecorder: activeTaskActivityService,
+      prepareSaveDir: canonicalizeSaveDir,
       persistTask,
       persistTaskWithPluginMetadata:
         pluginRuntime.persistTaskWithPluginMetadata,
@@ -2723,6 +3001,16 @@ async function initializeMainProcess(): Promise<void> {
       getSettings: () => settingsManager.getApp(),
     })
     return bootstrapBridge({
+      ...(handoffJournal
+        ? {
+            extensionHandoff: desktopDownloadHandoff(
+              handoffJournal,
+              motrixDb,
+              sessionManager,
+              createTaskDeps
+            ),
+          }
+        : {}),
       mediaMetaStore,
       ytdlpResolveMedia,
       ytdlpListFormats: shellYtdlpResolver.listFormats,
@@ -2812,7 +3100,10 @@ async function initializeMainProcess(): Promise<void> {
   }
   bridgeManager = new BridgeManager(
     createBridgeRuntime,
-    () => nativeMessagingInstaller.unregister(),
+    () =>
+      portableProfile
+        ? Promise.resolve()
+        : nativeMessagingInstaller.unregister(),
     !nativeMessagingInstaller.preserveOnStartupFailure
   )
 
@@ -2894,6 +3185,9 @@ async function initializeMainProcess(): Promise<void> {
   })
 
   const disposeCommandHandlers = registerCommandHandlers({
+    btStorageRuntime: pluginRuntime.finalize,
+    persistBtStorage: (task, source, target) =>
+      sessionManager.persistBtStorage(task, source, target),
     rendererRecovery,
     operationService: pluginRuntime.operations,
     mediaMetaStore,
@@ -2903,10 +3197,10 @@ async function initializeMainProcess(): Promise<void> {
     bindTaskRetry: (fn) => {
       dnsFallbackRetry = fn
     },
-    recoverFinalization: async (taskId) => {
+    recoverFinalization: async (taskId, sha256) => {
       if (!recoveryService) throw new Error('Task recovery is not ready')
       try {
-        const report = await recoveryService.recoverTaskById(taskId)
+        const report = await recoveryService.recoverTaskById(taskId, sha256)
         if (report.errors.length > 0) throw new Error(report.errors[0].issue)
       } finally {
         publishTaskUpdateNow()
@@ -3006,6 +3300,13 @@ async function initializeMainProcess(): Promise<void> {
     speedLimitController,
     updateManager,
   })
+  const disposeDownloadProgress = setupDownloadProgress({
+    eventBus,
+    getTasks: () => taskManager.getAll(),
+    isEnabled: () => settingsManager.getApp().showDownloadProgress,
+    setTaskbarProgress: (progress) =>
+      windowManager.setTaskbarProgress(progress),
+  })
   const disposeCompletionShutdown = setupCompletionShutdown({
     getMainWindow: () => windowManager.get('main') ?? null,
     showMainWindow: () => windowManager.show('main'),
@@ -3029,11 +3330,12 @@ async function initializeMainProcess(): Promise<void> {
     },
     broadcast: (state) =>
       windowManager.broadcast(Events.CompletionShutdownChanged, state),
-    translate: (key, params) => i18n.t(key, params),
+    translate: (key, params = {}) => i18n.t(key, params),
     logError: (err) => log.warn({ err }, 'completion shutdown failed'),
   })
   disposeIpcIngress = () => {
     disposeLegacyImportIpc()
+    disposeDownloadProgress()
     disposeCompletionShutdown()
     disposeCommandHandlers()
     disposeQueryHandlers()
@@ -3121,6 +3423,13 @@ app.on('ready', () => {
       return
     }
     log.error({ err }, 'main process initialization failed')
+    if (err instanceof PortableProfileError) {
+      dialog.showErrorBox(
+        i18n.t('settings.portable.title'),
+        i18n.t('settings.portable.recoveryError')
+      )
+      void requestForcedQuit('portable-startup-failed')
+    }
   })
 })
 
@@ -3153,13 +3462,14 @@ async function showQuitConfirmation(activeCount: number): Promise<{
 }
 
 function beginShutdown(): void {
+  graphicsRuntime?.stop()
   // quitController.phase is already 'shutting-down' (set synchronously before
   // this call). app.quit() below re-fires before-quit synchronously; the guard
   // there relies on the phase already being terminal.
+  windowManager?.setWillQuit(true) // Never before/during quit confirmation.
   supervisor?.prepareForShutdown()
   // Drain a pending coalesced TaskUpdated while consumers are still attached.
   taskUpdatePublisher.flush()
-  windowManager?.setWillQuit(true) // FIRST — never before/during the dialog
   rendererRecovery?.dispose()
   // Tear down renderer ingress before removing ipcMain handlers. Service
   // shutdown emits final state-change events (for example NAT stopped), and a
@@ -3192,7 +3502,7 @@ const quitController = new QuitController({
   beginShutdown,
 })
 
-if (!distributionContext.isWindowsPackage) {
+if (!distributionContext.isWindowsPackage && !portableProfile) {
   registerUpdateQuitPreparation({
     updater: nativeAutoUpdater,
     markForceQuit: () => quitController.markForceQuit(),

@@ -204,19 +204,23 @@ export function projectActivityCells(
 }
 
 function maximumChrome(
-  contentLevel: DashboardTileContentLevel
+  contentLevel: DashboardTileContentLevel,
+  width: number,
+  height: number
 ): ActivityCalendarChrome {
   switch (contentLevel) {
     case 'compact':
       return {
-        showMonthLabels: false,
-        showWeekdayLabels: false,
+        showMonthLabels:
+          height >= 7 * PREFERRED_CELL_SIZE + 6 * 2 + MONTH_LABEL_HEIGHT,
+        showWeekdayLabels:
+          width >= 13 * PREFERRED_CELL_SIZE + 12 * 2 + WEEKDAY_LABEL_WIDTH,
         showLegend: false,
       }
     case 'summary':
       return {
         showMonthLabels: true,
-        showWeekdayLabels: false,
+        showWeekdayLabels: true,
         showLegend: false,
       }
     case 'detailed':
@@ -235,14 +239,22 @@ function maximumChrome(
 }
 
 function chromePlans(
-  contentLevel: DashboardTileContentLevel
+  contentLevel: DashboardTileContentLevel,
+  width: number,
+  height: number
 ): ActivityCalendarChrome[] {
-  const plans: ActivityCalendarChrome[] = [maximumChrome(contentLevel)]
+  const plans: ActivityCalendarChrome[] = [
+    maximumChrome(contentLevel, width, height),
+  ]
   const current = { ...plans[0] }
 
   if (current.showLegend) {
     current.showLegend = false
     plans.push({ ...current })
+  }
+  if (current.showWeekdayLabels && current.showMonthLabels) {
+    // Narrow boxes can retain the month axis even without a weekday gutter.
+    plans.push({ ...current, showWeekdayLabels: false })
   }
   if (current.showMonthLabels) {
     current.showMonthLabels = false
@@ -273,6 +285,13 @@ function isBetterStandardGeometry(
   best: ActivityCalendarGeometry | null
 ): boolean {
   if (!best) return true
+
+  // Keep the calendar readable before spending space on larger gutters or
+  // the legend. All standard candidates already meet the minimum cell size.
+  const axes = (g: ActivityCalendarGeometry) =>
+    Number(g.showMonthLabels) + Number(g.showWeekdayLabels)
+  if (axes(candidate) !== axes(best)) return axes(candidate) > axes(best)
+  if (candidate.weeks !== best.weeks) return candidate.weeks > best.weeks
 
   const candidatePreferred = hasPreferredDensity(candidate)
   const bestPreferred = hasPreferredDensity(best)
@@ -352,14 +371,14 @@ export function selectActivityGeometry({
 
   const maxWeeks = maxActivityWeeks(contentLevel)
   const requestedWeeks = [53, 26, 13].filter((weeks) => weeks <= maxWeeks)
-  const plans = chromePlans(contentLevel)
+  const plans = chromePlans(contentLevel, width, height)
   const bandOptions =
     height >= 220 && (contentLevel === 'detailed' || contentLevel === 'focus')
       ? [2, 1]
       : [1]
 
+  let best: ActivityCalendarGeometry | null = null
   for (const weeks of requestedWeeks) {
-    let best: ActivityCalendarGeometry | null = null
     for (const chrome of plans) {
       for (const bands of bandOptions) {
         for (const gap of GAP_PREFERENCES) {
@@ -380,10 +399,9 @@ export function selectActivityGeometry({
         }
       }
     }
-    if (best) return best
   }
+  if (best) return best
 
-  let best: ActivityCalendarGeometry | null = null
   for (const chrome of plans) {
     const labelWidth = chrome.showWeekdayLabels ? WEEKDAY_LABEL_WIDTH : 0
     const availableWidth = width - labelWidth

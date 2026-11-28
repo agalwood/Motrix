@@ -8,6 +8,7 @@ const {
   iconProvider,
   nativeThemeMock,
   speedometer,
+  speedometerFactory,
   systemPreferencesMock,
   trayConstructor,
   trayInstance,
@@ -38,6 +39,7 @@ const {
       setEnabled: vi.fn(),
       setUnitSystem: vi.fn(),
     },
+    speedometerFactory: vi.fn(),
     systemPreferencesMock: {
       getUserDefault: vi.fn(),
       setUserDefault: vi.fn(),
@@ -76,7 +78,7 @@ vi.mock('./tray-icon', () => ({
 }))
 
 vi.mock('./tray-speedometer', () => ({
-  createSpeedometer: () => speedometer,
+  createSpeedometer: speedometerFactory,
 }))
 
 import { RunMode } from '@shared/constants'
@@ -130,6 +132,7 @@ function getThemeUpdatedHandler(): () => Promise<void> {
 describe('setupTray', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    speedometerFactory.mockReturnValue(speedometer)
     iconProviderFactory.mockReturnValue(iconProvider)
     iconProvider.getIcon.mockReturnValue(icon)
     iconProvider.init.mockResolvedValue(undefined)
@@ -272,6 +275,7 @@ describe('setupTray', () => {
         expect(trayInstance.setImage).toHaveBeenCalledExactlyOnceWith(icon)
       }
       expect(speedometer.setEnabled).not.toHaveBeenCalled()
+      expect(speedometerFactory).not.toHaveBeenCalled()
       handle.destroy()
     }
   )

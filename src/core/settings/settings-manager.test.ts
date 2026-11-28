@@ -77,6 +77,43 @@ describe('SettingsManager', () => {
     manager = new SettingsManager(TEST_PATH, { onChange })
   })
 
+  it('persists the migrated BT ports and keeps later explicit port choices on reload', async () => {
+    mockReadFile.mockResolvedValue(
+      JSON.stringify({
+        version: 13,
+        engine: { listenPort: 6881, dhtListenPort: 6881 },
+      })
+    )
+    await manager.load()
+    const migrated = mockWriteFileAtomic.mock.lastCall![1]
+    expect(JSON.parse(migrated as string)).toMatchObject({
+      version: CURRENT_SETTINGS_VERSION,
+      engine: { listenPort: 21301, dhtListenPort: 26701 },
+    })
+    mockReadFile.mockResolvedValue(migrated)
+    const reloaded = new SettingsManager(TEST_PATH)
+    await reloaded.load()
+    expect(reloaded.getEngine()).toMatchObject({
+      listenPort: 21301,
+      dhtListenPort: 26701,
+    })
+    expect(
+      await reloaded.update({
+        engine: { listenPort: 6881, dhtListenPort: 6881 },
+      })
+    ).toMatchObject({
+      requiresRestart: true,
+      changedRestartKeys: ['listenPort', 'dhtListenPort'],
+    })
+    mockReadFile.mockResolvedValue(mockWriteFileAtomic.mock.lastCall![1])
+    const chosenPorts = new SettingsManager(TEST_PATH)
+    await chosenPorts.load()
+    expect(chosenPorts.getEngine()).toMatchObject({
+      listenPort: 6881,
+      dhtListenPort: 6881,
+    })
+  })
+
   it('preserves manual window limits and compact bounds through unrelated saves and reloads', async () => {
     mockReadFile.mockResolvedValue(
       JSON.stringify({
@@ -97,6 +134,29 @@ describe('SettingsManager', () => {
     })
   })
 
+  it('keeps Dock progress opt-in and persists changes without requiring a restart', async () => {
+    expect(manager.getApp().showDownloadProgress).toBe(false)
+    for (const showDownloadProgress of [true, false]) {
+      expect(
+        await manager.update({ app: { showDownloadProgress } })
+      ).toMatchObject({
+        saved: true,
+        requiresRestart: false,
+        requiresAppRestart: false,
+      })
+      expect(onChange).toHaveBeenLastCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          app: expect.objectContaining({ showDownloadProgress }),
+        })
+      )
+      mockReadFile.mockResolvedValue(mockWriteFileAtomic.mock.lastCall![1])
+      const restored = new SettingsManager(TEST_PATH)
+      await restored.load()
+      expect(restored.getApp().showDownloadProgress).toBe(showDownloadProgress)
+    }
+  })
+
   it('reports an app restart only when window limits change', async () => {
     const app = { mainWindowMinWidth: 320, mainWindowMinHeight: 0 }
     expect(await manager.update({ app })).toMatchObject({
@@ -106,6 +166,31 @@ describe('SettingsManager', () => {
     expect(await manager.update({ app })).toMatchObject({
       requiresAppRestart: false,
       changedAppRestartKeys: [],
+    })
+  })
+
+  it('persists acceleration changes and requests a full app restart only for a changed value', async () => {
+    expect(
+      await manager.update({ app: { hardwareAcceleration: false } })
+    ).toMatchObject({
+      requiresAppRestart: true,
+      changedAppRestartKeys: ['hardwareAcceleration'],
+      requiresRestart: false,
+    })
+    const saved = mockWriteFileAtomic.mock.lastCall![1]
+    mockReadFile.mockResolvedValue(saved)
+    const reloaded = new SettingsManager(TEST_PATH)
+    await reloaded.load()
+    expect(reloaded.getApp().hardwareAcceleration).toBe(false)
+    expect(
+      await reloaded.update({ app: { hardwareAcceleration: false } })
+    ).toMatchObject({
+      requiresAppRestart: false,
+    })
+    expect(
+      await reloaded.update({ app: { hardwareAcceleration: true } })
+    ).toMatchObject({
+      requiresAppRestart: true,
     })
   })
 
@@ -562,6 +647,10 @@ describe('SettingsManager', () => {
         defaultSaveDir: expect.stringMatching(/Downloads$/),
       })
       expect(settings.app.defaultSaveDir).not.toBe('')
+      expect(settings.app.language).toBe('system')
+      expect(
+        JSON.parse(mockedFs.writeFile.mock.calls.at(-1)![1]).app.language
+      ).toBe('system')
       expect(settings.app.liquidGlassEffect).toBe(false)
       expect(settings.onboarding).toEqual(DEFAULT_ONBOARDING_STATE)
       expect(settings.dashboard).toEqual(DEFAULT_DASHBOARD_LAYOUT)
@@ -573,6 +662,28 @@ describe('SettingsManager', () => {
         )
       )
     })
+
+    it.each(['system', 'en-US', 'zh-CN', 'fr'] as const)(
+      'preserves saved %s language through unrelated changes and reloads',
+      async (language) => {
+        mockedFs.readFile.mockResolvedValue(
+          JSON.stringify({
+            version: CURRENT_SETTINGS_VERSION,
+            app: { language },
+          })
+        )
+        mockedFs.writeFile.mockResolvedValue(undefined)
+        await manager.load()
+        expect(manager.getApp().language).toBe(language)
+
+        await manager.update({ app: { theme: 'dark' } })
+        const saved = mockedFs.writeFile.mock.calls.at(-1)![1] as string
+        mockedFs.readFile.mockResolvedValue(saved)
+        const reloaded = new SettingsManager(TEST_PATH)
+        await reloaded.load()
+        expect(reloaded.getApp()).toMatchObject({ language, theme: 'dark' })
+      }
+    )
 
     it('uses an injected Liquid Glass default when the file does not exist', async () => {
       manager = new SettingsManager(TEST_PATH, {
@@ -1138,7 +1249,7 @@ describe('SettingsManager', () => {
 
       await firstWriteStarted.promise
       expect(mockedFs.writeFile).toHaveBeenCalledOnce()
-      expect(manager.getApp().language).toBe('en-US')
+      expect(manager.getApp().language).toBe(DEFAULT_APP_SETTINGS.language)
       expect(manager.getApp().theme).toBe(DEFAULT_APP_SETTINGS.theme)
       expect(onChange).not.toHaveBeenCalled()
 
@@ -1175,7 +1286,7 @@ describe('SettingsManager', () => {
           updated.app.language,
         ])
       ).toEqual([
-        ['en-US', 'zh-CN'],
+        [DEFAULT_APP_SETTINGS.language, 'zh-CN'],
         ['zh-CN', 'en-US'],
       ])
     })
@@ -1187,7 +1298,7 @@ describe('SettingsManager', () => {
         manager.update({ app: { language: 'zh-CN', theme: 'dark' } })
       ).rejects.toThrow('disk full')
 
-      expect(manager.getApp().language).toBe('en-US')
+      expect(manager.getApp().language).toBe(DEFAULT_APP_SETTINGS.language)
       expect(manager.getApp().theme).toBe(DEFAULT_APP_SETTINGS.theme)
       expect(onChange).not.toHaveBeenCalled()
 

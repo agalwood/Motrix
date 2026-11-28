@@ -1,0 +1,28 @@
+[
+  {
+    "step_title": "Motrix",
+    "items": [
+      {
+        "desc": "所有 DSM 管理员共同管理同一组任务。默认下载目录为 motrix 共享文件夹。安装后可在 Motrix 的“设置 → 群晖套件”中配置目录和浏览器扩展，无需编辑配置文件。"
+      },
+      {
+        "type": "textfield",
+        "desc": "客户端端口",
+        "subitems": [
+          {
+            "key": "wizard_client_port",
+            "defaultValue": "16802",
+            "validator": {
+              "allowBlank": false,
+              "regex": {
+                "expr": "/^\\d{4,5}$/",
+                "errorText": "请输入 1024–65535 之间的端口号"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "invalid_next_disabled_v2": true
+  }
+]

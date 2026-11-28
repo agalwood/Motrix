@@ -132,7 +132,7 @@ describe('FilesTab', () => {
         />
       )
       expect(screen.getByText('video/000001-first.ts')).toBeInTheDocument()
-      expect(screen.getByText('100%')).toBeInTheDocument()
+      expect(screen.getByText('100.0%')).toBeInTheDocument()
       expect(screen.queryByText('25%')).not.toBeInTheDocument()
       expect(screen.getByText('—')).toBeInTheDocument()
       expect(screen.getByRole('checkbox')).toHaveAttribute(
@@ -236,8 +236,8 @@ describe('FilesTab', () => {
       />
     )
 
-    expect(screen.getByText('53%')).toBeInTheDocument()
-    expect(useTaskFiles).toHaveBeenCalledWith('t1', true)
+    expect(screen.getByText('53.0%')).toBeInTheDocument()
+    expect(useTaskFiles).toHaveBeenCalledWith('t1', true, 'gid1')
   })
 
   it('shows every HTTP file as selected and read-only', () => {

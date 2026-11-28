@@ -5,7 +5,12 @@ import type { EngineAdapter } from '@core/engine/engine-adapter'
 import { legacyBtActivationSchema } from '@shared/schemas/legacy-bt-activation'
 import type { LegacyCheckpointReceipt } from '@shared/schemas/legacy-checkpoint'
 import type { DownloadTask } from '@shared/types/task'
-import { TaskStatus } from '@shared/types/task'
+import {
+  TaskInstancePhase,
+  TaskKind,
+  TaskStatus,
+  TaskType,
+} from '@shared/types/task'
 import { isLegacyImportInactive } from '@shared/types/task-actions'
 import { legacyBtActivationFixture } from '@test-utils/legacy-bt-activation-fixture'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -133,6 +138,51 @@ async function fixture() {
 }
 
 describe('durable BT legacy activation', () => {
+  it.each([
+    'placeholder',
+    'engine owner',
+    'metadata owner',
+    'uncertain activation',
+    'invalid marker',
+    'missing payload',
+  ] as const)(
+    'checks output ownership when a %s magnet has the same path hint',
+    async (state) => {
+      const f = await fixture()
+      const other = structuredClone(f.db.getTask(f.taskId)!)
+      other.task.motrixId = 'other-magnet'
+      other.task.taskType = TaskType.Magnet
+      other.task.kind = TaskKind.Bt
+      other.task.infoHash = null
+      other.task.torrentMetaPath =
+        state === 'metadata owner' ? '/metadata.torrent' : null
+      other.instances[0].instanceId = 'other-magnet-instance'
+      other.instances[0].motrixId = other.task.motrixId
+      other.instances[0].phase = TaskInstancePhase.BtDownload
+      other.instances[0].uris = [`magnet:?xt=urn:btih:${'a'.repeat(40)}`]
+      other.instances[0].gid =
+        state === 'engine owner' ? 'abababababababab' : null
+      if (state === 'uncertain activation')
+        other.instances[0].payload.legacyBtActivation = {}
+      if (state === 'invalid marker')
+        other.instances[0].payload.legacyImport = { version: 1 }
+      if (state === 'missing payload')
+        Reflect.set(other.instances[0], 'payload', null)
+      f.db.saveTaskWithInstances(other)
+      const operation = f.service.activate(f.taskId, async () => f.downloads)
+      if (state === 'placeholder') {
+        await expect(operation).resolves.toBe(true)
+        expect(f.adapter.resumeTask).toHaveBeenCalledOnce()
+      } else {
+        await expect(operation).rejects.toThrow(
+          'legacyImport.errors.pathConflict'
+        )
+        expect(f.adapter.importLegacyCheckpoint).not.toHaveBeenCalled()
+        expect(f.adapter.resumeTask).not.toHaveBeenCalled()
+      }
+    }
+  )
+
   it('binds exact original layout/selection before unpause and backs up actual control bytes', async () => {
     const f = await fixture()
     const original = await readFile(

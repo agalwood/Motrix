@@ -254,6 +254,7 @@ function createMagnetTracker(
   torrentParser: TorrentParser,
   activityRecorder = NOOP_TASK_ACTIVITY_RECORDER,
   lifecycle?: {
+    canRestoreTask?: () => boolean
     parentTaskCreated?: (
       task: DownloadTask,
       persistParent: () => void | Promise<void>
@@ -1819,6 +1820,133 @@ describe('MagnetTracker', () => {
 
   // ── 6. onError for known gid ─────────────────────────────────
 
+  it.each([
+    [
+      '1',
+      'Errors occurred while binding port.\n',
+      DownloadErrorCode.BtPortBindFailed,
+    ],
+    ['9', 'No space left on device', DownloadErrorCode.DiskFull],
+    ['1', 'Some other engine failure', DownloadErrorCode.BtMetadataFailed],
+  ])(
+    'preserves engine error %s before cleanup and clears it on retry',
+    async (code, message, expected) => {
+      const dispatch = vi.fn(async () => {})
+      const tracker = createMagnetTracker(
+        rpc as never,
+        eventBus as never,
+        settings as never,
+        db,
+        taskManager,
+        torrentParser,
+        undefined,
+        { occurrenceDispatcher: { dispatch } }
+      )
+      const taskId = await tracker.submit(
+        'magnet:?xt=urn:btih:6367c48dd193d56ea7b0baad25b19455e529f5ee',
+        await makeTempDir()
+      )
+      const gid = lastMetadataGid()
+      rpc.tellStatus.mockImplementation(async () => {
+        expect(rpc.forceRemove).not.toHaveBeenCalled()
+        expect(rpc.removeDownloadResult).not.toHaveBeenCalled()
+        return { status: 'error', errorCode: code, errorMessage: message }
+      })
+
+      await rpc.onDownloadError.mock.calls[0][0]({ gid })
+
+      expect(rpc.tellStatus).toHaveBeenCalledWith(gid, [
+        'status',
+        'errorCode',
+        'errorMessage',
+      ])
+      const error = { errorCode: expected, errorMessage: message.trim() }
+      expect(db.getTask(taskId)?.task).toMatchObject({
+        aggStatus: TaskStatus.Error,
+        ...error,
+      })
+      expect(taskManager.getById(taskId)).toMatchObject({
+        status: TaskStatus.Error,
+        ...error,
+      })
+      expect(dispatch).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          taskId,
+          errorGroup: expect.objectContaining(error),
+        })
+      )
+      expect(rpc.forceRemove).toHaveBeenCalledWith(gid)
+
+      await tracker.retryMetadata(taskId)
+      expect(db.getTask(taskId)?.task).toMatchObject({
+        aggStatus: TaskStatus.FetchingMetadata,
+        errorCode: null,
+        errorMessage: null,
+        errorDetailKey: null,
+        errorDetailParams: null,
+      })
+      tracker.dispose()
+    }
+  )
+
+  it('keeps a retryable metadata failure if reading the engine result fails', async () => {
+    const tracker = createMagnetTracker(
+      rpc as never,
+      eventBus as never,
+      settings as never,
+      db,
+      taskManager,
+      torrentParser
+    )
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:6367c48dd193d56ea7b0baad25b19455e529f5ee',
+      await makeTempDir()
+    )
+    const gid = lastMetadataGid()
+    rpc.tellStatus.mockRejectedValue(new Error('RPC disconnected'))
+    await rpc.onDownloadError.mock.calls[0][0]({ gid })
+    expect(db.getTask(taskId)?.task).toMatchObject({
+      aggStatus: TaskStatus.Error,
+      errorCode: DownloadErrorCode.BtMetadataFailed,
+      errorMessage: 'Magnet metadata fetch failed',
+    })
+    expect(rpc.forceRemove).toHaveBeenCalledWith(gid)
+    tracker.dispose()
+  })
+
+  it('does not resurrect a cancelled task when the error lookup completes late', async () => {
+    const tracker = createMagnetTracker(
+      rpc as never,
+      eventBus as never,
+      settings as never,
+      db,
+      taskManager,
+      torrentParser
+    )
+    const taskId = await tracker.submit(
+      'magnet:?xt=urn:btih:6367c48dd193d56ea7b0baad25b19455e529f5ee',
+      await makeTempDir()
+    )
+    const gid = lastMetadataGid()
+    let resolveStatus!: (status: unknown) => void
+    rpc.tellStatus.mockReturnValue(
+      new Promise((resolve) => {
+        resolveStatus = resolve
+      })
+    )
+    const pending = rpc.onDownloadError.mock.calls[0][0]({ gid })
+    await tracker.cancel(taskId)
+    resolveStatus({
+      status: 'error',
+      errorCode: '1',
+      errorMessage: 'Errors occurred while binding port.',
+    })
+    await pending
+    expect(db.getTask(taskId)).toBeNull()
+    expect(db.persistTaskWithOccurrence).not.toHaveBeenCalled()
+    tracker.dispose()
+  })
+
   it('cleans up without emitting MagnetFileSelection when onError fires for known gid', async () => {
     const dir = await makeTempDir()
     const tracker = createMagnetTracker(
@@ -2872,99 +3000,110 @@ describe('MagnetTracker', () => {
     ).toBe(false)
   })
 
-  it('primeFromDatabase resumes bounded cleanup for a hidden user-delete tombstone', async () => {
-    // A hidden row has no UI entry through which the user can retry cleanup.
-    // Restart must therefore restore the adoption shield and schedule cleanup
-    // instead of freezing the entry at MAX attempts forever.
-    db.saveTaskWithInstances({
-      task: {
-        motrixId: 'm-quarantined',
-        name: '[METADATA] xyz',
-        kind: TaskKind.Bt,
-        taskType: TaskType.Magnet,
-        category: null,
-        priority: 0,
-        tags: null,
-        createdAt: 1700000000,
-        updatedAt: 1700000001,
-        finalPath: '/Downloads',
-        finalName: '',
-        torrentMetaPath: null,
-        infoHash: null,
-        totalBytes: 0,
-        downloadedBytes: 0,
-        sizeWhenDone: 0,
-        fileCount: 0,
-        isPrivate: false,
-        trackers: [],
-        pieceLength: 0,
-        aggStatus: TaskStatus.Error,
-        finishedAt: 1700000001,
-        errorMessage: 'quarantined',
-        errorCode: null,
-        errorDetailKey: null,
-        errorDetailParams: null,
-        diagnosisRevision: 0,
-        uploadedBytesBaseline: 0,
-        source: 'user',
-        sourceMeta: null,
-      },
-      instances: [
-        {
-          instanceId: 'meta:m-quarantined',
+  it.each([true, false])(
+    'primeFromDatabase honors the cleanup recovery gate: allowed=%s',
+    async (allowed) => {
+      // A hidden row has no UI entry through which the user can retry cleanup.
+      // Restart must therefore restore the adoption shield and schedule cleanup
+      // instead of freezing the entry at MAX attempts forever.
+      db.saveTaskWithInstances({
+        task: {
           motrixId: 'm-quarantined',
-          gid: 'g-meta-quarantined',
-          phase: TaskInstancePhase.MagnetMetadataResolution,
-          status: TaskStatus.Error,
-          progress: 0,
-          totalBytes: 0,
-          downloadedBytes: 0,
-          uploadedBytes: 0,
-          diskPath: '/tmp/motrix-magnet-metadata-x',
-          transitionPhase: TransitionPhase.Idle,
-          uris: [
-            'magnet:?xt=urn:btih:6ecc2c259036f3099e06e4885d6e82a1ee8202d6',
-          ],
-          uriHash: null,
-          payload: {
-            metadataDir: '/tmp/motrix-magnet-metadata-x',
-            cleanupQuarantined: true,
-            cleanupTombstoneHidden: true,
-          },
+          name: '[METADATA] xyz',
+          kind: TaskKind.Bt,
+          taskType: TaskType.Magnet,
+          category: null,
+          priority: 0,
+          tags: null,
           createdAt: 1700000000,
           updatedAt: 1700000001,
+          finalPath: '/Downloads',
+          finalName: '',
+          torrentMetaPath: null,
+          infoHash: null,
+          totalBytes: 0,
+          downloadedBytes: 0,
+          sizeWhenDone: 0,
+          fileCount: 0,
+          isPrivate: false,
+          trackers: [],
+          pieceLength: 0,
+          aggStatus: TaskStatus.Error,
+          finishedAt: 1700000001,
+          errorMessage: 'quarantined',
+          errorCode: null,
+          errorDetailKey: null,
+          errorDetailParams: null,
+          diagnosisRevision: 0,
+          uploadedBytesBaseline: 0,
+          source: 'user',
+          sourceMeta: null,
         },
-      ],
-    })
+        instances: [
+          {
+            instanceId: 'meta:m-quarantined',
+            motrixId: 'm-quarantined',
+            gid: 'g-meta-quarantined',
+            phase: TaskInstancePhase.MagnetMetadataResolution,
+            status: TaskStatus.Error,
+            progress: 0,
+            totalBytes: 0,
+            downloadedBytes: 0,
+            uploadedBytes: 0,
+            diskPath: '/tmp/motrix-magnet-metadata-x',
+            transitionPhase: TransitionPhase.Idle,
+            uris: [
+              'magnet:?xt=urn:btih:6ecc2c259036f3099e06e4885d6e82a1ee8202d6',
+            ],
+            uriHash: null,
+            payload: {
+              metadataDir: '/tmp/motrix-magnet-metadata-x',
+              cleanupQuarantined: true,
+              cleanupTombstoneHidden: true,
+            },
+            createdAt: 1700000000,
+            updatedAt: 1700000001,
+          },
+        ],
+      })
 
-    const tracker = createMagnetTracker(
-      rpc as never,
-      eventBus as never,
-      settings as never,
-      db,
-      taskManager,
-      torrentParser
-    )
-    tracker.primeFromDatabase()
+      const tracker = createMagnetTracker(
+        rpc as never,
+        eventBus as never,
+        settings as never,
+        db,
+        taskManager,
+        torrentParser,
+        NOOP_TASK_ACTIVITY_RECORDER,
+        { canRestoreTask: () => allowed }
+      )
+      tracker.primeFromDatabase()
+      if (!allowed) {
+        await vi.advanceTimersByTimeAsync(5_000)
+        expect(rpc.forceRemove).not.toHaveBeenCalled()
+        tracker.dispose()
+        return
+      }
 
-    expect(
-      tracker.observe({
-        gid: 'g-meta-quarantined',
-        status: 'active',
-      } as never)
-    ).toBe(true)
+      expect(
+        tracker.observe({
+          gid: 'g-meta-quarantined',
+          status: 'active',
+        } as never)
+      ).toBe(true)
 
-    await vi.advanceTimersByTimeAsync(5_000)
+      await vi.advanceTimersByTimeAsync(5_000)
 
-    expect(rpc.forceRemove).toHaveBeenCalledWith('g-meta-quarantined')
-    expect(
-      tracker.observe({
-        gid: 'g-meta-quarantined',
-        status: 'active',
-      } as never)
-    ).toBe(false)
-    expect(db.getTask('m-quarantined')).toBeNull()
-  })
+      expect(rpc.forceRemove).toHaveBeenCalledWith('g-meta-quarantined')
+      expect(
+        tracker.observe({
+          gid: 'g-meta-quarantined',
+          status: 'active',
+        } as never)
+      ).toBe(false)
+      expect(db.getTask('m-quarantined')).toBeNull()
+    }
+  )
 
   it.each([false, true])(
     'recovers a failed swap after restart with directOutput=%s',

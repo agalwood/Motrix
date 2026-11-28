@@ -9,7 +9,10 @@ import type { AddTaskUrlParams } from '@shared/schemas/add-task'
 import type { WindowBounds, WindowState } from '@shared/types/settings'
 import { app, BrowserWindow, nativeTheme, screen, shell } from 'electron'
 import type { LiquidGlassController } from './liquid-glass'
-import { buildPlatformOptions } from './platform-options'
+import {
+  buildPlatformOptions,
+  buildWindowControlsOverlay,
+} from './platform-options'
 import {
   getRendererUrlPolicy,
   type RendererUrlPolicy,
@@ -62,6 +65,7 @@ export class WindowManager {
   private pendingMaximize = new WeakSet<BrowserWindow>()
   private boundsTimers = new Map<WindowId, ReturnType<typeof setTimeout>>()
   private rendererUrlPolicy: RendererUrlPolicy
+  private taskbarProgress: number | null = null
   // The window the user most recently asked to be brought to the
   // foreground. Read by each window's `ready-to-show` handler: a window
   // that finishes loading after this changes (e.g. main rendering after
@@ -74,7 +78,8 @@ export class WindowManager {
     this.rendererUrlPolicy = deps.rendererUrlPolicy ?? getRendererUrlPolicy()
   }
 
-  open(id: WindowId, options: { show?: boolean } = {}): BrowserWindow {
+  open(id: WindowId, options: { show?: boolean } = {}): BrowserWindow | null {
+    if (this.willQuit) return null
     id = this.resolveOpenTarget(id)
     const existing = this.windows.get(id)
     if (existing && !existing.isDestroyed()) {
@@ -93,6 +98,7 @@ export class WindowManager {
   }
 
   precreate(id: WindowId): void {
+    if (this.willQuit) return
     id = this.resolveOpenTarget(id)
     if (id === 'add-task' && !this.shouldPrewarmAddTask()) return
     const existing = this.windows.get(id)
@@ -105,17 +111,23 @@ export class WindowManager {
     id: WindowId,
     options?: AddTaskUrlParams | { mode?: 'links' | 'torrent' }
   ): void {
+    if (this.willQuit) return
     const requestedId = id
     id = this.resolveOpenTarget(id)
     if (id !== requestedId) options = undefined
     this.lastFocusRequested = id
     let win = this.windows.get(id)
+    if (id === 'create-torrent' && win && !win.isDestroyed()) {
+      this.focusWindow(id, win)
+      return
+    }
     if (!win || win.isDestroyed()) {
       // Self-heal: a window with closeBehavior 'destroy' may have been
       // destroyed by the user (e.g. clicking the traffic-light close
       // button). Recreate it instead of silently no-opping.
       win = this.open(id)
     }
+    if (!win) return
 
     const config = WINDOW_CONFIGS[id]
 
@@ -143,6 +155,7 @@ export class WindowManager {
   }
 
   toggle(id: WindowId): void {
+    if (this.willQuit) return
     id = this.resolveOpenTarget(id)
     const win = this.windows.get(id)
     if (!win || win.isDestroyed()) {
@@ -199,6 +212,7 @@ export class WindowManager {
     if (
       !this.willQuit &&
       config.closeBehavior === 'destroy' &&
+      id !== 'create-torrent' &&
       (id !== 'add-task' || this.shouldPrewarmAddTask())
     ) {
       this.precreate(id)
@@ -207,6 +221,7 @@ export class WindowManager {
 
   /** Reconcile already-created hidden windows after lightweight mode changes. */
   reconcileWindowRetention(): void {
+    if (this.willQuit) return
     const main = this.get('main')
     if (main && !main.isVisible() && this.shouldReleaseOnDismiss('main')) {
       this.release('main')
@@ -223,7 +238,8 @@ export class WindowManager {
   recreate(
     id: WindowId,
     reason: WindowLifecycleReason = 'configuration'
-  ): BrowserWindow {
+  ): BrowserWindow | null {
+    if (this.willQuit) return null
     id = this.resolveOpenTarget(id)
     const existing = this.get(id)
     const shouldShow = existing?.isVisible() ?? true
@@ -274,6 +290,27 @@ export class WindowManager {
     return result
   }
 
+  /** Keep Windows taskbar progress current without retaining or opening a renderer. */
+  setTaskbarProgress(progress: number): void {
+    if ((this.deps.platform ?? process.platform) !== 'win32') return
+    if (
+      progress < 0 &&
+      (this.taskbarProgress === null || this.taskbarProgress < 0)
+    )
+      return
+    this.taskbarProgress = progress
+    // Reapply active values on task polls too: the Windows shell may create its
+    // taskbar button after the synchronous show event has already fired.
+    this.get('main')?.setProgressBar(progress)
+  }
+
+  updateWindowControlsTheme(shouldUseDarkColors: boolean): void {
+    if ((this.deps.platform ?? process.platform) !== 'linux') return
+    for (const win of this.getAllWindows()) {
+      win.setTitleBarOverlay(buildWindowControlsOverlay(shouldUseDarkColors))
+    }
+  }
+
   getWindowIdBySender(sender: Electron.WebContents): WindowId | null {
     for (const [id, win] of this.windows.entries()) {
       if (win && !win.isDestroyed() && win.webContents === sender) {
@@ -298,7 +335,8 @@ export class WindowManager {
   }
 
   setWillQuit(value: boolean): void {
-    this.willQuit = value
+    // Shutdown is terminal, including while asynchronous cleanup is pending.
+    this.willQuit ||= value
   }
 
   destroyAll(): void {
@@ -325,9 +363,11 @@ export class WindowManager {
   // ─── Private ──────────────────────────────────────────
 
   private focusWindow(id: WindowId, win: BrowserWindow): void {
+    if (this.willQuit || win.isDestroyed()) return
     this.lastFocusRequested = id
     if (win.isMinimized()) win.restore()
     win.show()
+    this.applyPendingMaximize(win)
     win.focus()
     this.deps.lifecycle?.shown(id)
   }
@@ -362,6 +402,20 @@ export class WindowManager {
           process.env.MOTRIX_PREVIEW_MAC_MENU === '1'))
 
     this.windows.set(id, win)
+    if (id === 'main' && (this.deps.platform ?? process.platform) === 'win32') {
+      const restoreProgress = () => {
+        if (
+          !win.isDestroyed() &&
+          !this.willQuit &&
+          this.taskbarProgress !== null
+        ) {
+          win.setProgressBar(this.taskbarProgress)
+        }
+      }
+      win.on('show', restoreProgress)
+      win.on('restore', restoreProgress)
+      restoreProgress()
+    }
     if (config.liquidGlass) {
       this.deps.liquidGlass?.attach(id, win)
     }
@@ -400,7 +454,11 @@ export class WindowManager {
     try {
       const loading = this.deps.loadUrl(win, WINDOW_CONFIGS[id].route)
       void Promise.resolve(loading).catch(() => {
-        if (this.get(id) === win && this.loadRevisions.get(win) === revision) {
+        if (
+          !this.willQuit &&
+          this.get(id) === win &&
+          this.loadRevisions.get(win) === revision
+        ) {
           this.deps.lifecycle?.loadFailed(id, win)
         }
       })
@@ -526,6 +584,7 @@ export class WindowManager {
         } else {
           win.show()
         }
+        this.applyPendingMaximize(win)
       })
     }
 
@@ -683,12 +742,23 @@ export class WindowManager {
         win.maximize()
       } else {
         this.pendingMaximize.add(win)
-        win.once('show', () => {
-          this.pendingMaximize.delete(win)
-          if (!win.isDestroyed()) win.maximize()
-        })
+        win.once('show', () => this.applyPendingMaximize(win))
       }
     }
+  }
+
+  private applyPendingMaximize(win: BrowserWindow): void {
+    // Some platforms reveal a window without emitting `show`. Explicit
+    // show paths and the event fallback share this once-only restoration.
+    if (
+      this.willQuit ||
+      win.isDestroyed() ||
+      !win.isVisible() ||
+      !this.pendingMaximize.delete(win)
+    ) {
+      return
+    }
+    win.maximize()
   }
 
   private isBoundsVisible(bounds: WindowBounds): boolean {

@@ -5,6 +5,7 @@ import {
   invalidateTaskList,
 } from '@renderer/hooks/use-task-list'
 import { openAddTaskDialog } from '@renderer/lib/open-add-task-dialog'
+import { useOperatorSession } from '@renderer/lib/operator-auth'
 import { transport } from '@renderer/lib/transport'
 import { type CommandChannel, Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
@@ -23,11 +24,13 @@ import type { BulkTaskCommandResult } from '@shared/types/task-actions'
 import {
   canAttemptRetry,
   canMoveInQueue,
+  canOfferRetry,
   canPause,
   canRedownload,
   canRemove,
   canReseed,
   canResume,
+  canRetryWithParameters,
   canStopSeeding,
   getTaskRetryKind,
 } from '@shared/types/task-actions'
@@ -35,6 +38,12 @@ import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useRedownloadOverwriteStore } from './redownload-overwrite-store'
 import { useRemoveTasksStore } from './remove-tasks-store'
+import { useRetryParametersStore } from './retry-parameters-store'
+import {
+  beginTaskPauses,
+  finishTaskPauses,
+  useTaskPauseStore,
+} from './task-pause-store'
 
 export interface RemoveDialogState {
   open: boolean
@@ -150,6 +159,8 @@ export interface TaskActionsState {
   moving: boolean
   onMove: (direction: MoveTasksPayload['direction']) => Promise<void>
   pauseCount: number
+  pausing: boolean
+  pausingCount: number
   resumeCount: number
   stopSeedingCount: number
   reseedCount: number
@@ -165,7 +176,7 @@ export interface TaskActionsState {
   onResume: () => Promise<void>
   onStopSeeding: () => Promise<void>
   onReseed: (modifier?: { alt: boolean }) => Promise<void>
-  onRetry: (modifier?: { alt: boolean }) => Promise<void>
+  onRetry: (modifier?: { alt: boolean; sha256?: string }) => Promise<void>
   onRedownload: (modifier?: { alt: boolean }) => Promise<void>
   closeRedownloadOverwriteDialog: () => void
   confirmRedownloadOverwrite: () => Promise<void>
@@ -186,6 +197,11 @@ export function useTaskActions(
 ): TaskActionsState {
   const { t } = useTranslation()
   const [moving, setMoving] = useState(false)
+  const pendingPauses = useTaskPauseStore((state) => state.pending)
+  const pausingCount = selected.filter((task) =>
+    pendingPauses.has(task.id)
+  ).length
+  const pausing = pausingCount > 0
   const removeDialog = useRemoveTasksStore()
   const removeTargets = removeDialog.targets
 
@@ -199,10 +215,10 @@ export function useTaskActions(
     let removeCount = 0
     for (const task of selected) {
       if (canPause(task)) pauseCount++
-      if (canResume(task)) resumeCount++
+      if (canResume(task) && !pendingPauses.has(task.id)) resumeCount++
       if (canStopSeeding(task)) stopSeedingCount++
       if (canReseed(task)) reseedCount++
-      if (canAttemptRetry(task)) retryCount++
+      if (canOfferRetry(task)) retryCount++
       if (canRedownload(task)) redownloadCount++
       if (canRemove(task)) removeCount++
     }
@@ -217,7 +233,7 @@ export function useTaskActions(
       removeCount,
       total: selected.length,
     }
-  }, [selected])
+  }, [selected, pendingPauses])
 
   const reportPartial = useCallback(
     (results: ActionResult[]) => {
@@ -255,7 +271,12 @@ export function useTaskActions(
   const dispatchSubset = useCallback(
     async (cmd: CommandChannel, predicate: (task: DownloadTask) => boolean) => {
       if (!readyToWrite()) return
-      const targets = resolveLatest(selected).filter(predicate)
+      const targets = resolveLatest(selected).filter(
+        (task) =>
+          predicate(task) &&
+          (cmd !== Commands.ResumeTasks ||
+            !useTaskPauseStore.getState().pending.has(task.id))
+      )
       if (targets.length === 0) return
       const results = await invokeBulk(
         cmd,
@@ -267,10 +288,24 @@ export function useTaskActions(
     [selected, reportPartial, readyToWrite]
   )
 
-  const onPause = useCallback(
-    () => dispatchSubset(Commands.PauseTasks, canPause),
-    [dispatchSubset]
-  )
+  const onPause = useCallback(async () => {
+    if (!readyToWrite()) return
+    const targets = resolveLatest(selected).filter(canPause)
+    const ids = beginTaskPauses(targets.map((task) => task.id))
+    if (!ids.length) return
+    const acquired = new Set(ids)
+    try {
+      reportPartial(
+        await invokeBulk(
+          Commands.PauseTasks,
+          targets.filter((task) => acquired.has(task.id)),
+          ids
+        )
+      )
+    } finally {
+      finishTaskPauses(ids)
+    }
+  }, [selected, readyToWrite, reportPartial])
 
   const onResume = useCallback(
     () => dispatchSubset(Commands.ResumeTasks, canResume),
@@ -366,19 +401,93 @@ export function useTaskActions(
   )
 
   const onRetry = useCallback(
-    async (modifier?: { alt: boolean }) => {
-      const retryKind = selected[0] ? getTaskRetryKind(selected[0]) : null
-      if (
-        modifier?.alt &&
-        selected.length === 1 &&
-        (retryKind === 'torrent-readd' || retryKind === 'direct-readd')
-      ) {
-        await altReAddSingle(selected[0])
+    async (modifier?: { alt: boolean; sha256?: string }) => {
+      if (!readyToWrite()) return
+      const sessionEpoch = useOperatorSession.getState().epoch
+      let targets = resolveLatest(selected)
+      if (modifier?.sha256) {
+        const [task] = targets
+        if (targets.length !== 1 || !task || !canOfferRetry(task)) return
+        try {
+          await transport.invoke(Commands.ReAddTask, {
+            taskId: task.id,
+            sha256: modifier.sha256,
+          })
+          invalidateTaskList()
+        } catch (error) {
+          reportPartial([{ ok: false, task, reason: errMsg(error) }])
+        }
         return
       }
-      await dispatchSubset(Commands.RetryTasks, canAttemptRetry)
+      const candidates = modifier?.alt
+        ? []
+        : targets.filter(
+            (task) => canRetryWithParameters(task) && !canAttemptRetry(task)
+          )
+      const nativeRetryIds = new Set<string>()
+      if (candidates.length) {
+        try {
+          for (let offset = 0; offset < candidates.length; offset += 1000) {
+            const available = await transport.invoke(
+              Queries.GetTaskHttpRetryAvailability,
+              candidates.slice(offset, offset + 1000).map((task) => task.id)
+            )
+            // Logout cancels this intent even if a new login has already completed.
+            if (sessionEpoch !== useOperatorSession.getState().epoch) return
+            if (!readyToWrite()) return
+            if (Array.isArray(available)) {
+              for (const id of available)
+                if (typeof id === 'string') nativeRetryIds.add(id)
+            }
+          }
+          targets = resolveLatest(selected)
+        } catch (error) {
+          if (sessionEpoch !== useOperatorSession.getState().epoch) return
+          reportPartial(
+            candidates.map((task) => ({
+              ok: false,
+              task,
+              reason: errMsg(error),
+            }))
+          )
+          return
+        }
+      }
+      const parameterTargets = targets.filter(
+        (task) =>
+          canRetryWithParameters(task) &&
+          ((!canAttemptRetry(task) && !nativeRetryIds.has(task.id)) ||
+            modifier?.alt)
+      )
+      if (parameterTargets.length) {
+        if (!useRetryParametersStore.getState().openWith(parameterTargets))
+          return
+        const parameterIds = new Set(parameterTargets.map((task) => task.id))
+        await dispatchSubset(
+          Commands.RetryTasks,
+          (task) =>
+            (canAttemptRetry(task) || nativeRetryIds.has(task.id)) &&
+            !parameterIds.has(task.id)
+        )
+        return
+      }
+      const retryKind = targets[0] ? getTaskRetryKind(targets[0]) : null
+      if (
+        modifier?.alt &&
+        targets.length === 1 &&
+        (retryKind === 'torrent-readd' || retryKind === 'direct-readd')
+      ) {
+        await altReAddSingle(targets[0])
+        return
+      }
+      await dispatchSubset(
+        Commands.RetryTasks,
+        (task) =>
+          canAttemptRetry(task) ||
+          (nativeRetryIds.has(task.id) && canRetryWithParameters(task))
+      )
     },
-    [selected, altReAddSingle, dispatchSubset]
+    [selected, altReAddSingle, dispatchSubset, readyToWrite, reportPartial]
   )
 
   const checkFileExists = useCallback(
@@ -553,6 +662,8 @@ export function useTaskActions(
   return {
     ...counts,
     moving,
+    pausing,
+    pausingCount,
     onMove,
     removeDialog,
     removeTargets,

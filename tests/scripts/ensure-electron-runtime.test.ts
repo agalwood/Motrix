@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // @ts-expect-error — .mjs without types
 import {
   ensureElectronRuntime,
+  ensureElectronRuntimeForCi,
   inspectElectronRuntime,
 } from '../../scripts/ensure-electron-runtime.mjs'
 
@@ -279,5 +280,80 @@ describe('ensureElectronRuntime', () => {
       })
     ).toBe(1)
     expect(inspectElectronRuntime(packageDir).complete).toBe(false)
+  })
+})
+
+describe('CI runtime download recovery', () => {
+  const gateway =
+    'HTTPError: Response code 504 (Gateway Timeout) for https://github.com/electron/electron/releases/download/test'
+  it('restores a partial install before retrying and validates the recovered runtime', async () => {
+    await mkdir(path.join(packageDir, 'dist'))
+    await writeFile(path.join(packageDir, 'dist', 'original'), 'keep')
+    const sleep = vi.fn(async () => {
+      expect(
+        await readFile(path.join(packageDir, 'dist', 'original'), 'utf8')
+      ).toBe('keep')
+    })
+    const spawn = vi
+      .fn()
+      .mockImplementationOnce(() => {
+        mkdirSync(path.join(packageDir, 'dist'))
+        writeFileSync(
+          path.join(packageDir, 'dist', 'partial'),
+          'incomplete download'
+        )
+        return { status: 1, stderr: gateway }
+      })
+      .mockImplementationOnce(() => {
+        expect(existsSync(path.join(packageDir, 'dist', 'partial'))).toBe(false)
+        writeRuntimeSync()
+        return { status: 0 }
+      })
+    expect(
+      await ensureElectronRuntimeForCi({
+        electronPackageDir: packageDir,
+        spawn,
+        sleep,
+        log: vi.fn(),
+        logError: vi.fn(),
+      })
+    ).toBe(0)
+    expect(spawn).toHaveBeenCalledTimes(2)
+    expect(sleep).toHaveBeenCalledOnce()
+    expect(inspectElectronRuntime(packageDir).complete).toBe(true)
+  })
+  it.each([
+    'HTTPError: Response code 404 (Not Found)',
+    'Checksum mismatch',
+    'ENOSPC: no space left on device',
+  ])('fails immediately on %s', async (stderr) => {
+    const spawn = vi.fn(() => ({ status: 7, stderr }))
+    const sleep = vi.fn()
+    expect(
+      await ensureElectronRuntimeForCi({
+        electronPackageDir: packageDir,
+        spawn,
+        sleep,
+        log: vi.fn(),
+        logError: vi.fn(),
+      })
+    ).toBe(7)
+    expect(spawn).toHaveBeenCalledOnce()
+    expect(sleep).not.toHaveBeenCalled()
+  })
+  it('returns the installer failure after bounded backoff', async () => {
+    const spawn = vi.fn(() => ({ status: 1, stderr: gateway }))
+    const sleep = vi.fn()
+    expect(
+      await ensureElectronRuntimeForCi({
+        electronPackageDir: packageDir,
+        spawn,
+        sleep,
+        log: vi.fn(),
+        logError: vi.fn(),
+      })
+    ).toBe(1)
+    expect(spawn).toHaveBeenCalledTimes(4)
+    expect(sleep.mock.calls.map(([ms]) => ms)).toEqual([5000, 15000, 30000])
   })
 })

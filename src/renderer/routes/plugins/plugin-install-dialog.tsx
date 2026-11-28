@@ -106,6 +106,11 @@ function PluginInstallSession({
   const install = usePluginInstall()
   const clearUpdate = usePluginsStore((s) => s.clearUpdate)
   const [grants, setGrants] = useState<GrantsMap>({})
+  const [inputSession, setInputSession] = useState({ open, revision: 0 })
+  if (inputSession.open !== open) {
+    // Retain the closing input, but fence its async work from a rapid reopen.
+    setInputSession({ open, revision: inputSession.revision + Number(open) })
+  }
   const startedRef = useRef(false)
   const wasOpenRef = useRef(false)
   const cancelButtonRef = useRef<HTMLButtonElement>(null)
@@ -283,18 +288,22 @@ function PluginInstallSession({
                   </Alert>
                 )}
 
-                {preparing && !renderTrigger && (
-                  <div
-                    role="status"
-                    className="flex items-center gap-3 py-6 text-sm text-muted-foreground"
-                  >
-                    <Spinner aria-hidden="true" />
-                    <span>{t('plugins.install.preparing')}</span>
-                  </div>
-                )}
+                {fixedSource &&
+                  !install.consent &&
+                  !install.error &&
+                  !renderTrigger && (
+                    <div
+                      role="status"
+                      className="flex items-center gap-3 py-6 text-sm text-muted-foreground"
+                    >
+                      <Spinner aria-hidden="true" />
+                      <span>{t('plugins.install.preparing')}</span>
+                    </div>
+                  )}
 
-                {open && !fixedSource && !install.consent && (
+                {!fixedSource && !install.consent && (
                   <PluginInputGroup
+                    key={inputSession.revision}
                     onCheck={onCheck}
                     checking={install.pending}
                   />

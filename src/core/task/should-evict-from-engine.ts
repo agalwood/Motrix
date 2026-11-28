@@ -1,4 +1,5 @@
-import { TaskStatus, TaskType } from '@shared/types/task'
+import { type DownloadTask, TaskStatus, TaskType } from '@shared/types/task'
+import { hasRetainedHttpRequestContext } from '@shared/types/task-actions'
 
 /**
  * Decide whether a task that just reached a terminal state should be
@@ -12,7 +13,7 @@ import { TaskStatus, TaskType } from '@shared/types/task'
  *   "Completed → Seeding → Completed" flicker on the next launch —
  *   aria2 reloads it, runs through one more terminating-seed cycle,
  *   then stops.
- * - **any → Error (all types)** — Error is durable user-visible history,
+ * - **any → Error (without native HTTP retention)** — Error is durable user-visible history,
  *   never a retryable engine state. With `--force-save=true` (an L1
  *   product invariant) an errored, non-user-removed download keeps its
  *   session task row, and the aria2_motrix sqlite store restores every
@@ -35,8 +36,13 @@ import { TaskStatus, TaskType } from '@shared/types/task'
 export function shouldEvictFromEngine(
   before: TaskStatus,
   after: TaskStatus,
-  type: TaskType
+  type: TaskType,
+  task?: DownloadTask
 ): boolean {
+  // Native HTTP failures restart paused and need this row's credentials and
+  // historical resource identity. Explicit removal remains the cleanup owner.
+  if (after === TaskStatus.Error && task && hasRetainedHttpRequestContext(task))
+    return false
   if (after === TaskStatus.Error) return before !== TaskStatus.Error
   if (type !== TaskType.Bt && type !== TaskType.Magnet) return false
   return before === TaskStatus.Seeding && after === TaskStatus.Completed

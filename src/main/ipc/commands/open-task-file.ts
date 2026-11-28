@@ -1,14 +1,15 @@
 import { stat } from 'node:fs/promises'
-import path from 'node:path'
 import { getLogger } from '@core/logger'
 import { AppError, ErrorCode } from '@shared/errors'
 import { openTaskFilePayloadSchema } from '@shared/schemas/open-task-file'
 import type { DownloadTask } from '@shared/types/task'
 import { canOpenTaskFile } from '@shared/types/task-actions'
+import { normalizeTaskOutputPath } from './task-output-path'
 
 const log = getLogger('open-task-file')
 
 interface OpenTaskFileDeps {
+  platform?: NodeJS.Platform
   shell: { openPath: (path: string) => Promise<string> }
   getTask: (taskId: string) => DownloadTask | undefined
 }
@@ -24,19 +25,11 @@ export function createOpenTaskFileHandler(deps: OpenTaskFileDeps) {
       throw new AppError(ErrorCode.InvalidSelection, 'Task output is not ready')
 
     // Resolve only the task-owned published path, never a renderer-supplied path.
-    const outputPath = task.finalPath || task.diskPath
-    const normalized = outputPath.replaceAll('\\', '/')
-    if (
-      outputPath.includes('\0') ||
-      !path.isAbsolute(outputPath) ||
-      ['//?/', '//./', '/??/', '//??/'].some((prefix) =>
-        normalized.startsWith(prefix)
-      )
+    const storedPath = task.finalPath || task.diskPath
+    const outputPath = normalizeTaskOutputPath(
+      storedPath,
+      deps.platform ?? process.platform
     )
-      throw new AppError(
-        ErrorCode.IpcInvalidPayload,
-        'Invalid task output path'
-      )
     let stage: 'stat' | 'recheck' | 'open' = 'stat'
     try {
       if (!(await stat(outputPath)).isFile())
@@ -47,7 +40,7 @@ export function createOpenTaskFileHandler(deps: OpenTaskFileDeps) {
       if (
         !current ||
         !canOpenTaskFile(current) ||
-        (current.finalPath || current.diskPath) !== outputPath
+        (current.finalPath || current.diskPath) !== storedPath
       )
         throw new Error('Task output changed')
       stage = 'open'

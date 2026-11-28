@@ -3,6 +3,7 @@ import '@renderer/lib/i18n'
 import '@testing-library/jest-dom/vitest'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
+import { holdExitAnimation } from '@test-utils/hold-exit-animation'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -64,6 +65,22 @@ describe('<AdvancedDialog>', () => {
       expect(screen.getByDisplayValue('16800')).toBeInTheDocument()
     })
     expect(transport.invoke).toHaveBeenCalledWith(Queries.GetSettings)
+  })
+
+  it('keeps the settings file section throughout exit', async () => {
+    const props = {
+      onClose: vi.fn(),
+      labelKey: 'settings.cards.advanced.title',
+      descKey: 'settings.cards.advanced.desc',
+    }
+    const view = render(<AdvancedDialog open {...props} />)
+    const path = await screen.findByTitle('/profile/settings.json')
+    const dialog = screen.getByRole('dialog')
+    const finish = holdExitAnimation(dialog)
+    view.rerender(<AdvancedDialog open={false} {...props} />)
+    expect(dialog).toHaveAttribute('data-closed')
+    expect(dialog).toContainElement(path)
+    await finish()
   })
 
   it('aborts submit when no fields are dirty', async () => {

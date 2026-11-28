@@ -268,9 +268,10 @@ export interface InstallerOptions {
   /**
    * Whether Motrix owns the host browser manifests. Flatpak uses `external`:
    * `/app` is not executable by a host browser, and a separate host-side
-   * companion must own both the launcher and manifests.
+   * companion must own both the launcher and manifests. Portable profiles use
+   * `disabled` to leave both existing manifests and registration untouched.
    */
-  registrationMode?: 'managed' | 'external'
+  registrationMode?: 'managed' | 'external' | 'disabled'
   /**
    * Development-only bridge directory selected by Electron. When present,
    * sync writes an owner-only sidecar beside the development host executable
@@ -326,7 +327,11 @@ export class NativeMessagingInstaller {
       await this.opts.appImage.sync(args)
       return { failures: [] }
     }
-    if (this.opts.registrationMode === 'external') return { failures: [] }
+    if (
+      this.opts.registrationMode === 'external' ||
+      this.opts.registrationMode === 'disabled'
+    )
+      return { failures: [] }
 
     await this.writeDevelopmentHostConfig()
 
@@ -394,7 +399,11 @@ export class NativeMessagingInstaller {
 
   async unregister(): Promise<void> {
     if (this.opts.appImage) return this.opts.appImage.suspend()
-    if (this.opts.registrationMode === 'external') return
+    if (
+      this.opts.registrationMode === 'external' ||
+      this.opts.registrationMode === 'disabled'
+    )
+      return
 
     const paths = computeManifestPaths(
       this.opts.platform,

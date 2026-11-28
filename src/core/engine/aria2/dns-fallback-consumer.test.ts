@@ -184,4 +184,26 @@ describe('createDnsFallbackConsumer', () => {
     expect(applyAsyncDns).toHaveBeenCalledTimes(2)
     expect(reAddTask).toHaveBeenCalledTimes(2)
   })
+
+  it('falls back to system resolver on dual-stack unreachable network error (#2421)', async () => {
+    const { consumer, applyAsyncDns, reAddTask, notify } = makeHarness()
+
+    await consumer.consume(
+      makeOccurrence({
+        occurrenceId: 'task-ipv6:error:2000',
+        taskId: 'task-ipv6',
+        errorGroup: {
+          errorCode: DownloadErrorCode.NetworkError,
+          errorMessage:
+            'Network problem has occurred. cause:A socket operation was attempted to an unreachable network',
+          errorDetailKey: null,
+          errorDetailParams: null,
+        },
+      })
+    )
+
+    expect(applyAsyncDns).toHaveBeenCalledExactlyOnceWith(false)
+    expect(reAddTask).toHaveBeenCalledExactlyOnceWith('task-ipv6')
+    expect(notify).toHaveBeenCalledOnce()
+  })
 })

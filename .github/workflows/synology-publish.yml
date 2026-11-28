@@ -1,0 +1,87 @@
+name: Publish DSM SPK
+
+on:
+  workflow_run:
+    workflows: ['Build/Release']
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing stable release tag whose exact source will be packaged
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: synology-publication
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
+    name: Verify stable release provenance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      publish: ${{ steps.source.outputs.publish }}
+      tag: ${{ steps.source.outputs.tag }}
+      version: ${{ steps.source.outputs.version }}
+      source_sha: ${{ steps.source.outputs.source_sha }}
+      release_run_id: ${{ steps.source.outputs.release_run_id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Verify exact tag, ancestry and completed formal release
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/synology_publication.py preflight
+
+  build:
+    needs: preflight
+    if: needs.preflight.outputs.publish == 'true'
+    uses: ./.github/workflows/synology.yml
+    with:
+      source_sha: ${{ needs.preflight.outputs.source_sha }}
+
+  publish:
+    name: Publish complete verified SPK set
+    needs: [preflight, build]
+    if: needs.preflight.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: github-release
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Checkout trusted publication tools
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: motrix-synology-x64
+          path: release/synology-publish
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: motrix-synology-arm64
+          path: release/synology-publish
+      - name: Revalidate provenance and publish without overwriting assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
+          SOURCE_SHA: ${{ needs.preflight.outputs.source_sha }}
+          RELEASE_RUN_ID: ${{ needs.preflight.outputs.release_run_id }}
+        run: >-
+          python3 scripts/synology_publication.py publish
+          release/synology-publish "$RELEASE_TAG" "$SOURCE_SHA" "$RELEASE_RUN_ID"

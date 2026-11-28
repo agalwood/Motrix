@@ -219,7 +219,8 @@ export function LifetimeTransferCard({
   const series = (overview = false) =>
     (['down', 'up'] as const).map((kind) => (
       <Area
-        key={kind}
+        // A new range must not reuse the previous scale on the next live tick.
+        key={`${range}-${kind}`}
         className={`activity-transfer-line-${kind}`}
         dataKey={kind}
         type="monotoneX"

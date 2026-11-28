@@ -1,5 +1,4 @@
 import { RunMode } from '@shared/constants'
-import { DEFAULT_LOCALE } from '@shared/constants/locales'
 import type { MotrixAppSettings } from '@shared/types/settings'
 import { z } from 'zod'
 import {
@@ -18,6 +17,12 @@ import { DEFAULT_TRAY_ICON_COLOR, trayIconColorSchema } from './tray-icon-color'
 import { windowMinimumDimensionSchema } from './window-bounds'
 
 export const appUpdateChannelSchema = z.enum(['stable', 'beta'])
+export const DOWNLOADS_TABS = ['all', 'active', 'completed', 'error'] as const
+export const downloadsOpeningViewSchema = z.enum([
+  'remember',
+  ...DOWNLOADS_TABS,
+])
+export type DownloadsOpeningView = z.infer<typeof downloadsOpeningViewSchema>
 export const fileDeletionModeSchema = z.enum(['trash', 'permanent'])
 export type FileDeletionMode = z.infer<typeof fileDeletionModeSchema>
 export const notificationBadgeStyleSchema = z.enum(['count', 'dot', 'hidden'])
@@ -41,13 +46,15 @@ export const appSettingsSchema = z.object({
   theme: z.enum(['system', 'light', 'dark']).catch('system'),
   sidebarColor: sidebarColorSchema.catch('cyan'),
   reduceMotion: z.boolean().catch(false),
-  language: languagePreferenceSchema.catch(DEFAULT_LOCALE),
+  hardwareAcceleration: z.boolean().catch(true),
+  language: languagePreferenceSchema.catch('system'),
   byteUnitSystem: byteUnitSystemSchema.catch(DEFAULT_BYTE_UNIT_PREFERENCE),
   speedLimitUnits: speedLimitUnitsSchema.catch(speedLimitUnitsSchema.parse({})),
   // Empty string is a sentinel: SettingsManager (main/server) seeds the
   // absolute platform download directory on first load. The renderer never
   // observes '' because settings are loaded before the UI mounts.
   defaultSaveDir: z.string().catch(''),
+  downloadsOpeningView: downloadsOpeningViewSchema.catch('remember'),
   fileDeletionMode: fileDeletionModeSchema.catch('trash'),
   directoryPreferences: DirectoryPreferencesSchema.catch({
     favorites: [],
@@ -66,6 +73,8 @@ export const appSettingsSchema = z.object({
     .catch({ magnet: true }),
   runMode: z.enum(RunMode).catch(RunMode.Standard),
   lightweightMode: z.boolean().catch(false),
+  showDownloadProgress: z.boolean().catch(false),
+  keepStatsBarVisible: z.boolean().catch(false),
   traySpeedometer: z.boolean().catch(true),
   trayIconColor: trayIconColorSchema.catch(DEFAULT_TRAY_ICON_COLOR),
   magnetFileSelection: z.boolean().catch(true),

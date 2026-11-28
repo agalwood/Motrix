@@ -29,6 +29,7 @@ const COMMIT = 'a'.repeat(40)
 const temporaryDirectories: string[] = []
 const HASH_PINNED_TEXT_SOURCES = [
   'electron-builder.signing.json',
+  'build/Motrix.icon/icon.json',
   'scripts/sign-macos.mjs',
   'build/entitlements.safari.plist',
   'build/app.motrix.safari.bootstrap.plist',
@@ -62,6 +63,18 @@ const TRUSTED_FIXTURES = [
   ],
   ['build/icon.icns', 'signing-build-resources/icon.icns'],
   ['build/icon.ico', 'signing-build-resources/icon.ico'],
+  [
+    'build/Motrix.icon/icon.json',
+    'signing-build-resources/Motrix.icon/icon.json',
+  ],
+  [
+    'build/Motrix.icon/Assets/Glass-WhiteRim-1024.png',
+    'signing-build-resources/Motrix.icon/Assets/Glass-WhiteRim-1024.png',
+  ],
+  [
+    'build/Motrix.icon/Assets/MO-solid-1024.png',
+    'signing-build-resources/Motrix.icon/Assets/MO-solid-1024.png',
+  ],
   ['build/installerHeader.bmp', 'signing-build-resources/installerHeader.bmp'],
   [
     'build/installerSidebar.bmp',
@@ -172,13 +185,47 @@ describe('isolated release signing input', () => {
     await expect(verify(directory)).resolves.toMatchObject({
       commit: COMMIT,
       target: { key: 'win32-x64', platform: 'win32', arch: 'x64' },
-      tools: { electronBuilder: '26.17.0', electron: '44.7.0' },
+      tools: { electronBuilder: '26.18.1', electron: '45.5.0' },
       limits: SIGNING_ARCHIVE_LIMITS,
     })
   })
 
+  it('isolates Windows ARM64 signing inputs and rejects an x64 target claim', async () => {
+    const { directory } = await createGeneratedSigningInput(
+      [
+        ['extra/win32/arm64/aria2c.exe', 'ARM64 aria2'],
+        [
+          'packages/native-host/dist/win32-arm64/motrix-native-host.exe',
+          'ARM64 native host',
+        ],
+        [
+          'packages/finalize-fs/dist/win32-arm64/motrix-finalize-fs.exe',
+          'ARM64 finalize filesystem sidecar',
+        ],
+        ['release/size-reports/win32-arm64.json', '{}'],
+      ],
+      [],
+      { platform: 'win32', arch: 'arm64' }
+    )
+    await expect(
+      verifySigningInput({
+        mode: 'verify',
+        directory,
+        platform: 'win32',
+        arch: 'arm64',
+        commit: COMMIT,
+      })
+    ).resolves.toMatchObject({
+      target: { key: 'win32-arm64', platform: 'win32', arch: 'arm64' },
+    })
+    await expect(verify(directory)).rejects.toThrow()
+    await expect(
+      readFile(path.join(directory, 'extra/win32/x64/aria2c.exe'))
+    ).rejects.toThrow()
+  })
+
   it.each(['arm64', 'x64'] as const)(
-    'preserves shutdown permission metadata through isolated macOS signing: %s',
+    'preserves permission metadata and icon assets through isolated macOS signing: %s',
     async (arch) => {
       const { directory } = await createGeneratedSigningInput(
         [
@@ -224,6 +271,9 @@ describe('isolated release signing input', () => {
       require('app-builder-lib')
       const { MacPackager } = require('app-builder-lib/out/macPackager')
       const appPlist: Record<string, unknown> = {}
+      const contents = path.join(directory, 'Motrix.app/Contents')
+      const catalog = Buffer.from('compiled icon catalog fixture')
+      await mkdir(path.join(contents, 'Resources'), { recursive: true })
       // Exercise electron-builder's Info.plist generation from staged policy.
       await MacPackager.prototype.applyCommonInfo.call(
         {
@@ -236,10 +286,34 @@ describe('isolated release signing input', () => {
             buildVersion: '2.0.1',
           },
           getIconPath: async () => null,
+          getResource: async (resource: string) => {
+            const resolved = path.join(directory, resource)
+            expect((await lstat(resolved)).isDirectory()).toBe(true)
+            return resolved
+          },
+          generateAssetCatalogData: async (iconPath: string) => {
+            for (const asset of [
+              'icon.json',
+              'Assets/Glass-WhiteRim-1024.png',
+              'Assets/MO-solid-1024.png',
+            ]) {
+              const actual = await readFile(path.join(iconPath, asset))
+              const expected = await readFile(
+                path.join(ROOT, 'build/Motrix.icon', asset)
+              )
+              // Compare full PNG bytes without a JavaScript deep walk per pixel.
+              expect(actual.equals(expected), asset).toBe(true)
+            }
+            return { assetCatalog: catalog }
+          },
         },
         appPlist,
-        path.join(directory, 'Motrix.app/Contents')
+        contents
       )
+      expect(appPlist.CFBundleIconName).toBe('Icon')
+      expect(
+        await readFile(path.join(contents, 'Resources/Assets.car'))
+      ).toEqual(catalog)
       expect(appPlist.NSAppleEventsUsageDescription).toBe(
         'Motrix requests permission to shut down your Mac when all downloads finish, only when you enable this action.'
       )
@@ -303,7 +377,13 @@ describe('isolated release signing input', () => {
     }
   })
 
-  it.each(['installerHeader.bmp', 'installerSidebar.bmp'])(
+  it.each([
+    'installerHeader.bmp',
+    'installerSidebar.bmp',
+    'Motrix.icon/icon.json',
+    'Motrix.icon/Assets/Glass-WhiteRim-1024.png',
+    'Motrix.icon/Assets/MO-solid-1024.png',
+  ])(
     'rejects replaced branded artwork even with a refreshed manifest: %s',
     async (filename) => {
       const directory = await createFixture()
@@ -392,6 +472,7 @@ describe('isolated release signing input', () => {
     'signing-build-resources/installer.nsi',
     'signing-build-resources/installer.nsh',
     'signing-build-resources/messages.yml',
+    'signing-build-resources/Motrix.icon/Assets/unreviewed.png',
     'signing-build-resources/x86-unicode/plugin.dll',
     'signing-build-resources/x86-ansi/plugin.dll',
   ])('rejects reserved signing input path %s', async (reservedPath) => {
@@ -693,7 +774,7 @@ async function refreshManifest(directory: string) {
     schemaVersion: 2,
     commit: COMMIT,
     target: { key: 'win32-x64', platform: 'win32', arch: 'x64' },
-    tools: { electronBuilder: '26.17.0', electron: '44.7.0' },
+    tools: { electronBuilder: '26.18.1', electron: '45.5.0' },
     limits: SIGNING_ARCHIVE_LIMITS,
     files: await inventory(directory),
   }

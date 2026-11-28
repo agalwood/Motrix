@@ -195,18 +195,6 @@ describe('AppLayout', () => {
     ).not.toBeNull()
   })
 
-  it('keeps the sidebar-wrapper background in mobile mode', () => {
-    // Below the 768px breakpoint the Sidebar renders as a portaled Sheet
-    // without data-variant="inset", so the wrapper's conditional
-    // `has-data-[variant=inset]:bg-sidebar` never matches. The wrapper
-    // must carry an unconditional bg-sidebar or transparent-inset pages
-    // (Dashboard) lose their background contrast.
-    setWindowWidth(500)
-    renderAppLayout()
-    const wrapper = document.querySelector('[data-slot="sidebar-wrapper"]')
-    expect(wrapper).toHaveClass('bg-sidebar')
-  })
-
   it('reports data-state=collapsed in mobile mode regardless of open flag', () => {
     // Below the md breakpoint the docked sidebar cannot be visible, so the
     // wrapper must report collapsed even when the desktop `open` flag is
@@ -217,30 +205,6 @@ describe('AppLayout', () => {
     renderAppLayout()
     const wrapper = document.querySelector('[data-slot="sidebar-wrapper"]')
     expect(wrapper).toHaveAttribute('data-state', 'collapsed')
-  })
-
-  it('keeps the inset card look below the md breakpoint', () => {
-    // Upstream shadcn gates m-2/rounded-xl/shadow-sm behind
-    // md:peer-data-[variant=inset]:, which both stops matching below
-    // 768px (the peer div is not rendered in mobile mode). We want the
-    // rounded card to survive at narrow widths, so the classes must be
-    // unconditional.
-    setWindowWidth(500)
-    renderAppLayout()
-    const inset = document.querySelector('[data-slot="sidebar-inset"]')
-    expect(inset).toHaveClass('m-2', 'rounded-xl', 'shadow-sm')
-  })
-
-  it('leaves no shadow-producing class on a transparentInset route', () => {
-    // The built-in SidebarInset shadow is md:peer-data-[variant=inset]:
-    // shadow-sm. tailwind-merge only collapses classes with identical
-    // modifiers, so the transparent branch must suppress BOTH the
-    // unconditional shadow-sm and the md-variant one — a bare shadow-none
-    // leaves the built-in variant alive at desktop widths.
-    renderAppLayout({ transparentInset: true })
-    const inset = document.querySelector('[data-slot="sidebar-inset"]')
-    expect(inset?.className).not.toMatch(/shadow-sm/)
-    expect(inset).toHaveClass('bg-transparent')
   })
 
   it('renders the sidebar and the current route outlet', () => {

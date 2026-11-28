@@ -184,6 +184,46 @@ token + 反向代理模型，不在 MBP1 范围内。）
 
 ---
 
+### 4.4 远程 Motrix Server 配置与终端配对
+
+远程扩展功能必须显式启用，并在配置无效时保持关闭。配置项为：
+
+```text
+MOTRIX_REMOTE_EXTENSION_ENABLED=false
+MOTRIX_REMOTE_EXTENSION_PUBLIC_URL=ws(s)://host[:port][/base-path]
+MOTRIX_PUBLIC_URL=http(s)://operator-host[:port][/base-path]
+MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP=false
+```
+
+启用后必须提供 WS/WSS 扩展地址。Web 管理地址可选，不得从扩展地址推测其主机、
+端口或路径。提供 Web 地址时必须严格校验；HTTPS 默认允许，HTTP 必须同时显式
+授权 `MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP=true`。该例外仅适用于可信局域网。
+无效的 URL 或布尔值只关闭远程扩展入口，不改变 CLI/agent 与桌面行为。
+
+扩展入口继续按 WS/WSS 地址严格校验原始 Host、有效端口和路径前缀，保留 nonce、
+限流、凭据、撤销与 MBP1 验证。Web 和扩展地址可使用不同主机。没有配置 HTTPS
+管理地址、也没有 HTTP 显式授权时，Web 待配对快照必须过滤扩展请求，事件连接必须
+跳过扩展 `PairRequested` 消息；普通任务事件、CLI 请求和不含码的结束事件继续工作。
+
+经过 operator Bearer 鉴权的请求可以通过实际观察到的本机回环连接读取快照：
+必须恰有一个原始 Host 头，匹配回环地址和实际监听端口，并且不得携带 Origin、
+Forwarded 或任何 X-Forwarded-* 头，包括空值。连接来源取自 socket，不能使用
+转发 IP。拥有 operator token 的管理员仍可通过改写头部的本机代理模拟这种连接；
+该 token 本身授予机器所有者权限，这项检查不构成对管理员的物理本机隔离。
+
+`motrix-admin extension pair` 可以通过固定回环地址和 operator 凭据，在交互终端
+展示用户明确选中的一个有效配对码。必须拒绝 JSON、管道和重定向，过滤请求元数据
+中的终端控制字符，并重新验证所选会话及其原始到期时间。退出、取消、过期、失败
+或挂起请求都必须清除配对码视图。读取不延长有效期，请求消失不代表成功，关闭
+查看界面不批准或拒绝请求。用户仍须在扩展中输入配对码完成 MBP1 握手。
+
+配对码不得进入 URL、日志、持久化浏览器存储、剪贴板、非交互 CLI 输出或通知文本。
+终端录制和管理员权限属于可信管理员会话的边界，清屏不保证消除录制记录。
+Web 快照和操作响应继续使用 `Cache-Control: no-store`；Cookie 事件连接仍校验
+配置的 Web Origin，缺省时使用现有同源策略；CSRF、HttpOnly、SameSite 和登录限流
+保持生效。HTTPS 代理必须保留正确 Host、Origin、Upgrade 和路径，HTTP 授权不意味着
+流量具有加密保护。
+
 ## 5. 扩展身份三态
 
 审批对话框 MUST 区分三种身份状态；证明*是哪一个*扩展在调用，不等于证明它是
@@ -501,6 +541,11 @@ kS2C = HKDF-SHA-256(ikm=Ke, salt="MBP1/pair/v1", info="MBP1-pair-traffic-s2c", L
 - 凭据 principal：`{browser, verifiedOrigin, clientInstallationId}`。第二个
   浏览器 profile 是**新的 principal**，作为新凭据配对；签发或轮换一个凭据
   MUST NOT 影响另一个。
+  活动连接也 MUST 按完整的已认证 principal 索引。重连只替换并关闭同一安装
+  实例的旧连接，其他安装实例继续可用。新任务的通知路由和提交幂等性 MUST
+  保留安装实例边界。只保存 `{browser, extensionId}` 的旧任务将通知广播到
+  该扩展所有已授权、就绪的安装实例，无需迁移凭据或任务数据。扩展级撤销
+  仍作用于所选 verified Origin 下的全部 principal。
 - 过期或被吊销的凭据一律要求重新 code-entry 配对——绝不静默重新信任。
 
 这与扩展既有的“先持久化、再发送 `motrix/initialized`”顺序保持一致。
@@ -523,8 +568,9 @@ WebSocket 会重置 worker 空闲计时器（见附录 B）；即便 worker 仍�
   （32 个符号；排除 `I`、`L`、`O`、`U`）。
 - **长度**：8 个符号 = 恰好 40 bit，取自 5 个 CSPRNG 字节：将 40 bit 按
   大端切成 8 组、每组 5 bit，逐组索引字母表。
-- **展示**：大写、按 `XXXX-XXXX` 分组，**只**显示在 Motrix 审批对话框中。
-  配对码即 PAKE 口令：MUST 绝不以任何形式经任何网络信道传输，MUST 绝不
+- **展示**：大写、按 `XXXX-XXXX` 分组，显示在 Motrix 审批对话框或 §4.4 允许的已鉴权 Server 管理界面、交互终端中。
+  配对码即 PAKE 口令：MUST 绝不通过扩展连接传输；Server 的已鉴权管理界面及
+  用户明确选择的交互终端展示遵循 §4.4。MUST 绝不
   写入日志。
 - **输入规范化**（扩展侧，本地校验之前）：去掉 ASCII 连字符与空格；转
   大写；映射 `O→0`、`I→1`、`L→1`；然后要求恰好 8 个字母表符号。本地校验
@@ -633,6 +679,58 @@ kS2C = HKDF-SHA-256(ikm=mutualKey, salt=S ‖ C, info="MBP1-traffic-s2c", L=32)
 消息，现在位于 envelope 之内。
 
 ---
+
+### 8.1 Safari 安装身份连续性
+
+Safari 每次启动都会更换扩展 URL 的 host，因此连接 Origin 不能标识长期
+安装身份。支持此能力的服务端在 `/discovery` 返回并向浏览器公开
+`X-Motrix-Safari-Continuity: 1`，保持严格 JSON discovery 文档不变。
+此标记仅用于兼容性检查，不授予权限。新版 Safari 客户端首次配对要求此
+能力；Chromium 与 Firefox 保持原有消息行为。
+
+每个 Safari 安装生成并持久保存一份随机 Ed25519 私钥，私钥只保存在扩展
+存储中。新的 `pairHello` 包含仅限 Safari 使用的 `safariInstallationKey`，
+即规范 base64url 编码的 32 字节公钥。在 §6.4 的 `A_id` 后追加
+`enc("MBP1/safari-installation/v1") ‖ enc(safariInstallationKey)`，后一项编码
+ASCII 消息字符串。配对码确认成功后，凭据 principal 绑定该公钥。它证明安装
+身份连续性，不提升 `official` / `unverified` 身份等级。
+
+重连客户端在 `reconnectResponse` 中增加：
+
+```json
+{ "safariResume": { "installationKey": "<public key>", "proof": "<signature>", "nmTicket": "<optional native ticket object>" } }
+```
+
+`RT0` 为按**当前连接 Origin** 计算的 §8 transcript；`Kpub` 为公钥原始
+32 字节；`D` 为 `nmTicket` 的 §6.4 digest，无票据时为空字节：
+
+```
+RT = RT0 ‖ enc("MBP1/safari-resume/v1") ‖ enc(Kpub) ‖ enc(D)
+proof = Ed25519.Sign(Kpriv, enc("MBP1/safari-resume-proof/v1") ‖ S ‖ C ‖ RT)
+```
+
+两方向重连 MAC 均使用扩展后的 `RT`。公钥必须为规范编码、非小阶、位于素数
+阶子群；签名按严格 RFC 8032 验证（`zip215: false`）。已绑定公钥必须完全
+匹配，完成绑定后即使 Origin 相同也不得省略证明。改变 Origin、challenge、
+实例、凭据、公钥或票据会导致认证失败。仅持有 `mutualKey` 不足以从新 Origin
+注册替代公钥。
+
+旧凭据可在原 Origin 尚未改变时注册公钥。跨 Origin 自动迁移还要求旧凭据
+是 `official` Safari 身份，并提供新的 §9 原生票据，证明调用方是
+`app.motrix.safari.extension` 且绑定到 `Kpub`；上述签名证明持有对应私钥。
+过期、重放、generation 不符、调用方不符、无效或降级的票据均不能授权迁移。
+原生请求保持 `allowLaunch: false`。远程旧凭据若 Origin 已变化，需要一次
+显式配对码配对，此后新凭据可跨 Safari 重启恢复，无需原生认证。
+
+注册必须在 `reconnectAccept` 前持久完成，并在存储事务中重新检查凭据、
+principal、密钥与 authorization epoch。保留凭据最初的 Origin 作为任务路由
+和撤销身份，单独认证当前连接 Origin。会话接入再次检查存储身份的准入与撤销
+状态，以保留任务路由、隔离浏览器配置文件，并防止撤销竞态恢复授权。
+
+扩展按后端 authority 与 Safari 安装 ID 查找凭据，将旧 Origin 索引读入此
+命名空间；查询命中本身不构成认证。只有验证服务端 MAC 后才能激活、保存公钥
+绑定及清理本地旧条目，其他后端与安装不受影响。服务端历史授权仍可分别撤销；
+持有一个凭据不代表可以凭自报安装 ID 删除其他服务端凭据。
 
 ## 9. NM attestation ticket
 

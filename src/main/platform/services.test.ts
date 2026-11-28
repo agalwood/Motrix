@@ -20,6 +20,12 @@ const mocks = vi.hoisted(() => {
 
   return {
     state,
+    existsSync: vi.fn(() => false),
+    statSync: vi.fn(() => {
+      throw Object.assign(new Error('missing'), { code: 'ENOENT' })
+    }),
+    writeFileSync: vi.fn(),
+    unlinkSync: vi.fn(),
     mkdirSync: vi.fn((directory: string) => {
       state.operations.push(`mkdir:${directory}`)
     }),
@@ -34,6 +40,10 @@ const mocks = vi.hoisted(() => {
 vi.mock('node:fs', () => ({
   default: { mkdirSync: mocks.mkdirSync },
   mkdirSync: mocks.mkdirSync,
+  existsSync: mocks.existsSync,
+  statSync: mocks.statSync,
+  writeFileSync: mocks.writeFileSync,
+  unlinkSync: mocks.unlinkSync,
 }))
 
 vi.mock('electron', () => ({
@@ -46,11 +56,18 @@ vi.mock('electron', () => ({
   },
 }))
 
+import { getPortableProfile } from './portable-profile'
 import { createElectronPlatformServices } from './services'
 
 describe('createElectronPlatformServices', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.existsSync.mockReturnValue(false)
+    mocks.statSync.mockImplementation(() => {
+      throw Object.assign(new Error('missing'), { code: 'ENOENT' })
+    })
+    vi.stubEnv('TEMP', process.env.TEMP)
+    vi.stubEnv('TMP', process.env.TMP)
     mocks.state.isPackaged = false
     mocks.state.paths = { userData: '/fake/Motrix' }
     mocks.state.operations = []
@@ -218,6 +235,40 @@ describe('createElectronPlatformServices', () => {
       })
     })
 
+    it('ignores a sibling data folder without touching Store temp or portable state', () => {
+      vi.stubEnv('TEMP', 'C:\\SystemTemp')
+      mocks.statSync.mockImplementation(
+        () => ({ isDirectory: () => true }) as never
+      )
+      expect(createElectronPlatformServices().userDataDir).toBe(storeProfile)
+      expect(getPortableProfile()).toBeNull()
+      expect(mocks.statSync).not.toHaveBeenCalled()
+      expect(process.env.TEMP).toBe('C:\\SystemTemp')
+      expect(mocks.setPath.mock.calls.map(([name]) => name)).toEqual([
+        'userData',
+        'sessionData',
+      ])
+    })
+
+    it('keeps an NSIS installation on AppData even when a data folder exists', () => {
+      Object.defineProperty(process, 'windowsStore', {
+        configurable: true,
+        value: false,
+      })
+      vi.stubEnv('TEMP', 'C:\\SystemTemp')
+      mocks.existsSync.mockReturnValue(true)
+      mocks.statSync.mockImplementation(
+        () => ({ isDirectory: () => true }) as never
+      )
+      expect(createElectronPlatformServices().userDataDir).toBe(
+        `${appData}\\Motrix`
+      )
+      expect(getPortableProfile()).toBeNull()
+      expect(mocks.statSync).not.toHaveBeenCalled()
+      expect(mocks.setPath).not.toHaveBeenCalled()
+      expect(process.env.TEMP).toBe('C:\\SystemTemp')
+    })
+
     it('selects a separate root without reading the direct-install profile', () => {
       const svc = createElectronPlatformServices()
 
@@ -378,5 +429,54 @@ describe('createElectronPlatformServices', () => {
       expect(svc.userDataDir).toBe('D:\\development-profile')
       expect(mocks.getPath.mock.calls).toEqual([['userData']])
     })
+  })
+})
+
+describe('portable profile activation', () => {
+  const execDescriptor = Object.getOwnPropertyDescriptor(process, 'execPath')!
+  afterEach(() => {
+    Object.defineProperty(process, 'execPath', execDescriptor)
+    if (originalResourcesPath)
+      Object.defineProperty(process, 'resourcesPath', originalResourcesPath)
+    else Reflect.deleteProperty(process, 'resourcesPath')
+    Object.defineProperty(process, 'platform', originalPlatform)
+    vi.unstubAllEnvs()
+  })
+
+  it('contains Electron, Node and child-process paths before returning services', () => {
+    vi.stubEnv('TEMP', process.env.TEMP)
+    vi.stubEnv('TMP', process.env.TMP)
+    vi.stubEnv('MOTRIX_USER_DATA', undefined)
+    vi.stubEnv('MOTRIX_BRIDGE_DATA_DIR', undefined)
+    Object.defineProperty(process, 'platform', {
+      configurable: true,
+      value: 'win32',
+    })
+    Object.defineProperty(process, 'execPath', {
+      configurable: true,
+      value: 'E:\\Motrix\\Motrix.exe',
+    })
+    Object.defineProperty(process, 'resourcesPath', {
+      configurable: true,
+      value: 'E:\\Motrix\\resources',
+    })
+    mocks.state.isPackaged = true
+    mocks.existsSync.mockReturnValue(false)
+    mocks.statSync.mockImplementation(
+      () => ({ isDirectory: () => true }) as never
+    )
+    const result = createElectronPlatformServices({
+      distribution: 'direct',
+      isWindowsPackage: false,
+    })
+    expect(result.userDataDir).toBe('E:\\Motrix\\data\\user-data')
+    expect(mocks.state.paths.sessionData).toBe(result.userDataDir)
+    expect(mocks.state.paths.crashDumps).toBe(`${result.userDataDir}\\crashes`)
+    expect(mocks.state.paths.logs).toBe(`${result.userDataDir}\\logs`)
+    expect(mocks.state.paths.temp).toBe('E:\\Motrix\\data\\tmp')
+    expect(process.env.TEMP).toBe(mocks.state.paths.temp)
+    expect(process.env.TMP).toBe(mocks.state.paths.temp)
+    expect(getPortableProfile()?.root).toBe('E:\\Motrix')
+    expect(mocks.writeFileSync).toHaveBeenCalled()
   })
 })

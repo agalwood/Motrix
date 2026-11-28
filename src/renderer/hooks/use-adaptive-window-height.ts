@@ -3,7 +3,8 @@ import { Commands } from '@shared/protocol/commands'
 import { useEffect } from 'react'
 
 interface Options {
-  width: number
+  /** Omit for resizable windows to preserve the current user-selected width. */
+  width?: number
   minHeight: number
   maxHeight: number
   /** Chrome height (non-content) to add on top of measured content. */
@@ -62,7 +63,7 @@ export function useAdaptiveWindowHeight({
       if (Math.abs(clamped - last) < 2) return
       last = clamped
       void transport.invoke(Commands.ResizeWindow, {
-        width,
+        width: width ?? window.outerWidth,
         height: clamped,
       })
     }

@@ -137,7 +137,10 @@ async function launchFirefox(input: {
       String(port),
       '--remote-allow-system-access',
     ],
-    { stdio: ['ignore', 'pipe', 'pipe'] }
+    {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env, MOZ_REMOTE_ALLOW_SYSTEM_ACCESS: '1' },
+    }
   )
   const client = await connectBidi(`ws://127.0.0.1:${port}/session`)
   await client.command('session.new', {
@@ -173,11 +176,13 @@ async function stopFirefox(session: FirefoxSession): Promise<void> {
 
 async function evaluate(
   session: FirefoxSession,
-  expression: string
+  expression: string,
+  userActivation = false
 ): Promise<unknown> {
   const response = (await session.client.command('script.evaluate', {
     expression,
     target: { context: session.context },
+    userActivation,
     awaitPromise: true,
     resultOwnership: 'none',
   })) as { type: string; result?: unknown; exceptionDetails?: unknown }
@@ -311,7 +316,33 @@ async function pair(
 async function submit(session: FirefoxSession): Promise<unknown> {
   return evaluate(
     session,
-    `(async () => browser.runtime.sendMessage({kind:'bg.submitDownload',payload:{source:{pageUrl:'https://example.com/watch',pageTitle:'Remote Firefox E2E',detectedAt:Date.now()},selection:{kind:'direct',primary:{url:'https://cdn.example.com/video.mp4',headers:{Authorization:'Bearer must-not-cross',Referer:'https://example.com/watch'},cookies:[{name:'session',value:'must-not-cross',domain:'example.com'}],refererPolicy:'strict-origin-when-cross-origin'}},meta:{suggestedFilename:'video.mp4',qualityLabel:'source'}}}))()`
+    `(async () => {
+      await browser.action.openPopup()
+      const deadline = Date.now() + 5000
+      let popup
+      while (!(popup = browser.extension.getViews({type: 'popup'})[0])) {
+        if (Date.now() >= deadline) throw new Error('Extension toolbar popup did not open')
+        await new Promise(resolve => setTimeout(resolve, 30))
+      }
+      try {
+        return await popup.browser.runtime.sendMessage({
+          kind: 'bg.submitDownload',
+          payload: {
+            source: { pageUrl: 'https://example.com/watch', pageTitle: 'Remote Firefox E2E', detectedAt: Date.now() },
+            selection: { kind: 'direct', primary: {
+              url: 'https://cdn.example.com/video.mp4',
+              headers: { Authorization: 'Bearer must-not-cross', Referer: 'https://example.com/watch' },
+              cookies: [{ name: 'session', value: 'must-not-cross', domain: 'example.com' }],
+              refererPolicy: 'strict-origin-when-cross-origin',
+            } },
+            meta: { suggestedFilename: 'video.mp4', qualityLabel: 'source' },
+          },
+        })
+      } finally {
+        popup.close()
+      }
+    })()`,
+    true
   )
 }
 
@@ -385,9 +416,13 @@ for (const routePrefix of [ROUTE_PREFIX, ''])
       await pair(browser, runtime)
 
       expect(await submit(browser)).toMatchObject({
-        error: expect.stringMatching(/data boundary consent is required/i),
+        error: 'download.rejected',
       })
-      await clickText(browser, 'Allow remote downloads')
+      expect(submissions).toHaveLength(0)
+      await evaluate(
+        browser,
+        `document.querySelector('[role="switch"][aria-label="Remote downloads"]').click()`
+      )
       // A programmatic click only proves event dispatch. Wait for the UI to
       // render the policy returned by the background; that response now also
       // acknowledges completion of the required capability renegotiation.

@@ -1,4 +1,7 @@
 export const Commands = {
+  SaveNasSettings: 'command:saveNasSettings',
+  AcknowledgeGraphicsRecoveryNotice:
+    'command:acknowledgeGraphicsRecoveryNotice',
   ExecuteRendererSubmission: 'command:executeRendererSubmission',
   AcknowledgeRendererIntent: 'command:acknowledgeRendererIntent',
   ReportRendererSurface: 'command:reportRendererSurface',
@@ -18,10 +21,13 @@ export const Commands = {
   CancelPluginOperation: 'command:cancelPluginOperation',
   PickFile: 'command:pickFile',
   ActivateLegacyBt: 'command:activateLegacyBt',
+  ActivateLegacyHttp: 'command:activateLegacyHttp',
+  CancelLegacyHttpActivation: 'command:cancelLegacyHttpActivation',
   PickLegacyImportSource: 'command:pickLegacyImportSource',
   RevealLegacyImportSource: 'command:revealLegacyImportSource',
   PickLegacyTorrentMetadata: 'command:pickLegacyTorrentMetadata',
   CommitLegacyImport: 'command:commitLegacyImport',
+  ReleaseLegacyImportPreview: 'command:releaseLegacyImportPreview',
   CancelLegacyImport: 'command:cancelLegacyImport',
   RetryLegacyImport: 'command:retryLegacyImport',
   DismissLegacyImportInvitation: 'command:dismissLegacyImportInvitation',
@@ -45,6 +51,8 @@ export const Commands = {
   PauseTasks: 'command:pauseTasks',
   ResumeTasks: 'command:resumeTasks',
   MoveTasks: 'command:moveTasks',
+  ChangeBtStorage: 'command:changeBtStorage',
+  CancelBtStorage: 'command:cancelBtStorage',
   RemoveTasks: 'command:removeTasks',
   ReAddTasks: 'command:reAddTasks',
   // Generic user Retry. Shell handlers route sidecar-backed torrents to
@@ -107,6 +115,10 @@ export const Commands = {
   RunNatDiagnostic: 'command:runNatDiagnostic',
   ForceRemapNat: 'command:forceRemapNat',
   ExportNatBundle: 'command:exportNatBundle',
+  // Desktop torrent creator
+  CreateTorrent: 'command:createTorrent',
+  PickTorrentSource: 'command:pickTorrentSource',
+  SaveTorrentFile: 'command:saveTorrentFile',
   // App auto-update
   CheckForUpdates: 'command:checkForUpdates',
   DownloadUpdate: 'command:downloadUpdate',

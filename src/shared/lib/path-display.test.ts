@@ -1,5 +1,29 @@
 import { describe, expect, it } from 'vitest'
-import { truncatePath } from './path-display'
+import { formatNativePath, truncatePath } from './path-display'
+
+describe('formatNativePath', () => {
+  it.each([
+    ['//nas/share//模型 文件.bin', '\\\\nas\\share\\模型 文件.bin'],
+    ['\\\\nas\\share\\folder//file.bin', '\\\\nas\\share\\folder\\file.bin'],
+    ['C:/downloads//file.bin', 'C:\\downloads\\file.bin'],
+    ['C:/', 'C:\\'],
+    ['///downloads//file.bin', '\\downloads\\file.bin'],
+    ['', ''],
+  ])(
+    'formats Windows separators without losing the root: %s',
+    (value, expected) => {
+      expect(formatNativePath(value, 'win32')).toBe(expected)
+    }
+  )
+
+  it.each(['darwin', 'linux', 'web'])(
+    'preserves paths on %s, including literal backslashes',
+    (platform) => {
+      const value = '/downloads/a\\b//file.bin'
+      expect(formatNativePath(value, platform)).toBe(value)
+    }
+  )
+})
 
 const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
 const length = (value: string) => [...segmenter.segment(value)].length

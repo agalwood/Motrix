@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   addTaskFormSchema,
+  addTaskPrefillSchema,
   addTaskUrlParamsSchema,
   encodeUrlParams,
   formValuesToTaskCreateRequest,
@@ -10,6 +11,30 @@ import {
 } from './add-task'
 
 describe('addTaskFormSchema', () => {
+  it('carries migration option names through the draft without submitting them', () => {
+    const draft = addTaskPrefillSchema.parse({
+      tab: 'links',
+      urls: 'https://a.com/f.zip',
+      saveDir: '/downloads/new',
+      legacyRequestOptions: ['header', 'all-proxy'],
+    })
+    expect(draft).toHaveProperty('legacyRequestOptions', [
+      'header',
+      'all-proxy',
+    ])
+    const request = formValuesToTaskCreateRequest(
+      addTaskFormSchema.parse(draft)
+    )
+    expect(request).not.toHaveProperty('legacyRequestOptions')
+    expect(request).toMatchObject({ headers: [], proxy: undefined })
+    expect(
+      addTaskPrefillSchema.safeParse({
+        ...draft,
+        legacyRequestOptions: ['header=Cookie: secret'],
+      }).success
+    ).toBe(false)
+  })
+
   it('accepts minimal links tab', () => {
     const result = addTaskFormSchema.safeParse({
       tab: 'links',
@@ -304,6 +329,39 @@ describe('formValuesToTaskCreateRequest', () => {
       { type: 'http' }
     >
     expect(req.uris).toEqual(['https://a/b', 'https://c/d'])
+  })
+
+  it('drops blank draft headers, preserves explicitly empty values and rejects value-only rows', () => {
+    const input = {
+      tab: 'links' as const,
+      urls: 'https://example.com/a',
+      saveDir: '/d',
+      extraHeaders: [
+        { name: ' ', value: ' ' },
+        { name: ' X-Empty ', value: '' },
+        { name: 'Accept', value: ' application/json ' },
+      ],
+    }
+    const req = formValuesToTaskCreateRequest(addTaskFormSchema.parse(input))
+    expect(req).toMatchObject({
+      headers: [
+        { name: 'X-Empty', value: '' },
+        { name: 'Accept', value: ' application/json ' },
+      ],
+    })
+    const invalid = addTaskFormSchema.safeParse({
+      ...input,
+      extraHeaders: [...input.extraHeaders, { name: ' ', value: 'present' }],
+    })
+    expect(invalid.success).toBe(false)
+    if (!invalid.success)
+      expect(invalid.error.issues[0].path).toEqual(['extraHeaders', 3, 'name'])
+    expect(
+      taskCreateRequestSchema.safeParse({
+        ...req,
+        headers: [{ name: '', value: '' }],
+      }).success
+    ).toBe(false)
   })
 
   it('builds headers from userAgent/referer/cookie/authorization', () => {

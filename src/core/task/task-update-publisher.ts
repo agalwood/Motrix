@@ -6,7 +6,7 @@ import type { TaskManager } from './task-manager'
  * Trailing coalescing window for TaskUpdated broadcasts. One bulk action
  * commits hundreds of tasks within a few milliseconds; every commit inside
  * this window collapses into a single snapshot emit at its end. 16 ms is
- * below one animation frame and two orders of magnitude below the 1 Hz poll
+ * below one animation frame and well below the 500 ms active poll
  * cadence; measured against 2 ms-latency engine RPCs it already collapses a
  * 200-task burst into one emit (see
  * docs/superpowers/specs/2026-08-07-task-updated-emit-coalescing-design.md).

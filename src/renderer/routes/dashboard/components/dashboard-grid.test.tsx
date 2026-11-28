@@ -1586,9 +1586,9 @@ describe('DashboardGrid', () => {
           expect(raf.callbacks.size).toBe(1)
           raf.runNext()
 
-          expect(
-            screen.getByTestId('dashboard-tile-speedLimit').style.transform
-          ).toBe('translate3d(100px, 0px, 0)')
+          expect(screen.getByTestId('dashboard-tile-speedLimit')).toHaveStyle({
+            transform: 'translate3d(100px, 0px, 0)',
+          })
           expect(raf.callbacks.size).toBe(0)
 
           fireEvent.pointerCancel(window, { pointerId: 25 })
@@ -1876,9 +1876,9 @@ describe('DashboardGrid', () => {
           }
           raf.runNext()
 
-          expect(tasks.style.transform).toBe(
-            `translate3d(${deltaX}px, 0px, 0) scale(1.03)`
-          )
+          expect(tasks).toHaveStyle({
+            transform: `translate3d(${deltaX}px, 0px, 0) scale(1.03)`,
+          })
           expect(
             screen.getByText('tasks-0,0-2x2-detailed-square-viewport:2x2')
           ).toBeInTheDocument()

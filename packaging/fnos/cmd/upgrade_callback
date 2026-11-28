@@ -1,0 +1,3 @@
+#!/bin/bash
+# fnOS owns persistent directories; retain data across lifecycle callbacks.
+exit 0

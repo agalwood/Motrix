@@ -1,7 +1,12 @@
 export const Queries = {
+  GetNasSettings: 'query:getNasSettings',
+  GetPortableMode: 'query:getPortableMode',
+  GetGraphicsRecoveryNotice: 'query:getGraphicsRecoveryNotice',
   GetRendererSession: 'query:getRendererSession',
   GetLegacyImportNavigation: 'query:getLegacyImportNavigation',
   GetLegacyBtActivationAvailability: 'query:getLegacyBtActivationAvailability',
+  GetLegacyHttpActivationAvailability:
+    'query:getLegacyHttpActivationAvailability',
   DiscoverLegacyImport: 'query:discoverLegacyImport',
   ScanLegacyImport: 'query:scanLegacyImport',
   GetLegacyImportRun: 'query:getLegacyImportRun',
@@ -10,6 +15,7 @@ export const Queries = {
   GetDisclaimerState: 'query:getDisclaimerState',
   ListTasks: 'query:listTasks',
   GetTaskDetail: 'query:getTaskDetail',
+  GetTaskHttpRetryAvailability: 'query:getTaskHttpRetryAvailability',
   GetStats: 'query:getStats',
   GetTaskSpeedHistory: 'query:getTaskSpeedHistory',
   GetTaskInspectorActivity: 'query:getTaskInspectorActivity',

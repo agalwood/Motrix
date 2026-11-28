@@ -1,11 +1,11 @@
 import { lstat, readFile } from 'node:fs/promises'
 import { isAbsolute, join } from 'node:path'
+import { CROCKFORD_ALPHABET } from '@core/bridge/mbp1/pairing-code'
 import {
   FALLBACK_LOCALE,
   resolveSupportedLocale,
   SUPPORTED_LOCALE_CODES,
 } from '@shared/constants/locales'
-import { I18N_RESOURCES, loadI18nLocale } from '@shared/i18n-resources'
 import {
   BridgeCommands,
   BridgeQueries,
@@ -14,11 +14,36 @@ import {
   type ResolvePairParams,
   type ResolvePairResult,
 } from '@shared/protocol/bridge'
+import {
+  changeOperatorTokenResultSchema,
+  isWeakOperatorToken,
+  operatorTokenSchema,
+} from '@shared/schemas/operator-token'
 import { createInstance } from 'i18next'
+import {
+  Agent,
+  type RequestInit as DirectRequestInit,
+  fetch as directFetch,
+} from 'undici'
 import { z } from 'zod'
 import { parseServerPort } from './environment'
+import {
+  loadOperatorAdminLocale,
+  OPERATOR_ADMIN_RESOURCES,
+} from './operator-admin-locales'
+import {
+  createPairingTerminal,
+  ExtensionPairingTerminalError,
+  type PairingTerminal,
+  runExtensionPairingTerminal,
+} from './operator-extension-pairing'
+import { operatorTokenAuthorization } from './operator-token'
+import {
+  OperatorTokenInputError,
+  readOperatorSecret,
+  readOperatorTokenStdin,
+} from './operator-token-input'
 
-const OPERATOR_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43,128}$/
 const USER_CODE_PATTERN = /^[A-HJ-NP-Z2-9]{8}$/
 const WIRE_USER_CODE_PATTERN = /^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/
 const DEFAULT_DATA_DIR = '/data'
@@ -60,7 +85,11 @@ const pendingExtensionRequestSchema: z.ZodType<PendingExtensionRequest> = z
     extensionId: z.string().min(1).max(256),
     browser: BrowserSchema,
     identity: z.enum(['official', 'attested-non-official', 'unverified']),
-    code: z.string().regex(WIRE_USER_CODE_PATTERN),
+    code: z
+      .string()
+      .regex(
+        new RegExp(`^[${CROCKFORD_ALPHABET}]{4}-[${CROCKFORD_ALPHABET}]{4}$`)
+      ),
     verifiedOrigin: z.string().min(1).max(512).optional(),
     originHost: z.string().min(1).max(256).optional(),
     claimedExtensionId: z.string().min(1).max(256).optional(),
@@ -165,6 +194,9 @@ interface OperatorAdminDependencies {
   writeStderr: (message: string) => void
   pendingRetryWindowMs: number
   mutationTimeoutMs: number
+  terminal?: PairingTerminal
+  readSecret: (prompt: string) => Promise<string>
+  readTokenStdin: () => Promise<string>
 }
 
 export interface OperatorAdminOptions
@@ -172,7 +204,8 @@ export interface OperatorAdminOptions
 
 interface ParsedCommand {
   json: boolean
-  operation: 'pending' | 'approve' | 'deny'
+  operation: 'pending' | 'approve' | 'deny' | 'extension-pair' | 'token-set'
+  stdin?: boolean
   userCode?: string
 }
 
@@ -207,6 +240,9 @@ function defaultDependencies(
       ((message) => {
         process.stderr.write(`${message}\n`)
       }),
+    terminal: options.terminal,
+    readSecret: options.readSecret ?? readOperatorSecret,
+    readTokenStdin: options.readTokenStdin ?? readOperatorTokenStdin,
     pendingRetryWindowMs:
       options.pendingRetryWindowMs ?? PENDING_RETRY_WINDOW_MS,
     mutationTimeoutMs: options.mutationTimeoutMs ?? MUTATION_TIMEOUT_MS,
@@ -218,8 +254,10 @@ async function createTranslator(env: NodeJS.ProcessEnv): Promise<Translate> {
   const instance = createInstance()
   await instance.init({
     resources: {
-      ...I18N_RESOURCES,
-      [locale]: { translation: await loadI18nLocale(locale) },
+      ...OPERATOR_ADMIN_RESOURCES,
+      [locale]: {
+        translation: { operatorAdmin: await loadOperatorAdminLocale(locale) },
+      },
     },
     supportedLngs: SUPPORTED_LOCALE_CODES,
     lng: locale,
@@ -229,7 +267,7 @@ async function createTranslator(env: NodeJS.ProcessEnv): Promise<Translate> {
     },
   })
   const fixedT = instance.getFixedT(locale)
-  return (key, values) => String(fixedT(key, values))
+  return (key, values) => String(fixedT(key, values ?? {}))
 }
 
 function exitCodeFor(error: OperatorAdminError): OperatorAdminExitCode {
@@ -264,7 +302,17 @@ function parseCommand(argv: readonly string[]): ParsedCommand | 'help' {
     return 'help'
   }
 
+  if (argv.length === 2 && argv[0] === 'extension' && argv[1] === 'pair') {
+    return { json: false, operation: 'extension-pair' }
+  }
   const args = argv.filter((arg) => arg !== '--json')
+  if (
+    args[0] === 'token' &&
+    args[1] === 'set' &&
+    (args.length === 2 || (args.length === 3 && args[2] === '--stdin'))
+  ) {
+    return { json, operation: 'token-set', stdin: args[2] === '--stdin' }
+  }
   if (args.some((arg) => arg.startsWith('--'))) {
     throw new OperatorAdminError(
       OperatorAdminErrorKind.Usage,
@@ -360,7 +408,7 @@ async function readOperatorToken(
       OperatorAdminErrorCode.CredentialUnreadable
     )
   }
-  if (!OPERATOR_TOKEN_PATTERN.test(token)) {
+  if (!operatorTokenSchema.safeParse(token).success) {
     throw new OperatorAdminError(
       OperatorAdminErrorKind.Credential,
       OperatorAdminErrorCode.CredentialInvalid
@@ -441,7 +489,7 @@ function requestInit(token: string, args: unknown[]): RequestInit {
     method: 'POST',
     headers: {
       accept: 'application/json',
-      authorization: `Bearer ${token}`,
+      authorization: operatorTokenAuthorization(token),
       'content-type': 'application/json',
     },
     body: JSON.stringify({ args }),
@@ -496,8 +544,9 @@ async function waitBeforePendingRetry(
 async function listPendingRequests(
   deps: OperatorAdminDependencies,
   baseUrl: string,
-  token: string
-): Promise<PendingCliRequest[]> {
+  token: string,
+  signal?: AbortSignal
+): Promise<PendingPairRequestInfo[]> {
   const startedAt = deps.now()
   let attempts = 0
   while (attempts < MAX_PENDING_ATTEMPTS) {
@@ -514,10 +563,14 @@ async function listPendingRequests(
         )}`,
         {
           ...requestInit(token, []),
-          signal: controller.signal,
+          signal: signal
+            ? AbortSignal.any([signal, controller.signal])
+            : controller.signal,
         }
       )
     } catch {
+      clearTimeout(timeout)
+      if (signal?.aborted) throw new ExtensionPairingTerminalError('cancelled')
       if (retryWindowExpired(deps, startedAt, attempts)) {
         throw new OperatorAdminError(
           OperatorAdminErrorKind.Unavailable,
@@ -526,44 +579,39 @@ async function listPendingRequests(
       }
       await waitBeforePendingRetry(deps, startedAt)
       continue
+    }
+
+    try {
+      if (response.status === 404) {
+        const isStartupResponse = await isUnknownChannelResponse(response)
+        if (!isStartupResponse) classifyHttpStatus(response.status, false)
+        if (retryWindowExpired(deps, startedAt, attempts)) {
+          throw new OperatorAdminError(
+            OperatorAdminErrorKind.Unavailable,
+            OperatorAdminErrorCode.ApprovalNotReady
+          )
+        }
+        await waitBeforePendingRetry(deps, startedAt)
+        continue
+      }
+      if (!response.ok) {
+        await discardResponse(response)
+        classifyHttpStatus(response.status, false)
+      }
+
+      const parsed = pendingResponseSchema.safeParse(
+        await parseJsonResponse(response)
+      )
+      if (!parsed.success) {
+        throw new OperatorAdminError(
+          OperatorAdminErrorKind.Server,
+          OperatorAdminErrorCode.PendingResponseInvalid
+        )
+      }
+      return parsed.data
     } finally {
       clearTimeout(timeout)
     }
-
-    if (response.status === 404) {
-      const isStartupResponse = await isUnknownChannelResponse(response)
-      if (!isStartupResponse) classifyHttpStatus(response.status, false)
-      if (retryWindowExpired(deps, startedAt, attempts)) {
-        throw new OperatorAdminError(
-          OperatorAdminErrorKind.Unavailable,
-          OperatorAdminErrorCode.ApprovalNotReady
-        )
-      }
-      await waitBeforePendingRetry(deps, startedAt)
-      continue
-    }
-    if (!response.ok) {
-      await discardResponse(response)
-      classifyHttpStatus(response.status, false)
-    }
-
-    const parsed = pendingResponseSchema.safeParse(
-      await parseJsonResponse(response)
-    )
-    if (!parsed.success) {
-      throw new OperatorAdminError(
-        OperatorAdminErrorKind.Server,
-        OperatorAdminErrorCode.PendingResponseInvalid
-      )
-    }
-    // `motrix-admin` is intentionally CLI-only: Extension pairing approval is
-    // code-entry in the browser, not an operator allow/deny action. Validate
-    // the complete renderer-safe union first so a malformed Server response
-    // still fails closed, then project only CLI rows. In particular, never
-    // print or match an Extension's PAKE code.
-    return parsed.data.filter(
-      (request): request is PendingCliRequest => request.kind === 'cli'
-    )
   }
 
   throw new OperatorAdminError(
@@ -754,11 +802,50 @@ function printError(
   }
 }
 
+function tokenCommandFailure(
+  deps: OperatorAdminDependencies,
+  t: Translate,
+  reason: string,
+  json: boolean,
+  exitCode: OperatorAdminExitCode
+): OperatorAdminExitCode {
+  const message = t(`operatorAdmin.token.${reason}`)
+  const kind =
+    exitCode === OperatorAdminExitCode.Usage
+      ? 'usage'
+      : exitCode === OperatorAdminExitCode.Credential
+        ? 'credential'
+        : exitCode === OperatorAdminExitCode.Unavailable
+          ? 'unavailable'
+          : 'server'
+  deps.writeStderr(
+    json
+      ? JSON.stringify({
+          ok: false,
+          error: { code: `token.${reason}`, kind, message },
+        })
+      : message
+  )
+  return exitCode
+}
+
 export async function runOperatorAdmin(
   argv: readonly string[],
   options: OperatorAdminOptions = {}
 ): Promise<OperatorAdminExitCode> {
-  const deps = defaultDependencies(options)
+  // An explicit direct dispatcher prevents NODE_USE_ENV_PROXY/global proxy
+  // settings from forwarding the machine-owner credential outside loopback.
+  const dispatcher = options.fetch === undefined ? new Agent() : undefined
+  const deps = defaultDependencies({
+    ...options,
+    fetch:
+      options.fetch ??
+      ((input, init) =>
+        directFetch(String(input), {
+          ...init,
+          dispatcher,
+        } as DirectRequestInit) as unknown as Promise<Response>),
+  })
   const t = await createTranslator(deps.env)
   let json = argv.includes('--json')
   try {
@@ -769,14 +856,120 @@ export async function runOperatorAdmin(
     }
     json = command.json
 
+    const terminal =
+      command.operation === 'extension-pair'
+        ? (deps.terminal ?? createPairingTerminal())
+        : undefined
+    if (terminal && !terminal.interactive)
+      throw new ExtensionPairingTerminalError('ttyRequired')
     const token = await readOperatorToken(deps)
     const baseUrl = serverBaseUrl(deps.env)
-    const pending = await listPendingRequests(deps, baseUrl, token)
+    if (command.operation === 'token-set') {
+      if (deps.env.MOTRIX_OPERATOR_TOKEN) {
+        return tokenCommandFailure(
+          deps,
+          t,
+          'managed',
+          json,
+          OperatorAdminExitCode.Credential
+        )
+      }
+      const newToken = command.stdin
+        ? await deps.readTokenStdin()
+        : await deps.readSecret(t('operatorAdmin.token.prompt'))
+      if (!operatorTokenSchema.safeParse(newToken).success) {
+        return tokenCommandFailure(
+          deps,
+          t,
+          'invalid',
+          json,
+          OperatorAdminExitCode.Usage
+        )
+      }
+      if (
+        !command.stdin &&
+        newToken !== (await deps.readSecret(t('operatorAdmin.token.confirm')))
+      ) {
+        return tokenCommandFailure(
+          deps,
+          t,
+          'mismatch',
+          json,
+          OperatorAdminExitCode.Usage
+        )
+      }
+      if (isWeakOperatorToken(newToken)) {
+        const message = t('operatorAdmin.token.weak')
+        deps.writeStderr(
+          json
+            ? JSON.stringify({ warning: { code: 'token.weak', message } })
+            : message
+        )
+      }
+      let response: Response
+      try {
+        response = await deps.fetch(`${baseUrl}/rpc/auth/token`, {
+          ...requestInit(token, []),
+          body: JSON.stringify({ currentToken: token, newToken }),
+          signal: AbortSignal.timeout(deps.mutationTimeoutMs),
+        })
+      } catch {
+        return tokenCommandFailure(
+          deps,
+          t,
+          'unknown',
+          json,
+          OperatorAdminExitCode.Unavailable
+        )
+      }
+      const result = changeOperatorTokenResultSchema.safeParse(
+        await parseJsonResponse(response).catch(() => undefined)
+      )
+      if (!result.success || !response.ok || !result.data.ok) {
+        const reason =
+          result.success && !result.data.ok
+            ? result.data.reason
+            : response.status === 429
+              ? 'rateLimited'
+              : response.status === 401 || response.status === 403
+                ? 'incorrectToken'
+                : 'unknown'
+        const exitCode =
+          reason === 'managed' || reason === 'incorrectToken'
+            ? OperatorAdminExitCode.Credential
+            : reason === 'rateLimited'
+              ? OperatorAdminExitCode.Unavailable
+              : OperatorAdminExitCode.Server
+        return tokenCommandFailure(deps, t, reason, json, exitCode)
+      }
+      deps.writeStdout(
+        command.json
+          ? JSON.stringify({ ok: true })
+          : t('operatorAdmin.token.saved')
+      )
+      return OperatorAdminExitCode.Success
+    }
+    if (terminal) {
+      const outcome = await runExtensionPairingTerminal({
+        terminal,
+        listPending: (signal) =>
+          listPendingRequests(deps, baseUrl, token, signal),
+        now: deps.now,
+        t,
+      })
+      deps.writeStdout(t(`operatorAdmin.extension.${outcome}`))
+      return OperatorAdminExitCode.Success
+    }
+    const pending = (await listPendingRequests(deps, baseUrl, token)).filter(
+      (request): request is PendingCliRequest => request.kind === 'cli'
+    )
     if (command.operation === 'pending') {
       printPending(deps, t, pending, command.json)
       return OperatorAdminExitCode.Success
     }
 
+    if (command.operation === 'extension-pair')
+      throw new ExtensionPairingTerminalError('unavailable')
     const request = findUniqueRequest(pending, command.userCode as string)
     const params: ResolvePairParams = {
       kind: 'cli',
@@ -787,6 +980,22 @@ export async function runOperatorAdmin(
     printDecision(deps, t, request, command.operation, command.json)
     return OperatorAdminExitCode.Success
   } catch (error) {
+    if (error instanceof OperatorTokenInputError) {
+      return tokenCommandFailure(
+        deps,
+        t,
+        error.reason,
+        json,
+        OperatorAdminExitCode.Usage
+      )
+    }
+    if (error instanceof ExtensionPairingTerminalError) {
+      deps.writeStderr(t(`operatorAdmin.extension.${error.reason}`))
+      return error.reason === 'ttyRequired' ||
+        error.reason === 'invalidSelection'
+        ? OperatorAdminExitCode.Usage
+        : OperatorAdminExitCode.Unavailable
+    }
     const normalized =
       error instanceof OperatorAdminError
         ? error
@@ -796,5 +1005,7 @@ export async function runOperatorAdmin(
           )
     printError(deps, t, normalized, json)
     return exitCodeFor(normalized)
+  } finally {
+    await dispatcher?.destroy().catch(() => {})
   }
 }

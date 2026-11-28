@@ -51,7 +51,13 @@ export function formatDurationHMS(seconds: number): string {
 }
 
 /** Round display percentages without claiming completion while bytes remain. */
-export function formatProgressPercent(progress: number): number {
+export function formatProgressPercent(
+  progress: number,
+  fractionDigits: 0 | 1 = 0
+): number {
   if (!Number.isFinite(progress) || progress <= 0) return 0
-  return progress >= 1 ? 100 : Math.min(99, Math.round(progress * 100))
+  const scale = 10 ** fractionDigits
+  return progress >= 1
+    ? 100
+    : Math.min(100 - 1 / scale, Math.round(progress * 100 * scale) / scale)
 }

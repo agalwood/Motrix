@@ -433,6 +433,29 @@ describe('commitTaskUpdate', () => {
 })
 
 describe('commitPolledTerminalTransition', () => {
+  it('drops a stale terminal snapshot after a storage mutation changed the task', async () => {
+    let current = true
+    const persistTaskWithOccurrence = vi.fn(async () => {})
+    const publish = vi.fn()
+    const result = await commitPolledTerminalTransition(
+      TaskStatus.Seeding,
+      makeDownloadTask({ status: TaskStatus.Completed, finishedAt: 10 }),
+      {
+        isCurrent: () => current,
+        persistTaskWithOccurrence,
+        publish,
+        log: { warn: vi.fn() },
+        runTaskMutation: async (_ids, operation) => {
+          current = false
+          return operation()
+        },
+      }
+    )
+    expect(result).toBe('stale')
+    expect(persistTaskWithOccurrence).not.toHaveBeenCalled()
+    expect(publish).not.toHaveBeenCalled()
+  })
+
   it('a poll-detected Error emits exactly one occurrence; a later commit of the same terminal state emits none', async () => {
     const persistTaskWithOccurrence = vi.fn(async () => undefined)
     const dispatch = vi.fn(async () => undefined)

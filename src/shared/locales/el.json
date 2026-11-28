@@ -373,20 +373,51 @@
         "unknownOption": "Άγνωστη επιλογή γραμμής εντολών."
       }
     },
-    "help": "Χρήση:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\nΗ εντολή επικοινωνεί μόνο με τον εκτελούμενο διακομιστή Motrix μέσω της τοπικής διεπαφής loopback του περιέκτη.",
+    "help": "Χρήση:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\nΗ εντολή επικοινωνεί μόνο με τον εκτελούμενο διακομιστή Motrix μέσω της τοπικής διεπαφής loopback του περιέκτη.\n\n  motrix-admin token set [--stdin] [--json]\nSet a custom administrator token; weak tokens are accepted with a warning.",
     "pending": {
       "none": "Δεν υπάρχουν εκκρεμή αιτήματα σύζευξης.",
       "row": "{{userCode}}  {{clientName}}  {{clientVersion}}  λήγει σε {{ttl}}",
       "ttl": "{{minutes}} λεπ. {{seconds}} δευτ."
     },
-    "usageHint": "Εκτελέστε `motrix-admin --help` για οδηγίες χρήσης."
+    "usageHint": "Εκτελέστε `motrix-admin --help` για οδηγίες χρήσης.",
+    "extension": {
+      "heading": "Pending browser Extension pairing requests",
+      "identityNotice": "Verify that you initiated this request. Origin and claimed identity alone do not prove who is connecting. Terminal recording can capture the pairing code.",
+      "row": "{{index}}. {{browser}} [{{identity}}] Origin: {{origin}}; claimed ID: {{claimedId}}; Server: {{authority}}; {{seconds}} s remaining",
+      "select": "Enter the number of one request (Ctrl+C to exit): ",
+      "code": "Pairing code: {{code}}",
+      "instructions": "Type this code into the browser Extension. It expires at the original deadline. Ctrl+C closes this view without approving or denying the request.",
+      "none": "No pending Extension pairing requests. Start pairing in the Extension, then run this command again. If requests remain absent, check the remote Extension configuration.",
+      "ended": "The selected pairing request has ended. Check the Extension for its outcome.",
+      "ttyRequired": "Extension pairing requires interactive input, output and error terminals. Piping, redirection and JSON output are not supported.",
+      "cancelled": "Pairing code view closed. No approval or denial was sent.",
+      "invalidSelection": "Select exactly one listed request by its number.",
+      "unavailable": "The selected request expired, ended or changed. Start a new pairing attempt in the Extension."
+    },
+    "token": {
+      "weak": "This token may be easy to guess. Consider a longer, unique passphrase. You can still save it.",
+      "invalid": "Enter a nonblank token of up to 1,024 characters, without control characters.",
+      "mismatch": "The new tokens do not match.",
+      "incorrectToken": "The current token is incorrect. Check it and try again.",
+      "managed": "This token is managed by MOTRIX_OPERATOR_TOKEN. Change the deployment environment variable and restart the server.",
+      "unavailable": "The token could not be saved. The previous token is still active. Check server storage and retry.",
+      "rateLimited": "Too many attempts. Wait a minute and try again.",
+      "unknown": "The result could not be confirmed. Check the token file on the server before retrying.",
+      "prompt": "New token (input hidden):",
+      "confirm": "Confirm new token:",
+      "saved": "Token updated. Existing sessions have been signed out. Downloads continue.",
+      "ttyRequired": "Use an interactive terminal, or token set --stdin to read the token from standard input.",
+      "cancelled": "Token change cancelled."
+    }
   },
   "operatorUnlock": {
     "error": "Μη έγκυρο διακριτικό χειριστή. Ελέγξτε το MOTRIX_OPERATOR_TOKEN ή το <dataDir>/operator-token στον κεντρικό υπολογιστή και δοκιμάστε ξανά.",
     "help": "Αυτός ο διακομιστής απαιτεί το διακριτικό χειριστή. Στον κεντρικό υπολογιστή, ορίστε το MOTRIX_OPERATOR_TOKEN ή διαβάστε το διακριτικό από το <dataDir>/operator-token και επικολλήστε το παρακάτω.",
     "placeholder": "Διακριτικό χειριστή",
     "submit": "Ξεκλείδωμα",
-    "title": "Ξεκλείδωμα του Motrix"
+    "title": "Ξεκλείδωμα του Motrix",
+    "nasSessionExpired": "Δεν ήταν δυνατή η επαλήθευση της συνεδρίας διαχειριστή NAS. Ανοίξτε το Motrix από την επιφάνεια εργασίας του NAS.",
+    "openDsm": "Open DSM to sign in"
   },
   "panel": {
     "completed": {
@@ -416,7 +447,7 @@
         "more": "Περισσότερες",
         "rangeSummary": "{{weeks}} εβδομάδες δραστηριότητας λήψεων, από {{start}} έως {{end}}",
         "retry": "Επανάληψη",
-        "stale": "Η δραστηριότητα ενδέχεται να μην είναι ενημερωμένη",
+        "refreshFailed": "Η ανανέωση απέτυχε",
         "title": "Δραστηριότητα",
         "tooltip": {
           "completed": "Ολοκληρωμένες: {{count}}",
@@ -851,6 +882,7 @@
         "openFileFailedHint": "Βεβαιωθείτε ότι το αρχείο υπάρχει ακόμη και ότι έχετε δικαίωμα να το ανοίξετε.",
         "openFolder": "Άνοιγμα φακέλου",
         "pause": "Παύση",
+        "pausing": "Γίνεται παύση…",
         "pauseTooltipBatch": "Παύση — επιλεγμένες εργασίες: {{n}} / {{total}}",
         "queueBoundary": "Η επιλογή βρίσκεται ήδη στο όριο της ουράς",
         "queueMoveFailed": "Δεν ήταν δυνατή η ενημέρωση της ουράς αναμονής.",
@@ -888,10 +920,18 @@
         "redownloadOverwriteTitle": "File Already Exists",
         "redownloadOverwriteDescription": "“{{name}}” already exists in the download directory. Re-downloading will overwrite or rename it. Do you want to continue?",
         "redownloadCredentialsExpired": "Original request options have expired. Please review and submit.",
-        "redownloadStarted": "Re-download started"
+        "redownloadStarted": "Re-download started",
+        "retryDialogTitle": "Επανάληψη λήψης",
+        "retryDialogDescription": "Επεξεργαστείτε τις παραμέτρους αιτήματος για το {{name}} για να ξεκινήσετε νέα λήψη. Η αποτυχημένη εργασία και το μερικό αρχείο της θα διατηρηθούν.",
+        "retryDialogProgress": "Λήψη {{current}} από {{total}}",
+        "downloadToDevice": "Download to this device",
+        "revealInFileStation": "Show in File Station",
+        "nasFileUnavailable": "File access could not be authorized. Check the account and folder permissions.",
+        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again.",
+        "fnosHostRequired": "Ανοίξτε το Motrix από την επιφάνεια εργασίας του fnOS ή την εφαρμογή για κινητά για να χρησιμοποιήσετε αυτή την ενέργεια αρχείου."
       },
       "column": {
-        "connections": "Ομότιμοι",
+        "connections": "Συνδέσεις",
         "createdAt": "Ημερομηνία δημιουργίας",
         "down": "Ταχύτητα λήψης",
         "eta": "Υπολειπόμενος χρόνος",
@@ -1805,7 +1845,12 @@
         "managedDescription": "Αυτή η έκδοση πακέτου για Windows ενημερώνεται μέσω της αρχικής πηγής εγκατάστασης. Οι ενημερώσεις μέσα από την εφαρμογή δεν είναι διαθέσιμες.",
         "unsupportedTitle": "Οι αυτόματες ενημερώσεις δεν είναι διαθέσιμες",
         "upToDate": "Η έκδοση {{version}} είναι η πιο πρόσφατη διαθέσιμη έκδοση.",
-        "upToDateTitle": "Το Motrix είναι ενημερωμένο"
+        "upToDateTitle": "Το Motrix είναι ενημερωμένο",
+        "installing": "Εγκατάσταση…",
+        "installingDescription": "Προετοιμασία της ενημέρωσης. Το Motrix θα επανεκκινηθεί όταν είναι έτοιμη.",
+        "manualDownload": "Μη αυτόματη λήψη",
+        "manualInstall": "Κατεβάστε τη νέα έκδοση, κλείστε το Motrix και αντικαταστήστε την εγκατεστημένη εφαρμογή.",
+        "manualCrossVolume": "Η αυτόματη εγκατάσταση μεταξύ δίσκων δεν είναι διαθέσιμη προς το παρόν. Κατεβάστε τη νέα έκδοση και αντικαταστήστε το Motrix μη αυτόματα."
       },
       "version": "Έκδοση {{version}}",
       "webVersionNote": "Αυτή η έκδοση ιστού ενημερώνεται από τον διαχειριστή της εγκατάστασης."
@@ -1847,6 +1892,8 @@
     "appearance": {
       "byteUnitBinary": "Δυαδικές ({{megabyte}}, {{gigabyte}} · 1024)",
       "byteUnitDecimal": "Δεκαδικές ({{megabyte}}, {{gigabyte}} · 1000)",
+      "keepStatsBarVisible": "Διατήρηση στατιστικών με ανοιχτές λεπτομέρειες",
+      "keepStatsBarVisibleDesc": "Διατήρηση της γραμμής στατιστικών λήψης κάτω από το πλαίσιο λεπτομερειών εργασίας.",
       "byteUnitSystem": "Μονάδες μεγέθους και ταχύτητας",
       "byteUnitSystemDefault": "Σύμφωνα με το σύστημα ({{units}})",
       "byteUnitSystemDesc": "Επιλέξτε πώς εμφανίζονται τα μεγέθη αρχείων και οι ταχύτητες.",
@@ -1862,6 +1909,10 @@
       "menuBar": "Γραμμή μενού",
       "reduceMotion": "Μείωση κίνησης",
       "reduceMotionDesc": "Χρησιμοποιεί λιγότερα εφέ κίνησης σε όλη την εφαρμογή.",
+      "hardwareAcceleration": "Επιτάχυνση υλικού",
+      "hardwareAccelerationDesc": "Χρησιμοποιεί την κάρτα γραφικών για ομαλότερη εμφάνιση. Απενεργοποιήστε την αν το παράθυρο τρεμοπαίζει ή το Motrix καταρρέει. Οι αλλαγές ισχύουν μετά την επανεκκίνηση του Motrix.",
+      "hardwareAccelerationRecoveryTitle": "Η επιτάχυνση υλικού απενεργοποιήθηκε",
+      "hardwareAccelerationRecoveryBody": "Το Motrix απενεργοποίησε την επιτάχυνση υλικού μετά από επανειλημμένες καταρρεύσεις της εμφάνισης. Μπορείτε να την ενεργοποιήσετε στις Ρυθμίσεις → Εμφάνιση και να επανεκκινήσετε το Motrix.",
       "runMode": "Εμφάνιση εφαρμογής σε",
       "runModeHideTray": "Μόνο στο Dock",
       "runModeLaunch": "Κατά το άνοιγμα του Motrix",
@@ -1895,6 +1946,12 @@
       "trayIconColorDesc": "Επιλέξτε χρώμα που ξεχωρίζει στη γραμμή του συστήματός σας.",
       "trayIconColorLight": "Φωτεινό εικονίδιο (σκοτεινή γραμμή)",
       "traySpeedometer": "Εμφάνιση ταχύτητας στη γραμμή μενού",
+      "dockAndMenuBar": "Dock και γραμμή μενού",
+      "taskbar": "Γραμμή εργασιών",
+      "taskbarProgress": "Εμφάνιση προόδου λήψεων στη γραμμή εργασιών",
+      "taskbarProgressDesc": "Εμφάνιση της συνολικής προόδου των ενεργών λήψεων στο κουμπί του κύριου παραθύρου στη γραμμή εργασιών.",
+      "dockProgress": "Εμφάνιση προόδου λήψεων στο Dock",
+      "dockProgressDesc": "Εμφάνιση της συνολικής προόδου των ενεργών λήψεων στο εικονίδιο του Dock.",
       "traySpeedometerDesc": "Εμφανίζει τις ταχύτητες λήψης και αποστολής δίπλα στο εικονίδιο της εφαρμογής."
     },
     "bittorrent": {
@@ -2009,6 +2066,10 @@
       "network": {
         "desc": "Διακομιστής μεσολάβησης, DNS και NAT/UPnP",
         "title": "Δίκτυο"
+      },
+      "nas": {
+        "title": "Synology NAS",
+        "desc": "Download folders and client connections"
       }
     },
     "common": {
@@ -2123,6 +2184,8 @@
         "userAgent": "User-Agent",
         "userAgentDesc": "Προσδιορίζει την εφαρμογή στους ιστότοπους. Αλλάξτε το αν ένας ιστότοπος απαιτεί διαφορετική τιμή."
       },
+      "openingView": "Κατά το άνοιγμα των λήψεων, εμφάνιση",
+      "rememberLastSelection": "Απομνημόνευση τελευταίας επιλογής",
       "saveFolders": "Φάκελοι αποθήκευσης",
       "speedLimit": {
         "adaptiveEnabled": "Κράτηση εύρους ζώνης για άλλες εφαρμογές",
@@ -2130,7 +2193,7 @@
         "altDownload": "Λήψη",
         "altDownloadDesc": "Η μέγιστη ταχύτητα λήψης όταν είναι ενεργή η λειτουργία Χαμηλή ταχύτητα.",
         "altSection": "Όρια χαμηλής ταχύτητας",
-        "altSectionDesc": "Χρησιμοποιούνται στη λειτουργία Χαμηλή ταχύτητα ή από προγραμματισμένους κανόνες. Αυτά τα όρια μπορούν μόνο να μειώσουν τα κανονικά όρια.",
+        "altSectionDesc": "Χρησιμοποιούνται στη λειτουργία χαμηλής ταχύτητας ή όταν ένας αυτόματος κανόνας επιλέγει αυτό το προφίλ.",
         "altUpload": "Αποστολή",
         "altUploadDesc": "Η μέγιστη ταχύτητα αποστολής όταν είναι ενεργή η λειτουργία Χαμηλή ταχύτητα.",
         "autoAdaptive": "Διαθέσιμο εύρος ζώνης για άλλες εφαρμογές",
@@ -2143,7 +2206,7 @@
         "baseDownloadDesc": "Η μέγιστη ταχύτητα λήψης για καθημερινή χρήση.",
         "unitFor": "Μονάδα για {{field}}",
         "baseSection": "Κανονικά όρια",
-        "baseSectionDesc": "Χρησιμοποιούνται για καθημερινές λήψεις και τηρούνται σε όλες τις λειτουργίες.",
+        "baseSectionDesc": "Χρησιμοποιούνται στην κανονική λειτουργία και όταν δεν ισχύει κανόνας χαμηλής ταχύτητας.",
         "baseUpload": "Αποστολή",
         "baseUploadDesc": "Η μέγιστη ταχύτητα αποστολής για καθημερινή χρήση.",
         "effect": {
@@ -2151,7 +2214,7 @@
           "adaptiveRulePending": "κρατά το {{reserved}}% του εύρους ζώνης για άλλες εφαρμογές αφού εισαχθεί το εύρος ζώνης της σύνδεσης",
           "autoRules": "Το Motrix θα {{rules}}.",
           "lowSpeed": "Χρησιμοποιούνται τώρα τα όρια χαμηλής ταχύτητας: λήψη {{download}}, αποστολή {{upload}}.",
-          "lowerWins": "Ισχύει το χαμηλότερο ενεργό όριο.",
+          "profileSelection": "Ισχύουν τα όρια της επιλεγμένης λειτουργίας. Τα κενά όρια χαμηλής ταχύτητας χρησιμοποιούν τα κανονικά όρια· η αυτόματη λειτουργία μπορεί να εφαρμόσει επιπλέον προσαρμοστικό όριο.",
           "nextDay": " της επόμενης ημέρας",
           "noAutoRules": "Δεν είναι ενεργοί αυτόματοι κανόνες. Προς το παρόν, η λειτουργία είναι ίδια με την Κανονική.",
           "ruleSeparator": " και θα ",
@@ -2280,6 +2343,12 @@
       "warnBeforeQuitDesc": "Ζητά επιβεβαίωση πριν την έξοδο αν εκτελούνται ακόμη λήψεις."
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "appimage": {
         "desc": "Καταχωρίστε αυτό το Motrix AppImage στο περιβάλλον εργασίας σας, ώστε τα προγράμματα περιήγησης και οι σύνδεσμοι magnet να μπορούν να του μεταβιβάζουν λήψεις.",
         "enable": "Ενεργοποίηση ενσωμάτωσης στο περιβάλλον εργασίας",
@@ -2364,10 +2433,19 @@
           "identityUnverifiedWarning": "Δεν ήταν δυνατή η επαλήθευση της ταυτότητας αυτής της επέκτασης. Συνεχίστε μόνο αν την εμπιστεύεστε.",
           "pairCode": "Κωδικός σύζευξης",
           "pairCodeHint": "Πληκτρολογήστε αυτόν τον κωδικό στην επέκταση",
-          "title": "Μια επέκταση του {{browser}} θέλει να συνδεθεί στο Motrix"
+          "title": "Μια επέκταση του {{browser}} θέλει να συνδεθεί στο Motrix",
+          "claim": "Σύζευξη με τον τρέχοντα λογαριασμό",
+          "claimDesc": "Η επέκταση θα χρησιμοποιεί τα δικαιώματα αυτού του λογαριασμού. Στη συνέχεια, εισαγάγετε τον κωδικό στην επέκταση για να ολοκληρώσετε τη σύζευξη.",
+          "account": "Τρέχων λογαριασμός: {{name}}"
         },
         "pairUnavailable": "Αυτό το αίτημα σύζευξης δεν εκκρεμεί πλέον — δοκιμάστε ξανά τη σύζευξη από την επέκταση του προγράμματος περιήγησης.",
         "pairedEmpty": "Δεν έχουν συνδεθεί ακόμη επεκτάσεις.",
+        "profile": "Προφίλ προγράμματος περιήγησης {{number}}",
+        "connected": "Συνδεδεμένο",
+        "disconnected": "Μη συνδεδεμένο",
+        "revokeAll": "Αποσύνδεση όλων",
+        "pendingTitle": "Browser pairing requests",
+        "pendingEmpty": "Start pairing in your extension.",
         "pairedTitle": "Συνδεδεμένες επεκτάσεις",
         "pairingStateDegraded": {
           "description": "Το Motrix δεν μπόρεσε να ενημερώσει με ασφάλεια τις εγγραφές συζευγμένων επεκτάσεων. Οι υπάρχουσες συνεδρίες επεκτάσεων έχουν κλείσει και η νέα πρόσβαση έχει αποκλειστεί για αυτή την εκτέλεση. Επανεκκινήστε το Motrix για νέα προσπάθεια επιδιόρθωσης· μη βασίζεστε στην παρακάτω λίστα μέχρι να εξαφανιστεί αυτό το μήνυμα.",
@@ -2554,7 +2632,8 @@
           "missing": "Δεν βρέθηκε",
           "unconfigured": "Δεν έχει οριστεί",
           "untrusted": "Αποκλείστηκε από το macOS",
-          "version_mismatch": "Δεν υποστηρίζεται"
+          "version_mismatch": "Δεν υποστηρίζεται",
+          "verificationUnavailable": "Η επαλήθευση δεν είναι διαθέσιμη"
         },
         "title": "Εργαλεία πολυμέσων",
         "validation": {
@@ -2733,10 +2812,55 @@
       "textLength": "Χρησιμοποιήστε έως {{max}} χαρακτήρες.",
       "time": "Χρησιμοποιήστε 24ωρη μορφή, όπως 23:00.",
       "wholeBytes": "Χρησιμοποιήστε λιγότερα δεκαδικά ψηφία."
+    },
+    "portable": {
+      "title": "Portable mode",
+      "startupError": "Motrix could not open its portable data directory. Check that the data folder beside Motrix.exe is writable and that no external profile override is set. Motrix has not switched to the system profile.",
+      "integrationUnavailable": "Portable mode keeps system settings unchanged. Startup registration, file associations, and system tool installation are unavailable.",
+      "browserDescription": "The local bridge remains available while Motrix is running. Portable mode does not register a browser launcher or change existing browser integration.",
+      "updateDescription": "Download the Windows ZIP, exit Motrix, and move the entire data folder to the new version. Portable mode never runs the installer.",
+      "recoveryError": "Portable data could not be recovered safely. Keep the data folder and check the logs and directory permissions before retrying. Motrix has stopped without using the system profile.",
+      "enginePathDescription": "Portable mode manages engine state inside the data folder for the current application location."
+    },
+    "nas": {
+      "description": "Shared by all DSM administrators. Restart Motrix in Package Center to apply changes.",
+      "account": "Current DSM account: {{username}}",
+      "restartRequired": "Settings saved. Restart Motrix in Package Center to apply them.",
+      "storageUnavailable": "Download folders unavailable",
+      "storageRecoveryHint": "Downloads are paused. Restore the original folders or authorize a different path, then restart Motrix in Package Center.",
+      "roots": "Authorized download folders",
+      "rootsHint": "One existing folder per line. Both your account and the system user motrix need read/write access. Removing the default makes the first folder the new default.",
+      "extensionEnabled": "Enable browser extension connections",
+      "extensionHint": "Use a DSM certificate hostname that resolves to the NAS LAN address.",
+      "webAddress": "Motrix Web address",
+      "webAddressHint": "Use the address you normally open, including /motrix/. You can fill it from this browser.",
+      "useCurrentAddress": "Use this DSM address",
+      "extensionAddress": "Extension connection address",
+      "allowHttp": "Allow pairing codes over HTTP",
+      "allowHttpHint": "Enable only on a trusted network. HTTPS does not require this option.",
+      "clientPort": "Direct client port",
+      "clientPortHint": "Direct clients use this port (1024–65535). DSM HTTPS addresses use the DSM port.",
+      "activeConnections": "Current connection addresses",
+      "cliAddress": "CLI endpoint",
+      "sessionHint": "Clients use their paired DSM account’s current permissions. After DSM logout, session expiration or a package restart, reopen Motrix with that account; pairing again is not required.",
+      "copy": "Copy address",
+      "openSettings": "Configure NAS connections",
+      "errors": {
+        "invalid": "Check the folder paths, port and connection addresses. HTTP code delivery requires explicit permission.",
+        "folderUnavailable": "Check that each folder is on a mounted volume and writable by the internal system user motrix.",
+        "permissionDenied": "The account or folder cannot be authorized. Check DSM shared-folder permissions for your account and the internal system user motrix.",
+        "unavailable": "Package settings are unavailable. Try again after the service has recovered.",
+        "conflict": "The saved configuration changed. Reload before editing again; your unsaved changes will be replaced."
+      }
     }
   },
   "task": {
     "add": {
+      "extraHeaders": "Πρόσθετες κεφαλίδες",
+      "headerName": "Όνομα κεφαλίδας",
+      "headerValue": "Τιμή κεφαλίδας",
+      "addHeader": "Προσθήκη κεφαλίδας",
+      "removeHeader": "Αφαίρεση κεφαλίδας",
       "adding": "Προσθήκη…",
       "advanced": "Για προχωρημένους",
       "allProxy": "Διακομιστής μεσολάβησης",
@@ -2767,6 +2891,7 @@
         "title": "Αυτό το torrent υπάρχει ήδη"
       },
       "errors": {
+        "headerNameRequired": "Συμπληρώστε όνομα για κάθε κεφαλίδα που έχει τιμή.",
         "missingSource": "Απαιτείται αρχείο torrent ή σύνδεσμος magnet",
         "noFilesSelected": "Επιλέξτε τουλάχιστον ένα αρχείο",
         "saveDirRequired": "Απαιτείται φάκελος αποθήκευσης",
@@ -2788,6 +2913,7 @@
       "invalidUrlCount": "Μη έγκυρα: {{count}}",
       "links": "Σύνδεσμοι",
       "parseFailed": "Δεν ήταν δυνατή η ανάλυση του αρχείου torrent.",
+      "unsupportedTorrent": "Αυτό το torrent χρησιμοποιεί λειτουργίες που δεν υποστηρίζει η τρέχουσα μηχανή λήψης.",
       "pickPathCustom": "Προσαρμοσμένη διαδρομή",
       "pickPathTitle": "Επιλογή φακέλου αποθήκευσης",
       "queueAdvanceFailed": "Δεν ήταν δυνατό το άνοιγμα του επόμενου torrent.",
@@ -2840,7 +2966,9 @@
       "urlsLabel": "URL",
       "urlsWithInvalid": "Έγκυρα: {{valid}}, μη έγκυρα: {{invalid}}",
       "userAgent": "User-Agent",
-      "validUrlCount": "Έγκυρα: {{count}}"
+      "validUrlCount": "Έγκυρα: {{count}}",
+      "selectNasTorrent": "Choose a torrent from the NAS",
+      "fnosAuthorizationPopupBlocked": "Επιτρέψτε τα αναδυόμενα παράθυρα για αυτόν τον ιστότοπο και επιλέξτε ξανά τον φάκελο."
     },
     "detail": {
       "peers": "Ομότιμοι: {{count}}",
@@ -2857,9 +2985,11 @@
         "recoveryFailed": "Δεν ήταν δυνατή η ανάκτηση της λήψης: {{cause}}",
         "recoveryOutputConflict": "Υπάρχουν και το προσωρινό και το τελικό αρχείο· διατηρήθηκαν και τα δύο για χειροκίνητο έλεγχο",
         "renameDirFailed": "Δεν ήταν δυνατή η μετονομασία του φακέλου: {{cause}}",
+        "sourceHash": "SHA-256 του εκδότη",
         "renameFileFailed": "Δεν ήταν δυνατή η μετονομασία του αρχείου: {{cause}}"
       },
       "hint": {
+        "btPortBindFailed": "Αλλάξτε τη θύρα ακρόασης BT στις ρυθμίσεις BitTorrent, επανεκκινήστε τη μηχανή και δοκιμάστε ξανά",
         "btMetadataFailed": "Ελέγξτε τον σύνδεσμο magnet ή προσθέστε περισσότερους trackers και δοκιμάστε ξανά",
         "checksumMismatch": "Το ληφθέν αρχείο ενδέχεται να είναι κατεστραμμένο· κατεβάστε το ξανά για επαλήθευση",
         "diskFull": "Ελευθερώστε χώρο στον δίσκο ή αλλάξτε τον φάκελο αποθήκευσης και δοκιμάστε ξανά",
@@ -2871,6 +3001,7 @@
         "unauthorized": "Ελέγξτε τα διαπιστευτήρια ή τα δικαιώματα πρόσβασης και δοκιμάστε ξανά"
       },
       "reason": {
+        "btPortBindFailed": "Η θύρα ακρόασης BitTorrent δεν είναι διαθέσιμη",
         "btMetadataFailed": "Δεν ήταν δυνατή η ανάκτηση των μεταδεδομένων του torrent",
         "btTrackerError": "Η σύνδεση με τον tracker απέτυχε",
         "checksumMismatch": "Το άθροισμα ελέγχου του αρχείου δεν ταιριάζει",
@@ -2901,7 +3032,8 @@
         "resumeRangeUnsupported": "Το μερικό αρχείο διατηρήθηκε επειδή ο διακομιστής δεν υποστηρίζει ασφαλή συνέχιση με εύρη δεδομένων.",
         "resumeSourceChanged": "Το μερικό αρχείο διατηρήθηκε επειδή το απομακρυσμένο αρχείο άλλαξε μετά την έναρξη της λήψης.",
         "resumeValidationFailed": "Το μερικό αρχείο διατηρήθηκε επειδή το Motrix δεν μπόρεσε να επαληθεύσει ότι το απομακρυσμένο αρχείο δεν άλλαξε.",
-        "torrentMetaMissing": "Δεν είναι δυνατή η ανάκτηση αυτής της εργασίας BitTorrent: λείπει το αρχείο μεταδεδομένων .torrent. Αφαιρέστε και προσθέστε ξανά την εργασία."
+        "torrentMetaMissing": "Δεν είναι δυνατή η ανάκτηση αυτής της εργασίας BitTorrent: λείπει το αρχείο μεταδεδομένων .torrent. Αφαιρέστε και προσθέστε ξανά την εργασία.",
+        "portableExternalPath": "This task uses a location outside the portable folder. The application moved or the original directory is unavailable. Check the download location before retrying."
       },
       "toast": "Διακοπείσες εργασίες που ανακτήθηκαν: {{count}}. Κάντε κλικ για έλεγχο."
     },
@@ -2927,6 +3059,36 @@
       "image": "Εικόνα",
       "selectAll": "Επιλογή όλων",
       "video": "Βίντεο"
+    },
+    "storage": {
+      "move": "Move files…",
+      "locate": "Find existing files…",
+      "recheck": "Check files…",
+      "moveDescription": "Choose a new folder for your downloaded files. Seeding pauses while they move.",
+      "locateDescription": "Choose where your downloaded files are now. Motrix will check them so you can continue seeding.",
+      "recheckDescription": "Check that your downloaded files are complete. This will not change the files or download them again.",
+      "directory": "Folder",
+      "name": "File or folder name",
+      "resume": "Continue seeding after checking",
+      "checking": "Checking files…",
+      "moving": "Moving files…",
+      "resuming": "Starting seeding…",
+      "verifiedPercent": "Verified: {{percent}}%",
+      "checkFailed": "Check failed",
+      "verified": "Your files are ready to seed.",
+      "resumed": "Seeding has resumed.",
+      "incomplete": "Some files are missing or incomplete. Check that you selected the right folder and try again.",
+      "resumeFailed": "The new location is saved. Select Re-seed to try sharing the files again.",
+      "useExisting": "Check and use these files",
+      "errors": {
+        "unavailable": "This task cannot be moved or checked yet.",
+        "busy": "Another file operation is still running. Please wait for it to finish.",
+        "destination": "Choose a different folder or file name. The location may already contain these files or be inside the current folder.",
+        "conflict": "Another download is using these files. Open that task to change their location.",
+        "engine": "Motrix could not stop this task. Please try again.",
+        "failed": "Motrix could not access or move the files. Check the folder, available space, and permission to use it.",
+        "cancelled": "Check cancelled."
+      }
     }
   },
   "trackers": {
@@ -3152,12 +3314,21 @@
     "freshDescription": "Choose where to save the new download. Motrix will create a separate folder and open the download form for you to confirm. It will start from the beginning and leave your old files untouched.",
     "freshDestination": "Choose where to save the new download",
     "chooseDestination": "Choose another location…",
+    "requestSettingsHelp": "Για παλιά αρχεία cookie, εισαγάγετε την απαιτούμενη κεφαλίδα Cookie. Για ονόματα χρήστη και κωδικούς HTTP, εισαγάγετε μια αντίστοιχη κεφαλίδα Authorization. Εισαγάγετε τα διαπιστευτήρια του διακομιστή μεσολάβησης στη διεύθυνση URL του.",
+    "unsupportedOptions": "Μη υποστηριζόμενες επιλογές: {{options}}",
+    "ignoredOptions": "Παραλείφθηκαν μη υποστηριζόμενες επιλογές: {{options}}",
+    "currentProxyDescription": "Οι μεταφερμένες λήψεις χρησιμοποιούν τις τρέχουσες ρυθμίσεις διακομιστή μεσολάβησης του Motrix. Οι παλιές ρυθμίσεις δεν διατηρούνται.",
+    "requestOptions": "Αποθηκευμένες ρυθμίσεις αιτήματος: {{options}}",
+    "requestSettingsDescription": "Οι παλιές ρυθμίσεις αιτήματος δεν αντιγράφηκαν. Εισαγάγετέ τις ξανά στις σύνθετες ρυθμίσεις πριν από τη λήψη σε νέο φάκελο.",
+    "reconfigureDownload": "Νέα ρύθμιση και λήψη…",
     "reasons": {
       "fresh-download-required": "Needs a new download",
       "verification-required": "Existing files need checking",
       "metadata-required": "Original torrent file needed",
       "selection-required": "Choose which files to download",
-      "unsupported-options": "Download details need checking",
+      "request-settings-required": "Οι αποθηκευμένες ρυθμίσεις αιτήματος θα ελεγχθούν πριν από τη συνέχιση",
+      "mirrors-unsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "unsupported-options": "Μη υποστηριζόμενες επιλογές λήψης",
       "invalid-record": "Couldn’t read this task",
       "unsafe-path": "File location needs checking",
       "already-imported": "Already imported",
@@ -3200,14 +3371,21 @@
       "payloadMissing": "Some original files are missing, including files previously left unselected. All are needed to resume this task. Download again in a new folder.",
       "payloadUnsafe": "The original files can’t be updated safely because of file links or permissions. Keep them and download again in a new folder.",
       "controlRequired": "The saved download progress is missing. Download again in a new folder.",
-      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder."
+      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder.",
+      "httpContentChanged": "Τα ληφθέντα δεδομένα διαφέρουν από το περιεχόμενο του διακομιστή.",
+      "httpRangeUnsupported": "Ο διακομιστής δεν υποστηρίζει τα απαιτούμενα εύρη byte.",
+      "httpValidatorRequired": "Ο διακομιστής δεν παρέχει αξιόπιστο αναγνωριστικό έκδοσης του πόρου.",
+      "httpVerificationFailed": "Δεν ήταν δυνατή η επαλήθευση των ληφθέντων δεδομένων.",
+      "httpRequestUnsupported": "Η μηχανή ή οι ρυθμίσεις αιτήματος δεν επιτρέπουν ασφαλή συνέχιση.",
+      "httpVerificationCancelled": "Η επαλήθευση ακυρώθηκε.",
+      "httpRedirectUnsupported": "Οι σύνδεσμοι με ανακατεύθυνση δεν μπορούν να συνεχιστούν με ασφάλεια στην αρχική θέση."
     },
     "resultIncompleteTitle": "Migration is incomplete",
     "resultStoppedTitle": "Migration stopped",
-    "activationRequired": "Download again in a new folder to keep the original files.",
+    "activationRequired": "Ανοίξτε τις λεπτομέρειες της εργασίας για επαλήθευση και συνέχιση της λήψης.",
     "chooseTorrent": "Choose torrent…",
     "torrentFile": "Torrent file",
-    "verifyAndContinue": "Verify and continue",
+    "verifyAndContinue": "Επαλήθευση και συνέχεια",
     "verifyDescription": "Motrix will verify the original files, then continue with your previous file selection. While downloading, it may upload data and write shared pieces to unselected files. It won’t seed automatically when finished.",
     "authorizeOriginalDirectory": "Choose the original download folder",
     "verifyReady": "Verify your existing files to continue this download, or start again in a new folder.",
@@ -3317,7 +3495,10 @@
         "remaining": "Remaining"
       }
     },
-    "importSelected": "Migrate"
+    "importSelected": "Migrate",
+    "httpResumeDescription": "Το Motrix θα συγκρίνει όλα τα ληφθέντα τμήματα με τον διακομιστή και θα συνεχίσει στον αρχικό φάκελο. Η επαλήθευση μεταφέρει ξανά αυτά τα τμήματα· οι αποθηκευμένες ρυθμίσεις αιτήματος παραμένουν στη μνήμη.",
+    "httpVerifying": "Προετοιμασία ή επαλήθευση…",
+    "httpOriginalFilesKept": "Τα υπάρχοντα αρχεία διατηρήθηκαν."
   },
   "rendererRecovery": {
     "title": "Η διεπαφή χρειάζεται επαναφορά",
@@ -3379,5 +3560,56 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "Δημιουργία torrent",
+    "source": "Περιεχόμενο για διαμοιρασμό",
+    "options": "Επιλογές torrent",
+    "trackers": "Trackers",
+    "trackersPlaceholder": "Ένα URL announce ανά γραμμή",
+    "webSeeds": "Web seeds",
+    "webSeedsPlaceholder": "Ένα URL HTTP(S) ανά γραμμή (προαιρετικό)",
+    "comment": "Σχόλιο",
+    "private": "Ιδιωτικό torrent",
+    "privateDesc": "Απενεργοποιεί DHT και ανταλλαγή peers· διανομή μόνο μέσω tracker.",
+    "pieceLength": "Μέγεθος piece",
+    "pieceAuto": "Αυτόματα",
+    "hashing": "Υπολογισμός hash…",
+    "resultName": "Όνομα",
+    "resultSize": "Μέγεθος",
+    "resultInfoHash": "Hash πληροφοριών",
+    "saveFile": "Αποθήκευση .torrent",
+    "create": "Δημιουργία",
+    "savedToast": "Το torrent αποθηκεύτηκε στο {{path}}",
+    "createFailed": "Δεν ήταν δυνατή η δημιουργία του torrent",
+    "saveFailed": "Δεν ήταν δυνατή η αποθήκευση του αρχείου torrent",
+    "seedAfter": "Έναρξη διαμοιρασμού μετά την αποθήκευση",
+    "seedFailed": "Ο διαμοιρασμός δεν ξεκίνησε.",
+    "seedSubmitted": "Η εργασία διαμοιρασμού υποβλήθηκε.",
+    "invalidOptions": "Έως {{limit}} έγκυρα URL ανά λίστα. Τα ιδιωτικά torrent απαιτούν tracker.",
+    "menuLabel": "Δημιουργία αρχείου torrent…",
+    "downloadRequested": "Ζητήθηκε λήψη: {{path}}"
+  },
+  "operatorToken": {
+    "title": "Access password",
+    "change": "Change password",
+    "effect": "Other devices will need to sign in again.",
+    "currentToken": "Current password",
+    "newToken": "New password",
+    "confirmation": "Confirm new password",
+    "weak": "If you plan to access Motrix over the public internet, use a stronger password.",
+    "invalid": "Remove line breaks and other control characters.",
+    "mismatch": "The passwords do not match.",
+    "incorrectToken": "The current password is incorrect. Try again.",
+    "managed": "This password is managed by the server administrator.",
+    "unavailable": "Could not save. Your current password still works. Try again later.",
+    "rateLimited": "Too many attempts. Wait a minute and try again.",
+    "unknown": "Connection interrupted. The change could not be confirmed.",
+    "saved": "Access password updated.",
+    "saving": "Updating…",
+    "update": "Update password",
+    "requiredCurrent": "Enter your current password.",
+    "requiredNew": "Enter a new password.",
+    "tooLong": "This password is too long. Shorten it and try again."
   }
 }

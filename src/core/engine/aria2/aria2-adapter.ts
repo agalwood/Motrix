@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { access, mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
+import { TaskCookieError } from '@core/engine/task-cookie-error'
 import { getLogger } from '@core/logger'
 import {
   extractAria2ProxyCredentials,
@@ -10,6 +11,7 @@ import {
 } from '@core/proxy/aria2-proxy-routing'
 import { admitDownloadSources } from '@core/task/source-admission'
 import { AppError, ErrorCode } from '@shared/errors'
+import { formatFileSelection } from '@shared/lib/file-selection-ranges'
 import type {
   LegacyCheckpointImport,
   LegacyCheckpointReconcile,
@@ -39,12 +41,19 @@ import type {
   DownloadCookie,
   EngineAdapter,
   LegacyBtBindingProof,
+  LegacyHttpBindingProof,
 } from '../engine-adapter'
 import { DIRECT_RESOURCE_METADATA_PROFILE } from '../engine-adapter'
 import { Aria2LegacyCheckpoint } from './aria2-legacy-checkpoint'
+import {
+  pinLegacyHttpOptions,
+  verifyLegacyHttpBinding,
+} from './aria2-legacy-http'
+import { legacyWirePath } from './aria2-legacy-path'
 import type { Aria2RpcClient } from './aria2-rpc-client'
 import { recommend } from './aria2-tuning'
 import { isConnectionLimitRangeError, isNotFoundError } from './error-utils'
+import { prepareAria2TaskCookies } from './task-cookies'
 
 /**
  * Per-multicall cap for removeDownloadResults. One unbounded batch must
@@ -104,7 +113,7 @@ export async function directResourceMetadataProfileFromGlobalOptions(
     hasEffectiveCumulativeValue(options.header) ||
     AMBIENT_HTTP_TEXT_OPTIONS.some((name) => options[name]?.length > 0) ||
     AMBIENT_HTTP_TRUE_OPTIONS.some((name) => isAria2True(options[name])) ||
-    options['http-accept-gzip'] !== 'true' ||
+    options['http-accept-gzip'] !== 'false' ||
     options['no-want-digest-header'] !== 'false'
   ) {
     return null
@@ -190,6 +199,8 @@ export class Aria2Adapter implements EngineAdapter {
     hasMoveStorage: false,
   }
   private connectionOptionLimit: number | null = null
+  private httpRetryMethods: Promise<boolean> | null = null
+  private httpRetryGeneration = 0
   private directResourceMetadataProfile: DirectResourceMetadataProfile | null =
     null
 
@@ -300,6 +311,8 @@ export class Aria2Adapter implements EngineAdapter {
   }
 
   async connect(): Promise<void> {
+    this.httpRetryMethods = null
+    this.httpRetryGeneration++
     // RPC connection lifecycle is managed by EngineSupervisor.
     // The adapter uses connect() to probe engine capabilities.
     try {
@@ -321,6 +334,8 @@ export class Aria2Adapter implements EngineAdapter {
   }
 
   async disconnect(): Promise<void> {
+    this.httpRetryMethods = null
+    this.httpRetryGeneration++
     // Disconnection is managed by EngineSupervisor.
   }
 
@@ -332,6 +347,10 @@ export class Aria2Adapter implements EngineAdapter {
     return this.featureReport
   }
 
+  prepareDownloadCookies(cookies: readonly DownloadCookie[]) {
+    return prepareAria2TaskCookies(cookies)
+  }
+
   /**
    * Inject the feature report the EngineSupervisor already probed. Production
    * never calls `connect()`, so without this the adapter would keep its
@@ -339,6 +358,8 @@ export class Aria2Adapter implements EngineAdapter {
    * durable-remove trust gate would silently treat every engine as safe.
    */
   setFeatureReport(report: EngineFeatureReport): void {
+    this.httpRetryMethods = null
+    this.httpRetryGeneration++
     this.featureReport = report
     this.connectionOptionLimit = isMotrixFork(report)
       ? null
@@ -413,6 +434,27 @@ export class Aria2Adapter implements EngineAdapter {
   }
 
   async createDownload(params: CreateDownloadParams): Promise<string> {
+    if (params.cookies !== undefined) {
+      const prepared = prepareAria2TaskCookies(params.cookies)
+      // Only admission may choose a reduced credential set. Later corruption or
+      // mutation must not silently change a task after its durable intent exists.
+      const incompatible = prepared.discarded.find(
+        (d) => d.reason !== 'expired' && d.reason !== 'duplicate'
+      )
+      if (incompatible) throw new TaskCookieError(incompatible)
+      params = {
+        ...params,
+        cookies: prepared.cookies,
+      }
+    }
+    if (
+      params.legacyCheckpointActivation &&
+      !(await this.supportsLegacyHttpActivation())
+    )
+      throw new AppError(
+        ErrorCode.EngineFeatureUnavailable,
+        'legacyImport.errors.httpRequestUnsupported'
+      )
     params = {
       ...params,
       uris: admitDownloadSources(params.uris, 'engine').map(
@@ -508,7 +550,7 @@ export class Aria2Adapter implements EngineAdapter {
       options['http-user'] = ''
       options['http-passwd'] = ''
       options['http-auth-challenge'] = 'false'
-      options['http-accept-gzip'] = 'true'
+      options['http-accept-gzip'] = 'false'
       options['no-want-digest-header'] = 'false'
     }
     if (params.extraEngineOptions) {
@@ -586,6 +628,11 @@ export class Aria2Adapter implements EngineAdapter {
       options['always-resume'] = 'true'
     }
     options.continue = resumePolicy === 'sequential-prefix' ? 'true' : 'false'
+    await pinLegacyHttpOptions(
+      params,
+      options,
+      new Aria2LegacyCheckpoint(this.rpc)
+    )
 
     // A magnet can spawn a BT payload with HTTP Web Seeds. Their 404s must
     // not halt the entire torrent before a healthy source sends any data.
@@ -594,6 +641,14 @@ export class Aria2Adapter implements EngineAdapter {
       await this.applyBtTrackerPolicy(options, requestedGid)
     }
 
+    if (params.retainRequestContext) {
+      if (!(await this.supportsDirectTaskRetry()))
+        throw new AppError(
+          ErrorCode.EngineFeatureUnavailable,
+          'Engine request retention is unavailable'
+        )
+      options['http-resume-context'] = 'true'
+    }
     const actualGid = await this.addUriWithConnectionFallback(
       params.uris,
       options,
@@ -779,12 +834,12 @@ export class Aria2Adapter implements EngineAdapter {
       files.every(
         (file, index) =>
           file.index === index &&
-          file.path === input.files[index].path &&
+          file.path === legacyWirePath(input.files[index].path) &&
           file.size === input.files[index].length &&
           file.selected === selected.has(index)
       ) &&
       options !== null &&
-      options.dir === input.saveDir &&
+      options.dir === legacyWirePath(input.saveDir) &&
       options['bt-seed-unverified'] === 'false' &&
       options['bt-hash-check-seed'] === 'false' &&
       Number(options['seed-time']) === 0 &&
@@ -795,6 +850,33 @@ export class Aria2Adapter implements EngineAdapter {
       options['remove-control-file'] === 'false' &&
       options['check-integrity'] === 'true' &&
       trackers.join(',') === input.trackers.join(',')
+    )
+  }
+
+  async verifyLegacyHttpBinding(
+    input: LegacyHttpBindingProof
+  ): Promise<boolean> {
+    if (!(await this.supportsLegacyHttpActivation())) return false
+    return verifyLegacyHttpBinding(this.rpc, input)
+  }
+
+  async supportsLegacyHttpActivation(): Promise<boolean> {
+    if (!(await this.supportsLegacyCheckpointImport())) return false
+    if (
+      !(await this.rpc.getVersion()).enabledFeatures.includes(
+        'HttpRedirectPolicyV1'
+      )
+    )
+      return false
+    const options = await this.rpc.getGlobalOption()
+    const header = options.header as unknown
+    // aria2 accumulates global and per-task header options. An empty Cookie
+    // suppresses CookieStorage, but cannot remove inherited header lines.
+    return (
+      header === undefined ||
+      header === '' ||
+      (Array.isArray(header) &&
+        header.every((line) => typeof line === 'string' && !line.trim()))
     )
   }
 
@@ -822,7 +904,7 @@ export class Aria2Adapter implements EngineAdapter {
       }
     }
     if (params.selectedFiles?.length) {
-      opts['select-file'] = params.selectedFiles.join(',')
+      opts['select-file'] = formatFileSelection(params.selectedFiles, 1)
     }
     if (params.outputRoot !== undefined && !path.isAbsolute(params.outputRoot))
       throw new TypeError('Torrent output root must be absolute')
@@ -880,6 +962,14 @@ export class Aria2Adapter implements EngineAdapter {
         opts[k] = v
       }
     }
+    if (params.preserveExistingFiles)
+      Object.assign(opts, {
+        'allow-overwrite': 'false',
+        'auto-file-renaming': 'false',
+        'check-integrity': 'true',
+        'bt-seed-unverified': 'false',
+        'bt-remove-unselected-file': 'false',
+      })
     if (params.legacyCheckpointActivation) {
       if (
         !params.pause ||
@@ -900,7 +990,7 @@ export class Aria2Adapter implements EngineAdapter {
       Object.assign(opts, {
         dir: params.saveDir,
         pause: 'true',
-        'select-file': params.selectedFiles.join(','),
+        'select-file': formatFileSelection(params.selectedFiles, 1),
         'allow-overwrite': 'false',
         'auto-file-renaming': 'false',
         'remove-control-file': 'false',
@@ -973,10 +1063,11 @@ export class Aria2Adapter implements EngineAdapter {
           ErrorCode.EngineFeatureUnavailable,
           'legacyImport.errors.checkpointUnavailable'
         )
+      opts.dir = legacyWirePath(params.saveDir)
       const input = {
         token: context.token,
-        targetPath: context.targetPath,
-        metadataFile: reference.path,
+        targetPath: legacyWirePath(context.targetPath),
+        metadataFile: legacyWirePath(reference.path),
         metadataDigest: reference.digest,
         metadata: b64,
         options: opts,
@@ -1019,6 +1110,66 @@ export class Aria2Adapter implements EngineAdapter {
       !this.featureReport.hasSqlitePersistence ||
       hasDurableRemoveSemantics(this.featureReport.version)
     )
+  }
+
+  supportsDirectTaskRetry(): Promise<boolean> {
+    if (
+      !this.featureReport.hasSqlitePersistence ||
+      typeof this.rpc.listMethods !== 'function'
+    )
+      return Promise.resolve(false)
+    const generation = this.httpRetryGeneration
+    this.httpRetryMethods ??= this.rpc
+      .listMethods()
+      .then((methods) => {
+        if (generation !== this.httpRetryGeneration)
+          throw new Error(
+            'Engine changed during HTTP retry capability discovery'
+          )
+        return (
+          methods.includes('aria2.getHttpRetryStatusV1') &&
+          methods.includes('aria2.retryHttpDownloadV1')
+        )
+      })
+      .catch((error) => {
+        if (generation === this.httpRetryGeneration)
+          this.httpRetryMethods = null
+        throw error
+      })
+    return this.httpRetryMethods
+  }
+
+  async canRetryDirectTask(input: {
+    engineTaskId: string
+    uri: string
+    outputPath: string
+  }): Promise<boolean> {
+    if (!(await this.supportsDirectTaskRetry())) return false
+    const result = await this.rpc.getHttpRetryStatusV1(
+      input.engineTaskId,
+      input.uri,
+      input.outputPath
+    )
+    return result.available === 'true'
+  }
+
+  async retryDirectTask(input: {
+    engineTaskId: string
+    uri: string
+    outputPath: string
+  }): Promise<void> {
+    if (!(await this.supportsDirectTaskRetry()))
+      throw new AppError(
+        ErrorCode.EngineFeatureUnavailable,
+        'HTTP continuation is unavailable'
+      )
+    const gid = await this.rpc.retryHttpDownloadV1(
+      input.engineTaskId,
+      input.uri,
+      input.outputPath
+    )
+    if (gid !== input.engineTaskId)
+      throw new Error('HTTP continuation changed the engine task identity')
   }
 
   async getCheckpointStatus(

@@ -102,7 +102,8 @@ export class ServerDirectoryService {
   constructor(
     private readonly policy: ServerDownloadPathPolicy,
     private readonly fs: typeof filesystem = filesystem,
-    private readonly homeDirectory: () => string = homedir
+    private readonly homeDirectory: () => string = homedir,
+    private readonly authorizeFile?: (path: string) => Promise<unknown>
   ) {}
 
   async resolvePreferenceDirectory(value: string): Promise<string> {
@@ -212,6 +213,7 @@ export class ServerDirectoryService {
     const logicalPath = path.join(parent.path, path.basename(value))
     const canonical = await realpath(logicalPath)
     await this.policy.authorizeDirectory(path.dirname(canonical))
+    await this.authorizeFile?.(canonical)
     const info = await stat(canonical)
     if (!info.isFile())
       throw new DirectoryAuthorizationError('notFile', 'Not a regular file')
@@ -372,7 +374,13 @@ export class ServerDirectoryService {
     if (!request.success) return failure('invalidPath')
     try {
       const directory = await this.policy.authorizeDirectory(request.data.path)
-      if (!(await this.writable(directory))) return failure('permissionDenied')
+      if (request.data.access === 'read')
+        await this.fs.access(
+          directory.canonicalPath,
+          constants.R_OK | constants.X_OK
+        )
+      else if (!(await this.writable(directory)))
+        return failure('permissionDenied')
       return ValidateServerDirectoryResultSchema.parse({
         ok: true,
         value: { path: directory.path },

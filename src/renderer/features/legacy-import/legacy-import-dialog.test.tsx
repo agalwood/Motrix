@@ -6,6 +6,7 @@ import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import { Queries } from '@shared/protocol/queries'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { StrictMode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { LegacyImportDialog } from './legacy-import-dialog'
 import { useLegacyImportSidebar } from './sidebar-preference'
@@ -95,6 +96,175 @@ describe('legacy import dialog', () => {
           return report
         return { ok: true }
       })
+  })
+
+  it('keeps a current preview through StrictMode setup and releases it on unmount', async () => {
+    const view = render(
+      <StrictMode>
+        <LegacyImportDialog open presentation="page" onClose={vi.fn()} />
+      </StrictMode>
+    )
+    await continueFromSource()
+    expect(transport.invoke).not.toHaveBeenCalledWith(
+      Commands.ReleaseLegacyImportPreview,
+      { previewId }
+    )
+    view.unmount()
+    await waitFor(() =>
+      expect(transport.invoke).toHaveBeenCalledWith(
+        Commands.ReleaseLegacyImportPreview,
+        { previewId }
+      )
+    )
+  })
+
+  it('releases a scan result that arrives after the view has unmounted', async () => {
+    const original = vi.mocked(transport.invoke).getMockImplementation()
+    let resolve!: (value: typeof preview) => void
+    vi.mocked(transport.invoke).mockImplementation((channel, ...args) => {
+      if (channel === Queries.ScanLegacyImport)
+        return new Promise((done) => {
+          resolve = done
+        })
+      return original!(channel, ...args)
+    })
+    const view = render(
+      <LegacyImportDialog open presentation="page" onClose={vi.fn()} />
+    )
+    const button = await screen.findByRole('button', { name: 'Continue' })
+    await waitFor(() => expect(button).toBeEnabled())
+    fireEvent.click(button)
+    await waitFor(() => expect(resolve).toBeTypeOf('function'))
+    view.unmount()
+    resolve(preview)
+    await waitFor(() =>
+      expect(transport.invoke).toHaveBeenCalledWith(
+        Commands.ReleaseLegacyImportPreview,
+        { previewId }
+      )
+    )
+  })
+
+  it('selects HTTP records with saved request settings and explains verification and blocked options', async () => {
+    const originalInvoke = vi.mocked(transport.invoke).getMockImplementation()
+    vi.mocked(transport.invoke).mockImplementation(async (channel, payload) => {
+      if (channel === Queries.ScanLegacyImport)
+        return {
+          ...preview,
+          items: [
+            {
+              ...items[0],
+              reason: 'request-settings-required',
+              requestOptions: ['header', 'all-proxy'],
+            },
+            {
+              ...items[0],
+              itemId: 'blocked',
+              name: 'blocked.zip',
+              selectable: false,
+              reason: 'unsupported-options',
+              unsupportedOptions: ['on-download-complete'],
+            },
+            {
+              ...items[0],
+              itemId: 'old-preview',
+              name: 'old-preview.zip',
+              selectable: false,
+              reason: 'unsupported-options',
+            },
+          ],
+        }
+      return originalInvoke?.(channel, payload)
+    })
+    render(<LegacyImportDialog open presentation="page" onClose={vi.fn()} />)
+    await continueFromSource()
+    expect(screen.getByRole('checkbox', { name: 'archive.zip' })).toBeChecked()
+    expect(
+      screen.getByRole('checkbox', { name: 'archive.zip' })
+    ).not.toHaveAttribute('aria-disabled', 'true')
+    expect(
+      screen.getByRole('checkbox', { name: 'blocked.zip' })
+    ).toHaveAttribute('aria-disabled', 'true')
+    expect(
+      screen.getByText('Saved request settings: header, all-proxy')
+    ).toBeVisible()
+    expect(
+      screen.getByText('Unsupported options: on-download-complete')
+    ).toBeVisible()
+    expect(screen.getByText('Unsupported download options')).toBeVisible()
+    expect(
+      screen.getByText('Motrix will compare all downloaded ranges', {
+        exact: false,
+      })
+    ).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Migrate' }))
+    await waitFor(() =>
+      expect(transport.invoke).toHaveBeenCalledWith(
+        Commands.CommitLegacyImport,
+        {
+          previewId,
+          itemIds: [items[0].itemId],
+        }
+      )
+    )
+  })
+
+  it('keeps magnet records selectable and shows omitted option names', async () => {
+    const magnetItem = {
+      ...items[0],
+      name: 'legacy-magnet',
+      type: 'magnet',
+      reason: 'metadata-required',
+      requestOptions: ['all-proxy'],
+      ignoredOptions: ['header', 'on-download-complete'],
+    }
+    const originalInvoke = vi.mocked(transport.invoke).getMockImplementation()
+    vi.mocked(transport.invoke).mockImplementation(async (channel, payload) => {
+      if (channel === Queries.ScanLegacyImport)
+        return {
+          ...preview,
+          items: [magnetItem],
+        }
+      if (
+        channel === Commands.CommitLegacyImport ||
+        channel === Queries.GetLegacyImportRun
+      )
+        return {
+          ...report,
+          items: [{ ...magnetItem, outcome: 'imported', taskId: 'new-task' }],
+        }
+      return originalInvoke?.(channel, payload)
+    })
+    render(<LegacyImportDialog open presentation="page" onClose={vi.fn()} />)
+    await continueFromSource()
+    expect(
+      screen.getByRole('checkbox', { name: 'legacy-magnet' })
+    ).toBeChecked()
+    expect(
+      screen.getByRole('checkbox', { name: 'legacy-magnet' })
+    ).not.toHaveAttribute('aria-disabled', 'true')
+    expect(
+      screen.getByText(
+        'Unsupported options omitted: header, on-download-complete'
+      )
+    ).toBeVisible()
+    expect(
+      screen.queryByText('Unsupported options: all-proxy')
+    ).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Migrate' }))
+    await waitFor(() =>
+      expect(transport.invoke).toHaveBeenCalledWith(
+        Commands.CommitLegacyImport,
+        { previewId, itemIds: [items[0].itemId] }
+      )
+    )
+    await screen.findByRole('heading', { name: 'Migration complete' })
+    fireEvent.click(screen.getByRole('button', { name: 'View details' }))
+    expect(
+      screen.getByText(
+        'Unsupported options omitted: header, on-download-complete'
+      )
+    ).toBeVisible()
   })
 
   it('starts at source for manual entry and preserves deselection when returning to the same source', async () => {

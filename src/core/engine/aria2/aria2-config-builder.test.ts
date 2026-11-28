@@ -92,6 +92,41 @@ describe('Aria2ConfigBuilder', () => {
     vi.restoreAllMocks()
   })
 
+  describe('supervisorPid', () => {
+    const effective = { download: 0, upload: 0 }
+
+    it('omits --stop-with-process by default', () => {
+      const args = buildArgs(DEFAULT_ENGINE_SETTINGS, true, null, effective)
+      expect(args.some((arg) => arg.startsWith('--stop-with-process'))).toBe(
+        false
+      )
+    })
+
+    it('passes the host pid so aria2 exits when the host dies', () => {
+      const withPid = new Aria2ConfigBuilder(
+        '/t',
+        '/home/user/.config/motrix',
+        {
+          supervisorPid: 4242,
+        }
+      )
+      const args = withPid.buildArgs(
+        makeEngineSettings(DEFAULT_ENGINE_SETTINGS),
+        true,
+        null,
+        effective,
+        DEFAULT_SAVE_DIR
+      )
+      expect(args).toContain('--stop-with-process=4242')
+    })
+
+    it.each([0, -1, 1.5, Number.NaN])('rejects invalid pid %s', (pid) => {
+      expect(
+        () => new Aria2ConfigBuilder('/t', '/u', { supervisorPid: pid })
+      ).toThrow(TypeError)
+    })
+  })
+
   describe('ensureUserConfig', () => {
     it('excludes advanced global seeding time while preserving the original config', async () => {
       mockAccess.mockResolvedValue(undefined)
@@ -290,9 +325,7 @@ describe('Aria2ConfigBuilder', () => {
       expect(args).toContain('--enable-rpc=true')
       expect(args).toContain('--rpc-allow-origin-all=true')
       expect(args).toContain('--rpc-listen-all=false')
-      expect(
-        args.some((arg) => arg.startsWith('--rpc-max-request-size='))
-      ).toBe(false)
+      expect(args).toContain('--rpc-max-request-size=64M')
       expect(args).toContain(
         `--rpc-listen-port=${DEFAULT_ENGINE_SETTINGS.rpcPort}`
       )
@@ -1015,7 +1048,7 @@ describe('Aria2ConfigBuilder', () => {
         upload: 0,
       })
 
-      expect(args).toContain('--http-accept-gzip=true')
+      expect(args).toContain('--http-accept-gzip=false')
       expect(args).toContain('--no-want-digest-header=false')
     })
 
@@ -1054,4 +1087,32 @@ describe('Aria2ConfigBuilder', () => {
       expect(args).toContain(flag)
     })
   })
+})
+
+it('keeps portable engine snapshots in the shell-selected location', () => {
+  const builder = new Aria2ConfigBuilder(
+    '/resources/aria2.conf',
+    '/portable/data/user-data',
+    { persistenceDirectory: '/portable/data/user-data/engine/current-location' }
+  )
+  const settings = makeEngineSettings({
+    sqlite3DbPath: 'E:\\old-location\\aria2.db',
+  })
+  const args = builder.buildArgs(
+    settings,
+    true,
+    null,
+    { download: 0, upload: 0 },
+    '/portable/Downloads'
+  )
+  expect(builder.resolveSqliteDbPath(settings)).toBe(
+    '/portable/data/user-data/engine/current-location/aria2.db'
+  )
+  expect(args).toContain(
+    '--sqlite3-db-path=/portable/data/user-data/engine/current-location/aria2.db'
+  )
+  expect(args).toContain(
+    '--save-session=/portable/data/user-data/engine/current-location/aria2.session'
+  )
+  expect(args).not.toContain('--sqlite3-db-path=E:\\old-location\\aria2.db')
 })

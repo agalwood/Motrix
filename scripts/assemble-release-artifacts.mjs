@@ -99,6 +99,17 @@ export const RELEASE_TARGETS = [
     manifestAssetNames: (version) => [`Motrix-Setup-${version}.exe`],
     legacyAssetName: (version) => `Motrix-Setup-${version}.exe`,
   },
+  {
+    name: 'win32-arm64',
+    manifestName: 'latest.yml',
+    betaManifestName: 'beta.yml',
+    assetNames: (version) => [
+      `Motrix-Setup-${version}-arm64.exe`,
+      `Motrix-${version}-win-arm64.zip`,
+    ],
+    manifestAssetNames: (version) => [`Motrix-Setup-${version}-arm64.exe`],
+    legacyAssetName: (version) => `Motrix-Setup-${version}-arm64.exe`,
+  },
 ]
 
 const RELEASE_ASSET_EXTENSIONS = [
@@ -195,29 +206,33 @@ export async function assembleReleaseArtifacts({
     }
   }
 
-  const macArm64 = targetResults.find(
-    (target) => target.name === 'darwin-arm64'
-  )
-  const macX64 = targetResults.find((target) => target.name === 'darwin-x64')
-  for (const manifestName of targetManifestNames(macX64, channel)) {
-    const macManifest = mergeMacManifests(
-      macX64.manifests.get(manifestName),
-      macArm64.manifests.get(manifestName),
-      manifestName
+  for (const platform of ['darwin', 'win32']) {
+    const arm64 = targetResults.find(
+      (target) => target.name === `${platform}-arm64`
     )
-    addOutputFile(outputFiles, manifestName, {
-      kind: 'content',
-      content: dump(macManifest, {
-        lineWidth: -1,
-        noRefs: true,
-        sortKeys: false,
-      }),
-      target: 'darwin',
-    })
+    const x64 = targetResults.find(
+      (target) => target.name === `${platform}-x64`
+    )
+    for (const manifestName of targetManifestNames(x64, channel)) {
+      const manifest = mergeArchitectureManifests(
+        x64.manifests.get(manifestName),
+        arm64.manifests.get(manifestName),
+        manifestName
+      )
+      addOutputFile(outputFiles, manifestName, {
+        kind: 'content',
+        content: dump(manifest, {
+          lineWidth: -1,
+          noRefs: true,
+          sortKeys: false,
+        }),
+        target: platform,
+      })
+    }
   }
 
   for (const target of targetResults) {
-    if (target.name.startsWith('darwin-')) continue
+    if (!target.name.startsWith('linux-')) continue
     for (const manifestName of targetManifestNames(target, channel)) {
       const manifest = target.manifests.get(manifestName)
       addOutputFile(outputFiles, manifestName, {
@@ -508,16 +523,14 @@ function parseManifestFile(manifestName, index, value) {
   return value
 }
 
-function mergeMacManifests(x64, arm64, manifestName) {
+function mergeArchitectureManifests(x64, arm64, manifestName) {
   if (x64.version !== arm64.version) {
     throw new Error(
       `${manifestName}: architecture versions differ (${x64.version} and ${arm64.version})`
     )
   }
-  if (!x64.legacyFile.url.endsWith('.zip')) {
-    throw new Error(`${manifestName}: x64 legacy path must reference a ZIP`)
-  }
-
+  // Keep x64 first and retain its legacy path. The NSIS updater falls back to
+  // the first EXE for existing x64 names, while ARM64 selects the named asset.
   const files = []
   const byName = new Map()
   for (const file of [...x64.files, ...arm64.files]) {

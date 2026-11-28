@@ -401,7 +401,7 @@ describe('FinalizeCommitter', () => {
     expect(fs.actions.some((action) => action.startsWith('copy:'))).toBe(false)
   })
 
-  it('quarantines an identity mismatch without deleting unknown bytes', async () => {
+  it('reports a pre-journal identity mismatch without deleting unknown bytes', async () => {
     const fs = new FakeFilesystem()
     const plan = makePlan()
     fs.artifacts.set(plan.sourcePath, {
@@ -410,9 +410,9 @@ describe('FinalizeCommitter', () => {
     })
     const { repository, quarantines } = makeRepository()
     await expect(makeCommitter(fs, repository).commit(plan)).rejects.toThrow(
-      'quarantined'
+      'source identity changed'
     )
-    expect(quarantines).toHaveLength(1)
+    expect(quarantines).toHaveLength(0)
     expect(fs.actions.some((action) => action.startsWith('remove:'))).toBe(
       false
     )

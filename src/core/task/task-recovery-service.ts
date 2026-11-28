@@ -121,6 +121,8 @@ export const defaultRecoveryFs: RecoveryFs = {
 }
 
 export interface RecoveryDeps {
+  /** A shell may hold filesystem work until the user confirms a relocated destination. */
+  canRecoverAutomatically?: (task: DownloadTask) => boolean
   taskManager: {
     getAll(): DownloadTask[]
     set?(id: string, task: DownloadTask): void
@@ -129,7 +131,7 @@ export interface RecoveryDeps {
   adapter: Pick<EngineAdapter, 'listActiveAndWaiting'>
   fs: RecoveryFs
   activityRecorder: TaskActivityRecorder
-  finalizeTask: (taskId: string) => Promise<void>
+  finalizeTask: (taskId: string, sha256?: string) => Promise<void>
   /** Defer ownership and completion to the journal before interpreting path existence. */
   hasPendingFinalization?: (taskId: string) => Promise<boolean>
   /**
@@ -185,11 +187,17 @@ export class TaskRecoveryServiceImpl implements TaskRecoveryService {
     return this.recover()
   }
 
-  async recoverTaskById(taskId: string): Promise<RecoveryReport> {
-    return this.recover(taskId)
+  async recoverTaskById(
+    taskId: string,
+    sha256?: string
+  ): Promise<RecoveryReport> {
+    return this.recover(taskId, sha256)
   }
 
-  private async recover(taskId?: string): Promise<RecoveryReport> {
+  private async recover(
+    taskId?: string,
+    sha256?: string
+  ): Promise<RecoveryReport> {
     const start = Date.now()
     const report: RecoveryReport = {
       totalScanned: 0,
@@ -208,6 +216,8 @@ export class TaskRecoveryServiceImpl implements TaskRecoveryService {
     const inFlightPublished = publishedTasks.filter(
       (t) =>
         !hasLegacyImport(t) &&
+        (taskId !== undefined ||
+          this.deps.canRecoverAutomatically?.(t) !== false) &&
         (taskId === undefined || t.id === taskId) &&
         (t.transitionPhase !== TransitionPhase.Idle ||
           t.status === TaskStatus.Finalizing ||
@@ -264,7 +274,8 @@ export class TaskRecoveryServiceImpl implements TaskRecoveryService {
             byInfoHash,
             ownerByGid,
             taskIdsByInfoHash,
-            report
+            report,
+            sha256
           )
         } catch (error) {
           // Publish failure while still holding the same task mutation lock.
@@ -337,20 +348,24 @@ export class TaskRecoveryServiceImpl implements TaskRecoveryService {
     byInfoHash: Map<string, Set<string>>,
     ownerByGid: Map<string, string>,
     taskIdsByInfoHash: Map<string, Set<string>>,
-    report: RecoveryReport
+    report: RecoveryReport,
+    sha256?: string
   ): Promise<void> {
     if (
       task.transitionPhase === TransitionPhase.Renaming &&
       !isMediaKind(task.kind) &&
       (await this.deps.hasPendingFinalization?.(task.id))
     ) {
-      await this.deps.finalizeTask(task.id)
+      if (sha256) await this.deps.finalizeTask(task.id, sha256)
+      else await this.deps.finalizeTask(task.id)
       report.recovered.push({
         taskId: task.id,
         action: RecoveryAction.ResumeFromRename,
       })
       return
     }
+    if (sha256)
+      throw new Error('no pending finalize journal for checksum verification')
     const fsState = await this.inspectFs(task)
     const matchingGid = this.selectMatchingGid(
       task,

@@ -3,6 +3,7 @@ import type {
   DirectReplayRecipe,
   DirectReplayRequestModifier,
 } from '@shared/schemas/direct-replay-recipe'
+import { parseDirectReplayRecipe } from '@shared/schemas/direct-replay-recipe'
 
 export type { DirectReplayRecipe } from '@shared/schemas/direct-replay-recipe'
 
@@ -14,7 +15,12 @@ export type { DirectReplayRecipe } from '@shared/schemas/direct-replay-recipe'
 export function buildDirectReplayRecipe(
   params: Pick<
     CreateDownloadParams,
-    'connections' | 'headers' | 'cookies' | 'proxy' | 'extraEngineOptions'
+    | 'connections'
+    | 'headers'
+    | 'cookies'
+    | 'proxy'
+    | 'extraEngineOptions'
+    | 'retainRequestContext'
   >,
   ambientEngineRequestOptions = false
 ): DirectReplayRecipe {
@@ -32,6 +38,9 @@ export function buildDirectReplayRecipe(
 
   return {
     version: 1,
+    ...(params.retainRequestContext
+      ? { engineContextVersion: 1 as const }
+      : {}),
     ...(params.connections === undefined
       ? {}
       : { connections: params.connections }),
@@ -39,6 +48,19 @@ export function buildDirectReplayRecipe(
     replayability:
       requestModifiers.length === 0 ? 'uri-only' : 'requires-credentials',
   }
+}
+
+/** Recompute the retention intent whenever a replacement request is created. */
+export function updateDirectReplayRetention(
+  payload: Record<string, unknown>,
+  retain: boolean
+): Record<string, unknown> {
+  const recipe = parseDirectReplayRecipe(payload)
+  if (!recipe) return payload
+  const updated = { ...recipe }
+  delete updated.engineContextVersion
+  if (retain) updated.engineContextVersion = 1
+  return { ...payload, directReplay: updated }
 }
 
 function hasEntries(value: object | undefined): boolean {

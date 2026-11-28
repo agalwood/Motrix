@@ -104,11 +104,12 @@ describe('VirtualList', () => {
   it.each(['native', 'custom'] as const)(
     'retains active options and viewport semantics with %s scrollbars',
     (scrollbar) => {
+      // jsdom has no layout; provide the viewport's client dimensions.
       const height = vi
-        .spyOn(HTMLElement.prototype, 'offsetHeight', 'get')
+        .spyOn(HTMLElement.prototype, 'clientHeight', 'get')
         .mockReturnValue(200)
       const width = vi
-        .spyOn(HTMLElement.prototype, 'offsetWidth', 'get')
+        .spyOn(HTMLElement.prototype, 'clientWidth', 'get')
         .mockReturnValue(400)
       const { unmount } = render(
         <VirtualList<TestItem>

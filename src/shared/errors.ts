@@ -1,5 +1,6 @@
 export enum ErrorCode {
   AppUpdateManaged = 'APP_UPDATE_MANAGED',
+  AppUpdateCheckFailed = 'APP_UPDATE_CHECK_FAILED',
   EngineStartFailed = 'ENGINE_START_FAILED',
   EngineConnectionLost = 'ENGINE_CONNECTION_LOST',
   EngineTimeout = 'ENGINE_TIMEOUT',
@@ -44,6 +45,7 @@ export enum ErrorCode {
   StunDetectionFailed = 'STUN_DETECTION_FAILED',
   // Torrent
   TorrentParseFailed = 'TORRENT_PARSE_FAILED',
+  TorrentCreateFailed = 'TORRENT_CREATE_FAILED',
   TorrentDuplicateConflict = 'TORRENT_DUPLICATE_CONFLICT',
   MagnetResolveFailed = 'MAGNET_RESOLVE_FAILED',
   MagnetResolveTimeout = 'MAGNET_RESOLVE_TIMEOUT',
@@ -98,6 +100,7 @@ export enum DownloadErrorCode {
   TooManyRedirects = 'DL_TOO_MANY_REDIRECTS',
   ServerError = 'DL_SERVER_ERROR',
   BtMetadataFailed = 'DL_BT_METADATA_FAILED',
+  BtPortBindFailed = 'DL_BT_PORT_BIND_FAILED',
   BtTrackerError = 'DL_BT_TRACKER_ERROR',
 }
 

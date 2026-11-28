@@ -4,10 +4,12 @@
     "help": "이 서버에는 관리자 토큰이 필요합니다. 호스트에서 MOTRIX_OPERATOR_TOKEN을 설정하거나 <dataDir>/operator-token에서 토큰을 읽어 아래에 붙여넣으세요.",
     "placeholder": "관리자 토큰",
     "error": "관리자 토큰이 올바르지 않습니다. 호스트의 MOTRIX_OPERATOR_TOKEN 또는 <dataDir>/operator-token을 확인하고 다시 시도하세요.",
-    "submit": "잠금 해제"
+    "submit": "잠금 해제",
+    "nasSessionExpired": "NAS 관리자 세션을 확인할 수 없습니다. NAS 바탕 화면에서 Motrix를 여세요.",
+    "openDsm": "Open DSM to sign in"
   },
   "operatorAdmin": {
-    "help": "사용법:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n\n이 명령은 컨테이너 루프백을 통해 실행 중인 Motrix 서버와만 통신합니다.",
+    "help": "사용법:\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <user-code> [--json]\n  motrix-admin pairing deny <user-code> [--json]\n  motrix-admin extension pair\n\n이 명령은 컨테이너 루프백을 통해 실행 중인 Motrix 서버와만 통신합니다.\n\n  motrix-admin token set [--stdin] [--json]\nSet a custom administrator token; weak tokens are accepted with a warning.",
     "errorPrefix": "motrix-admin: {{message}}",
     "usageHint": "사용법을 보려면 `motrix-admin --help`를 실행하세요.",
     "pending": {
@@ -55,6 +57,35 @@
         "loopback": "컨테이너 루프백에서 실행 중인 Motrix 서버에 연결할 수 없습니다.",
         "approvalNotReady": "실행 중인 Motrix 서버의 페어링 승인이 아직 준비되지 않았습니다."
       }
+    },
+    "extension": {
+      "heading": "Pending browser Extension pairing requests",
+      "identityNotice": "Verify that you initiated this request. Origin and claimed identity alone do not prove who is connecting. Terminal recording can capture the pairing code.",
+      "row": "{{index}}. {{browser}} [{{identity}}] Origin: {{origin}}; claimed ID: {{claimedId}}; Server: {{authority}}; {{seconds}} s remaining",
+      "select": "Enter the number of one request (Ctrl+C to exit): ",
+      "code": "Pairing code: {{code}}",
+      "instructions": "Type this code into the browser Extension. It expires at the original deadline. Ctrl+C closes this view without approving or denying the request.",
+      "none": "No pending Extension pairing requests. Start pairing in the Extension, then run this command again. If requests remain absent, check the remote Extension configuration.",
+      "ended": "The selected pairing request has ended. Check the Extension for its outcome.",
+      "ttyRequired": "Extension pairing requires interactive input, output and error terminals. Piping, redirection and JSON output are not supported.",
+      "cancelled": "Pairing code view closed. No approval or denial was sent.",
+      "invalidSelection": "Select exactly one listed request by its number.",
+      "unavailable": "The selected request expired, ended or changed. Start a new pairing attempt in the Extension."
+    },
+    "token": {
+      "weak": "This token may be easy to guess. Consider a longer, unique passphrase. You can still save it.",
+      "invalid": "Enter a nonblank token of up to 1,024 characters, without control characters.",
+      "mismatch": "The new tokens do not match.",
+      "incorrectToken": "The current token is incorrect. Check it and try again.",
+      "managed": "This token is managed by MOTRIX_OPERATOR_TOKEN. Change the deployment environment variable and restart the server.",
+      "unavailable": "The token could not be saved. The previous token is still active. Check server storage and retry.",
+      "rateLimited": "Too many attempts. Wait a minute and try again.",
+      "unknown": "The result could not be confirmed. Check the token file on the server before retrying.",
+      "prompt": "New token (input hidden):",
+      "confirm": "Confirm new token:",
+      "saved": "Token updated. Existing sessions have been signed out. Downloads continue.",
+      "ttyRequired": "Use an interactive terminal, or token set --stdin to read the token from standard input.",
+      "cancelled": "Token change cancelled."
     }
   },
   "common": {
@@ -316,7 +347,7 @@
         "loading": "활동을 불러오는 중",
         "unavailable": "활동을 사용할 수 없음",
         "retry": "다시 시도",
-        "stale": "최신 활동 정보가 아닐 수 있습니다",
+        "refreshFailed": "새로고침 실패",
         "coverageDegraded": "{{time}} 이후의 활동 기록이 불완전할 수 있습니다",
         "rangeSummary": "{{start}}~{{end}}, {{weeks}}주간의 다운로드 활동",
         "completedIntensity": "색상의 진하기는 완료된 다운로드 수를 나타냅니다",
@@ -588,7 +619,7 @@
         "down": "다운로드 속도",
         "up": "업로드 속도",
         "eta": "남은 시간",
-        "connections": "피어",
+        "connections": "연결 수",
         "status": "상태",
         "createdAt": "만든 날짜",
         "finishedAt": "완료한 날짜"
@@ -857,6 +888,7 @@
       },
       "action": {
         "pause": "일시 정지",
+        "pausing": "일시 중지 중…",
         "queueMoveFailed": "대기열을 업데이트하지 못했습니다.",
         "queueTaskStarted": "이 작업은 더 이상 대기열에 없습니다.",
         "queueMoveHint": "대기열 순서는 다음에 시작할 다운로드를 결정합니다. 열 정렬 순서는 별도로 저장됩니다.",
@@ -915,7 +947,15 @@
         "redownloadOverwriteTitle": "File Already Exists",
         "redownloadOverwriteDescription": "“{{name}}” already exists in the download directory. Re-downloading will overwrite or rename it. Do you want to continue?",
         "redownloadCredentialsExpired": "Original request options have expired. Please review and submit.",
-        "redownloadStarted": "Re-download started"
+        "redownloadStarted": "Re-download started",
+        "retryDialogTitle": "다운로드 재시도",
+        "retryDialogDescription": "{{name}}의 요청 매개변수를 편집하여 새 다운로드를 시작하세요. 실패한 작업과 부분 파일은 유지됩니다.",
+        "retryDialogProgress": "{{total}}개 중 {{current}}번째 다운로드",
+        "downloadToDevice": "Download to this device",
+        "revealInFileStation": "Show in File Station",
+        "nasFileUnavailable": "File access could not be authorized. Check the account and folder permissions.",
+        "fileStationWindowBlocked": "The browser blocked the File Station window. Allow popups for this site and try again.",
+        "fnosHostRequired": "이 파일 작업을 사용하려면 fnOS 데스크톱 또는 모바일 앱에서 Motrix를 여세요."
       },
       "titleCount": "{{shown}}개 표시 · 전체 {{total}}개",
       "type": {
@@ -995,6 +1035,11 @@
   },
   "task": {
     "add": {
+      "extraHeaders": "추가 헤더",
+      "headerName": "헤더 이름",
+      "headerValue": "헤더 값",
+      "addHeader": "헤더 추가",
+      "removeHeader": "헤더 제거",
       "title": "새 작업",
       "links": "링크",
       "torrent": "토렌트",
@@ -1006,6 +1051,7 @@
       "createFailedByPlugin": "작업을 만들지 못했습니다. “{{pluginId}}” 플러그인이 작업을 중단했습니다({{detail}}). 설정 → 플러그인에서 해당 플러그인을 비활성화한 후 다시 시도하세요.",
       "createFailedPathTooLong": "작업을 만들지 못했습니다. 대상 경로가 {{length}}자로 Windows 제한인 {{limit}}자를 초과합니다. 더 짧은 저장 폴더 경로나 파일 이름을 선택하세요.",
       "parseFailed": "토렌트 파일을 분석하지 못했습니다.",
+      "unsupportedTorrent": "이 토렌트는 현재 다운로드 엔진이 지원하지 않는 기능을 사용합니다.",
       "urlsCount_other": "URL {{count}}개",
       "urlsWithInvalid": "유효 {{valid}}개, 유효하지 않음 {{invalid}}개",
       "validUrlCount": "유효 {{count}}개",
@@ -1087,6 +1133,7 @@
         "doc": "문서"
       },
       "errors": {
+        "headerNameRequired": "값을 입력한 헤더에는 이름이 필요합니다.",
         "urlsRequired": "URL을 하나 이상 입력하세요",
         "saveDirRequired": "저장 폴더를 지정하세요",
         "noFilesSelected": "파일을 하나 이상 선택하세요",
@@ -1097,7 +1144,9 @@
         "failed": "{{name}} 작업을 자동으로 시작하지 못했습니다. 작업 상세 정보에서 파일을 선택하고 다시 시도하세요."
       },
       "undoCorrection": "URL 수정 실행 취소",
-      "submissionUnconfirmed": "결과가 확인되지 않았습니다. 다시 시도하면 새 작업을 만들기 전에 원래 요청의 처리 결과를 확인합니다."
+      "submissionUnconfirmed": "결과가 확인되지 않았습니다. 다시 시도하면 새 작업을 만들기 전에 원래 요청의 처리 결과를 확인합니다.",
+      "selectNasTorrent": "Choose a torrent from the NAS",
+      "fnosAuthorizationPopupBlocked": "이 사이트의 팝업을 허용한 다음 폴더를 다시 선택하세요."
     },
     "detail": {
       "peers": "피어: {{count}}",
@@ -1140,7 +1189,8 @@
         "resumeSourceChanged": "다운로드를 시작한 이후 원격 파일이 변경되어 일부 다운로드된 파일을 보존했습니다.",
         "resumeRangeUnsupported": "서버가 안전한 범위 기반 다운로드 재개를 지원하지 않아 일부 다운로드된 파일을 보존했습니다.",
         "resumeValidationFailed": "원격 파일이 변경되지 않았는지 확인할 수 없어 일부 다운로드된 파일을 보존했습니다.",
-        "mediaInterrupted": "앱 재시작으로 이 미디어 다운로드가 중단되었으며 재개할 수 없습니다. 다시 시도하려면 작업을 다시 추가하세요."
+        "mediaInterrupted": "앱 재시작으로 이 미디어 다운로드가 중단되었으며 재개할 수 없습니다. 다시 시도하려면 작업을 다시 추가하세요.",
+        "portableExternalPath": "This task uses a location outside the portable folder. The application moved or the original directory is unavailable. Check the download location before retrying."
       }
     },
     "error": {
@@ -1149,6 +1199,7 @@
         "recoveryFailed": "다운로드를 복구하지 못했습니다: {{cause}}",
         "recoveryOutputConflict": "임시 파일과 최종 파일이 모두 존재하여 직접 확인할 수 있도록 둘 다 보존했습니다",
         "filesMissing": "앱 재시작 후 파일을 찾을 수 없습니다",
+        "sourceHash": "배포자의 SHA-256",
         "renameFileFailed": "파일 이름을 변경하지 못했습니다: {{cause}}",
         "renameDirFailed": "폴더 이름을 변경하지 못했습니다: {{cause}}",
         "pluginChainAborted": "플러그인 처리 체인이 중단되었습니다: {{cause}}",
@@ -1168,6 +1219,7 @@
         "checksumMismatch": "파일 체크섬 불일치",
         "tooManyRedirects": "리디렉션 횟수 초과",
         "serverError": "서버가 오류를 반환함",
+        "btPortBindFailed": "BitTorrent 수신 포트를 사용할 수 없습니다",
         "btMetadataFailed": "토렌트 메타데이터를 가져올 수 없음",
         "btTrackerError": "트래커 연결 실패",
         "generic": "다운로드 실패"
@@ -1181,7 +1233,38 @@
         "pathTooLong": "저장 폴더 경로나 파일 이름을 짧게 바꾼 후 다시 시도하세요",
         "checksumMismatch": "다운로드한 파일이 손상되었을 수 있습니다. 다시 다운로드하여 확인하세요",
         "tooManyRedirects": "원본 링크에 문제가 있을 수 있습니다. 다른 링크를 사용해 보세요",
+        "btPortBindFailed": "BitTorrent 설정에서 BT 수신 포트를 변경하고 엔진을 다시 시작한 후 다시 시도하세요",
         "btMetadataFailed": "마그넷 링크를 확인하거나 트래커를 추가한 후 다시 시도하세요"
+      }
+    },
+    "storage": {
+      "move": "Move files…",
+      "locate": "Find existing files…",
+      "recheck": "Check files…",
+      "moveDescription": "Choose a new folder for your downloaded files. Seeding pauses while they move.",
+      "locateDescription": "Choose where your downloaded files are now. Motrix will check them so you can continue seeding.",
+      "recheckDescription": "Check that your downloaded files are complete. This will not change the files or download them again.",
+      "directory": "Folder",
+      "name": "File or folder name",
+      "resume": "Continue seeding after checking",
+      "checking": "Checking files…",
+      "moving": "Moving files…",
+      "resuming": "Starting seeding…",
+      "verifiedPercent": "Verified: {{percent}}%",
+      "checkFailed": "Check failed",
+      "verified": "Your files are ready to seed.",
+      "resumed": "Seeding has resumed.",
+      "incomplete": "Some files are missing or incomplete. Check that you selected the right folder and try again.",
+      "resumeFailed": "The new location is saved. Select Re-seed to try sharing the files again.",
+      "useExisting": "Check and use these files",
+      "errors": {
+        "unavailable": "This task cannot be moved or checked yet.",
+        "busy": "Another file operation is still running. Please wait for it to finish.",
+        "destination": "Choose a different folder or file name. The location may already contain these files or be inside the current folder.",
+        "conflict": "Another download is using these files. Open that task to change their location.",
+        "engine": "Motrix could not stop this task. Please try again.",
+        "failed": "Motrix could not access or move the files. Check the folder, available space, and permission to use it.",
+        "cancelled": "Check cancelled."
       }
     }
   },
@@ -1220,6 +1303,10 @@
       "integration": {
         "title": "연동",
         "desc": "브라우저 확장 프로그램, CLI, 시스템 연동"
+      },
+      "nas": {
+        "title": "Synology NAS",
+        "desc": "Download folders and client connections"
       }
     },
     "general": {
@@ -1274,6 +1361,12 @@
       "themeDark": "다크",
       "language": "언어",
       "traySpeedometer": "메뉴 막대에 속도 표시",
+      "dockAndMenuBar": "Dock 및 메뉴 막대",
+      "taskbar": "작업 표시줄",
+      "taskbarProgress": "작업 표시줄에 다운로드 진행률 표시",
+      "taskbarProgressDesc": "작업 표시줄의 기본 창 버튼에 진행 중인 다운로드의 전체 진행률을 표시합니다.",
+      "dockProgress": "Dock에 다운로드 진행률 표시",
+      "dockProgressDesc": "Dock 아이콘에 진행 중인 다운로드의 전체 진행률을 표시합니다.",
       "traySpeedometerDesc": "앱 아이콘 옆에 다운로드 및 업로드 속도를 표시합니다.",
       "trayIconColor": "트레이 아이콘 색상",
       "trayIconColorDesc": "시스템 패널에서 잘 보이는 색상을 선택하세요.",
@@ -1282,6 +1375,10 @@
       "trayIconColorDark": "어두운 아이콘(밝은 패널용)",
       "reduceMotion": "동작 줄이기",
       "reduceMotionDesc": "앱 전체에서 애니메이션 사용을 줄입니다.",
+      "hardwareAcceleration": "하드웨어 가속",
+      "hardwareAccelerationDesc": "그래픽 카드를 사용해 화면을 더 부드럽게 표시합니다. 화면이 깜박이거나 Motrix가 종료되면 꺼 보세요. 변경 사항은 Motrix를 다시 시작한 후 적용됩니다.",
+      "hardwareAccelerationRecoveryTitle": "하드웨어 가속이 꺼졌습니다",
+      "hardwareAccelerationRecoveryBody": "화면 표시 오류가 반복되어 Motrix가 하드웨어 가속을 껐습니다. 설정 → 모양에서 다시 켠 후 Motrix를 다시 시작할 수 있습니다.",
       "liquidGlassEffect": "Liquid Glass",
       "liquidGlassEffectDesc": "다운로드 도구 막대에 반투명 유리 효과를 적용합니다.",
       "liquidGlassEffectMacDesc": "macOS 26 이상에서는 창에도 적용됩니다. 변경하면 창이 다시 열립니다.",
@@ -1295,6 +1392,8 @@
       "runModeLinuxDesc": "시스템 트레이 지원 여부와 활성화 동작은 데스크톱 환경에 따라 다릅니다.",
       "lightweightMode": "경량 모드",
       "lightweightModeDesc": "창을 닫으면 메모리를 절약합니다. 다운로드는 계속되지만 창을 다시 여는 데 더 오래 걸리며 저장하지 않은 입력 내용은 지워집니다.",
+      "keepStatsBarVisible": "세부 정보가 열려 있을 때 통계 표시",
+      "keepStatsBarVisibleDesc": "작업 세부 정보 패널 아래에 다운로드 통계 표시줄을 유지합니다.",
       "byteUnitSystem": "크기 및 속도 단위",
       "byteUnitSystemDesc": "파일 크기와 속도의 표시 방식을 선택하세요.",
       "byteUnitDecimal": "십진수({{megabyte}}, {{gigabyte}} · 1000)",
@@ -1400,7 +1499,12 @@
         "channelStable": "안정",
         "channelBeta": "베타",
         "channelBetaWarning": "베타는 안정성이 낮을 수 있습니다. 더 새로운 안정 버전도 받게 됩니다. 안정 채널로 돌아가면 버전을 낮추지 않고 베타 업데이트만 중단합니다.",
-        "channelSaveError": "업데이트 채널을 저장하지 못했습니다. 다시 시도하세요."
+        "channelSaveError": "업데이트 채널을 저장하지 못했습니다. 다시 시도하세요.",
+        "installing": "설치 중…",
+        "installingDescription": "업데이트를 준비하고 있습니다. 준비가 완료되면 Motrix가 다시 시작됩니다.",
+        "manualDownload": "수동 다운로드",
+        "manualInstall": "새 버전을 다운로드하고 Motrix를 종료한 다음 설치된 앱을 교체하세요.",
+        "manualCrossVolume": "현재 다른 디스크 간 자동 설치는 지원되지 않습니다. 새 버전을 다운로드하고 Motrix를 수동으로 교체하세요."
       },
       "details": {
         "author": "제작자",
@@ -1602,7 +1706,7 @@
         "turtle_auto": "자동",
         "unitFor": "{{field}} 단위",
         "baseSection": "표준 제한",
-        "baseSectionDesc": "일반적인 다운로드에 사용하며 모든 모드에서 이 제한을 준수합니다.",
+        "baseSectionDesc": "기본 모드에서, 또는 활성화된 저속 규칙이 없을 때 사용합니다.",
         "baseDownload": "다운로드",
         "baseDownloadDesc": "일반적인 사용 시 최대 다운로드 속도입니다.",
         "baseUpload": "업로드",
@@ -1612,7 +1716,7 @@
         "standardLimit": "표준값 사용",
         "useStandardLimit": "표준 제한 사용",
         "altSection": "저속 제한",
-        "altSectionDesc": "저속 모드 또는 예약 규칙에서 사용합니다. 표준 제한보다 속도를 낮출 수만 있습니다.",
+        "altSectionDesc": "저속 모드에서, 또는 자동 규칙이 이 프로필을 선택할 때 사용합니다.",
         "altDownload": "다운로드",
         "altDownloadDesc": "저속 모드가 활성화되었을 때의 최대 다운로드 속도입니다.",
         "altUpload": "업로드",
@@ -1683,7 +1787,7 @@
           "adaptiveRulePending": "회선 대역폭을 입력하면 다른 앱을 위해 대역폭의 {{reserved}}%를 확보",
           "ruleSeparator": "하고 ",
           "autoRules": "Motrix가 {{rules}}합니다.",
-          "lowerWins": "활성 제한 중 가장 낮은 값이 적용됩니다."
+          "profileSelection": "선택한 모드의 제한이 적용됩니다. 저속 제한이 비어 있으면 기본 제한을 사용하며, 자동 모드에서는 적응형 제한이 추가로 적용될 수 있습니다."
         },
         "bandwidthUsed": "Motrix는 최대 {{motrix}}%를 사용할 수 있습니다.",
         "bandwidthPending": "이 제한을 적용하려면 다운로드와 업로드 회선 속도를 모두 입력하세요."
@@ -1692,6 +1796,8 @@
       "defaultDownloadFolder": "기본 다운로드 폴더",
       "autofillFromClipboard": "클립보드에서 링크 자동 입력",
       "fillInLinksWhenOpeningNewTask": "새 작업을 열 때 복사한 링크를 붙여넣습니다.",
+      "openingView": "다운로드를 열 때 표시할 항목",
+      "rememberLastSelection": "마지막 선택 기억",
       "saveFolders": "저장 폴더",
       "description": "파일, 다운로드 속도 및 연결"
     },
@@ -1790,6 +1896,12 @@
       "hideSecret": "비밀 값 숨기기"
     },
     "integration": {
+      "clientPairingUnavailable": "Client pairing is not available in this installation.",
+      "extensionPairingUnavailable": "Browser extension pairing is not available in this installation.",
+      "clients": {
+        "masterSwitch": "Allow external clients to connect",
+        "masterSwitchDesc": "Approve each client before it can manage downloads."
+      },
       "system": {
         "title": "기본 앱",
         "protocolMagnet": "Motrix로 마그넷 링크 열기",
@@ -1847,8 +1959,14 @@
           "store": "설치",
           "development": "개발"
         },
+        "pendingTitle": "Browser pairing requests",
+        "pendingEmpty": "Start pairing in your extension.",
         "pairedTitle": "연결된 확장 프로그램",
         "pairedEmpty": "아직 연결된 확장 프로그램이 없습니다.",
+        "profile": "브라우저 프로필 {{number}}",
+        "connected": "연결됨",
+        "disconnected": "연결되지 않음",
+        "revokeAll": "모두 연결 해제",
         "lastActive": "마지막 활동",
         "revoke": "연결 해제",
         "disconnecting": "연결 해제 중…",
@@ -1874,7 +1992,10 @@
             "attested": "검증된 확장 프로그램",
             "unverified": "검증되지 않은 확장 프로그램"
           },
-          "identityUnverifiedWarning": "이 확장 프로그램의 신원을 확인하지 못했습니다. 신뢰하는 경우에만 계속하세요."
+          "identityUnverifiedWarning": "이 확장 프로그램의 신원을 확인하지 못했습니다. 신뢰하는 경우에만 계속하세요.",
+          "claim": "현재 계정으로 페어링",
+          "claimDesc": "확장 프로그램은 이 계정의 권한을 사용합니다. 다음으로 확장 프로그램에 페어링 코드를 입력하여 완료하세요.",
+          "account": "현재 계정: {{name}}"
         },
         "pairUnavailable": "이 페어링 요청은 더 이상 대기 상태가 아닙니다. 브라우저 확장 프로그램에서 페어링을 다시 시도하세요.",
         "trustedExtensions": "신뢰하는 확장 프로그램",
@@ -2053,7 +2174,8 @@
           "missing": "찾을 수 없음",
           "untrusted": "macOS에서 차단됨",
           "unconfigured": "설정되지 않음",
-          "version_mismatch": "지원되지 않음"
+          "version_mismatch": "지원되지 않음",
+          "verificationUnavailable": "검증할 수 없음"
         },
         "stagingMB": "임시 파일 제한(MB)",
         "stagingMBDesc": "플러그인과 작업별 중간 파일에 사용할 공간입니다.",
@@ -2176,6 +2298,46 @@
       "originMismatchBody": "실시간 업데이트를 사용할 수 없습니다. 설정된 서버 주소를 사용하거나 관리자에게 수정을 요청하세요.",
       "disconnectedTitle": "실시간 업데이트 연결이 끊겼습니다.",
       "disconnectedBody": "일부 정보가 늦게 표시될 수 있습니다. 문제가 계속되면 서버 연결과 프록시 설정을 확인하세요."
+    },
+    "portable": {
+      "title": "Portable mode",
+      "startupError": "Motrix could not open its portable data directory. Check that the data folder beside Motrix.exe is writable and that no external profile override is set. Motrix has not switched to the system profile.",
+      "integrationUnavailable": "Portable mode keeps system settings unchanged. Startup registration, file associations, and system tool installation are unavailable.",
+      "browserDescription": "The local bridge remains available while Motrix is running. Portable mode does not register a browser launcher or change existing browser integration.",
+      "updateDescription": "Download the Windows ZIP, exit Motrix, and move the entire data folder to the new version. Portable mode never runs the installer.",
+      "recoveryError": "Portable data could not be recovered safely. Keep the data folder and check the logs and directory permissions before retrying. Motrix has stopped without using the system profile.",
+      "enginePathDescription": "Portable mode manages engine state inside the data folder for the current application location."
+    },
+    "nas": {
+      "description": "Shared by all DSM administrators. Restart Motrix in Package Center to apply changes.",
+      "account": "Current DSM account: {{username}}",
+      "restartRequired": "Settings saved. Restart Motrix in Package Center to apply them.",
+      "storageUnavailable": "Download folders unavailable",
+      "storageRecoveryHint": "Downloads are paused. Restore the original folders or authorize a different path, then restart Motrix in Package Center.",
+      "roots": "Authorized download folders",
+      "rootsHint": "One existing folder per line. Both your account and the system user motrix need read/write access. Removing the default makes the first folder the new default.",
+      "extensionEnabled": "Enable browser extension connections",
+      "extensionHint": "Use a DSM certificate hostname that resolves to the NAS LAN address.",
+      "webAddress": "Motrix Web address",
+      "webAddressHint": "Use the address you normally open, including /motrix/. You can fill it from this browser.",
+      "useCurrentAddress": "Use this DSM address",
+      "extensionAddress": "Extension connection address",
+      "allowHttp": "Allow pairing codes over HTTP",
+      "allowHttpHint": "Enable only on a trusted network. HTTPS does not require this option.",
+      "clientPort": "Direct client port",
+      "clientPortHint": "Direct clients use this port (1024–65535). DSM HTTPS addresses use the DSM port.",
+      "activeConnections": "Current connection addresses",
+      "cliAddress": "CLI endpoint",
+      "sessionHint": "Clients use their paired DSM account’s current permissions. After DSM logout, session expiration or a package restart, reopen Motrix with that account; pairing again is not required.",
+      "copy": "Copy address",
+      "openSettings": "Configure NAS connections",
+      "errors": {
+        "invalid": "Check the folder paths, port and connection addresses. HTTP code delivery requires explicit permission.",
+        "folderUnavailable": "Check that each folder is on a mounted volume and writable by the internal system user motrix.",
+        "permissionDenied": "The account or folder cannot be authorized. Check DSM shared-folder permissions for your account and the internal system user motrix.",
+        "unavailable": "Package settings are unavailable. Try again after the service has recovered.",
+        "conflict": "The saved configuration changed. Reload before editing again; your unsaved changes will be replaced."
+      }
     }
   },
   "errors": {
@@ -3130,12 +3292,21 @@
     "freshDescription": "Choose where to save the new download. Motrix will create a separate folder and open the download form for you to confirm. It will start from the beginning and leave your old files untouched.",
     "freshDestination": "Choose where to save the new download",
     "chooseDestination": "Choose another location…",
+    "requestSettingsHelp": "이전 쿠키 파일을 사용했다면 필요한 Cookie 헤더를 입력하세요. HTTP 사용자 이름과 비밀번호를 사용했다면 이에 해당하는 Authorization 헤더를 입력하세요. 프록시 인증 정보는 프록시 URL에 입력하세요.",
+    "unsupportedOptions": "지원하지 않는 옵션: {{options}}",
+    "ignoredOptions": "지원하지 않는 옵션 제외: {{options}}",
+    "currentProxyDescription": "이전한 다운로드에는 Motrix의 현재 다운로드 프록시 설정이 적용됩니다. 이전 프록시 설정은 유지되지 않습니다.",
+    "requestOptions": "저장된 요청 설정: {{options}}",
+    "requestSettingsDescription": "이전 요청 설정은 복사되지 않았습니다. 새 폴더에 다운로드하기 전에 고급 설정에서 다시 입력하세요.",
+    "reconfigureDownload": "다시 설정하고 다운로드…",
     "reasons": {
       "fresh-download-required": "Needs a new download",
       "verification-required": "Existing files need checking",
       "metadata-required": "Original torrent file needed",
       "selection-required": "Choose which files to download",
-      "unsupported-options": "Download details need checking",
+      "request-settings-required": "재개 전에 저장된 요청 설정을 확인합니다",
+      "mirrors-unsupported": "This task uses multiple download links. Copy the link you want to use and add a new download.",
+      "unsupported-options": "지원하지 않는 다운로드 옵션",
       "invalid-record": "Couldn’t read this task",
       "unsafe-path": "File location needs checking",
       "already-imported": "Already imported",
@@ -3178,14 +3349,21 @@
       "payloadMissing": "Some original files are missing, including files previously left unselected. All are needed to resume this task. Download again in a new folder.",
       "payloadUnsafe": "The original files can’t be updated safely because of file links or permissions. Keep them and download again in a new folder.",
       "controlRequired": "The saved download progress is missing. Download again in a new folder.",
-      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder."
+      "activationUncertain": "Motrix couldn’t safely resume this task. The original files are protected. You can download again in a new folder.",
+      "httpContentChanged": "다운로드한 데이터가 서버 내용과 다릅니다.",
+      "httpRangeUnsupported": "서버가 필요한 바이트 범위를 지원하지 않습니다.",
+      "httpValidatorRequired": "서버가 신뢰할 수 있는 리소스 버전 식별자를 제공하지 않습니다.",
+      "httpVerificationFailed": "다운로드한 데이터를 검증하지 못했습니다.",
+      "httpRequestUnsupported": "엔진 또는 요청 설정이 안전한 재개를 지원하지 않습니다.",
+      "httpVerificationCancelled": "검증을 취소했습니다.",
+      "httpRedirectUnsupported": "리디렉션되는 링크는 원래 위치에서 안전하게 재개할 수 없습니다."
     },
     "resultIncompleteTitle": "Migration is incomplete",
     "resultStoppedTitle": "Migration stopped",
-    "activationRequired": "Download again in a new folder to keep the original files.",
+    "activationRequired": "작업 상세 정보를 열어 검증 후 다운로드를 재개하세요.",
     "chooseTorrent": "Choose torrent…",
     "torrentFile": "Torrent file",
-    "verifyAndContinue": "Verify and continue",
+    "verifyAndContinue": "검증 후 계속",
     "verifyDescription": "Motrix will verify the original files, then continue with your previous file selection. While downloading, it may upload data and write shared pieces to unselected files. It won’t seed automatically when finished.",
     "authorizeOriginalDirectory": "Choose the original download folder",
     "verifyReady": "Verify your existing files to continue this download, or start again in a new folder.",
@@ -3293,7 +3471,10 @@
         "remaining": "Remaining"
       }
     },
-    "importSelected": "Migrate"
+    "importSelected": "Migrate",
+    "httpResumeDescription": "Motrix는 다운로드한 모든 범위를 서버와 비교한 후 원래 폴더에서 계속합니다. 검증 시 해당 범위를 다시 전송하며, 저장된 요청 설정은 메모리에서만 사용합니다.",
+    "httpVerifying": "준비 또는 검증 중…",
+    "httpOriginalFilesKept": "원본 파일을 보존했습니다."
   },
   "rendererRecovery": {
     "title": "화면을 복구해야 합니다",
@@ -3355,5 +3536,56 @@
     },
     "confirmFileTitle": "Authorize file access",
     "confirmFile": "Allow this operation to read the following file?"
+  },
+  "createTorrent": {
+    "title": "토렌트 만들기",
+    "source": "공유할 콘텐츠",
+    "options": "토렌트 옵션",
+    "trackers": "트래커",
+    "trackersPlaceholder": "줄마다 announce URL 하나씩",
+    "webSeeds": "웹 시드",
+    "webSeedsPlaceholder": "줄마다 HTTP(S) URL 하나씩 (선택)",
+    "comment": "메모",
+    "private": "비공개 토렌트",
+    "privateDesc": "DHT와 PEX를 비활성화하고 트래커로만 배포합니다.",
+    "pieceLength": "조각 크기",
+    "pieceAuto": "자동",
+    "hashing": "해시 계산 중…",
+    "resultName": "이름",
+    "resultSize": "크기",
+    "resultInfoHash": "Info 해시",
+    "saveFile": ".torrent 저장",
+    "create": "만들기",
+    "savedToast": "토렌트를 {{path}} 에 저장했습니다",
+    "createFailed": "토렌트를 만들 수 없습니다",
+    "saveFailed": "토렌트 파일을 저장할 수 없습니다",
+    "seedAfter": "저장 후 시딩 시작",
+    "seedFailed": "시딩 작업을 시작할 수 없습니다.",
+    "seedSubmitted": "시딩 작업을 요청했습니다.",
+    "invalidOptions": "목록마다 유효한 URL을 최대 {{limit}}개 입력할 수 있습니다. 비공개 토렌트에는 트래커가 필요합니다.",
+    "menuLabel": "토렌트 파일 만들기…",
+    "downloadRequested": "다운로드 요청됨: {{path}}"
+  },
+  "operatorToken": {
+    "title": "Access password",
+    "change": "Change password",
+    "effect": "Other devices will need to sign in again.",
+    "currentToken": "Current password",
+    "newToken": "New password",
+    "confirmation": "Confirm new password",
+    "weak": "If you plan to access Motrix over the public internet, use a stronger password.",
+    "invalid": "Remove line breaks and other control characters.",
+    "mismatch": "The passwords do not match.",
+    "incorrectToken": "The current password is incorrect. Try again.",
+    "managed": "This password is managed by the server administrator.",
+    "unavailable": "Could not save. Your current password still works. Try again later.",
+    "rateLimited": "Too many attempts. Wait a minute and try again.",
+    "unknown": "Connection interrupted. The change could not be confirmed.",
+    "saved": "Access password updated.",
+    "saving": "Updating…",
+    "update": "Update password",
+    "requiredCurrent": "Enter your current password.",
+    "requiredNew": "Enter a new password.",
+    "tooLong": "This password is too long. Shorten it and try again."
   }
 }

@@ -1,0 +1,28 @@
+[
+  {
+    "step_title": "Motrix",
+    "items": [
+      {
+        "desc": "All DSM administrators share one download list. Downloads default to the motrix shared folder. After installation, open Motrix Settings → Synology NAS to configure folders and browser extensions; no configuration-file editing is needed."
+      },
+      {
+        "type": "textfield",
+        "desc": "Client port",
+        "subitems": [
+          {
+            "key": "wizard_client_port",
+            "defaultValue": "16802",
+            "validator": {
+              "allowBlank": false,
+              "regex": {
+                "expr": "/^\\d{4,5}$/",
+                "errorText": "Enter a port from 1024 to 65535"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "invalid_next_disabled_v2": true
+  }
+]

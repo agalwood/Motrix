@@ -1,4 +1,9 @@
-import type { ChildProcess, SpawnOptions } from 'node:child_process'
+import type {
+  ChildProcess,
+  ExecFileException,
+  ExecFileOptions,
+  SpawnOptions,
+} from 'node:child_process'
 import { execFile, spawn } from 'node:child_process'
 import { readFile, unlink } from 'node:fs/promises'
 import path from 'node:path'
@@ -22,6 +27,19 @@ const log = getLogger('aria2')
 
 const OWNER_RECORD_VERSION = 1
 const STDERR_TAIL_LIMIT = 32 * 1024
+// Windows 上杀软实时扫描或更新覆盖可能短暂锁住 aria2c.exe，设置单次探针超时与短退避重试
+const DEFAULT_PROBE_TIMEOUT_MS = 10_000
+const DEFAULT_PROBE_RETRY_DELAYS_MS = [200, 500, 1000] as const
+const TRANSIENT_PROBE_ERROR_CODES = new Set([
+  'EBUSY',
+  'EACCES',
+  'EPERM',
+  'ETXTBSY',
+  'EAGAIN',
+  'EMFILE',
+  'ENFILE',
+  'ETIMEDOUT',
+])
 const OWNER_MARKER_PREFIXES = [
   '--conf-path=',
   '--save-session=',
@@ -54,6 +72,34 @@ type OwnerRecord = z.infer<typeof ownerRecordSchema>
 export interface Aria2ProcessManagerOptions {
   ownershipFilePath?: string
   inspector?: Aria2ProcessInspector
+  probeTimeoutMs?: number
+  probeRetryDelaysMs?: readonly number[]
+}
+
+function getProbeErrorCode(error: unknown): string | undefined {
+  if (!error || typeof error !== 'object') return undefined
+  const details = error as ExecFileException & { code?: string | number }
+  if (typeof details.code === 'string' && details.code.length > 0) {
+    return details.code
+  }
+  if (details.killed) return 'ETIMEDOUT'
+  return undefined
+}
+
+// 区分瞬态锁文件/权限抖动/超时与明确缺失（如 ENOENT），避免杀软短暂扫描误报二进制丢失
+function isTransientProbeError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const details = error as ExecFileException & { code?: string | number }
+  if (details.killed) return true
+  if (typeof details.code === 'string') {
+    return TRANSIENT_PROBE_ERROR_CODES.has(details.code)
+  }
+  return false
+}
+
+function delay(ms: number): Promise<void> {
+  if (ms <= 0) return Promise.resolve()
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 export interface ExpectedAria2Process {
@@ -122,6 +168,8 @@ export class Aria2ProcessManager {
   private running = false
   private readonly ownershipFilePath: string | null
   private readonly inspector: Aria2ProcessInspector
+  private readonly probeTimeoutMs: number
+  private readonly probeRetryDelaysMs: readonly number[]
   private recentStderr = ''
   private outputGeneration = 0
 
@@ -131,11 +179,48 @@ export class Aria2ProcessManager {
   constructor(options: Aria2ProcessManagerOptions = {}) {
     this.ownershipFilePath = options.ownershipFilePath ?? null
     this.inspector = options.inspector ?? new Aria2ProcessInspector()
+    this.probeTimeoutMs = options.probeTimeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS
+    this.probeRetryDelaysMs =
+      options.probeRetryDelaysMs ?? DEFAULT_PROBE_RETRY_DELAYS_MS
   }
 
   async probe(binaryPath: string): Promise<EngineFeatureReport> {
-    const versionOutput = await this.execForOutput(binaryPath, ['--version'])
-    const report = this.parseVersionOutput(versionOutput)
+    const maxAttempts = 1 + this.probeRetryDelaysMs.length
+    let versionOutput: string | null = null
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        versionOutput = await this.execForOutput(binaryPath, ['--version'])
+        break
+      } catch (err) {
+        const retryDelayMs = this.probeRetryDelaysMs[attempt - 1]
+        if (retryDelayMs !== undefined && isTransientProbeError(err)) {
+          log.warn(
+            {
+              binaryPath,
+              attempt,
+              maxAttempts,
+              code: getProbeErrorCode(err),
+              retryDelayMs,
+            },
+            'aria2 binary probe failed transiently; retrying'
+          )
+          await delay(retryDelayMs)
+          continue
+        }
+
+        const code = getProbeErrorCode(err)
+        const codeSuffix = code ? ` (${code})` : ''
+        const message = err instanceof Error ? err.message : String(err)
+        throw new AppError(
+          ErrorCode.EngineStartFailed,
+          `Failed to probe aria2 binary at ${binaryPath}${codeSuffix}: ${message}`,
+          err
+        )
+      }
+    }
+
+    const report = this.parseVersionOutput(versionOutput ?? '')
     if (!report) {
       throw new AppError(
         ErrorCode.EngineStartFailed,
@@ -146,19 +231,17 @@ export class Aria2ProcessManager {
   }
 
   private execForOutput(binaryPath: string, args: string[]): Promise<string> {
+    const options: ExecFileOptions = {
+      timeout: this.probeTimeoutMs,
+      windowsHide: true,
+    }
     return new Promise((resolve, reject) => {
-      execFile(binaryPath, args, (err, stdout) => {
+      execFile(binaryPath, args, options, (err, stdout) => {
         if (err) {
-          reject(
-            new AppError(
-              ErrorCode.EngineStartFailed,
-              `Failed to probe aria2 binary at ${binaryPath}: ${err.message}`,
-              err
-            )
-          )
+          reject(err)
           return
         }
-        resolve(stdout)
+        resolve(String(stdout))
       })
     })
   }
@@ -172,6 +255,7 @@ export class Aria2ProcessManager {
     const outputGeneration = ++this.outputGeneration
     const options: SpawnOptions = {
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
     }
     if (env) options.env = env
     const child = spawn(binaryPath, args, options)

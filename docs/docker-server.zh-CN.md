@@ -351,6 +351,35 @@ cat motrix-data/operator-token
 重启或替换镜像时会继续使用同一 token。也可以设置 `MOTRIX_OPERATOR_TOKEN`，
 但环境变量能从容器元数据中看到；单机部署默认使用生成文件更安全。
 
+登录 WebUI 后，可以在 **设置 → 高级 → 访问密码 → 修改密码** 中输入当前密码、
+新密码和确认值，然后点击“更新密码”。也可以在运行中的容器内使用 CLI，默认隐藏输入并要求再次输入：
+
+```bash
+docker compose exec server motrix-admin token set
+```
+
+脚本可以通过标准输入提供一行令牌，避免把令牌放入命令参数或 shell 历史：
+
+```bash
+docker compose exec -T server motrix-admin token set --stdin --json < /secure/new-token.txt
+```
+
+弱令牌只显示提醒，不阻止保存；不要求大小写、数字或符号组合，支持中文和含空格的
+短语。只拒绝空白值、控制字符和超过 1,024 个 UTF-16 代码单元的输入。
+CLI 会移除标准输入末尾的一个换行符，令牌本身的空格会保留。
+新令牌以 `0600` 权限原子写入原来的 `operator-token` 文件，立即生效并在重启后保留。
+旧令牌及其他登录会话失效；Web 修改时当前浏览器会话保持登录，CLI 修改时所有旧会话
+均退出。下载任务不会被删除或中断。若保存结果因断网无法确认，先读取主机上的令牌
+文件再重试；忘记令牌也可以从该文件找回，无须清空下载数据。
+
+若设置了 `MOTRIX_OPERATOR_TOKEN`，Web 和 CLI 会提示该凭据由部署配置管理；
+请修改环境变量并重启服务器。此设置始终优先于文件。飞牛和群晖原生版继续使用 NAS
+账号验证，不提供独立的管理员令牌设置。
+
+登录和 HTTP 凭据验证按连接来源 IP 限流：一分钟内失败 20 次后暂停验证，窗口结束后
+恢复。反向代理后的客户端可能共享同一来源 IP。普通 ASCII 令牌可继续使用 Bearer
+认证；含空格或非 ASCII 字符的令牌可使用空用户名的 HTTP Basic 认证，CLI 自动选择。
+
 当 Web 审批 URL 暂时不可用时，通过 SSH 连接的 operator 可以在运行中的容器
 里批准指定的 device code。该命令只通过容器 loopback 使用现有 operator
 credential，不会输出该 credential 或客户端 token：
@@ -365,6 +394,33 @@ docker compose exec server motrix-admin pairing approve ABCD-EFGH
 ```bash
 docker compose exec server motrix-admin pairing deny ABCD-EFGH
 ```
+
+浏览器扩展使用独立的配对码握手。若通过容器终端完成配对，启用远程扩展监听并配置
+准确的 WS/WSS 地址即可，`MOTRIX_PUBLIC_URL` 为可选项：
+
+```bash
+export MOTRIX_REMOTE_EXTENSION_ENABLED=true
+export MOTRIX_REMOTE_EXTENSION_PUBLIC_URL='ws://nas.example.lan:16801'
+```
+
+使用新环境变量重新创建容器，在扩展中发起配对，然后运行：
+
+```bash
+docker compose exec server motrix-admin extension pair
+```
+
+选择你刚发起的请求，将终端显示的配对码输入扩展。该命令要求输入、输出及错误输出
+均连接交互终端，不要使用 `-T`、管道、重定向或 `--json`。配对码不会出现在服务日志
+或普通 `pairing pending` 列表中，原有的 120 秒期限也不会延长。关闭终端视图不会
+批准或拒绝请求；若请求消失，请在扩展中确认结果。终端录制可能记录配对码，请使用
+可信的管理员会话。
+
+未配置 HTTPS 管理地址、也未显式设置 `MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP=true`
+时，WebUI 不会收到扩展配对码，请使用交互式命令。若要在 WebUI 显示配对码，需配置
+HTTPS 或明确授权可信局域网 HTTP。省略 Web 地址时，现有 Web 同源检查使用请求的
+Host 和协议。Web 与扩展地址可以使用不同主机和端口；若配置了 Web 地址，请从该
+地址访问 WebUI，以满足其事件连接的来源校验。
+
 
 先在客户端发起 pairing，再输入该客户端显示的验证码。该命令刻意不提供
 approve-latest、approve-all、远程 endpoint 或 token 参数。Web 审批仍是正常
@@ -392,13 +448,17 @@ CLI/agent 与浏览器扩展配对都仍然需要 operator 审批。
 
 ## Web 界面的 Logo 菜单
 
-点击左上角的 **Motrix** Logo，可打开关于、设置、任务、帮助和**退出登录**。
+点击左上角的 **Motrix** Logo，可打开关于、设置、文件、任务、帮助和**退出登录**。
 窄屏一次显示一级菜单；点击**返回**、按左方向键或 Escape 可返回上一级。
 
 - **新建任务**打开链接表单，**新建 BT 任务**打开种子表单。
   **打开种子文件**读取浏览器所在设备上的 `.torrent` 文件，支持多选，
   提交前可逐个检查。下载保存路径属于 Server。请求体大小可配置，
   详见本文的种子上传大小说明。
+- **文件 → 创建种子文件…** 可从服务器上的文件或目录创建 BitTorrent v1 种子。
+  在配置的下载根目录内选择当前账号可读取的来源，点击**创建**。
+  **保存 .torrent** 会将种子下载到浏览器所在设备。勾选**保存后使用原文件做种**时，
+  Server 会校验并使用原文件做种；不勾选则只导出种子，不新增下载任务。
 - 暂停、继续、移除和队列调整作用于当前筛选列表中已确认的选择。
   **全选任务**包含视口外的行；选择或筛选变化会取消尚未执行的选择操作。
 - **全部暂停**和**全部继续**作用于整个实例。**清理已停止任务记录**会确认
@@ -530,10 +590,27 @@ operator 可用的管理选项包括：
 - `MOTRIX_SECRETS_SEED`：可选的 64 位十六进制 secret，应来自编排器 secret
   store；否则会生成并持久化 `/data/secrets.lockbox`。
 
-官方镜像不包含 FFmpeg。依赖 FFmpeg 的插件需要基于官方镜像安装 Alpine
-`ffmpeg` 包，并设置 `MOTRIX_FFMPEG_PATH=/usr/bin/ffmpeg`。
+官方镜像不包含 FFmpeg。浏览器扩展的 HLS/DASH 下载、分离音视频合并，以及
+依赖 FFmpeg 的插件，都需要容器内可执行的 FFmpeg。在 **设置 → 集成 → 媒体工具**
+中点击 **下载 FFmpeg**，再点击 **下载并验证**。Server 会根据自身的操作系统和
+架构下载 Motrix 官方构建，校验签名和摘要后安装到
+`/data/binaries/ffmpeg-verified`。Web 界面会显示进度和错误，安装文件随 `/data`
+卷持久保存。安装需要该目录的写入权限，以及访问 GitHub Releases 的出站 HTTPS
+连接。校验失败时会保留此前已验证的安装。
+
+也可以基于官方镜像安装
+Alpine `ffmpeg` 包，并设置 `MOTRIX_FFMPEG_PATH=/usr/bin/ffmpeg`。也可以将
+兼容的可执行文件放在 `/data/binaries/ffmpeg`，或在 Web 界面配置自定义路径。
+在 **设置 → 集成 → 媒体工具** 中确认检测成功后，点击扩展中的 **重新扫描**。
+Server 会刷新媒体能力，无需重启；仅在浏览器所在电脑安装 FFmpeg，不会使其
+在容器内可用。
 
 ## 升级、回滚、备份与恢复
+
+**设置 → 关于** 支持检查 Server 新版本，使用与桌面版相同的稳定版和测试版发布源。
+更新通道和启动时自动检查的偏好会保存在设置中。检查以正在运行的 Server 版本为准，
+不会提示降级。发现新版本后，可以打开对应的更新日志，由管理员手动更新部署。
+Server 不会下载安装包、替换应用文件，或为安装更新而自动重启。
 
 升级前记录当前镜像 digest 并备份 `/data`。做文件系统级备份前先停止服务，
 确保 SQLite 与 aria2 session 一致：
@@ -586,7 +663,7 @@ secret-store 状态和 FFmpeg 探测结果。
 | 端口已分配 | 修改 `MOTRIX_HTTP_PORT` 或 `MOTRIX_MDXP_PUBLIC_PORT`；Web 端口变化时同步更新 `MOTRIX_PUBLIC_URL`。 |
 | Web 界面健康但连接 16801 被拒绝 | 查找 `bridge data ownership unavailable`，检查日志中的 `stage` 和 `reason` 字段。ownership 就绪时，再核对 MDXP 发布地址和四个远程 Extension 变量。 |
 | 外部 aria2 RPC 客户端无法连接 | 确认 `MOTRIX_ARIA2_RPC_LISTEN_ALL=true`、RPC secret 非空且匹配、16800（或自定义 RPC 端口）映射正确，并检查宿主 firewall。标准 Compose 文件不会发布该端口。 |
-| Web 能打开但无法解锁 | 读取当前持久化 `/data/operator-token`，不要使用另一套部署的 token。确认它是普通文件、内容为 base64url 文本且权限为 `0600`。 |
+| Web 能打开但无法解锁 | 读取当前持久化 `/data/operator-token`，不要使用另一套部署的 token。确认它是普通文件、内容为非空白单行令牌且权限为 `0600`；环境变量配置优先。尝试过多时等待一分钟再试。 |
 | 下载目录被拒绝或 NAS 共享目录中没有文件 | 使用 `MOTRIX_ALLOWED_SAVE_DIRS` 下的绝对容器路径；确认目标宿主目录正好挂载到该路径，并允许 runtime UID/GID 写入。 |
 | 插件安装失败 | 检查 `/api/diagnostics` 与日志，保留 `/data`，核实包/来源可信且网络/TLS 可达；显式挂载所有 `MOTRIX_PLUGIN_IMPORT_DIRS`。正常 `.moext`、URL 或 registry 安装不要开启 unmanaged plugins。 |
 | 升级后容器 unhealthy | 检查日志、诊断和两个挂载，然后回滚到已记录的不可变镜像及其配套 `/data` 备份。 |
@@ -643,7 +720,7 @@ bridge lock 的恢复会把该 ownership 记录与已绑定的 Web listener 共�
 | `MOTRIX_BIND_IP` | Compose：`0.0.0.0` | 向后兼容的共享宿主发布 fallback |
 | `MOTRIX_MDXP_HOST` | runtime：`127.0.0.1`；Compose：`0.0.0.0` | 容器内 MDXP listener，不是宿主发布地址 |
 | `MOTRIX_MDXP_PORT` | `16801` | MDXP 监听端口；`0` 表示不使用固定发布端口 |
-| `MOTRIX_PUBLIC_URL` | 未设置 | 显式设置的外部可访问 Web 审批 URL，不是 MDXP URL；不会默认为 localhost |
+| `MOTRIX_PUBLIC_URL` | 未设置 | 可选的外部可访问 Web 审批 URL，不是 MDXP URL；未设置时扩展配对使用本机终端，除非明确授权管理界面 HTTP |
 | `MOTRIX_REMOTE_EXTENSION_ENABLED` | `false` | 显式开启浏览器扩展使用的四条远程 MBP1 路由 |
 | `MOTRIX_REMOTE_EXTENSION_PUBLIC_URL` | 未设置 | Motrix Extension 中应填写的准确 WS/WSS Server 地址 |
 | `MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP` | `false` | 在可信局域网显式接受 operator 凭据和管理流量暴露风险；不可信网络绝不能开启 |

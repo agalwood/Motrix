@@ -2,13 +2,17 @@ import { constants } from 'node:fs'
 import { lstat, mkdtemp, open, readdir, rmdir, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { ensureDirectory } from '@core/fs/ensure-directory'
+import { getLogger } from '@core/logger'
 import {
   type ArtifactIdentity,
   ArtifactIdentityCache,
   ArtifactIdentityError,
   artifactIdentityEquals,
   type FileArtifactIdentity,
+  type RenameFileArtifactIdentity,
   readArtifactIdentity,
+  readRenameFileIdentity,
+  renameFileIdentityMatches,
 } from './artifact-identity'
 import {
   type FinalizeFilesystemAdapter,
@@ -20,6 +24,7 @@ import type {
   FinalizeIsolation,
   FinalizeRemovalIntent,
   FinalizeRemovalSurvivor,
+  PreparedFileRename,
 } from './finalize-committer'
 import {
   reservationMatches,
@@ -168,8 +173,126 @@ export class NativeFinalizeArtifactOperations
     }
   }
 
-  async identity(artifactPath: string): Promise<ArtifactIdentity | null> {
+  async renameIdentity(
+    artifactPath: string
+  ): Promise<RenameFileArtifactIdentity | null> {
+    if (!(await this.supportsRenameIdentity())) return null
     try {
+      return await readRenameFileIdentity(artifactPath)
+    } catch (error) {
+      if (
+        error instanceof ArtifactIdentityError &&
+        (error.code === 'artifact_missing' ||
+          error.code === 'artifact_special_file' ||
+          error.code === 'artifact_identity_unavailable')
+      )
+        return null
+      throw error
+    }
+  }
+
+  async prepareFileRename(
+    sourcePath: string,
+    targetPath: string
+  ): Promise<PreparedFileRename | null> {
+    const caps = await this.adapter.capabilities()
+    if (
+      caps.platform !== 'windows' ||
+      !caps.heldFileWriteExclusion ||
+      !caps.syncedRenameGuard ||
+      !this.adapter.openRenameGuard
+    )
+      return null
+    if (
+      (sourcePath !== `${targetPath}.motrix` &&
+        targetPath !== `${sourcePath}.motrix`) ||
+      path.dirname(sourcePath) !== path.dirname(targetPath)
+    )
+      throw new Error('expected a same-directory suffix rename')
+    const entry = await lstat(sourcePath).catch((err) => {
+      if (err.code === 'ENOENT') return null
+      throw err
+    })
+    if (!entry?.isFile() || entry.isSymbolicLink()) return null
+    await this.assertSupported()
+    const root = await this.adapter.openRoot(path.dirname(sourcePath))
+    let guard: Awaited<
+      ReturnType<NonNullable<FinalizeFilesystemAdapter['openRenameGuard']>>
+    > = null
+    let transferred = false
+    let closed = false
+    const close = async () => {
+      if (closed) return
+      closed = true
+      // A dead sidecar releases its handles. A transport error closing a
+      // handle must not demote an already committed task or hide the cause.
+      for (const handle of [guard?.handle, root]) {
+        if (handle)
+          await this.adapter.close(handle).catch((err) => {
+            getLogger('finalize').warn({ err }, 'finalize_guard_close_failed')
+          })
+      }
+    }
+    try {
+      guard = await this.adapter
+        .openRenameGuard(root, path.basename(sourcePath))
+        .catch((error) => {
+          if (error instanceof FinalizeFsError && error.code === 'unsupported')
+            return null
+          throw error
+        })
+      if (!guard) return null
+      const sourceIdentity = await this.renameIdentity(sourcePath)
+      if (!sourceIdentity) return null
+      if (guard.platformFileId !== sourceIdentity.platformFileId)
+        throw new ArtifactIdentityError(
+          'artifact_mutated',
+          'source path does not identify the held file'
+        )
+      await this.adapter.syncRoot(root)
+      const artifact = guard.handle
+      transferred = true
+      return {
+        sourceIdentity,
+        close,
+        publish: async () => {
+          await this.requireIdentity(sourcePath, sourceIdentity)
+          const result = await this.adapter.renameOpenedNoReplace(
+            artifact,
+            root,
+            path.basename(targetPath)
+          )
+          if (!result)
+            throw new Error('held rename omitted directory durability')
+          const installed = await readRenameFileIdentity(targetPath)
+          if (!renameFileIdentityMatches(installed, sourceIdentity))
+            throw new ArtifactIdentityError(
+              'artifact_mutated',
+              'published name does not identify the held file'
+            )
+          return installed
+        },
+      }
+    } finally {
+      if (!transferred) await close()
+    }
+  }
+
+  private async supportsRenameIdentity(): Promise<boolean> {
+    const capabilities = await this.adapter.capabilities()
+    return (
+      capabilities.platform === 'windows' &&
+      capabilities.heldFileWriteExclusion === true
+    )
+  }
+
+  async identity(
+    artifactPath: string,
+    expected?: ArtifactIdentity
+  ): Promise<ArtifactIdentity | null> {
+    try {
+      if (expected?.kind === 'rename-file')
+        return await readRenameFileIdentity(artifactPath)
       return await readArtifactIdentity(artifactPath, {
         cache: this.identityCache,
       })
@@ -195,6 +318,7 @@ export class NativeFinalizeArtifactOperations
     expected: ArtifactIdentity,
     privateTargetPath: string
   ): Promise<ArtifactIdentity> {
+    this.requireContentIdentity(expected)
     await this.assertSupported()
     await this.requireIdentity(sourcePath, expected)
     await this.ensureSafeDirectory(path.dirname(privateTargetPath))
@@ -247,7 +371,7 @@ export class NativeFinalizeArtifactOperations
     sourcePath: string,
     expected: ArtifactIdentity,
     targetPath: string
-  ): Promise<void> {
+  ): Promise<ArtifactIdentity | undefined> {
     return this.publishOpened(sourcePath, expected, targetPath, 'rename')
   }
 
@@ -256,7 +380,8 @@ export class NativeFinalizeArtifactOperations
     expected: ArtifactIdentity,
     targetPath: string
   ): Promise<void> {
-    return this.publishOpened(sourcePath, expected, targetPath, 'link')
+    this.requireContentIdentity(expected)
+    await this.publishOpened(sourcePath, expected, targetPath, 'link')
   }
 
   private async publishOpened(
@@ -264,7 +389,14 @@ export class NativeFinalizeArtifactOperations
     expected: ArtifactIdentity,
     targetPath: string,
     method: 'rename' | 'link'
-  ): Promise<void> {
+  ): Promise<ArtifactIdentity | undefined> {
+    if (
+      expected.kind === 'rename-file' &&
+      (method !== 'rename' || !(await this.supportsRenameIdentity()))
+    )
+      throw new Error(
+        'rename-only identity requires native file write exclusion'
+      )
     await this.assertSupported()
     await this.requireIdentity(sourcePath, expected)
     await this.ensureSafeDirectory(path.dirname(targetPath))
@@ -301,6 +433,17 @@ export class NativeFinalizeArtifactOperations
         await this.adapter.syncRoot(sourceRoot)
         await this.adapter.syncRoot(targetRoot)
       }
+      if (expected.kind === 'rename-file') {
+        // The native regular-file handle still excludes writes here. Only the
+        // ctime changed by this successful rename can be accepted without reading bytes.
+        const installed = await readRenameFileIdentity(targetPath)
+        if (!renameFileIdentityMatches(installed, expected))
+          throw new ArtifactIdentityError(
+            'artifact_mutated',
+            'renamed artifact changed'
+          )
+        return installed
+      }
       await this.requireIdentity(targetPath, expected)
     } finally {
       if (artifact) await this.adapter.close(artifact).catch(() => undefined)
@@ -326,6 +469,7 @@ export class NativeFinalizeArtifactOperations
     identity: ArtifactIdentity,
     quarantinePath: string
   ): Promise<FinalizeRemovalIntent> {
+    this.requireContentIdentity(identity)
     await this.assertSupported()
     if (process.platform === 'win32' || identity.kind !== 'file') {
       return { artifactPath, identity, quarantinePath }
@@ -492,6 +636,8 @@ export class NativeFinalizeArtifactOperations
     isolation?: FinalizeIsolation,
     survivor?: FinalizeRemovalSurvivor
   ): Promise<void> {
+    this.requireContentIdentity(expected)
+    if (survivor) this.requireContentIdentity(survivor.identity)
     await this.assertSupported()
     if (isolation)
       return this.removeIsolated(
@@ -626,13 +772,23 @@ export class NativeFinalizeArtifactOperations
     await this.adapter.close(held).catch(() => undefined)
   }
 
+  private requireContentIdentity(identity: ArtifactIdentity): void {
+    if (identity.kind === 'rename-file')
+      throw new Error(
+        'rename-only identity cannot authorize copying or deletion'
+      )
+  }
+
   private async requireIdentity(
     artifactPath: string,
     expected: ArtifactIdentity
   ): Promise<void> {
-    const actual = await readArtifactIdentity(artifactPath, {
-      cache: this.identityCache,
-    })
+    const actual =
+      expected.kind === 'rename-file'
+        ? await readRenameFileIdentity(artifactPath)
+        : await readArtifactIdentity(artifactPath, {
+            cache: this.identityCache,
+          })
     if (!artifactIdentityEquals(actual, expected)) {
       throw new ArtifactIdentityError(
         'artifact_mutated',

@@ -1,12 +1,15 @@
 import { ImportFileIcon } from '@renderer/components/icons'
+import { Button } from '@renderer/components/ui/button'
 import {
   type ParsedTorrentFile,
   readTorrentFile,
 } from '@renderer/lib/parse-torrent-file'
 import { cn } from '@renderer/lib/utils'
+import { hasNasTorrentPicker, nasRequest } from '@renderer/platform/nas'
 import { usePlatformServices } from '@renderer/platform/services'
+import { torrentFileErrorKey } from '@shared/lib/engine-torrent'
 import type { AddTaskFormValues } from '@shared/schemas/add-task'
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useFormContext } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
@@ -20,20 +23,29 @@ export function DropZone({
   const platform = usePlatformServices()
   const [dragOver, setDragOver] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const [selectingNas, setSelectingNas] = useState(false)
+  const active = useRef(true)
+  useEffect(() => {
+    active.current = true
+    return () => {
+      active.current = false
+    }
+  }, [])
 
   const loadFiles = useCallback(
     async (files: FileList | File[]) => {
       const parsed: ParsedTorrentFile[] = []
-      let failed = false
+      const failures = new Set<ReturnType<typeof torrentFileErrorKey>>()
       for (const file of Array.from(files)) {
         try {
           parsed.push(await readTorrentFile(file))
-        } catch {
-          failed = true
+        } catch (error) {
+          failures.add(torrentFileErrorKey(error))
         }
       }
-      if (failed) platform.notify('error', 'task.add.parseFailed')
+      for (const key of failures) platform.notify('error', key)
       if (parsed.length === 0) return
+      if (!active.current) return
 
       const first = parsed[0]
       setValue('torrentMeta' as never, first.meta as never, {
@@ -50,6 +62,31 @@ export function DropZone({
     },
     [onFilesLoaded, platform, setValue]
   )
+
+  const selectNasTorrent = async () => {
+    if (selectingNas || !platform.pickFile) return
+    setSelectingNas(true)
+    try {
+      const candidate = await platform.pickFile({
+        kind: 'open',
+        extensions: ['torrent'],
+      })
+      if (!candidate || !active.current) return
+      const response = await nasRequest('torrent', { path: candidate })
+      if (!active.current) return
+      await loadFiles([
+        new File(
+          [await response.blob()],
+          candidate.split('/').at(-1) ?? 'download.torrent'
+        ),
+      ])
+    } catch {
+      if (active.current)
+        platform.notify('error', 'panel.downloads.action.nasFileUnavailable')
+    } finally {
+      if (active.current) setSelectingNas(false)
+    }
+  }
 
   return (
     <>
@@ -84,6 +121,17 @@ export function DropZone({
           </span>
         </span>
       </button>
+      {hasNasTorrentPicker() && (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={selectingNas}
+          onClick={() => void selectNasTorrent()}
+        >
+          {t('task.add.selectNasTorrent')}
+        </Button>
+      )}
       <input
         ref={fileRef}
         type="file"

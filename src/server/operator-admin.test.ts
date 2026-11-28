@@ -60,7 +60,7 @@ function extensionRequest(
     extensionId: 'a'.repeat(32),
     browser: 'chromium' as const,
     identity: 'official' as const,
-    code: 'JKLM-NPQR',
+    code: 'JKMN-PQRS',
     createdAt: NOW - 500,
     expiresAt: NOW + 59_500,
     ...overrides,
@@ -111,6 +111,57 @@ function rpcCall(fetchMock: ReturnType<typeof vi.fn>, index: number) {
 }
 
 describe('runOperatorAdmin', () => {
+  it.each([
+    ['extension', 'pair', '--json'],
+    ['extension', 'pair', '--all'],
+  ])(
+    'rejects noninteractive Extension options before any RPC: %j',
+    async (...argv) => {
+      const fetchMock = vi.fn()
+      const h = harness(fetchMock)
+      expect(await runOperatorAdmin(argv, h.options)).toBe(
+        OperatorAdminExitCode.Usage
+      )
+      expect(fetchMock).not.toHaveBeenCalled()
+      expect(h.stdout.join('')).not.toContain('0123-4567')
+    }
+  )
+  it('rejects redirected Extension pairing before loading credentials', async () => {
+    const fetchMock = vi.fn()
+    const lstatMock = vi.fn()
+    const h = harness(fetchMock, {
+      env: {},
+      lstat: lstatMock as unknown as AdminOptions['lstat'],
+      terminal: {
+        interactive: false,
+        signal: new AbortController().signal,
+        begin() {},
+        show() {},
+        clear() {},
+        close() {},
+        select: async () => '1',
+      },
+    })
+    expect(await runOperatorAdmin(['extension', 'pair'], h.options)).toBe(
+      OperatorAdminExitCode.Usage
+    )
+    expect(lstatMock).not.toHaveBeenCalled()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+  it('accepts MBP1 Crockford codes containing zero and one without printing them', async () => {
+    const h = harness(
+      vi
+        .fn()
+        .mockResolvedValue(
+          jsonResponse([extensionRequest({ code: '0123-4567' }), request()])
+        )
+    )
+    expect(await runOperatorAdmin(['pairing', 'pending'], h.options)).toBe(
+      OperatorAdminExitCode.Success
+    )
+    expect(h.stdout.join('')).not.toContain('0123-4567')
+  })
+
   it('shows help without reading credentials or contacting the server', async () => {
     const fetchMock = vi.fn()
     const lstatMock = vi.fn()
@@ -293,7 +344,7 @@ describe('runOperatorAdmin', () => {
     const output = h.stdout.join('')
     expect(JSON.parse(output).requests).toHaveLength(1)
     expect(output).toContain('ABCD-EFGH')
-    expect(output).not.toContain('JKLM-NPQR')
+    expect(output).not.toContain('JKMN-PQRS')
     expect(output).not.toContain('extension')
   })
 
@@ -307,7 +358,7 @@ describe('runOperatorAdmin', () => {
       runOperatorAdmin(['pairing', 'pending'], h.options)
     ).resolves.toBe(OperatorAdminExitCode.Success)
     expect(h.stdout).toEqual(['No pending pairing requests.'])
-    expect(h.stdout.join('')).not.toContain('JKLM-NPQR')
+    expect(h.stdout.join('')).not.toContain('JKMN-PQRS')
   })
 
   it('fails closed on a malformed Extension row instead of silently dropping it', async () => {
@@ -324,7 +375,7 @@ describe('runOperatorAdmin', () => {
       runOperatorAdmin(['pairing', 'pending'], h.options)
     ).resolves.toBe(OperatorAdminExitCode.Server)
     expect(h.stdout).toEqual([])
-    expect(h.stderr.join('')).not.toContain('JKLM-NPQR')
+    expect(h.stderr.join('')).not.toContain('JKMN-PQRS')
   })
 
   it('sanitizes and bounds untrusted client metadata in JSON output', async () => {
@@ -445,7 +496,7 @@ describe('runOperatorAdmin', () => {
     const h = harness(fetchMock)
 
     await expect(
-      runOperatorAdmin(['pairing', 'approve', 'JKLM-NPQR'], h.options)
+      runOperatorAdmin(['pairing', 'approve', 'JKMN-PQRS'], h.options)
     ).resolves.toBe(OperatorAdminExitCode.Server)
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })

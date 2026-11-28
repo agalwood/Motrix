@@ -18,7 +18,7 @@ import {
 export type { Browser } from '@shared/protocol/bridge'
 
 export interface BridgeSessionMeta {
-  /** `${browser}:${extensionId}`, used as the session map key. */
+  /** Stable authenticated installation key, also used for task notifications. */
   sessionKey: string
   extensionId: string
   browser: Browser
@@ -109,6 +109,13 @@ export class BridgeConnection {
   /** Register a typed request handler. */
   onRequest: MdxpConnection['onRequest'] = (method, handler) => {
     this.mdxp.onRequest(method, handler)
+  }
+
+  onRoutedRequest(
+    method: keyof import('@motrix/mdxp').MdxpRequestMap,
+    handler: (params: unknown) => Promise<unknown>
+  ): void {
+    this.mdxp.raw.onRequest(method, handler)
   }
 
   /** Register a typed notification handler. */

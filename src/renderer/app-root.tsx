@@ -4,6 +4,7 @@ import { LocaleDirectionProvider } from '@renderer/components/locale-direction-p
 import { OperatorUnlockGate } from '@renderer/components/operator-unlock-gate'
 import { ReducedMotionSync } from '@renderer/components/reduced-motion-sync'
 import { ThemeSync } from '@renderer/components/theme-sync'
+import { WindowControlsOverlayProvider } from '@renderer/components/window-chrome/window-controls-overlay-provider'
 import {
   bootstrapRendererLocale,
   type RendererWindowId,
@@ -25,6 +26,15 @@ const AddTaskWindow = lazy(() =>
   }))
 )
 
+const CreateTorrentWindow =
+  __MOTRIX_TARGET__ === 'electron'
+    ? lazy(() =>
+        import('./components/create-torrent/create-torrent-window').then(
+          (m) => ({ default: m.CreateTorrentWindow })
+        )
+      )
+    : null
+
 const OnboardingWindow = lazy(() =>
   import('./windows/onboarding-window').then((module) => ({
     default: module.OnboardingWindow,
@@ -41,9 +51,11 @@ const windowParam = params.get('w')
 const windowId: RendererWindowId =
   windowParam === 'add-task'
     ? 'add-task'
-    : windowParam === 'onboarding'
-      ? 'onboarding'
-      : 'main'
+    : windowParam === 'create-torrent' && CreateTorrentWindow
+      ? 'create-torrent'
+      : windowParam === 'onboarding'
+        ? 'onboarding'
+        : 'main'
 
 document.documentElement.classList.add(`platform-${transport.platform}`)
 document.documentElement.classList.add(`window-${windowId}`)
@@ -71,7 +83,9 @@ function Root({
         {syncSettings && <ByteUnitSync />}
         <ReducedMotionSync syncSettings={syncSettings} />
         <LanguageSync windowId={windowId} />
-        {children}
+        <WindowControlsOverlayProvider>
+          {children}
+        </WindowControlsOverlayProvider>
       </LocaleDirectionProvider>
     </ThemeProvider>
   )
@@ -88,6 +102,17 @@ export async function startRenderer(rootContainer: HTMLElement): Promise<void> {
           <Suspense fallback={<div aria-busy="true" />}>
             <RendererReady />
             <AddTaskWindow />
+          </Suspense>
+        </Root>
+      </RendererBoundary>
+    )
+  } else if (windowId === 'create-torrent' && CreateTorrentWindow) {
+    root.render(
+      <RendererBoundary>
+        <Root>
+          <Suspense fallback={<div aria-busy="true" />}>
+            <RendererReady />
+            <CreateTorrentWindow />
           </Suspense>
         </Root>
       </RendererBoundary>

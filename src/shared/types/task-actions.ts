@@ -1,5 +1,9 @@
-import { isUriOnlyDirectReplay } from '@shared/schemas/direct-replay-recipe'
+import {
+  isUriOnlyDirectReplay,
+  parseDirectReplayRecipe,
+} from '@shared/schemas/direct-replay-recipe'
 import { legacyBtActivationSchema } from '@shared/schemas/legacy-bt-activation'
+import { legacyHttpActivationSchema } from '@shared/schemas/legacy-http-activation'
 import { legacyTaskMetadataSchema } from '@shared/schemas/legacy-import'
 import {
   type DownloadTask,
@@ -86,6 +90,14 @@ export function canOpenTaskFile(t: DownloadTask): boolean {
   )
 }
 
+export function canRevealTaskFolder(task: DownloadTask): boolean {
+  if (task.status === TaskStatus.FetchingMetadata) return false
+  const diskPath = task.diskPath.trim()
+  if (!diskPath) return false
+  const normalized = diskPath.replace(/[\\/]+$/, '')
+  return normalized !== '' && !/^[A-Za-z]:$/.test(normalized)
+}
+
 /** Live multi-file downloads that accept a changed file selection. */
 export function canSelectTaskFiles(t: DownloadTask): boolean {
   return (
@@ -119,6 +131,21 @@ export function canReseed(t: DownloadTask): boolean {
     t.status === TaskStatus.Completed &&
     isTorrentLikeType(t.type) &&
     t.torrentMetaPath != null
+  )
+}
+
+/** Storage changes require resolved metadata and no download/finalization in flight. */
+export function canManageBtStorage(t: DownloadTask): boolean {
+  return (
+    !t.storageOperation &&
+    !hasLegacyImport(t) &&
+    isTorrentLikeType(t.type) &&
+    t.torrentMetaPath != null &&
+    t.transitionPhase === TransitionPhase.Idle &&
+    ([TaskStatus.Completed, TaskStatus.Seeding, TaskStatus.Error].includes(
+      t.status
+    ) ||
+      (t.status === TaskStatus.Paused && t.progress === 1))
   )
 }
 
@@ -260,9 +287,49 @@ export function canAttemptRetry(t: DownloadTask): boolean {
   return getTaskRetryKind(t) !== null
 }
 
+/** Offer a fresh HTTP download form without changing the failed task or bytes. */
+export function canRetryWithParameters(t: DownloadTask): boolean {
+  return (
+    !hasLegacyImport(t) &&
+    t.kind === TaskKind.Direct &&
+    t.type === TaskType.Http &&
+    t.status === TaskStatus.Error &&
+    t.transitionPhase === TransitionPhase.Idle
+  )
+}
+
+/** Retention is not permission to resume; the engine must still verify binding. */
+export function hasRetainedHttpRequestContext(t: DownloadTask): boolean {
+  if (
+    hasLegacyImport(t) ||
+    t.kind !== TaskKind.Direct ||
+    t.type !== TaskType.Http ||
+    t.transitionPhase !== TransitionPhase.Idle ||
+    !t.engineTaskId
+  )
+    return false
+  const primary = t.instances.find(
+    (instance) => instance.phase === TaskInstancePhase.HttpDownload
+  )
+  return Boolean(
+    primary &&
+      primary.gid === t.engineTaskId &&
+      primary.uris.length === 1 &&
+      primary.diskPath === t.diskPath &&
+      parseDirectReplayRecipe(primary.payload)?.engineContextVersion === 1
+  )
+}
+
+/** UI affordance only; automatic replay still requires canAttemptRetry. */
+export function canOfferRetry(t: DownloadTask): boolean {
+  return canAttemptRetry(t) || canRetryWithParameters(t)
+}
+
 export function hasLegacyImport(t: Pick<DownloadTask, 'instances'>): boolean {
-  return (t.instances ?? []).some((instance) =>
-    Object.hasOwn(instance.payload ?? {}, 'legacyImport')
+  return (t.instances ?? []).some(
+    (instance) =>
+      Object.hasOwn(instance.payload ?? {}, 'legacyImport') ||
+      Object.hasOwn(instance.payload ?? {}, 'legacyHttpActivation')
   )
 }
 
@@ -271,10 +338,25 @@ export function isLegacyImportInactive(
   t: Pick<DownloadTask, 'instances'>
 ): boolean {
   return (t.instances ?? []).some((instance) => {
-    if (!Object.hasOwn(instance.payload ?? {}, 'legacyImport')) return false
+    if (!Object.hasOwn(instance.payload ?? {}, 'legacyImport'))
+      return Object.hasOwn(instance.payload ?? {}, 'legacyHttpActivation')
     const marker = legacyTaskMetadataSchema.safeParse(
       instance.payload.legacyImport
     )
+    if (
+      marker.success &&
+      marker.data.storagePolicy === 'legacy-http-in-place'
+    ) {
+      const activation = legacyHttpActivationSchema.safeParse(
+        instance.payload.legacyHttpActivation
+      )
+      return (
+        marker.data.activation !== 'active' ||
+        !activation.success ||
+        activation.data.stage !== 'active' ||
+        instance.gid !== activation.data.engineTaskId
+      )
+    }
     const activation = legacyBtActivationSchema.safeParse(
       instance.payload.legacyBtActivation
     )

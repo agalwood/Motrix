@@ -1100,3 +1100,23 @@ describe('targeted finalize recovery', () => {
     expect(deps.fs.removePathRecursive).not.toHaveBeenCalled()
   })
 })
+
+it('preserves held transition evidence and permits only explicit recovery', async () => {
+  const task = makeTask({
+    type: TaskType.Http,
+    status: TaskStatus.Error,
+    errorDetailKey: 'task.recovery.startup.portableExternalPath',
+  })
+  const deps = makeDeps({
+    taskManager: { getAll: () => [task], persist: vi.fn() },
+    canRecoverAutomatically: () => false,
+    hasPendingFinalization: async () => true,
+  })
+  const recovery = new TaskRecoveryServiceImpl(deps)
+  expect((await recovery.recoverOnStartup()).totalScanned).toBe(0)
+  expect(deps.fs.pathExists).not.toHaveBeenCalled()
+  expect(deps.finalizeTask).not.toHaveBeenCalled()
+  expect(task.transitionPhase).toBe(TransitionPhase.Renaming)
+  expect((await recovery.recoverTaskById(task.id)).totalScanned).toBe(1)
+  expect(deps.finalizeTask).toHaveBeenCalledExactlyOnceWith(task.id)
+})

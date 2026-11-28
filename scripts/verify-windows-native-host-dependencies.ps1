@@ -26,17 +26,27 @@ if ($null -eq $dumpbin) {
   $installationPath = & $vswhere `
     -latest `
     -products '*' `
-    -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+    -requiresAny `
+    -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 Microsoft.VisualStudio.Component.VC.Tools.ARM64 `
     -property installationPath
   if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($installationPath)) {
     throw 'Could not locate a Visual Studio installation with MSVC tools'
   }
 
-  $dumpbin = Get-ChildItem `
-    -Path (Join-Path $installationPath 'VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe') `
-    -File |
-    Sort-Object -Property FullName -Descending |
-    Select-Object -First 1
+  $hostTools = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq 'Arm64') {
+    @('Hostarm64\arm64', 'Hostarm64\x64', 'Hostx64\x64', 'Hostx86\x86')
+  } else {
+    @('Hostx64\x64', 'Hostx86\x86')
+  }
+  foreach ($hostTool in $hostTools) {
+    $dumpbin = Get-ChildItem `
+      -Path (Join-Path $installationPath "VC\Tools\MSVC\*\bin\$hostTool\dumpbin.exe") `
+      -File `
+      -ErrorAction SilentlyContinue |
+      Sort-Object -Property FullName -Descending |
+      Select-Object -First 1
+    if ($null -ne $dumpbin) { break }
+  }
   if ($null -eq $dumpbin) {
     throw "dumpbin.exe was not found below $installationPath"
   }

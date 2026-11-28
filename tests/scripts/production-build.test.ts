@@ -5,12 +5,20 @@ import { beforeAll, describe, expect, it } from 'vitest'
 const MIB = 1024 * 1024
 const ROOT = path.resolve(import.meta.dirname, '../..')
 const TARGETS = [
-  // Plugin operations, renderer recovery and 26 catalogs bring main to ~5.28 MiB.
-  { name: 'main', initial: 2 * MIB, total: 5.5 * MIB },
+  // Keep the 2 MiB startup ceiling and bound the complete lazy-loaded output.
+  // The desktop handoff journal and recovery handlers add 13 KiB of JS.
+  { name: 'main', initial: 2 * MIB, total: 5.5 * MIB + 28 * 1024 },
   { name: 'preload', initial: 80 * 1024, total: 80 * 1024 },
   { name: 'worker', initial: 48 * 1024, total: 48 * 1024 },
-  { name: 'renderer', initial: 2.75 * MIB, total: 8 * MIB },
-  { name: 'renderer.web', initial: 2.75 * MIB, total: 8 * MIB },
+  // Native NAS strings in all 26 catalogs add ~60 KiB; the Web-only settings
+  // dialog stays lazy and is excluded from Electron. Startup ceilings are unchanged.
+  // React Flow 13's compiled call graph adds ~65 KiB (~26 KiB gzip), entirely
+  // in lazy chunks. Reserve a further 64 KiB; retain the startup ceiling.
+  // 依赖升级（recharts、i18next、react-router、elkjs 等）使懒加载总包增加约 25 KiB，启动体积上限保持不变。
+  { name: 'renderer', initial: 2.75 * MIB, total: 8 * MIB + 160 * 1024 },
+  // The lazy DSM storage recovery page and its localized controls add 9 KiB.
+  // 同上，加上 @trimjs/web-app 0.7.0 使 Web 懒加载总包增加约 26 KiB，启动体积上限保持不变。
+  { name: 'renderer.web', initial: 2.75 * MIB, total: 8 * MIB + 204 * 1024 },
   // The shared operation runtime brings total server JS to ~5.01 MiB.
   { name: 'server', initial: 2 * MIB, total: 5.25 * MIB },
 ]
@@ -23,6 +31,7 @@ interface BundleMetrics {
   sourceMaps: number
   initialLocales: string[]
   bundledLocales: string[]
+  bundledOperatorAdmin: boolean
   initialElk: boolean
   bundledElk: boolean
   javascriptAssetBytes: number
@@ -58,6 +67,8 @@ describe('production bundle loading and size contracts', () => {
       expect(result.initialBytes).toBeLessThanOrEqual(target.initial)
       expect(result.totalBytes).toBeLessThanOrEqual(target.total)
       expect(result.sourceMaps).toBe(0)
+      if (target.name === 'main')
+        expect(result.bundledOperatorAdmin).toBe(false)
       if (
         ['main', 'server', 'renderer', 'renderer.web'].includes(target.name)
       ) {

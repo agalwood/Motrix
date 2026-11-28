@@ -30,12 +30,14 @@ import {
   TaskType,
   TransitionPhase,
 } from '@shared/types/task'
+import { storageTorrent } from '@test-utils/bt-storage'
 import { makeMediaMetaStoreStub } from '@test-utils/media-meta-store'
 import { makeDownloadTask } from '@test-utils/task'
 import { directTaskUpdatePublication } from '@test-utils/task-update'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createAppUpdateService } from '../core/app-update-service'
 import { MainProcessWorkCoordinator } from '../main-process-work-coordinator'
+import { setPortableProfile } from '../platform/portable-profile'
 import { WINDOWS_DEFAULT_APPS_SETTINGS_URL } from '../platform/windows-default-apps'
 import type { CommandContext } from './commands'
 import { buildCommandHandlers, registerCommandHandlers } from './commands'
@@ -743,14 +745,12 @@ describe('buildCommandHandlers', () => {
     expect(result).toMatchObject({
       gid: expect.stringMatching(/^[0-9a-f]{16}$/),
     })
-    // Unresolved BT writes directly inside its final container under the
-    // fallback save root.
+    // 未解析的直连磁力任务应直接使用规范化后的默认下载目录，不再拼接 info_hash 子目录 (#2552, #2562)
+    const expectedDir = await realpath('/tmp').catch(() => '/tmp')
     expect(ctx.rpcClient.addUri).toHaveBeenCalledWith(
       ['magnet:?xt=urn:btih:a03e3f9a05341aa336e9d9d3f06b33cddafe0bdc'],
       expect.objectContaining({
-        dir: expect.stringMatching(
-          /^\/tmp\/(?!.*\.motrix$).+$/
-        ) as unknown as string,
+        dir: expectedDir,
         gid: result?.gid,
       })
     )
@@ -868,6 +868,39 @@ describe('buildCommandHandlers', () => {
     expect(ctx.protocolManager.resetDialogState).toHaveBeenCalled()
     expect(closeAndRecycle).toHaveBeenCalledWith('add-task')
   })
+
+  it.each(['visible', 'hidden', 'released'] as const)(
+    'CloseCurrentWindow preserves a %s main window on cancel',
+    async (state) => {
+      const ctx = fakeCtx()
+      const main =
+        state === 'released'
+          ? null
+          : { isVisible: vi.fn(() => state === 'visible') }
+      ctx.windowManager = {
+        ...ctx.windowManager,
+        getWindowIdBySender: vi.fn(() => 'add-task'),
+        get: vi.fn(() => main),
+        closeAndRecycle: vi.fn(),
+        show: vi.fn(),
+      } as any
+      // @ts-expect-error partial ctx
+      const handlers = buildCommandHandlers(ctx)
+
+      await handlers[Commands.CloseCurrentWindow]?.({} as never, {
+        showMain: 'if-visible',
+      })
+
+      expect(ctx.windowManager.closeAndRecycle).toHaveBeenCalledWith('add-task')
+      expect(ctx.protocolManager.resetDialogState).toHaveBeenCalled()
+      if (state === 'visible') {
+        expect(ctx.windowManager.show).toHaveBeenCalledWith('main')
+      } else {
+        expect(ctx.windowManager.show).not.toHaveBeenCalled()
+      }
+      expect(ctx.eventBus.emit).not.toHaveBeenCalled()
+    }
+  )
 
   it('CloseCurrentWindow emits NavigateTo when navigateMainTo is set', async () => {
     const ctx = fakeCtx()
@@ -1126,7 +1159,13 @@ describe('buildCommandHandlers', () => {
       }
       ctx.protocolManager.downloadAllTorrents.mockResolvedValueOnce([
         {
-          payload: { name: 'first.torrent', dataBase64: 'Zmlyc3Q=' },
+          payload: {
+            name: 'first.torrent',
+            dataBase64: storageTorrent([
+              { name: 'skip.bin', data: 'a' },
+              { name: 'keep.bin', data: 'b' },
+            ]).toString('base64'),
+          },
           meta: {
             name: 'first.bin',
             files: [
@@ -1136,7 +1175,13 @@ describe('buildCommandHandlers', () => {
           },
         },
         {
-          payload: { name: 'second.torrent', dataBase64: 'c2Vjb25k' },
+          payload: {
+            name: 'second.torrent',
+            dataBase64: storageTorrent([
+              { name: 'one.bin', data: 'c' },
+              { name: 'two.bin', data: 'd' },
+            ]).toString('base64'),
+          },
           meta: {
             name: 'second.bin',
             files: [
@@ -1165,7 +1210,10 @@ describe('buildCommandHandlers', () => {
       })
       expect(ctx.rpcClient.addTorrent).toHaveBeenNthCalledWith(
         1,
-        'Zmlyc3Q=',
+        storageTorrent([
+          { name: 'skip.bin', data: 'a' },
+          { name: 'keep.bin', data: 'b' },
+        ]).toString('base64'),
         [],
         expect.objectContaining({
           'select-file': '2',
@@ -1176,7 +1224,10 @@ describe('buildCommandHandlers', () => {
       )
       expect(ctx.rpcClient.addTorrent).toHaveBeenNthCalledWith(
         2,
-        'c2Vjb25k',
+        storageTorrent([
+          { name: 'one.bin', data: 'c' },
+          { name: 'two.bin', data: 'd' },
+        ]).toString('base64'),
         [],
         expect.objectContaining({
           'select-file': '1,2',
@@ -3227,5 +3278,51 @@ describe('CreateTask media resolution fallback', () => {
       'https://example.com/video',
       undefined
     )
+  })
+})
+
+it('rejects system association commands from a portable profile', async () => {
+  setPortableProfile({
+    root: 'E:\\Motrix',
+    dataDir: '',
+    userDataDir: '',
+    tempDir: '',
+    workDir: '',
+    downloadsDir: '',
+  })
+  try {
+    const handlers = buildCommandHandlers(
+      fakeCtx() as unknown as CommandContext
+    )
+    await expect(
+      handlers[Commands.RequestDefaultTorrentHandler]?.()
+    ).rejects.toMatchObject({ code: ErrorCode.SettingsInvalid })
+  } finally {
+    setPortableProfile(null)
+  }
+})
+
+describe('BT storage command contract', () => {
+  it('validates destination requests before invoking storage', async () => {
+    const handlers = buildCommandHandlers(
+      fakeCtx() as unknown as CommandContext
+    )
+    await expect(
+      handlers[Commands.ChangeBtStorage]?.({ taskId: 'bt', mode: 'move' })
+    ).rejects.toThrow()
+  })
+  it('reports unavailable storage and accepts a harmless cancellation', async () => {
+    const handlers = buildCommandHandlers(
+      fakeCtx() as unknown as CommandContext
+    )
+    expect(
+      await handlers[Commands.ChangeBtStorage]?.({
+        taskId: 'bt',
+        mode: 'recheck',
+      })
+    ).toEqual({ error: 'unavailable' })
+    expect(await handlers[Commands.CancelBtStorage]?.('bt')).toEqual({
+      ok: true,
+    })
   })
 })

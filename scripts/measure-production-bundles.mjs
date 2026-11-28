@@ -102,6 +102,9 @@ export async function measureProductionBundles() {
         .length,
       initialLocales: locales(startupModules),
       bundledLocales: locales(allModules),
+      bundledOperatorAdmin: chunks.some((chunk) =>
+        /\boperatorAdmin\s*[:=]/.test(chunk.code)
+      ),
       initialElk: startupModules.some((id) => id.includes('/elkjs/')),
       bundledElk: allModules.some((id) => id.includes('/elkjs/')),
     }

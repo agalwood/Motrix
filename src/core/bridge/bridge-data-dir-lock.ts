@@ -41,9 +41,10 @@ export interface BridgeDataDirLockHandle {
 /**
  * Trusted composition-root authority for stale recovery.
  *
- * This assertion MUST return true only while Motrix Main already owns
- * Electron's `requestSingleInstanceLock()` result, acquired before bridge
- * startup. PID checks, file age, mtime, and heartbeat expiry are not adequate
+ * This assertion MUST return true only while the shell owns an OS-backed
+ * exclusive resource acquired before bridge startup: Electron's instance lock,
+ * a pinned TCP listener, or a data-directory-derived Linux abstract socket.
+ * PID checks, file age, mtime, and heartbeat expiry are not adequate
  * substitutes. Core deliberately cannot manufacture this OS-level proof.
  */
 export interface BridgeDataDirLockRecoveryAuthority {

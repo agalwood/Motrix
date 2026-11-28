@@ -1,0 +1,19 @@
+{
+  ".url": {
+    "motrix.main": {
+      "title": "Motrix",
+      "icon": "images/icon_{0}.png",
+      "type": "iframe",
+      "gatewayPrefix": "/app/motrix",
+      "gatewaySocket": "app.sock",
+      "url": "/app/motrix/",
+      "allUsers": false,
+      "control": {
+        "accessPerm": "readonly"
+      },
+      "fileTypes": [
+        "torrent"
+      ]
+    }
+  }
+}

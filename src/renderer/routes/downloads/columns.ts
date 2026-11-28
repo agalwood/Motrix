@@ -15,7 +15,7 @@ export const TASK_COLUMNS: Record<
   down: { width: 128, min: 128, max: 240, numeric: true },
   up: { width: 128, min: 128, max: 240, numeric: true },
   eta: { width: 112, min: 112, max: 240, numeric: true },
-  connections: { width: 90, min: 72, max: 240, numeric: true },
+  connections: { width: 112, min: 72, max: 240, numeric: true },
   createdAt: { width: 196, min: 140, max: 300 },
   finishedAt: { width: 196, min: 140, max: 300 },
 }

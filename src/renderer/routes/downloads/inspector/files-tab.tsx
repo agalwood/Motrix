@@ -7,7 +7,6 @@ import { transport } from '@renderer/lib/transport'
 import { Commands } from '@shared/protocol/commands'
 import type { DownloadTask, TaskFile } from '@shared/types/task'
 import { TaskKind, TaskStatus, TaskType } from '@shared/types/task'
-import { mediaProgressPercent } from '@shared/utils/media-progress'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -35,7 +34,11 @@ export function FilesTab({ task }: { task: DownloadTask }) {
   const { formatBytes } = useByteFormat()
   const isMedia = task.kind === TaskKind.Hls || task.kind === TaskKind.Mux
   const isActive = ACTIVE_DOWNLOAD.has(task.status)
-  const { files } = useTaskFiles(task.id, isActive)
+  const { files } = useTaskFiles(
+    task.id,
+    isActive && task.status !== TaskStatus.Seeding,
+    task.engineTaskId
+  )
   const initial = task.bt?.selectedFiles ?? []
   const [draft, setDraft] = useState<number[]>(initial)
   // Direct HTTP/FTP and single-file tasks have no file selection to make.
@@ -81,12 +84,13 @@ export function FilesTab({ task }: { task: DownloadTask }) {
           isActive || isMedia
             ? (f) => (
                 <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                  {(isMedia ? mediaProgressPercent : formatProgressPercent)(
+                  {formatProgressPercent(
                     f.progress ??
                       (files.length === 1 && !isMedia
                         ? task.progress
-                        : f.completedBytes / Math.max(f.size, 1))
-                  )}
+                        : f.completedBytes / Math.max(f.size, 1)),
+                    1
+                  ).toFixed(1)}
                   %
                 </span>
               )

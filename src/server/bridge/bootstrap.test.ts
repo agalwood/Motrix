@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { request as httpRequest } from 'node:http'
 import { tmpdir } from 'node:os'
@@ -25,8 +26,15 @@ import { BridgeStreamSource } from '@core/bridge-receiver/bridge-stream-source'
 import { EventBus } from '@core/events/event-bus'
 import { SettingsManager } from '@core/settings/settings-manager'
 import { Methods, Notifications } from '@motrix/mdxp'
-import { BridgeEvents, BridgeQueries } from '@shared/protocol/bridge'
+import {
+  BridgeCommands,
+  BridgeEvents,
+  BridgeQueries,
+  type PairedClientInfo,
+  type PendingPairRequestInfo,
+} from '@shared/protocol/bridge'
 import { Events } from '@shared/protocol/events'
+import { claimExtensionPairResultSchema } from '@shared/schemas/extension-pairing'
 import { EngineState } from '@shared/types/engine'
 import { TaskStatus } from '@shared/types/task'
 import {
@@ -35,11 +43,83 @@ import {
 } from '@test-utils/bridge-receiver'
 import { makeDownloadTask } from '@test-utils/task'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import WebSocket from 'ws'
+import { createApp } from '../http/app'
+import { OperatorAdminExitCode, runOperatorAdmin } from '../operator-admin'
+import {
+  currentNasUser,
+  type NasIdentity,
+  runAsNasGatewayUser,
+} from '../platform/nas/identity'
 import {
   bootstrapBridgeForServer,
   type ServerExtensionReceiver,
 } from './bootstrap'
-import { parseRemoteExtensionConfig } from './remote-extension-config'
+import {
+  parseRemoteExtensionConfig,
+  type RemoteExtensionConfig,
+} from './remote-extension-config'
+
+async function pairThroughOperatorTerminal(
+  runtime: Awaited<ReturnType<typeof bootstrapBridgeForServer>>,
+  config: RemoteExtensionConfig,
+  handshake: Awaited<ReturnType<typeof startPair>>
+) {
+  const token = 't'.repeat(43)
+  const app = await createApp({
+    operatorAuth: { operatorToken: token },
+    remoteExtensionConfig: config,
+    bridgeQueryHandlers: runtime.bridgeQueryHandlers,
+  })
+  const controller = new AbortController()
+  let reveal!: (code: string) => void
+  const shown = new Promise<string>((resolve) => {
+    reveal = resolve
+  })
+  const stdout: string[] = []
+  const stderr: string[] = []
+  let command: Promise<OperatorAdminExitCode> | undefined
+  try {
+    const address = await app.listen({ host: '127.0.0.1', port: 0 })
+    command = runOperatorAdmin(['extension', 'pair'], {
+      env: { MOTRIX_OPERATOR_TOKEN: token, PORT: new URL(address).port },
+      writeStdout: (message) => stdout.push(message),
+      writeStderr: (message) => stderr.push(message),
+      terminal: {
+        interactive: true,
+        signal: controller.signal,
+        begin() {},
+        clear() {},
+        close() {},
+        select: async () => '1',
+        show(lines) {
+          const code = lines
+            .join('\n')
+            .match(/^Pairing code: ([0-9A-Z]{4}-[0-9A-Z]{4})$/m)?.[1]
+          if (code) reveal(code)
+        },
+      },
+    })
+    const code = await Promise.race([
+      shown,
+      command.then(() => {
+        throw new Error('terminal exited before revealing the selected code')
+      }),
+    ])
+    const { channel } = await runPake(handshake, code)
+    const credential = await exchangeCredential(handshake, channel)
+    expect(await command).toBe(OperatorAdminExitCode.Success)
+    expect(stdout.join('')).not.toContain(code)
+    expect(stdout.join('')).not.toContain(token)
+    expect(stderr).toEqual([])
+    expect(stdout.join('')).toContain('Check the Extension')
+    return { code, channel, credential }
+  } finally {
+    controller.abort()
+    await command
+    await app.close()
+  }
+}
 
 function readDeps(): ReadHandlerDeps {
   return {
@@ -80,6 +160,8 @@ function extensionReceiver(): ServerExtensionReceiver {
   return {
     handle: vi.fn(async () => ({ taskId: 'submitted' })),
     cancel: vi.fn(async () => {}),
+    cancelMedia: vi.fn(async () => {}),
+    getMediaSegmentGids: vi.fn(() => []),
     restoreInflight: vi.fn(async () => {}),
     start: vi.fn(),
     stopAndDrain: vi.fn(async () => {}),
@@ -392,171 +474,466 @@ describe('bootstrapBridgeForServer', () => {
     }
   })
 
-  it('serves the direct-LAN Extension routes across a persistent restart', async () => {
+  it('broadcasts profile readiness, disconnect, and reconnect to an authenticated Web UI socket', async () => {
+    const eventBus = new EventBus()
     const remoteExtensionConfig = parseRemoteExtensionConfig({
       MOTRIX_REMOTE_EXTENSION_ENABLED: 'true',
       MOTRIX_REMOTE_EXTENSION_PUBLIC_URL: 'ws://motrix.example/bridge',
       MOTRIX_PUBLIC_URL: 'https://motrix.example',
     })
-    const firstReceiver = extensionReceiver()
     runtime = await bootstrapBridgeForServer({
       userDataDir,
-      host: '0.0.0.0',
+      host: '127.0.0.1',
       port: 0,
       motrixVersion: '2.0',
-      eventBus: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
+      eventBus,
       readHandlerDeps: readDeps(),
       writeHandlerDeps: writeDeps(),
       remoteExtensionConfig,
-      createExtensionReceiver: () => firstReceiver,
+      createExtensionReceiver: extensionReceiver,
     })
-    expect(firstReceiver.restoreInflight).toHaveBeenCalledOnce()
-    expect(firstReceiver.start).toHaveBeenCalledOnce()
-    const firstInstanceId = await readFile(
-      join(userDataDir, 'bridge', 'server-instance-id'),
-      'utf8'
-    )
-    expect(firstInstanceId).toMatch(/^[0-9a-f-]{36}$/u)
-    expect(
-      (await fetch(`http://127.0.0.1:${runtime.port}/discovery`)).status
-    ).toBe(404)
-    expect(
-      (
-        await fetch(`http://127.0.0.1:${runtime.port}/nonce`, {
-          method: 'POST',
-          headers: { 'X-Motrix-Bridge': '1' },
-        })
-      ).status
-    ).toBe(404)
-    await expect(
-      rawRequest(runtime.port, [
-        'GET /bridge/discovery HTTP/1.1',
-        'Host: motrix.example',
-        'Connection: close',
-      ])
-    ).resolves.toMatchObject({ status: 200 })
-    await expect(
-      rawRequest(runtime.port, [
-        'POST /bridge/nonce HTTP/1.1',
-        'Host: motrix.example',
-        'X-Motrix-Bridge: 1',
-        'Content-Length: 0',
-        'Connection: close',
-      ])
-    ).resolves.toMatchObject({ status: 200 })
-    await expect(
-      runtime.bridgeQueryHandlers['bridge:listPaired']()
-    ).resolves.toEqual([])
+    const bridge = runtime
+    const token = 'web-event-test-operator'
+    const app = await createApp({
+      eventBus,
+      remoteExtensionConfig,
+      operatorAuth: { operatorToken: token },
+      bridgeQueryHandlers: bridge.bridgeQueryHandlers,
+    })
+    const closeExtensions: Array<() => void> = []
+    let webSocket: WebSocket | undefined
+    try {
+      const base = await app.listen({ host: '127.0.0.1', port: 0 })
+      const login = await fetch(`${base}/rpc/auth/login`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ token }),
+      })
+      expect(login.status).toBe(200)
+      const cookie = login.headers.get('set-cookie')!.split(';')[0]
+      const readInstallations = async () => {
+        const response = await fetch(
+          `${base}/rpc/query/${encodeURIComponent(BridgeQueries.ListPaired)}`,
+          {
+            method: 'POST',
+            headers: {
+              'content-type': 'application/json',
+              cookie,
+              origin: base,
+            },
+            body: JSON.stringify({ args: [] }),
+          }
+        )
+        expect(response.status).toBe(200)
+        const paired = (await response.json()) as PairedClientInfo[]
+        return paired.flatMap((client) =>
+          client.kind === 'extension' ? (client.installations ?? []) : []
+        )
+      }
+      webSocket = new WebSocket(`${base.replace('http:', 'ws:')}/rpc/events`, {
+        headers: { cookie, origin: base },
+      })
+      const changes: unknown[][] = []
+      webSocket.on('message', (data) => {
+        const frame = JSON.parse(String(data)) as {
+          channel: string
+          args: unknown[]
+        }
+        if (frame.channel === BridgeEvents.ExtensionSessionsChanged) {
+          changes.push(frame.args)
+        }
+      })
+      await new Promise<void>((resolve, reject) => {
+        webSocket!.once('open', resolve)
+        webSocket!.once('error', reject)
+      })
 
-    // The public bundle is not merely connectable: a real first-pair channel
-    // reaches the shell receiver's validated download/submit handler.
+      const extensionId = 'a'.repeat(32)
+      const origin = `chrome-extension://${extensionId}`
+      const handshake = await startPair({
+        port: bridge.port,
+        origin,
+        browser: 'chromium',
+        claimedExtensionId: extensionId,
+        routePrefix: '/bridge',
+        hostHeader: 'motrix.example',
+      })
+      closeExtensions.push(() => handshake.wire.ws.terminate())
+      const pending = (await bridge.bridgeQueryHandlers[
+        BridgeQueries.ListPendingPairRequests
+      ]()) as Array<{ code?: string }>
+      const code = pending[0]?.code
+      if (!code) throw new Error('pairing code missing')
+      const { channel } = await runPake(handshake, code)
+      const credential = await exchangeCredential(handshake, channel)
+      const connection = mdxpOverChannel(handshake.wire, channel)
+      closeExtensions.push(() => connection.dispose())
+      await connection.sendRequest(
+        Methods.MotrixInitialize,
+        initializeParams(extensionId)
+      )
+      await vi.waitFor(async () =>
+        expect(await readInstallations()).toEqual([
+          expect.objectContaining({ connected: false }),
+        ])
+      )
+      expect(changes).toEqual([])
+
+      await connection.sendNotification(
+        Notifications.MotrixInitialized,
+        undefined
+      )
+      await vi.waitFor(() => expect(changes).toEqual([[{}]]))
+      const ready = await readInstallations()
+      expect(ready).toEqual([expect.objectContaining({ connected: true })])
+
+      handshake.wire.ws.close()
+      await handshake.wire.closed
+      await vi.waitFor(() => expect(changes).toEqual([[{}], [{}]]))
+      expect(await readInstallations()).toEqual([
+        { ...ready[0], connected: false },
+      ])
+
+      const instanceId = (
+        await readFile(
+          join(userDataDir, 'bridge', 'server-instance-id'),
+          'utf8'
+        )
+      ).trim()
+      const back = await reconnect({
+        port: bridge.port,
+        origin,
+        instanceId,
+        credential,
+        routePrefix: '/bridge',
+        hostHeader: 'motrix.example',
+      })
+      closeExtensions.push(() => back.wire.ws.terminate())
+      const reconnected = mdxpOverChannel(back.wire, back.channel)
+      closeExtensions.push(() => reconnected.dispose())
+      await reconnected.sendRequest(
+        Methods.MotrixInitialize,
+        initializeParams(extensionId)
+      )
+      await reconnected.sendNotification(
+        Notifications.MotrixInitialized,
+        undefined
+      )
+      await vi.waitFor(() => expect(changes).toEqual([[{}], [{}], [{}]]))
+      expect(await readInstallations()).toEqual(ready)
+    } finally {
+      try {
+        webSocket?.terminate()
+        await app.close()
+      } finally {
+        for (const close of closeExtensions.reverse()) close()
+      }
+    }
+  })
+
+  it.each([true, false])(
+    'serves direct-LAN Extension routes across restart with operator URL=%s',
+    async (withOperatorUrl) => {
+      const remoteExtensionConfig = parseRemoteExtensionConfig({
+        MOTRIX_REMOTE_EXTENSION_ENABLED: 'true',
+        MOTRIX_REMOTE_EXTENSION_PUBLIC_URL: 'ws://motrix.example/bridge',
+        ...(withOperatorUrl
+          ? { MOTRIX_PUBLIC_URL: 'https://motrix.example' }
+          : {}),
+      })
+      const firstReceiver = extensionReceiver()
+      runtime = await bootstrapBridgeForServer({
+        userDataDir,
+        host: '0.0.0.0',
+        port: 0,
+        motrixVersion: '2.0',
+        eventBus: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
+        readHandlerDeps: readDeps(),
+        writeHandlerDeps: writeDeps(),
+        remoteExtensionConfig,
+        createExtensionReceiver: () => firstReceiver,
+      })
+      expect(firstReceiver.restoreInflight).toHaveBeenCalledOnce()
+      expect(firstReceiver.start).toHaveBeenCalledOnce()
+      const firstInstanceId = await readFile(
+        join(userDataDir, 'bridge', 'server-instance-id'),
+        'utf8'
+      )
+      expect(firstInstanceId).toMatch(/^[0-9a-f-]{36}$/u)
+      expect(
+        (await fetch(`http://127.0.0.1:${runtime.port}/discovery`)).status
+      ).toBe(404)
+      expect(
+        (
+          await fetch(`http://127.0.0.1:${runtime.port}/nonce`, {
+            method: 'POST',
+            headers: { 'X-Motrix-Bridge': '1' },
+          })
+        ).status
+      ).toBe(404)
+      await expect(
+        rawRequest(runtime.port, [
+          'GET /bridge/discovery HTTP/1.1',
+          'Host: motrix.example',
+          'Connection: close',
+        ])
+      ).resolves.toMatchObject({ status: 200 })
+      await expect(
+        rawRequest(runtime.port, [
+          'POST /bridge/nonce HTTP/1.1',
+          'Host: motrix.example',
+          'X-Motrix-Bridge: 1',
+          'Content-Length: 0',
+          'Connection: close',
+        ])
+      ).resolves.toMatchObject({ status: 200 })
+      await expect(
+        runtime.bridgeQueryHandlers['bridge:listPaired']()
+      ).resolves.toEqual([])
+
+      // The public bundle is not merely connectable: a real first-pair channel
+      // reaches the shell receiver's validated download/submit handler.
+      const extensionId = 'lggbokfckofcgjndaboioakcmincinpo'
+      const handshake = await startPair({
+        port: runtime.port,
+        origin: `chrome-extension://${extensionId}`,
+        browser: 'chromium',
+        claimedExtensionId: extensionId,
+        routePrefix: '/bridge',
+        hostHeader: 'motrix.example',
+      })
+      const pending = (await runtime.bridgeQueryHandlers[
+        'bridge:listPendingPairRequests'
+      ]()) as Array<{
+        kind: string
+        code?: string
+        verifiedOrigin?: string
+        originHost?: string
+        claimedExtensionId?: string
+        attestationClass?: string
+        publicAuthority?: string
+      }>
+      expect(pending).toHaveLength(1)
+      expect(pending[0]).toMatchObject({
+        verifiedOrigin: `chrome-extension://${extensionId}`,
+        originHost: extensionId,
+        claimedExtensionId: extensionId,
+        attestationClass: 'official',
+        publicAuthority: 'motrix.example',
+      })
+      const { code, channel, credential } = await pairThroughOperatorTerminal(
+        runtime,
+        remoteExtensionConfig,
+        handshake
+      )
+      const connection = mdxpOverChannel(handshake.wire, channel)
+      await connection.sendRequest(
+        'motrix/initialize',
+        initializeParams(extensionId)
+      )
+      await expect(
+        connection.sendRequest('download/submit', {
+          source: {
+            pageUrl: 'https://example.com/watch',
+            pageTitle: 'Remote submit',
+            detectedAt: Date.now(),
+          },
+          selection: {
+            kind: 'direct',
+            primary: {
+              url: 'https://cdn.example.com/video.mp4',
+              headers: {},
+              cookies: [],
+              refererPolicy: 'strict-origin-when-cross-origin',
+            },
+          },
+          meta: { suggestedFilename: 'video.mp4', qualityLabel: 'source' },
+        })
+      ).resolves.toEqual({ taskId: 'submitted' })
+      expect(firstReceiver.handle).toHaveBeenCalledOnce()
+      await vi.waitFor(async () =>
+        expect(
+          (await runtime?.bridgeQueryHandlers['bridge:listPaired']()) ?? []
+        ).toHaveLength(1)
+      )
+      const durablePairingState = await Promise.all([
+        readFile(join(userDataDir, 'bridge', 'mbp1-credentials.json'), 'utf8'),
+        readFile(
+          join(userDataDir, 'bridge', 'extension-pairings.json'),
+          'utf8'
+        ),
+        readFile(join(userDataDir, 'bridge', 'endpoint.json'), 'utf8'),
+      ])
+      expect(durablePairingState.join('\n')).not.toContain(code)
+      connection.dispose()
+
+      await runtime.shutdown()
+      expect(firstReceiver.stopAndDrain).toHaveBeenCalledOnce()
+      const secondReceiver = extensionReceiver()
+      runtime = await bootstrapBridgeForServer({
+        userDataDir,
+        host: '0.0.0.0',
+        port: 0,
+        motrixVersion: '2.0',
+        eventBus: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
+        readHandlerDeps: readDeps(),
+        writeHandlerDeps: writeDeps(),
+        remoteExtensionConfig,
+        createExtensionReceiver: () => secondReceiver,
+      })
+      await expect(
+        readFile(join(userDataDir, 'bridge', 'server-instance-id'), 'utf8')
+      ).resolves.toBe(firstInstanceId)
+
+      const reconnected = await reconnect({
+        port: runtime.port,
+        origin: `chrome-extension://${extensionId}`,
+        instanceId: firstInstanceId.trim(),
+        credential,
+        routePrefix: '/bridge',
+        hostHeader: 'motrix.example',
+      })
+      const reconnectedMdxp = mdxpOverChannel(
+        reconnected.wire,
+        reconnected.channel
+      )
+      await expect(
+        reconnectedMdxp.sendRequest(
+          'motrix/initialize',
+          initializeParams(extensionId)
+        )
+      ).resolves.toMatchObject({ protocolVersion: '1.0' })
+      reconnectedMdxp.dispose()
+    }
+  )
+
+  it('binds a real NAS Extension handshake to its code claimant across restart and account revocation', async () => {
+    const alice: NasIdentity = {
+      platform: 'fnos',
+      userId: '1000',
+      username: 'alice',
+      administrator: true,
+      accountRevision: 'generation-one',
+    }
+    const accounts = {
+      platform: 'fnos' as const,
+      resolve: vi.fn(
+        async (identity: NasIdentity): Promise<NasIdentity | null> => ({
+          ...identity,
+        })
+      ),
+    }
+    const bus = new EventBus()
+    const requested = vi.fn()
+    bus.on(BridgeEvents.PairRequested as never, requested)
+    const reads = readDeps()
+    const getAll = reads.taskManager.getAll
+    const seen: (NasIdentity | undefined)[] = []
+    reads.taskManager.getAll = () => {
+      seen.push(currentNasUser())
+      return getAll()
+    }
+    const start = () =>
+      bootstrapBridgeForServer({
+        userDataDir,
+        host: '127.0.0.1',
+        port: 0,
+        motrixVersion: '2.2.0',
+        eventBus: bus,
+        readHandlerDeps: reads,
+        writeHandlerDeps: writeDeps(),
+        nasAccounts: accounts,
+        remoteExtensionConfig: parseRemoteExtensionConfig({
+          MOTRIX_REMOTE_EXTENSION_ENABLED: 'true',
+          MOTRIX_REMOTE_EXTENSION_PUBLIC_URL: 'wss://motrix.example/bridge',
+          MOTRIX_PUBLIC_URL: 'https://motrix.example',
+        }),
+        createExtensionReceiver: extensionReceiver,
+      })
+    runtime = await start()
     const extensionId = 'lggbokfckofcgjndaboioakcmincinpo'
+    const origin = `chrome-extension://${extensionId}`
     const handshake = await startPair({
       port: runtime.port,
-      origin: `chrome-extension://${extensionId}`,
+      origin,
       browser: 'chromium',
       claimedExtensionId: extensionId,
       routePrefix: '/bridge',
       hostHeader: 'motrix.example',
     })
     const pending = (await runtime.bridgeQueryHandlers[
-      'bridge:listPendingPairRequests'
-    ]()) as Array<{
-      kind: string
-      code?: string
-      verifiedOrigin?: string
-      originHost?: string
-      claimedExtensionId?: string
-      attestationClass?: string
-      publicAuthority?: string
-    }>
-    expect(pending).toHaveLength(1)
-    expect(pending[0]).toMatchObject({
-      verifiedOrigin: `chrome-extension://${extensionId}`,
-      originHost: extensionId,
-      claimedExtensionId: extensionId,
-      attestationClass: 'official',
-      publicAuthority: 'motrix.example',
-    })
-    const code = pending[0]?.code
-    if (code === undefined) throw new Error('extension pairing code missing')
-    const { channel } = await runPake(handshake, code)
+      BridgeQueries.ListPendingPairRequests
+    ]()) as PendingPairRequestInfo[]
+    expect(pending).toEqual([
+      expect.objectContaining({ kind: 'extension-claim' }),
+    ])
+    expect(pending[0]).not.toHaveProperty('code')
+    if (pending[0].kind !== 'extension-claim')
+      throw new Error('Missing NAS claim')
+    const params = {
+      browser: pending[0].browser,
+      extensionId,
+      pairingNonce: pending[0].pairingNonce,
+      expectedUsername: alice.username,
+    }
+    const claim = () =>
+      runtime!.bridgeCommandHandlers[BridgeCommands.ClaimExtensionPair](params)
+    await expect(claim()).resolves.toMatchObject({ ok: false })
+    const result = claimExtensionPairResultSchema.parse(
+      await runAsNasGatewayUser(alice, claim)
+    )
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('Claim unavailable')
+    expect(JSON.stringify(requested.mock.calls)).not.toContain(result.code)
+    await expect(
+      runAsNasGatewayUser({ ...alice, userId: '1001', username: 'bob' }, claim)
+    ).resolves.toMatchObject({ ok: false })
+    const { channel } = await runPake(handshake, result.code)
     const credential = await exchangeCredential(handshake, channel)
     const connection = mdxpOverChannel(handshake.wire, channel)
     await connection.sendRequest(
-      'motrix/initialize',
+      Methods.MotrixInitialize,
       initializeParams(extensionId)
     )
-    await expect(
-      connection.sendRequest('download/submit', {
-        source: {
-          pageUrl: 'https://example.com/watch',
-          pageTitle: 'Remote submit',
-          detectedAt: Date.now(),
-        },
-        selection: {
-          kind: 'direct',
-          primary: {
-            url: 'https://cdn.example.com/video.mp4',
-            headers: {},
-            cookies: [],
-            refererPolicy: 'strict-origin-when-cross-origin',
-          },
-        },
-        meta: { suggestedFilename: 'video.mp4', qualityLabel: 'source' },
-      })
-    ).resolves.toEqual({ taskId: 'submitted' })
-    expect(firstReceiver.handle).toHaveBeenCalledOnce()
-    await vi.waitFor(async () =>
-      expect(
-        (await runtime?.bridgeQueryHandlers['bridge:listPaired']()) ?? []
-      ).toHaveLength(1)
-    )
-    const durablePairingState = await Promise.all([
-      readFile(join(userDataDir, 'bridge', 'mbp1-credentials.json'), 'utf8'),
-      readFile(join(userDataDir, 'bridge', 'extension-pairings.json'), 'utf8'),
-      readFile(join(userDataDir, 'bridge', 'endpoint.json'), 'utf8'),
-    ])
-    expect(durablePairingState.join('\n')).not.toContain(code)
+    await connection.sendRequest(Methods.TaskList, {})
+    expect(seen.at(-1)).toEqual(alice)
     connection.dispose()
-
+    handshake.wire.ws.close()
+    await handshake.wire.closed
     await runtime.shutdown()
-    expect(firstReceiver.stopAndDrain).toHaveBeenCalledOnce()
-    const secondReceiver = extensionReceiver()
-    runtime = await bootstrapBridgeForServer({
-      userDataDir,
-      host: '0.0.0.0',
-      port: 0,
-      motrixVersion: '2.0',
-      eventBus: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
-      readHandlerDeps: readDeps(),
-      writeHandlerDeps: writeDeps(),
-      remoteExtensionConfig,
-      createExtensionReceiver: () => secondReceiver,
-    })
-    await expect(
-      readFile(join(userDataDir, 'bridge', 'server-instance-id'), 'utf8')
-    ).resolves.toBe(firstInstanceId)
-
-    const reconnected = await reconnect({
-      port: runtime.port,
-      origin: `chrome-extension://${extensionId}`,
-      instanceId: firstInstanceId.trim(),
-      credential,
-      routePrefix: '/bridge',
-      hostHeader: 'motrix.example',
-    })
-    const reconnectedMdxp = mdxpOverChannel(
-      reconnected.wire,
-      reconnected.channel
+    runtime = await start()
+    const instanceId = (
+      await readFile(join(userDataDir, 'bridge/server-instance-id'), 'utf8')
+    ).trim()
+    const reconnectPeer = () =>
+      reconnect({
+        port: runtime!.port,
+        origin,
+        instanceId,
+        credential,
+        routePrefix: '/bridge',
+        hostHeader: 'motrix.example',
+      })
+    accounts.resolve.mockResolvedValue(null)
+    await expect(reconnectPeer()).rejects.toThrow()
+    accounts.resolve.mockResolvedValue(alice)
+    const peer = await reconnectPeer()
+    const restored = mdxpOverChannel(peer.wire, peer.channel)
+    await restored.sendRequest(
+      Methods.MotrixInitialize,
+      initializeParams(extensionId)
     )
-    await expect(
-      reconnectedMdxp.sendRequest(
-        'motrix/initialize',
-        initializeParams(extensionId)
-      )
-    ).resolves.toMatchObject({ protocolVersion: '1.0' })
-    reconnectedMdxp.dispose()
+    await restored.sendRequest(Methods.TaskList, {})
+    expect(seen.at(-1)).toEqual(alice)
+    const before = seen.length
+    accounts.resolve.mockResolvedValue({ ...alice, administrator: false })
+    const rejected = restored
+      .sendRequest(Methods.TaskList, {})
+      .catch(() => 'closed')
+    expect((await peer.wire.closed).code).toBe(1008)
+    restored.dispose()
+    expect(await rejected).toBe('closed')
+    expect(seen).toHaveLength(before)
   })
 
   it('quarantines a committed Extension when projection persistence fails and repairs it on restart', async () => {
@@ -717,75 +1094,82 @@ describe('bootstrapBridgeForServer', () => {
     ).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
-  it('routes Extension task lifecycle events only to their authenticated session', async () => {
-    const remoteExtensionConfig = parseRemoteExtensionConfig({
-      MOTRIX_REMOTE_EXTENSION_ENABLED: 'true',
-      MOTRIX_REMOTE_EXTENSION_PUBLIC_URL: 'wss://motrix.example/bridge',
-      MOTRIX_PUBLIC_URL: 'https://motrix.example',
-    })
-    const captured: { bridgeBus?: BridgeEventBus } = {}
-    const sendNotification = vi.fn()
-    vi.spyOn(WebSocketBridgeServer.prototype, 'getSession').mockImplementation(
-      (sessionKey) =>
-        sessionKey === 'chromium:target'
-          ? ({ conn: { sendNotification } } as never)
-          : undefined
-    )
+  it.each([1, 2])(
+    'routes task lifecycle events once to each of %i eligible sessions',
+    async (count) => {
+      const remoteExtensionConfig = parseRemoteExtensionConfig({
+        MOTRIX_REMOTE_EXTENSION_ENABLED: 'true',
+        MOTRIX_REMOTE_EXTENSION_PUBLIC_URL: 'wss://motrix.example/bridge',
+        MOTRIX_PUBLIC_URL: 'https://motrix.example',
+      })
+      const captured: { bridgeBus?: BridgeEventBus } = {}
+      const recipients = Array.from({ length: count }, () => ({
+        conn: { sendNotification: vi.fn() },
+      }))
+      vi.spyOn(
+        WebSocketBridgeServer.prototype,
+        'getTaskNotificationSessions'
+      ).mockImplementation((sessionKey) =>
+        sessionKey === 'chromium:target' ? (recipients as never) : []
+      )
 
-    runtime = await bootstrapBridgeForServer({
-      userDataDir,
-      host: '127.0.0.1',
-      port: 0,
-      motrixVersion: '2.0',
-      eventBus: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
-      readHandlerDeps: readDeps(),
-      writeHandlerDeps: writeDeps(),
-      remoteExtensionConfig,
-      createExtensionReceiver: (context) => {
-        captured.bridgeBus = context.bridgeBus
-        return extensionReceiver()
-      },
-    })
-    const bridgeBus = captured.bridgeBus
-    if (bridgeBus === undefined) throw new Error('bridge event bus missing')
+      runtime = await bootstrapBridgeForServer({
+        userDataDir,
+        host: '127.0.0.1',
+        port: 0,
+        motrixVersion: '2.0',
+        eventBus: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
+        readHandlerDeps: readDeps(),
+        writeHandlerDeps: writeDeps(),
+        remoteExtensionConfig,
+        createExtensionReceiver: (context) => {
+          captured.bridgeBus = context.bridgeBus
+          return extensionReceiver()
+        },
+      })
+      const bridgeBus = captured.bridgeBus
+      if (bridgeBus === undefined) throw new Error('bridge event bus missing')
 
-    const progress = {
-      taskId: 'task-1',
-      bytesDone: 1,
-      bytesTotal: 2,
-      speedBps: 3,
-      etaSec: 4,
-      phase: 'downloading' as const,
+      const progress = {
+        taskId: 'task-1',
+        bytesDone: 1,
+        bytesTotal: 2,
+        speedBps: 3,
+        etaSec: 4,
+        phase: 'downloading' as const,
+      }
+      bridgeBus.emitTaskProgress({
+        sessionKey: 'chromium:target',
+        params: progress,
+      })
+      const completed = {
+        taskId: 'task-1',
+        filePath: '/downloads/file.bin',
+        durationMs: 5,
+      }
+      bridgeBus.emitTaskCompleted({
+        sessionKey: 'chromium:target',
+        params: completed,
+      })
+      const failed = { taskId: 'task-2', code: 'disk-full', message: 'full' }
+      bridgeBus.emitTaskError({
+        sessionKey: 'chromium:target',
+        params: failed,
+      })
+      bridgeBus.emitTaskProgress({
+        sessionKey: 'chromium:other',
+        params: progress,
+      })
+
+      for (const { conn } of recipients) {
+        expect(conn.sendNotification.mock.calls).toEqual([
+          [Notifications.TaskProgress, progress],
+          [Notifications.TaskCompleted, completed],
+          [Notifications.TaskError, failed],
+        ])
+      }
     }
-    bridgeBus.emitTaskProgress({
-      sessionKey: 'chromium:target',
-      params: progress,
-    })
-    const completed = {
-      taskId: 'task-1',
-      filePath: '/downloads/file.bin',
-      durationMs: 5,
-    }
-    bridgeBus.emitTaskCompleted({
-      sessionKey: 'chromium:target',
-      params: completed,
-    })
-    const failed = { taskId: 'task-2', code: 'disk-full', message: 'full' }
-    bridgeBus.emitTaskError({
-      sessionKey: 'chromium:target',
-      params: failed,
-    })
-    bridgeBus.emitTaskProgress({
-      sessionKey: 'chromium:other',
-      params: progress,
-    })
-
-    expect(sendNotification.mock.calls).toEqual([
-      [Notifications.TaskProgress, progress],
-      [Notifications.TaskCompleted, completed],
-      [Notifications.TaskError, failed],
-    ])
-  })
+  )
 
   it('device-code: request emits a web prompt, approve issues a token, listPaired shows the cli', async () => {
     const emit = vi.fn()

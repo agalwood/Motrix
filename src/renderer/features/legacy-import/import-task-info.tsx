@@ -12,7 +12,31 @@ export function ImportTaskInfo({
   showReason?: boolean
 }) {
   const { t } = useTranslation()
-  const reason = t(`legacyImport.reasons.${item.reason}`)
+  const optionNames =
+    item.reason === 'unsupported-options'
+      ? item.unsupportedOptions
+      : item.reason === 'request-settings-required'
+        ? item.requestOptions
+        : undefined
+  const reason = optionNames?.length
+    ? t(
+        item.reason === 'unsupported-options'
+          ? 'legacyImport.unsupportedOptions'
+          : 'legacyImport.requestOptions',
+        { options: optionNames.join(', ') }
+      )
+    : t(`legacyImport.reasons.${item.reason}`)
+  const ignored = item.ignoredOptions?.length
+    ? t('legacyImport.ignoredOptions', {
+        options: item.ignoredOptions.join(', '),
+      })
+    : null
+  const detail = [
+    showReason && item.reason !== 'metadata-required' ? reason : null,
+    ignored,
+  ]
+    .filter(Boolean)
+    .join(' · ')
   return (
     <div className="min-w-0 flex-1 space-y-0.5">
       <div className="flex min-w-0 items-center gap-2">
@@ -31,12 +55,12 @@ export function ImportTaskInfo({
           t('legacyImport.page.pathUnavailable')
         )}
       </p>
-      {showReason && item.reason !== 'metadata-required' && (
+      {detail && (
         <p
-          title={reason}
+          title={detail}
           className="truncate text-xs leading-4 text-foreground/70"
         >
-          {reason}
+          {detail}
         </p>
       )}
     </div>

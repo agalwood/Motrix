@@ -700,7 +700,7 @@ function AddTileMenu({
   )?.failureReason
   const availableCount = tiles.filter((option) => option.available).length
   return (
-    <DropdownMenu onOpenChange={() => setHintReason(null)}>
+    <DropdownMenu onOpenChange={(open) => open && setHintReason(null)}>
       <ToolbarButton
         label={label}
         disabled={disabled}

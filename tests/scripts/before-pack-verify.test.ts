@@ -23,6 +23,7 @@ describe('before-pack-verify', () => {
     return {
       electronPlatformName: platform,
       arch,
+      targets: [],
       packager: { projectDir },
     }
   }
@@ -233,13 +234,27 @@ describe('before-pack-verify', () => {
     await expect(beforePack(context('win32'))).resolves.toBeUndefined()
   })
 
-  it('accepts Windows arm64 PE files for the reserved target contract', async () => {
+  it('accepts Windows arm64 PE files and names both release targets', async () => {
     await writeStage('win32', 'arm64')
     await writeBinary(enginePath('win32', 'arm64'), 0o644, 'win32', 'arm64')
     await writeBinary(hostPath('win32', 'arm64'), 0o644, 'win32', 'arm64')
     await writeBinary(finalizePath('win32', 'arm64'), 0o644, 'win32', 'arm64')
 
-    await expect(beforePack(context('win32', 3))).resolves.toBeUndefined()
+    const buildContext = {
+      ...context('win32', 3),
+      targets: [
+        { name: 'nsis', options: { artifactName: 'legacy.exe' } },
+        { name: 'zip', options: undefined },
+      ],
+    }
+    await expect(beforePack(buildContext)).resolves.toBeUndefined()
+    expect(buildContext.targets.map((target) => target.options)).toEqual([
+      {
+        artifactName: `\${productName}-Setup-\${version}-arm64.\${ext}`,
+        buildUniversalInstaller: false,
+      },
+      { artifactName: `\${productName}-\${version}-win-arm64.\${ext}` },
+    ])
   })
 
   it('rejects an MZ-only Windows file without a PE/COFF target header', async () => {

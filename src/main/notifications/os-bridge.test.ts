@@ -970,13 +970,12 @@ describe('createOsNotificationBridge — real i18n language switch', () => {
 
   it('a later notification translates through the newly switched language', async () => {
     const { i18n } = await import('../lib/i18n')
-    const translate = i18n.t.bind(i18n)
     const { createNotification, instances } = makeNotificationFactory()
     const { deps, deliver } = baseDeps({
       window: null,
       settings: makeSettings({ notifyOnComplete: true }),
       createNotification,
-      translate,
+      translate: (key, params = {}) => i18n.t(key, params),
     })
 
     createOsNotificationBridge(deps)

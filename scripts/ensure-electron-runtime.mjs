@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto'
 import { existsSync, readFileSync, renameSync, rmSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
+import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 
 const require = createRequire(import.meta.url)
@@ -189,6 +190,7 @@ export function ensureElectronRuntime(options = {}) {
   const hadPathFile = fs.existsSync(pathFile)
   let distBackup = null
   let pathBackup = null
+  let transientDownloadError = false
 
   try {
     // Electron's installer returns early when dist/version + the binary
@@ -199,8 +201,12 @@ export function ensureElectronRuntime(options = {}) {
 
     const result = spawn(process.execPath, [installerPath], {
       env: options.env ?? process.env,
-      stdio: 'inherit',
+      stdio: options.onTransientDownloadFailure
+        ? ['inherit', 'inherit', 'pipe']
+        : 'inherit',
+      encoding: 'utf8',
     })
+    if (result.stderr) logError(result.stderr.trimEnd())
     if (result.error) {
       throw result.error
     }
@@ -208,6 +214,10 @@ export function ensureElectronRuntime(options = {}) {
       throw new Error(`Electron installer was killed by ${result.signal}`)
     }
     if (result.status !== 0) {
+      transientDownloadError =
+        /HTTPError: Response code (?:408|429|500|502|503|504)\b|\b(?:EAI_AGAIN|ECONNRESET|ETIMEDOUT|UND_ERR_CONNECT_TIMEOUT|UND_ERR_SOCKET)\b/.test(
+          result.stderr ?? ''
+        )
       const error = new Error(
         `Electron installer exited with status ${result.status ?? 'unknown'}`
       )
@@ -250,7 +260,31 @@ export function ensureElectronRuntime(options = {}) {
     logError(
       `[ensure-electron-runtime] repair failed: ${error?.message ?? error}`
     )
+    if (transientDownloadError && restoreErrors.length === 0)
+      options.onTransientDownloadFailure?.()
     return Number.isInteger(error?.exitCode) ? error.exitCode : 1
+  }
+}
+
+// Retry the pinned package installer only after the previous attempt restored
+// its starting state. Integrity, extraction, and local filesystem errors stay fatal.
+export async function ensureElectronRuntimeForCi(options = {}) {
+  const delays = [5_000, 15_000, 30_000]
+  for (let attempt = 0; ; attempt++) {
+    let retry = false
+    const status = ensureElectronRuntime({
+      ...options,
+      onTransientDownloadFailure: () => {
+        retry = true
+      },
+    })
+    if (!retry || attempt === delays.length) return status
+    const ms = delays[attempt]
+    const log = options.log ?? console.log
+    log(
+      `[ensure-electron-runtime] transient download failure; retry ${attempt + 2}/${delays.length + 1} in ${ms / 1000}s`
+    )
+    await (options.sleep ?? delay)(ms)
   }
 }
 
@@ -259,5 +293,7 @@ const invokedAsMain =
   path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 
 if (invokedAsMain) {
-  process.exit(ensureElectronRuntime())
+  process.exitCode = process.argv.includes('--retry-download')
+    ? await ensureElectronRuntimeForCi()
+    : ensureElectronRuntime()
 }

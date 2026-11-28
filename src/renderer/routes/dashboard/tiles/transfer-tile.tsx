@@ -100,7 +100,7 @@ function TransferBar({ range }: { range: TransferRangeStats }) {
       {upload > 0n ? (
         <div
           data-testid="transfer-upload-segment"
-          className="h-full rounded-sm"
+          className="h-full rounded-sm transition-[width] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
           style={{
             width: `${uploadPercent}%`,
             background: 'var(--color-up)',
@@ -110,7 +110,7 @@ function TransferBar({ range }: { range: TransferRangeStats }) {
       {download > 0n ? (
         <div
           data-testid="transfer-download-segment"
-          className="h-full rounded-sm"
+          className="h-full rounded-sm transition-[width] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
           style={{
             width: `${downloadPercent}%`,
             background: 'var(--color-down)',
@@ -225,7 +225,7 @@ function coverageCaption({
   scope: TransferScope
   range: TransferRangeStats
   locale: string
-  translate: (key: string, values?: Record<string, string>) => string
+  translate: (key: string, values: Record<string, string>) => string
 }): string | null {
   if (scope === 'today') {
     if (range.coverageStartedAt <= range.startedAt) return null

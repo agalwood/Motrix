@@ -5,6 +5,7 @@ import {
   readTorrentFile,
 } from '@renderer/lib/parse-torrent-file'
 import { usePlatformServices } from '@renderer/platform/services'
+import { torrentFileErrorKey } from '@shared/lib/engine-torrent'
 import { useEffect } from 'react'
 
 const isTorrentFile = (file: File) =>
@@ -46,12 +47,12 @@ export function useWindowTorrentDrop(): void {
 
       void (async () => {
         const parsed: ParsedTorrentFile[] = []
-        let failed = false
+        const failures = new Set<ReturnType<typeof torrentFileErrorKey>>()
         for (const file of files) {
           try {
             parsed.push(await readTorrentFile(file))
-          } catch {
-            failed = true
+          } catch (error) {
+            failures.add(torrentFileErrorKey(error))
           }
           // Session loss clears the dialog and may unmount this hook. Never
           // restore that batch or its errors, even after a subsequent login.
@@ -63,7 +64,7 @@ export function useWindowTorrentDrop(): void {
           )
             return
         }
-        if (failed) platform.notify('error', 'task.add.parseFailed')
+        for (const key of failures) platform.notify('error', key)
         if (parsed.length === 0) return
         // The user may have opened the dialog while the files were parsing.
         if (useAddTaskDialogStore.getState().open) return

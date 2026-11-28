@@ -41,6 +41,7 @@ pub(crate) struct ArtifactHandle {
     snapshot: Option<ArtifactSnapshot>,
     stamp: metadata::FileStamp,
     rename_budget: RenameRetryBudget,
+    rename_guard: bool,
 }
 
 pub(crate) fn open_root(path: &str) -> io::Result<RootHandle> {
@@ -103,11 +104,89 @@ fn open_artifact_internal(
         snapshot,
         stamp,
         rename_budget,
+        rename_guard: false,
     })
+}
+
+/// Flush data before establishing the durable source stamp. The read handle
+/// outlives the handle which performs the rename, so delayed change-time
+/// updates from closing the renamer are observable while writes remain excluded.
+pub(crate) fn open_rename_guard(
+    root: &RootHandle,
+    relative: &str,
+) -> io::Result<Option<(ArtifactHandle, String)>> {
+    let parts = validate_relative(relative)?;
+    let (parent, name) = open_parent(&root.handle, &parts)?;
+    let budget = RenameRetryBudget::default();
+    let writer = budget.run("open_flush_file", "not_attempted", || {
+        nt::open_flush_file(&parent, &name)
+    })?;
+    let flushed = query_stamp(&writer)?;
+    nt::flush(&writer)?;
+    let change_time = metadata::change_time(&writer)?;
+    drop(writer);
+    let handle = budget.run("open_guard", "not_attempted", || {
+        nt::open_selected(&parent, &name)
+    })?;
+    let stamp = query_stamp(&handle)?;
+    if !stamp.same_file_and_size(&flushed) {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "source changed during flush handoff",
+        ));
+    }
+    if stamp != flushed || metadata::change_time(&handle)? != change_time {
+        // No journal exists yet. Verify content when this volume cannot
+        // attest an uninterrupted flush-to-reader handoff using metadata.
+        return Ok(None);
+    }
+    let Some(file_id) = metadata::journal_file_id(&handle)? else {
+        return Ok(None);
+    };
+    ensure_named_entry(&handle, &parent, &name)?;
+    Ok(Some((
+        ArtifactHandle {
+            handle,
+            parent,
+            name,
+            stamp,
+            rename_budget: budget,
+            snapshot: None,
+            rename_guard: true,
+        },
+        file_id,
+    )))
 }
 
 pub(crate) fn rename_opened_no_replace(
     artifact: &ArtifactHandle,
+    target: &RootHandle,
+    target_relative: &str,
+) -> io::Result<RenameOutcome> {
+    if artifact.rename_guard {
+        let renamer = artifact
+            .rename_budget
+            .run("open_source", "not_attempted", || {
+                nt::open_rename_file(&artifact.parent, &artifact.name)
+            })?;
+        metadata::ensure_same_opened(&artifact.handle, &renamer)
+            .map_err(|e| operation_error(e, "validate_source", "not_attempted", None))?;
+        let result = rename_with_handle(artifact, &renamer, target, target_relative)?;
+        drop(renamer);
+        let verify_target = || {
+            let parts = validate_relative(target_relative)?;
+            let (parent, name) = open_parent(&target.handle, &parts)?;
+            ensure_named_entry(&artifact.handle, &parent, &name)
+        };
+        verify_target().map_err(|e| operation_error(e, "verify_target", "applied", None))?;
+        return Ok(result);
+    }
+    rename_with_handle(artifact, &artifact.handle, target, target_relative)
+}
+
+fn rename_with_handle(
+    artifact: &ArtifactHandle,
+    renamer: &OwnedHandle,
     target: &RootHandle,
     target_relative: &str,
 ) -> io::Result<RenameOutcome> {
@@ -128,7 +207,7 @@ pub(crate) fn rename_opened_no_replace(
     })()
     .map_err(|e| operation_error(e, "validate_source", "not_attempted", None))?;
     nt::rename_no_replace_with_retry(
-        &artifact.handle,
+        renamer,
         &target_parent,
         &target_name,
         &artifact.rename_budget,

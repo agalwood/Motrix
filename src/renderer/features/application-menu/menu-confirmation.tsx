@@ -7,8 +7,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@renderer/components/ui/dialog'
+import { useExitSnapshot } from '@renderer/hooks/use-exit-snapshot'
 import { useOperatorSession } from '@renderer/lib/operator-auth'
-import { useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 export interface MenuConfirmationRequest {
@@ -26,6 +27,11 @@ export function MenuConfirmation({
   const { t } = useTranslation()
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState(false)
+  const open = request !== null
+  const presentation = useExitSnapshot(open, request)
+  useLayoutEffect(() => {
+    if (open) setFailed(false)
+  }, [open])
   const pending = useRef(false)
   const cancel = useRef<HTMLButtonElement>(null)
   const session = useOperatorSession((state) => state.state)
@@ -46,23 +52,22 @@ export function MenuConfirmation({
   }
   return (
     <Dialog
-      open={request !== null}
+      open={open}
       onOpenChange={(open) => {
         if (!open && !busy) {
           close()
-          setFailed(false)
         }
       }}
     >
       <DialogContent initialFocus={cancel} showCloseButton={!busy}>
         <DialogHeader>
           <DialogTitle>
-            {t(`applicationMenu.${request?.kind ?? 'clear'}Title`, {
-              count: request?.count,
+            {t(`applicationMenu.${presentation?.kind ?? 'clear'}Title`, {
+              count: presentation?.count,
             })}
           </DialogTitle>
           <DialogDescription>
-            {t(`applicationMenu.${request?.kind ?? 'clear'}Description`)}
+            {t(`applicationMenu.${presentation?.kind ?? 'clear'}Description`)}
           </DialogDescription>
         </DialogHeader>
         {failed && (
@@ -76,10 +81,10 @@ export function MenuConfirmation({
           </Button>
           <Button
             variant="destructive"
-            disabled={busy}
+            disabled={busy || !open}
             onClick={() => void confirm()}
           >
-            {t(`applicationMenu.${request?.kind ?? 'clear'}Confirm`)}
+            {t(`applicationMenu.${presentation?.kind ?? 'clear'}Confirm`)}
           </Button>
         </DialogFooter>
       </DialogContent>

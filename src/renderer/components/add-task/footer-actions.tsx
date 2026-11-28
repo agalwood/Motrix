@@ -1,7 +1,9 @@
+import { taskFormActions } from '@renderer/components/task-form-layout'
 import { Button } from '@renderer/components/ui/button'
 import { useTranslation } from 'react-i18next'
 
 interface FooterActionsProps {
+  submitLabel?: string
   submitting: boolean
   canSubmit: boolean
   torrentQueue?: { current: number; total: number }
@@ -11,6 +13,7 @@ interface FooterActionsProps {
 }
 
 export function FooterActions({
+  submitLabel,
   submitting,
   canSubmit,
   torrentQueue,
@@ -29,7 +32,7 @@ export function FooterActions({
       <span className="min-w-0 truncate text-xs text-muted-foreground">
         {torrentQueue ? t('task.add.torrentQueueProgress', torrentQueue) : null}
       </span>
-      <div className="flex shrink-0 items-center gap-2">
+      <div className={taskFormActions}>
         <Button
           type="button"
           variant="outline"
@@ -63,7 +66,7 @@ export function FooterActions({
               ? t('task.add.adding')
               : torrentQueue && torrentQueue.current < torrentQueue.total
                 ? t('task.add.downloadAndContinue')
-                : t('common.download')}
+                : (submitLabel ?? t('common.download'))}
           </span>
         </Button>
       </div>

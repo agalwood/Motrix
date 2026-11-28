@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { constants } from 'node:fs'
 import { lstat, open, readdir } from 'node:fs/promises'
 import path from 'node:path'
+import { z } from 'zod'
 import { hashOpenedFile } from './hash-opened-file'
 
 export interface FileArtifactIdentity {
@@ -19,12 +20,109 @@ export interface DirectoryArtifactIdentity {
   platformFileId: string
 }
 
-export type ArtifactIdentity = FileArtifactIdentity | DirectoryArtifactIdentity
+/** Metadata authority for a write-excluded, non-destructive Windows rename only. */
+export const renameFileArtifactIdentitySchema = z
+  .object({
+    kind: z.literal('rename-file'),
+    size: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+    platformFileId: z.string().regex(/^[1-9]\d*:[1-9]\d*$/),
+    mtimeNs: z.string().regex(/^[1-9]\d*$/),
+    ctimeNs: z.string().regex(/^[1-9]\d*$/),
+    birthtimeNs: z.string().regex(/^[1-9]\d*$/),
+  })
+  .strict()
+export type RenameFileArtifactIdentity = z.infer<
+  typeof renameFileArtifactIdentitySchema
+>
+
+export type ArtifactIdentity =
+  | FileArtifactIdentity
+  | DirectoryArtifactIdentity
+  | RenameFileArtifactIdentity
+
+/** Only a held, write-excluded rename may account for a changed ctime. */
+export function renameFileIdentityMatches(
+  left: RenameFileArtifactIdentity,
+  right: RenameFileArtifactIdentity
+): boolean {
+  return (
+    left.size === right.size &&
+    left.platformFileId === right.platformFileId &&
+    left.mtimeNs === right.mtimeNs &&
+    left.birthtimeNs === right.birthtimeNs
+  )
+}
+
+export async function readRenameFileIdentity(
+  artifactPath: string
+): Promise<RenameFileArtifactIdentity> {
+  const named = await lstat(artifactPath, { bigint: true }).catch((error) => {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    throw new ArtifactIdentityError(
+      'artifact_missing',
+      'rename artifact is missing',
+      { cause: error }
+    )
+  })
+  if (named.isSymbolicLink())
+    throw new ArtifactIdentityError(
+      'artifact_unsafe_path',
+      'rename artifact is a symbolic link'
+    )
+  if (!named.isFile())
+    throw new ArtifactIdentityError(
+      'artifact_special_file',
+      'rename artifact is not a regular file'
+    )
+  const handle = await open(
+    artifactPath,
+    constants.O_RDONLY | constants.O_NOFOLLOW
+  )
+  try {
+    const opened = await handle.stat({ bigint: true })
+    if (
+      !opened.isFile() ||
+      statKey(named) !== statKey(opened) ||
+      named.birthtimeNs !== opened.birthtimeNs
+    )
+      throw new ArtifactIdentityError(
+        'artifact_mutated',
+        'rename artifact changed while opening'
+      )
+    if (opened.size > BigInt(Number.MAX_SAFE_INTEGER))
+      throw new ArtifactIdentityError(
+        'artifact_too_large',
+        'rename artifact exceeds the safe identity range'
+      )
+    if (
+      opened.dev <= 0n ||
+      opened.ino <= 0n ||
+      opened.birthtimeNs <= 0n ||
+      opened.mtimeNs <= 0n ||
+      opened.ctimeNs <= 0n
+    )
+      throw new ArtifactIdentityError(
+        'artifact_identity_unavailable',
+        'rename artifact lacks stable file metadata'
+      )
+    return renameFileArtifactIdentitySchema.parse({
+      kind: 'rename-file',
+      size: Number(opened.size),
+      platformFileId: fileId(opened),
+      mtimeNs: String(opened.mtimeNs),
+      ctimeNs: String(opened.ctimeNs),
+      birthtimeNs: String(opened.birthtimeNs),
+    })
+  } finally {
+    await handle.close()
+  }
+}
 
 export class ArtifactIdentityError extends Error {
   constructor(
     readonly code:
       | 'artifact_missing'
+      | 'artifact_identity_unavailable'
       | 'artifact_mutated'
       | 'artifact_special_file'
       | 'artifact_too_large'
@@ -295,6 +393,10 @@ export function artifactIdentityEquals(
   right: ArtifactIdentity
 ): boolean {
   if (left.kind !== right.kind) return false
+  if (left.kind === 'rename-file' && right.kind === 'rename-file')
+    return (
+      renameFileIdentityMatches(left, right) && left.ctimeNs === right.ctimeNs
+    )
   if (left.kind === 'file' && right.kind === 'file') {
     return (
       left.size === right.size &&

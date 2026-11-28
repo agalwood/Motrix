@@ -396,6 +396,46 @@ The same token is reused across restart and image replacement. You may set
 `MOTRIX_OPERATOR_TOKEN` instead, but environment variables are visible in
 container metadata; the generated file is the safer single-host default.
 
+After signing in, open **Settings → Advanced → Access password → Change password**
+and enter the current password, new password, and confirmation in the dialog,
+then select **Update password** in the footer. Alternatively, run the
+CLI inside the running container; input is hidden and requested twice:
+
+```bash
+docker compose exec server motrix-admin token set
+```
+
+Scripts can provide one line through standard input, keeping the token out of
+command arguments and shell history:
+
+```bash
+docker compose exec -T server motrix-admin token set --stdin --json < /secure/new-token.txt
+```
+
+Weak tokens produce a warning but can still be saved. There is no required mix
+of uppercase, lowercase, numbers, or symbols; Unicode and spaces are supported.
+Only blank values, control characters, and inputs longer than 1,024 UTF-16 code
+units are rejected. The CLI removes one trailing line ending from stdin and
+preserves spaces in the token. The new token atomically replaces `operator-token`
+at mode `0600`, takes effect immediately, and survives restarts. The old token and
+other sessions stop working. A Web change keeps the current browser session;
+a CLI change signs out all existing sessions. Downloads are not removed or
+interrupted. If a network failure leaves the outcome uncertain, read the token
+file on the host before retrying. A forgotten token can also be recovered from
+that file without clearing download data.
+
+When `MOTRIX_OPERATOR_TOKEN` is set, Web and CLI explain that the credential is
+deployment-managed. Change the environment variable and restart the server;
+it always takes precedence over the file. Native fnOS and Synology packages
+continue to authenticate through NAS accounts and do not expose a separate
+administrator-token setting.
+
+Login and HTTP credential verification are limited by connection source IP:
+after 20 failures within a minute, verification pauses until the window expires.
+Clients behind a reverse proxy may share the same source IP. Ordinary ASCII
+tokens still support Bearer authentication. Tokens containing spaces or non-ASCII
+characters support HTTP Basic with an empty username; the CLI selects this automatically.
+
 If the Web approval URL is unavailable, an operator connected over SSH can
 approve the exact device code from inside the running container. The command
 uses the existing operator credential over container loopback; it never prints
@@ -411,6 +451,39 @@ To reject a request instead:
 ```bash
 docker compose exec server motrix-admin pairing deny ABCD-EFGH
 ```
+
+Browser Extensions use a separate code-entry handshake. To pair using only the
+container terminal, enable the remote Extension listener and configure its exact
+WS/WSS address; `MOTRIX_PUBLIC_URL` is optional:
+
+```bash
+export MOTRIX_REMOTE_EXTENSION_ENABLED=true
+export MOTRIX_REMOTE_EXTENSION_PUBLIC_URL='ws://nas.example.lan:16801'
+```
+
+Recreate the container with the updated environment, start pairing in the
+Extension, then run:
+
+```bash
+docker compose exec server motrix-admin extension pair
+```
+
+Select the request you initiated and type its displayed code into the Extension.
+The command requires an interactive terminal for input, output and errors; do not
+use `-T`, pipes, redirection or `--json`. Codes are never printed in service logs
+or the ordinary `pairing pending` list. The original 120-second deadline is not
+extended. Closing the terminal view does not approve or deny the request; if a
+request disappears, check the Extension for its outcome. Terminal recording can
+capture the code, so use a trusted administrator session.
+
+Without a configured HTTPS operator URL or explicit
+`MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP=true`, the Web UI receives no Extension
+pairing codes; use the interactive command. To show codes in the Web UI, configure
+HTTPS or explicitly authorize trusted-LAN HTTP. When the public Web URL is
+omitted, existing same-origin Web checks use the request Host and protocol.
+The Web and Extension addresses may use different hosts and ports; if a Web URL
+is configured, access the Web UI at that URL for its event connection.
+
 
 Start pairing on the client first, then enter the code shown by that client.
 The command intentionally has no approve-latest, approve-all, remote endpoint,
@@ -444,7 +517,7 @@ CLI/agent and browser-Extension pairing remain operator-approved workflows.
 
 ## Logo menu in the Web UI
 
-Open the **Motrix** logo at the upper left for About, Settings, Task, Help,
+Open the **Motrix** logo at the upper left for About, Settings, File, Task, Help,
 and **Sign out**. Narrow screens show one menu level at a time; use **Back**,
 Left Arrow, or Escape to return to the parent level.
 
@@ -453,6 +526,11 @@ Left Arrow, or Escape to return to the parent level.
   browser, supports multiple files, and lets you review each before submitting.
   The download destination is a path on the Server. See [torrent upload
   size](#torrent-upload-size) for the configurable request limit.
+- **File → Create Torrent File…** creates a BitTorrent v1 torrent from a file
+  or folder on the Server. Choose a source inside the configured download roots
+  that your account can read, then select **Create**. **Save .torrent** downloads
+  the metainfo to your browser. Enable **Start seeding after saving** to verify
+  and seed the original files on the Server; otherwise no download task is added.
 - Pause, resume, remove, and queue commands apply to the committed selection
   in the current filtered downloads list. **Select all tasks** includes rows
   outside the visible viewport. Changing the selection or filter cancels a
@@ -623,11 +701,33 @@ Operator-managed options are:
 - `MOTRIX_SECRETS_SEED`: optional 64-hex secret from an orchestrator secret
   store. Otherwise `/data/secrets.lockbox` is generated and persisted.
 
-The official image does not include FFmpeg. A plugin that requires it needs a
-derived image with Alpine's `ffmpeg` package and
-`MOTRIX_FFMPEG_PATH=/usr/bin/ffmpeg`.
+The official image does not include FFmpeg. Browser Extension HLS/DASH downloads,
+separate audio/video merging, and plugins that require FFmpeg need an executable
+inside the container. In **Settings → Integration → Media Tools**, click
+**Download FFmpeg**, then **Download and verify**. The Server downloads the
+official Motrix build for its own OS and architecture, verifies its signature
+and checksums, and installs it under `/data/binaries/ffmpeg-verified`. Progress
+and errors appear in the Web UI; the installed files persist with the `/data`
+volume. Installation requires write access to that directory and outbound
+HTTPS access to GitHub releases. Failed verification leaves the previous
+verified installation intact.
+
+Alternatively, use a derived image with Alpine's `ffmpeg`
+package and `MOTRIX_FFMPEG_PATH=/usr/bin/ffmpeg`. A compatible executable in
+`/data/binaries/ffmpeg` or a custom path configured in the Web UI also works.
+Confirm detection in **Settings → Integration → Media Tools**, then click
+**Rescan** in the Extension. The Server refreshes its media capabilities without
+requiring a restart; installing FFmpeg only on the browser's computer does not
+make it available inside the container.
 
 ## Upgrade, rollback, backup, and restore
+
+**Settings → About** can check for new Server versions using the same stable
+and beta release feeds as the desktop app. The selected channel and automatic
+startup checks are saved in settings. Checks compare against the running
+Server version and never offer a downgrade. When a newer version is available,
+open its release notes and update the deployment manually. The Server does not
+download installers, replace application files, or restart to install an update.
 
 Before an upgrade, record the current image digest and back up `/data`. Stop the
 service for a filesystem-level backup so SQLite and the aria2 session are
@@ -685,7 +785,7 @@ detection.
 | Port is already allocated | Change `MOTRIX_HTTP_PORT` or `MOTRIX_MDXP_PUBLIC_PORT`, and update `MOTRIX_PUBLIC_URL` if the Web port changes. |
 | Web UI is healthy but port 16801 refuses connections | Look for `bridge data ownership unavailable` and inspect its `stage` and `reason` fields. If ownership is ready, verify the MDXP publish address and all four remote Extension variables. |
 | External aria2 RPC client cannot connect | Confirm `MOTRIX_ARIA2_RPC_LISTEN_ALL=true`, a non-empty matching RPC secret, the correct 16800 mapping (or configured RPC port), and the host firewall. The standard Compose files do not publish this port. |
-| Web UI opens but unlock fails | Read the current persistent `/data/operator-token`; do not use a token copied from another deployment. Verify the file is regular, base64url text, and mode `0600`. |
+| Web UI opens but unlock fails | Read the current persistent `/data/operator-token`; do not use a token copied from another deployment. Verify the file is regular, contains a nonblank single-line token, and has mode `0600`; environment configuration takes precedence. Wait a minute after too many attempts. |
 | Download directory is rejected or files are missing from the NAS share | Use an absolute container path below `MOTRIX_ALLOWED_SAVE_DIRS`; verify the intended host directory is mounted at that exact path and writable by the runtime UID/GID. |
 | Plugin install fails | Inspect `/api/diagnostics` and logs, retain `/data`, confirm package/source trust and network/TLS access, and mount any `MOTRIX_PLUGIN_IMPORT_DIRS` explicitly. Do not enable unmanaged plugins for a normal `.moext`, URL, or registry install. |
 | Container is unhealthy after an upgrade | Inspect logs and diagnostics, verify both mounts, then roll back to the recorded immutable image and matching `/data` backup. |
@@ -747,7 +847,7 @@ uses this ownership record and the already-bound Web listener as one proof.
 | `MOTRIX_BIND_IP` | Compose: `0.0.0.0` | Backward-compatible shared host-publish fallback |
 | `MOTRIX_MDXP_HOST` | runtime: `127.0.0.1`; Compose: `0.0.0.0` | MDXP listener inside the container, not the host publish address |
 | `MOTRIX_MDXP_PORT` | `16801` | MDXP listen port; `0` disables a stable published port |
-| `MOTRIX_PUBLIC_URL` | unset | Explicit externally reachable Web approval URL, not the MDXP URL; never defaults to localhost |
+| `MOTRIX_PUBLIC_URL` | unset | Optional externally reachable Web approval URL, not the MDXP URL; omitted Extension pairing uses the local terminal unless operator HTTP is explicitly allowed |
 | `MOTRIX_REMOTE_EXTENSION_ENABLED` | `false` | Opt in to the four remote browser-Extension MBP1 routes |
 | `MOTRIX_REMOTE_EXTENSION_PUBLIC_URL` | unset | Exact WS/WSS Server address entered in Motrix Extension |
 | `MOTRIX_ALLOW_INSECURE_OPERATOR_HTTP` | `false` | Explicitly accept exposed operator credentials and traffic on a trusted-LAN HTTP deployment; never use on an untrusted network |

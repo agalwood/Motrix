@@ -9,7 +9,7 @@ describe('installAllMenubarContributions', () => {
     installAllMenubarContributions(reg)
     const ids = new Set(reg.listMenuIds())
     expect(ids.has(MenuIds.MenubarApp)).toBe(true)
-    expect(ids.has(MenuIds.MenubarFile)).toBe(false)
+    expect(ids.has(MenuIds.MenubarFile)).toBe(true)
     expect(
       reg
         .getItems(MenuIds.MenubarWindow, 'darwin')
@@ -43,12 +43,13 @@ describe('installAllMenubarContributions', () => {
     }
   })
 
-  it('task menu starts with New/NewBt/OpenFile', () => {
+  it('file menu separates downloading, opening and creating torrents', () => {
     const reg = new MenuRegistry()
     installAllMenubarContributions(reg)
-    const items = reg.getItems(MenuIds.MenubarTask)
+    const items = reg.getItems(MenuIds.MenubarFile)
     expect(items[0].commandId).toBe('motrix.task.new')
     expect(items[1].commandId).toBe('motrix.task.newBt')
     expect(items[2].commandId).toBe('motrix.task.openFile')
+    expect(items[3].commandId).toBe('motrix.torrent.create')
   })
 })

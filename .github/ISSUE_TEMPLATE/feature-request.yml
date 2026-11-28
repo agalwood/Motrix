@@ -17,7 +17,9 @@ body:
       options:
         - label: I searched the [open and closed issues](https://github.com/agalwood/Motrix/issues?q=is%3Aissue) and did not find an existing request for this idea.
           required: true
-        - label: I reviewed the [FAQ](https://motrix.app/manual/faq/) and [Troubleshooting](https://motrix.app/manual/troubleshooting/) guides, but they did not resolve my issue.
+        - label: I reviewed the [Manual](https://motrix.app/manual/) and [Repo Documents](https://github.com/agalwood/Motrix/tree/main/docs), but they did not resolve my issue.
+          required: true
+        - label: I tested on the latest available build (prioritizing Beta over Stable), but this feature has not been implemented.
           required: true
         - label: This request describes one focused problem or capability.
           required: true

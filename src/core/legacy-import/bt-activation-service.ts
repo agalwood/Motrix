@@ -13,6 +13,7 @@ import { outputPathIdentity } from '@core/task/output-path-identity'
 import type { TaskManager } from '@core/task/task-manager'
 import { taskRowToDownloadTask } from '@core/task/task-row-to-download-task'
 import { AppError, ErrorCode } from '@shared/errors'
+import { parseEngineTorrent as parseTorrent } from '@shared/lib/engine-torrent'
 import {
   type LegacyBtActivation,
   legacyBtActivationSchema,
@@ -20,7 +21,7 @@ import {
 import type { LegacyCheckpointFile } from '@shared/schemas/legacy-checkpoint'
 import { legacyTaskMetadataSchema } from '@shared/schemas/legacy-import'
 import { TaskStatus, TaskType } from '@shared/types/task'
-import parseTorrent from 'parse-torrent'
+import { isUnresolvedLegacyMagnet } from './legacy-task-policy'
 import { authorizeLegacySource, readLegacyFile } from './source-scanner'
 
 export interface LegacyBtActivationDeps {
@@ -365,7 +366,9 @@ export class LegacyBtActivationService {
         ? !stat.isDirectory()
         : !stat.isFile() ||
           stat.nlink !== 1n ||
-          (stat.mode & 0o022n) !== 0n ||
+          // Windows mode bits do not describe ACLs; the engine checks the
+          // owner/DACL through the same held handle used for import.
+          (process.platform !== 'win32' && (stat.mode & 0o022n) !== 0n) ||
           (process.getuid && BigInt(process.getuid()) !== stat.uid)
     )
       throw failure('payloadUnsafe')
@@ -375,6 +378,7 @@ export class LegacyBtActivationService {
   private async noConflicts(pair: TaskWithInstances): Promise<void> {
     const target = outputPathIdentity(pair.task.finalPath)
     for (const other of this.deps.db.getAllTasks()) {
+      if (isUnresolvedLegacyMagnet(other)) continue
       if (other.task.motrixId === pair.task.motrixId) continue
       const claimed = [
         other.task.finalPath,
@@ -431,12 +435,19 @@ export class LegacyBtActivationService {
     } finally {
       await file.close()
     }
-    for (const name of [directory, source.root]) {
-      const handle = await open(name, constants.O_RDONLY | constants.O_NOFOLLOW)
-      try {
-        await handle.sync()
-      } finally {
-        await handle.close()
+    // Node cannot open/sync directories on Windows. The snapshot file itself
+    // is flushed above; recovery revalidates its persisted digest before use.
+    if (process.platform !== 'win32') {
+      for (const name of [directory, source.root]) {
+        const handle = await open(
+          name,
+          constants.O_RDONLY | constants.O_NOFOLLOW
+        )
+        try {
+          await handle.sync()
+        } finally {
+          await handle.close()
+        }
       }
     }
     return filename

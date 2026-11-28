@@ -1,8 +1,9 @@
-import { createHashRouter, Navigate, type RouteObject } from 'react-router'
+import { createHashRouter, type RouteObject } from 'react-router'
 import { RootRouteFailure, RouteFailure } from './components/renderer-boundary'
 import { AppLayout } from './layouts/app-layout'
 import type { RouteHandle } from './router-types'
 import { DashboardPage } from './routes/dashboard/dashboard-page'
+import { DownloadsEntry } from './routes/downloads/downloads-entry'
 import { DownloadsPage } from './routes/downloads/downloads-page'
 import { NotificationsPage } from './routes/notifications/notifications-page'
 import { PluginDetailPage } from './routes/plugins/plugin-detail-page'
@@ -24,10 +25,9 @@ const routes = [
       },
       {
         path: 'downloads',
-        element: <DownloadsPage />,
         children: [
-          { index: true, element: <Navigate to="all" replace /> },
-          { path: ':filter', element: null },
+          { index: true, element: <DownloadsEntry /> },
+          { path: ':filter', element: <DownloadsPage /> },
         ],
       },
       { path: 'trackers', element: <TrackersPage /> },

@@ -13,6 +13,7 @@ import type {
 } from '@core/engine/engine-adapter'
 import { DIRECT_RESOURCE_METADATA_PROFILE } from '@core/engine/engine-adapter'
 import { ensureDirectory } from '@core/fs/ensure-directory'
+import { sanitizeFinalizeFilename } from '@core/fs/finalize-path'
 import { newEngineTaskId, newTaskId } from '@core/lib/ids'
 import { getLogger } from '@core/logger'
 import type { MediaResolver } from '@core/media/ytdlp/media-resolver'
@@ -31,6 +32,7 @@ import {
 import type { SettingsManager } from '@core/settings/settings-manager'
 import { INCOMPLETE_SUFFIX } from '@shared/constants/incomplete'
 import { AppError, ErrorCode } from '@shared/errors'
+import { formatFileSelection } from '@shared/lib/file-selection-ranges'
 import type {
   TaskCreateRequest,
   TaskCreateSuccessResult,
@@ -52,7 +54,10 @@ import {
   TaskType,
   TransitionPhase,
 } from '@shared/types/task'
-import { isTorrentLikeType } from '@shared/types/task-actions'
+import {
+  canManageBtStorage,
+  isTorrentLikeType,
+} from '@shared/types/task-actions'
 import type { TaskActivityRecorder } from '@shared/types/task-activity'
 import type Database from 'better-sqlite3'
 import {
@@ -64,6 +69,12 @@ import {
   TorrentDuplicateConflictError,
   withBtOutputAdmission,
 } from './bt-duplicate-policy'
+import { verifyBtFiles } from './bt-file-verifier'
+import {
+  btOutputPaths,
+  hasBtControlFile,
+  hasReservedTaskOutput,
+} from './bt-output-reservation'
 import {
   btStoragePayload,
   createBtDirectStoragePlan,
@@ -98,6 +109,7 @@ import {
   admitTaskCreateRequest,
   DownloadSourceError,
 } from './source-admission'
+import { admitTaskCookies } from './task-cookie-admission'
 import type { TaskManager } from './task-manager'
 import type { TorrentMetaStore } from './torrent-meta-store'
 
@@ -203,9 +215,21 @@ export interface CreateTaskDeps {
   /** Re-adds a terminal BT task against its final layout with integrity
    * checking. Shell command handlers inject the existing reAddTask action. */
   reuseExistingBt?: (taskId: string) => Promise<void>
+  /** Called with content and destination admission already held. */
+  relocateExistingBt?: (
+    taskId: string,
+    directory: string,
+    name: string
+  ) => Promise<void>
 }
 
 export interface CreateTaskOptions {
+  /** Internal paired-bridge reservation. Only the host can supply this callback. */
+  handoff?: {
+    taskId: string
+    gid: string
+    commit: (task: DownloadTask, request: CreateDownloadParams) => Promise<void>
+  }
   source?: TaskSource // default 'user'
   sourceMeta?: SourceMeta // default null
   /** Ephemeral credentials; kept out of persisted task records and plugins. */
@@ -283,6 +307,10 @@ async function createAdmittedTask(
 ): Promise<TaskCreateSuccessResult> {
   const parsed = taskCreateRequestSchema.safeParse(rawRequest)
   if (parsed.success && parsed.data.type === 'http') {
+    // Snapshot and clean credentials before any await or task side effect.
+    // Existing idempotent receipts are resolved before reaching this admission.
+    if (opts.cookies !== undefined)
+      opts = { ...opts, cookies: admitTaskCookies(deps.adapter, opts.cookies) }
     const policy = deps.directResourceProxyPolicy
     // Cold-start waiting happens before taking the proxy read lease. Once the
     // lease is held, a later disconnect must fail fast instead of waiting on
@@ -396,7 +424,7 @@ async function handleCreateTaskUnderAdmission(
     (deps.prepareSaveDir
       ? await deps.prepareSaveDir(requestedSaveDir)
       : requestedSaveDir)
-  const taskId = newTaskId()
+  const taskId = opts.handoff?.taskId ?? newTaskId()
 
   log.info(
     {
@@ -419,20 +447,17 @@ async function handleCreateTaskUnderAdmission(
   if (req.type === 'bt' && req.payload.kind === 'torrent-base64') {
     torrentBytes = req.torrentBytes ?? decodeBase64ToBytes(req.payload.base64)
     try {
-      parsedBtLayout = await parseBtFileLayout(torrentBytes)
+      parsedBtLayout = await parseBtFileLayout(torrentBytes, req.selectedFiles)
       torrentInfoName = parsedBtLayout.torrentRootName
       isPrivateFromTorrent = parsedBtLayout.isPrivate
     } catch (err) {
-      if (err instanceof UnsafeTorrentPathError) {
-        throw new AppError(
-          ErrorCode.TorrentParseFailed,
-          'Torrent contains an unsafe file path',
-          err
-        )
-      }
-      log.warn(
-        { err },
-        'failed to parse torrent paths; using engine paths inside the final directory'
+      if (err instanceof AppError) throw err
+      throw new AppError(
+        ErrorCode.TorrentParseFailed,
+        err instanceof UnsafeTorrentPathError
+          ? 'Torrent contains an unsafe file path'
+          : 'Invalid torrent metadata',
+        err
       )
     }
   }
@@ -445,12 +470,63 @@ async function handleCreateTaskUnderAdmission(
           ? extractMagnetInfoHash(req.payload.uri)
           : null))
 
+  const useExistingFiles =
+    req.type === 'bt' && req.duplicatePolicy === 'use-existing'
+  if (
+    useExistingFiles &&
+    req.type === 'bt' &&
+    parsedBtLayout &&
+    btInfoHash &&
+    deps.relocateExistingBt
+  ) {
+    const matching = deps.taskManager
+      .getAll()
+      .filter(
+        (task) =>
+          task.status !== TaskStatus.Removed &&
+          task.infoHash?.toLowerCase() === btInfoHash
+      )
+    const sameSelection = (values: readonly number[]) =>
+      [...new Set(values)].sort((a, b) => a - b).join(',')
+    const owner = matching.length === 1 ? matching[0] : undefined
+    if (
+      owner &&
+      canManageBtStorage(owner) &&
+      sameSelection(owner.bt?.selectedFiles ?? []) ===
+        sameSelection(req.selectedFiles)
+    ) {
+      await deps.relocateExistingBt(
+        owner.id,
+        effectiveSaveDir,
+        sanitizeFinalizeFilename(deriveDesiredName(req, torrentInfoName))
+      )
+      return {
+        outcome: 'rechecked',
+        taskId: owner.id,
+        gid:
+          deps.taskManager.getById(owner.id)?.engineTaskId ??
+          owner.engineTaskId,
+      }
+    }
+    if (matching.length > 0)
+      throw new TorrentDuplicateConflictError({
+        reason: 'active-info-hash',
+        infoHash: btInfoHash,
+        targetDir: effectiveSaveDir,
+        existingTaskId: matching[0].id,
+        existingTaskName: matching[0].name,
+        existingTaskStatus: matching[0].status,
+        canCreateCopy: false,
+      })
+  }
+
   if (req.type === 'bt' && btInfoHash) {
     const admission = inspectBtDuplicate(deps.taskManager.getAll(), {
       infoHash: btInfoHash,
       saveDir: effectiveSaveDir,
       selectedFiles: req.selectedFiles,
-      duplicatePolicy: req.duplicatePolicy,
+      duplicatePolicy:
+        req.duplicatePolicy === 'use-existing' ? 'reuse' : req.duplicatePolicy,
       excludeTaskId: req.existingTaskId,
     })
     if (admission.action === 'conflict') {
@@ -472,9 +548,14 @@ async function handleCreateTaskUnderAdmission(
   }
 
   // 1. Decide final on-disk name (handles collisions).
+  // 未解析元数据的磁力链接此时尚不知晓真实种子结构，不能提前以 infoHash/dn
+  // 占位或创建子目录，否则 aria2 会把文件写入 Downloads/<info_hash>/file (#2552)。
+  const isUnresolvedMagnet = req.type === 'bt' && req.payload.kind === 'magnet'
   const desiredName = deriveDesiredName(req, torrentInfoName)
+  const existingName = sanitizeFinalizeFilename(desiredName)
   if (
     req.type === 'bt' &&
+    !isUnresolvedMagnet &&
     btInfoHash &&
     req.duplicatePolicy === 'reuse' &&
     deps.finalNamePicker.isTaken &&
@@ -495,19 +576,55 @@ async function handleCreateTaskUnderAdmission(
     reservedNames.length > 0
       ? deps.finalNamePicker.pick(effectiveSaveDir, desired, reservedNames)
       : deps.finalNamePicker.pick(effectiveSaveDir, desired)
-  let finalName =
-    req.type === 'bt'
-      ? await deps.finalNamePicker.pick(
-          effectiveSaveDir,
-          desiredName,
-          reservedNames,
-          parsedBtLayout?.multiFile === false
-        )
-      : await pickHttpFinalName(desiredName)
+  let finalName = isUnresolvedMagnet
+    ? ''
+    : useExistingFiles
+      ? existingName
+      : req.type === 'bt'
+        ? await deps.finalNamePicker.pick(
+            effectiveSaveDir,
+            desiredName,
+            reservedNames,
+            parsedBtLayout?.multiFile === false
+          )
+        : await pickHttpFinalName(desiredName)
+
+  if (useExistingFiles) {
+    if (!torrentBytes || !parsedBtLayout || req.type !== 'bt')
+      throw new AppError(
+        ErrorCode.TorrentParseFailed,
+        'task.storage.errors.unavailable'
+      )
+    const output = path.join(effectiveSaveDir, existingName)
+    if (
+      hasReservedTaskOutput(
+        deps.taskManager.getAll(),
+        btOutputPaths(output, parsedBtLayout.multiFile)
+      ) ||
+      (!parsedBtLayout.multiFile && (await hasBtControlFile(output)))
+    )
+      throw new AppError(
+        ErrorCode.TorrentDuplicateConflict,
+        'task.storage.errors.conflict'
+      )
+    const verification = await verifyBtFiles({
+      metadata: torrentBytes,
+      payloadPath: output,
+      selectedFiles: req.selectedFiles,
+    })
+    if (!verification.complete)
+      throw new AppError(ErrorCode.TaskNotRetryable, 'task.storage.incomplete')
+  }
 
   const taskType = deriveTaskType(req)
-  let finalPath = path.join(effectiveSaveDir, finalName)
-  let diskPath = isTorrentLikeType(taskType) ? finalPath : toTempPath(finalPath)
+  let finalPath = isUnresolvedMagnet
+    ? effectiveSaveDir
+    : path.join(effectiveSaveDir, finalName)
+  let diskPath = isUnresolvedMagnet
+    ? ''
+    : isTorrentLikeType(taskType)
+      ? finalPath
+      : toTempPath(finalPath)
   // Anchor "now" early so the hook DTO's requestedAt and the persisted
   // task row share a clock — they are written in the same SQLite
   // transaction when plugin metadata is staged.
@@ -533,6 +650,7 @@ async function handleCreateTaskUnderAdmission(
   const btStoragePlan = isTorrentLikeType(taskType)
     ? createBtDirectStoragePlan(finalPath, parsedBtLayout, torrentMetaPath)
     : null
+  if (useExistingFiles && btStoragePlan) btStoragePlan.layout.finalized = true
 
   // Fail before a single byte moves when a destination cannot be opened at
   // all. The engine opens Windows paths past MAX_PATH (agalwood/Motrix#2183),
@@ -579,6 +697,7 @@ async function handleCreateTaskUnderAdmission(
     | undefined
   let pluginMetadataOps: readonly StagedMetadataOp[] = []
   let assertPluginPolicyCurrent: (() => void) | undefined
+  let handoffRequest: CreateDownloadParams | undefined
   let dispatchEngine: (reservedGid: string) => Promise<string>
   let directReplay: DirectReplayRecipe | null = null
   let canonicalUris = deriveUris(req)
@@ -909,6 +1028,7 @@ async function handleCreateTaskUnderAdmission(
     // rewritten request must never probe the stale user-supplied target.
     // Manual names remain authoritative and skip filename discovery.
     if (
+      !opts.handoff &&
       !req.filename?.trim() &&
       params.uris.length === 1 &&
       metadataRequestProfile !== null &&
@@ -945,6 +1065,12 @@ async function handleCreateTaskUnderAdmission(
     // already canonical fields on the instance; modifier VALUES remain
     // engine-call-only so credentials never enter motrix.db.
     assertPluginPolicyCurrent?.()
+    if (
+      params.uris.length === 1 &&
+      (await deps.adapter.supportsDirectTaskRetry?.())
+    ) {
+      params.retainRequestContext = true
+    }
     directReplay = buildDirectReplayRecipe(
       params,
       ambientMetadataProfile === null
@@ -952,6 +1078,7 @@ async function handleCreateTaskUnderAdmission(
     if (
       directReplay.replayability === 'uri-only' &&
       metadataRequestProfile !== null &&
+      !opts.handoff &&
       deps.directResourceValidator &&
       params.uris.length === 1
     ) {
@@ -980,15 +1107,19 @@ async function handleCreateTaskUnderAdmission(
     }
     assertPluginPolicyCurrent?.()
     canonicalUris = [...params.uris]
+    if (opts.handoff) handoffRequest = params
     dispatchEngine = dispatchCreateDownload(params)
   } else if (req.payload.kind === 'torrent-base64') {
     // Torrent bytes were decoded earlier for name/private extraction; they
     // are always present on the torrent-base64 path.
     const params: AddTorrentParams = {
       metadata: torrentBytes ?? decodeBase64ToBytes(req.payload.base64),
+      ...(useExistingFiles
+        ? { checkIntegrity: true, preserveExistingFiles: true }
+        : {}),
       saveDir: btStoragePlan?.saveDir ?? diskPath,
       // CREATE-PATH +1: req indices are 0-based; aria2 select-file is
-      // 1-based, and addTorrent serializes selectedFiles with a raw join.
+      // 1-based. The adapter compacts consecutive indices into ranges.
       selectedFiles: req.selectedFiles.map((i) => i + 1),
       outputFilePaths: btStoragePlan?.outputFilePaths,
       outputRoot: btStoragePlan?.outputRoot,
@@ -1005,12 +1136,13 @@ async function handleCreateTaskUnderAdmission(
       params.gid = reservedGid
       // Never log `params.metadata` itself: pino would expand the whole
       // torrent byte array into a multi-megabyte JSON line.
-      const { metadata, ...loggableParams } = params
+      const { metadata, selectedFiles, outputFilePaths } = params
       log.info(
         {
           method: 'addTorrent',
           metadataBytes: metadata.length,
-          params: loggableParams,
+          selectedFileCount: selectedFiles?.length,
+          mappedFileCount: outputFilePaths?.length,
         },
         'dispatching to engine'
       )
@@ -1022,9 +1154,10 @@ async function handleCreateTaskUnderAdmission(
     // dir=diskPath, no out) through createDownload + extraEngineOptions.
     const magnetEngineOpts: Record<string, string> = {}
     if (req.selectedFiles.length > 0) {
-      magnetEngineOpts['select-file'] = req.selectedFiles
-        .map((i) => i + 1)
-        .join(',')
+      magnetEngineOpts['select-file'] = formatFileSelection(
+        req.selectedFiles,
+        0
+      )
     }
     if (req.dlLimit !== undefined) {
       magnetEngineOpts['max-download-limit'] = String(req.dlLimit)
@@ -1037,12 +1170,12 @@ async function handleCreateTaskUnderAdmission(
     }
     const params: CreateDownloadParams = {
       uris: [req.payload.uri],
-      // dir = diskPath; NO filename → createDownload emits no `out`.
-      saveDir: diskPath,
+      // 直接使用用户选择的下载目录，避免为未解析磁力链接创建 Downloads/<info_hash>/ 子目录 (#2552)
+      saveDir: effectiveSaveDir,
       // Spread order: magnet opts first, then shell-supplied opts (which
       // merged LAST in the old code and could override). createDownload then
       // merges extraEngineOptions after `dir`, so the final aria2 map is
-      // { dir: diskPath, ...magnetEngineOpts, ...opts.extraEngineOptions } —
+      // { dir: effectiveSaveDir, ...magnetEngineOpts, ...opts.extraEngineOptions } —
       // explicit shell overrides keep their existing precedence.
       extraEngineOptions: {
         ...magnetEngineOpts,
@@ -1061,7 +1194,8 @@ async function handleCreateTaskUnderAdmission(
     await deps.waitForEngineReady()
   }
 
-  const gid = newEngineTaskId(deps.createEngineTaskId, 'createTask')
+  const gid =
+    opts.handoff?.gid ?? newEngineTaskId(deps.createEngineTaskId, 'createTask')
   // 5. Build a fully-populated durable owner before engine dispatch.
   const isBtLike = isTorrentLikeType(taskType)
   const taskKind: TaskKind = isBtLike ? TaskKind.Bt : TaskKind.Direct
@@ -1075,7 +1209,7 @@ async function handleCreateTaskUnderAdmission(
     phase,
     status: TaskStatus.Queued,
     progress: 0,
-    totalBytes: 0,
+    totalBytes: parsedBtLayout?.totalBytes ?? 0,
     downloadedBytes: 0,
     uploadedBytes: 0,
     diskPath,
@@ -1098,10 +1232,11 @@ async function handleCreateTaskUnderAdmission(
     }
   }
 
+  const taskDisplayName = isUnresolvedMagnet ? desiredName : finalName
   const task: DownloadTask = makeDownloadTask({
     id: taskId,
     engineTaskId: gid,
-    name: finalName,
+    name: taskDisplayName,
     kind: taskKind,
     type: taskType,
     saveDir: effectiveSaveDir,
@@ -1110,16 +1245,23 @@ async function handleCreateTaskUnderAdmission(
     uris: canonicalUris,
     dlLimit: req.type === 'bt' ? (req.dlLimit ?? 0) : 0,
     ulLimit: req.type === 'bt' ? (req.ulLimit ?? 0) : 0,
-    filename: finalName,
+    filename: taskDisplayName,
     diskPath,
     finalPath,
     finalName,
     torrentMetaPath,
     infoHash: btInfoHash,
+    ...(parsedBtLayout
+      ? {
+          totalBytes: parsedBtLayout.totalBytes ?? 0,
+          sizeWhenDone: parsedBtLayout.totalBytes ?? 0,
+          fileCount: parsedBtLayout.files.length,
+        }
+      : {}),
     // For BT/Magnet, seed bt.isPrivate at creation time so SessionManager.save()
     // persists is_private to db. Other bt fields are filled in by the next poll
-    // cycle via translateBtExtension; mergeTask preserves isPrivate via the
-    // saved.isPrivate injection wired in Task 4.
+    // cycle via translateBtExtension; mergeEngineTask preserves this metadata
+    // while merging live engine metrics.
     bt: isBtLike
       ? makeDefaultBtExtension({
           isPrivate: isPrivateFromTorrent,
@@ -1133,6 +1275,16 @@ async function handleCreateTaskUnderAdmission(
     instances: [primaryInstance],
   })
   const createReservedTask = async (): Promise<TaskCreateSuccessResult> => {
+    if (opts.handoff) {
+      if (
+        !handoffRequest ||
+        pluginMetadataOps.length ||
+        assertPluginPolicyCurrent
+      )
+        throw new Error('Unsupported handoff creation policy')
+      await opts.handoff.commit(task, { ...handoffRequest, gid })
+      return { outcome: 'created', taskId, gid }
+    }
     deps.taskManager.reserveEngineTaskId(gid)
 
     const persistParent = async (): Promise<void> => {
@@ -1258,6 +1410,20 @@ async function handleCreateTaskUnderAdmission(
       // The engine outcome or durable rollback is uncertain. Promote the silent
       // candidate to an ordinary owner so every live GID has the same public
       // task identity and recovery can reconcile it after restart.
+      if (parsedBtLayout) {
+        task.status = TaskStatus.Error
+        primaryInstance.status = TaskStatus.Error
+        primaryInstance.payload.unconfirmedTorrentCreateGid = gid
+        task.errorMessage = cause instanceof Error ? cause.message : null
+        try {
+          await deps.persistTask?.(task)
+        } catch (error) {
+          log.warn(
+            { err: error, taskId },
+            'could not persist uncertain torrent creation'
+          )
+        }
+      }
       deps.taskManager.add(task)
       announceOwnedTask()
       throw cause

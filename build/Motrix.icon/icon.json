@@ -1,0 +1,52 @@
+{
+  "groups": [
+    {
+      "name": "M-O \u00b7 original solid foreground",
+      "lighting": "combined",
+      "specular": false,
+      "blur-material": 0,
+      "translucency": {
+        "enabled": false,
+        "value": 0
+      },
+      "shadow": {
+        "kind": "none",
+        "opacity": 0
+      },
+      "layers": [
+        {
+          "name": "M-O solid artwork",
+          "image-name": "MO-solid-1024.png",
+          "glass": false
+        }
+      ]
+    },
+    {
+      "name": "White rim / shaded purple recess",
+      "lighting": "combined",
+      "specular": false,
+      "blur-material": 0,
+      "translucency": {
+        "enabled": false,
+        "value": 0
+      },
+      "shadow": {
+        "kind": "none",
+        "opacity": 0
+      },
+      "layers": [
+        {
+          "name": "Full-bleed opaque glass artwork",
+          "image-name": "Glass-WhiteRim-1024.png",
+          "glass": false
+        }
+      ]
+    }
+  ],
+  "supported-platforms": {
+    "squares": ["macOS"]
+  },
+  "fill": {
+    "solid": "extended-srgb:0.94902,0.95294,0.96863,1.00000"
+  }
+}

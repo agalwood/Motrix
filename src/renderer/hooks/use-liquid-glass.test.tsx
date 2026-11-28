@@ -7,6 +7,7 @@ import { useLiquidGlass } from './use-liquid-glass'
 
 vi.mock('@renderer/lib/transport', () => ({
   transport: {
+    platform: 'darwin',
     invoke: vi.fn(),
     on: vi.fn(),
     off: vi.fn(),
@@ -14,7 +15,39 @@ vi.mock('@renderer/lib/transport', () => ({
   },
 }))
 
-beforeEach(() => vi.clearAllMocks())
+beforeEach(() => {
+  vi.clearAllMocks()
+  Object.defineProperty(transport, 'platform', {
+    configurable: true,
+    value: 'darwin',
+  })
+})
+
+it.each(['linux', 'win32', 'web'])(
+  'ignores an enabled preference after loading, events and reconnects on %s',
+  async (platform) => {
+    Object.defineProperty(transport, 'platform', {
+      configurable: true,
+      value: platform,
+    })
+    vi.mocked(transport.invoke).mockResolvedValue({
+      app: { liquidGlassEffect: true },
+    })
+    const { result } = await act(async () => renderHook(useLiquidGlass))
+    expect(result.current).toBe(false)
+    const change = vi
+      .mocked(transport.on)
+      .mock.calls.find(([event]) => event === Events.LiquidGlassChanged)![1]
+    await act(async () => change())
+    expect(result.current).toBe(false)
+    await act(async () => {
+      vi.mocked(transport.onConnectionChange!).mock.calls[0][0]({
+        state: 'connected',
+      })
+    })
+    expect(result.current).toBe(false)
+  }
+)
 
 it('reads the saved setting and refreshes after changes and reconnects', async () => {
   vi.mocked(transport.invoke).mockResolvedValue({

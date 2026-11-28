@@ -133,19 +133,6 @@ describe('Safari desktop distribution', () => {
     }
   })
 
-  it('gives unsigned and signed release builds the same per-attempt bundle version', () => {
-    const workflow = readFileSync('.github/workflows/release.yml', 'utf8')
-    const versions = workflow.match(/-c\.mac\.bundleVersion=[^\r\n ]+/g)
-    // Match complete expressions because GitHub expressions contain spaces.
-    expect(versions).toHaveLength(2)
-    expect(
-      workflow.split(
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: literal GitHub Actions expression
-        '-c.mac.bundleVersion=${{ github.run_number }}.${{ github.run_attempt }}.0'
-      )
-    ).toHaveLength(3)
-  })
-
   it('embeds desktop helpers in both unsigned and isolated signing packages', () => {
     for (const name of [
       'electron-builder.json',

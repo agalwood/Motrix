@@ -5,8 +5,9 @@ import type { DownloadTask } from '@shared/types/task'
 import { TaskStatus } from '@shared/types/task'
 import { useLayoutEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import { aggregatePieceMap, type PieceState } from './piece-map'
 
-// Statuses where the bitfield is actively changing and warrants the 2s
+// Statuses where the bitfield is actively changing and warrants the 1s
 // polling cadence. For other statuses (paused / seeding / completed /
 // error / removed) the hook still fetches once on mount so the user sees
 // an available last-known piece map — it just stops polling after that.
@@ -18,36 +19,6 @@ const PIECES_LIVE_STATUSES = new Set<TaskStatus>([
   TaskStatus.Downloading,
   TaskStatus.Finalizing,
 ])
-
-type PieceState = 'done' | 'pending'
-
-function statesFromBitfield(bitfield: string, numPieces: number): PieceState[] {
-  const out: PieceState[] = []
-  for (let i = 0; i < numPieces; i++) {
-    const byteIndex = i >> 2
-    const hex = bitfield[byteIndex]
-    if (!hex) {
-      out.push('pending')
-      continue
-    }
-    const nibble = Number.parseInt(hex, 16)
-    const bit = 3 - (i & 3)
-    out.push((nibble >> bit) & 1 ? 'done' : 'pending')
-  }
-  return out
-}
-
-function downsample(states: PieceState[], target = 4000): PieceState[] {
-  if (states.length <= target) return states
-  const stride = Math.ceil(states.length / target)
-  const out: PieceState[] = []
-  for (let i = 0; i < states.length; i += stride) {
-    const chunk = states.slice(i, i + stride)
-    const done = chunk.filter((s) => s === 'done').length
-    out.push(done * 2 >= chunk.length ? 'done' : 'pending')
-  }
-  return out
-}
 
 const CELL_PX = 4
 const GAP_PX = 1
@@ -122,19 +93,17 @@ export function PiecesTab({ task }: { task: DownloadTask }) {
   const { t } = useTranslation()
   const { pieces } = useTaskPieces(
     task.id,
-    PIECES_LIVE_STATUSES.has(task.status)
+    PIECES_LIVE_STATUSES.has(task.status),
+    task.engineTaskId
   )
 
   // Memoize on the bitfield primitive (not the pieces object) so the
-  // 2s polling refresh's new TaskPiecesResult identity doesn't churn
+  // 1s polling refresh's new TaskPiecesResult identity doesn't churn
   // a 4000-cell rebuild when the underlying bytes are unchanged.
   const bitfield = pieces?.bitfield ?? ''
   const numPieces = pieces?.numPieces ?? 0
-  const cells = useMemo(
-    () =>
-      numPieces === 0
-        ? []
-        : downsample(statesFromBitfield(bitfield, numPieces)),
+  const { cells, donePieces, pendingPieces } = useMemo(
+    () => aggregatePieceMap(bitfield, numPieces),
     [bitfield, numPieces]
   )
 
@@ -165,11 +134,6 @@ export function PiecesTab({ task }: { task: DownloadTask }) {
       ro?.disconnect()
     }
   }, [cells])
-
-  const doneCount = useMemo(
-    () => cells.reduce((n, c) => (c === 'done' ? n + 1 : n), 0),
-    [cells]
-  )
 
   if (!pieces) {
     return <div aria-hidden="true" className={PIECES_MIN_H_CLASS} />
@@ -204,12 +168,12 @@ export function PiecesTab({ task }: { task: DownloadTask }) {
         <p className="flex items-center gap-1">
           <span className="me-1 inline-block size-2.5 rounded-[2px] bg-green-500" />
           <span>{t('panel.downloads.inspector.pieces.legend.done')}</span>
-          <span>{doneCount}</span>
+          <span>{donePieces}</span>
         </p>
         <p className="flex items-center gap-1">
           <span className="me-1 inline-block size-2.5 rounded-[2px] bg-muted" />
           <span>{t('panel.downloads.inspector.pieces.legend.pending')}</span>
-          <span>{cells.length - doneCount}</span>
+          <span>{pendingPieces}</span>
         </p>
         <p className="flex items-center gap-1 mt-3 text-muted-foreground/80">
           <span>{t('panel.downloads.inspector.pieces.pieceLength')}:</span>

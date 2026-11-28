@@ -11,7 +11,10 @@ interface DownloadPathEnvironment {
 export interface ServerDownloadPathPolicyOptions {
   defaultSaveDir: string
   allowedSaveDirsValue?: string
+  allowedSaveDirs?: readonly string[]
   pathDelimiter?: string
+  /** Platform-provided roots must already exist; never recreate lost mounts. */
+  initialize?: boolean
 }
 
 export interface ServerDownloadPathPolicy {
@@ -252,19 +255,26 @@ export async function createServerDownloadPathPolicy(
     options.defaultSaveDir,
     'MOTRIX_DEFAULT_SAVE_DIR'
   )
-  const configuredRoots = parseAllowedSaveDirs(
-    options.allowedSaveDirsValue,
-    options.pathDelimiter ?? path.delimiter
-  )
+  const configuredRoots =
+    options.allowedSaveDirs?.map((value) =>
+      absolutePath(value, 'Allowed save directory')
+    ) ??
+    parseAllowedSaveDirs(
+      options.allowedSaveDirsValue,
+      options.pathDelimiter ?? path.delimiter
+    )
   const allowedRoots: AllowedRoot[] = []
   for (const configured of configuredRoots) {
-    await ensureSaveDirectory(configured)
+    if (options.initialize !== false) await ensureSaveDirectory(configured)
     const canonical = await realpath(configured)
-    await ensureWritable(canonical)
+    if (!(await stat(canonical)).isDirectory())
+      throw new Error('Save root is not a directory')
+    if (options.initialize !== false) await ensureWritable(canonical)
     allowedRoots.push({ configured, canonical })
   }
 
   const policy = new DownloadPathPolicy(defaultSaveDir, allowedRoots)
+  if (options.initialize === false) return policy
   try {
     await policy.prepareSaveDir(defaultSaveDir)
   } catch (error) {

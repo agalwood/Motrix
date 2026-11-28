@@ -252,7 +252,7 @@ describe('PluginCallGraphNode', () => {
 
     await user.keyboard('{ArrowRight}')
     await waitFor(() =>
-      expect(node.style.transform).toBe('translate(15px,40px)')
+      expect(node).toHaveStyle({ transform: 'translate(15px, 40px)' })
     )
 
     await user.keyboard('{Escape}')

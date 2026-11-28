@@ -83,6 +83,8 @@ export interface AdaptedMux {
 }
 
 export interface AdaptInput {
+  /** Authenticated routing key supplied by the transport, never the request. */
+  sessionKey?: string
   extensionId: string
   browser: Browser
 }
@@ -240,7 +242,7 @@ export class SubmitDownloadAdapter {
         httpOnly: cookie.httpOnly,
         ...(cookie.expiresAt === undefined
           ? {}
-          : { expiresAt: Math.max(0, Math.floor(cookie.expiresAt)) }),
+          : { expiresAt: Math.floor(cookie.expiresAt) }),
       })),
       sourceMeta: this.makeSourceMeta('direct', input, source, meta),
       pageUrl: source.pageUrl,
@@ -253,7 +255,8 @@ export class SubmitDownloadAdapter {
     source: DownloadSubmitParams['source'],
     meta: DownloadSubmitParams['meta']
   ): BridgeSourceMeta {
-    const sessionKey = makeSessionKey(input.browser, input.extensionId)
+    const sessionKey =
+      input.sessionKey ?? makeSessionKey(input.browser, input.extensionId)
     return {
       kind,
       extensionId: input.extensionId,

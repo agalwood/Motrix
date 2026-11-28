@@ -161,6 +161,7 @@ describe('evaluateRemoteExtensionHost', () => {
       publicWebSocketBaseUrl: 'wss://attacker.example/bridge',
       publicWebSocketAuthority: 'motrix.example',
       publicWebSocketBasePath: '/bridge',
+      operatorDelivery: 'web',
       publicOperatorBaseUrl: 'https://motrix.example',
       publicOperatorAuthority: 'motrix.example',
       publicOperatorBasePath: '',

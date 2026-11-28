@@ -9,7 +9,11 @@ export function contributeSharedMenubar(menuReg: MenuRegistry): void {
       id: item.id,
       type: 'normal',
       menuId:
-        item.section === 'task' ? MenuIds.MenubarTask : MenuIds.MenubarHelp,
+        item.section === 'file'
+          ? MenuIds.MenubarFile
+          : item.section === 'task'
+            ? MenuIds.MenubarTask
+            : MenuIds.MenubarHelp,
       group: item.group,
       order: item.order,
       commandId: item.commandId,

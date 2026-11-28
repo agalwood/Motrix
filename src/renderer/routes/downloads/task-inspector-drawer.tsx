@@ -27,8 +27,10 @@ import {
 } from '@renderer/components/ui/tabs'
 import { LegacyFreshDownload } from '@renderer/features/legacy-import/legacy-fresh-download'
 import { createTaskInspectorActivitySnapshotCache } from '@renderer/hooks/use-task-inspector-activity'
+import { revealTaskFolder } from '@renderer/lib/open-task-file'
 import { transport } from '@renderer/lib/transport'
-import { Commands } from '@shared/protocol/commands'
+import { hasHostFileActions } from '@renderer/platform/nas'
+import { formatNativePath } from '@shared/lib/path-display'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskType } from '@shared/types/task'
 import {
@@ -55,6 +57,8 @@ export interface TaskInspectorDrawerProps {
   tasks: readonly DownloadTask[]
   /** Bounded portal target. The inspector overlays the list without resizing it. */
   container: HTMLElement | null
+  bottomInset?: number
+  maxHeight?: number
   onDismiss?: () => void
 }
 
@@ -62,6 +66,8 @@ export function TaskInspectorDrawer({
   selection,
   tasks,
   container,
+  bottomInset,
+  maxHeight,
   onDismiss,
 }: TaskInspectorDrawerProps) {
   const { t } = useTranslation()
@@ -70,6 +76,10 @@ export function TaskInspectorDrawer({
   const snap = useDownloadsView((s) => s.inspectorSnap)
   const setSnap = useDownloadsView((s) => s.setInspectorSnap)
   const single = selected.length === 1 ? selected[0] : null
+  const taskPath = formatNativePath(
+    single?.finalPath || single?.diskPath || '',
+    transport.platform
+  )
   const isBt = single?.type === TaskType.Bt || single?.type === TaskType.Magnet
   const showPieces = single !== null && canInspectPieces(single)
   const subtab = useDownloadsView((s) => s.inspectorTab)
@@ -100,6 +110,8 @@ export function TaskInspectorDrawer({
   return (
     <InspectorDrawer
       container={container}
+      bottomInset={bottomInset}
+      maxHeight={maxHeight}
       open={open}
       snap={snap}
       onSnapChange={setSnap}
@@ -139,34 +151,30 @@ export function TaskInspectorDrawer({
                       </span>
                     </div>
 
-                    {__MOTRIX_TARGET__ === 'electron' &&
-                      canRevealTaskFolder(single) && (
-                        <div className="min-w-0 flex items-center gap-1 text-xs text-muted-foreground">
-                          <Button
-                            className="min-w-0 flex-1 justify-start overflow-hidden text-muted-foreground hover:no-underline cursor-pointer"
-                            variant="secondary"
-                            size="xs"
-                            dir="ltr"
-                            onClick={() =>
-                              transport.invoke(Commands.RevealInFolder, {
-                                taskId: single.id,
-                              })
-                            }
-                          >
-                            <DiskIcon className="me-1 size-3.5 shrink-0 text-muted-foreground" />
-                            <MiddleEllipsis
-                              text={single.finalPath || single.diskPath}
-                              maxChars={64}
-                              className="font-sans!"
-                            />
-                          </Button>
-                          <CopyButton
-                            variant="ghost"
-                            className="ms-1 h-4.5 w-4.5 shrink-0 rounded-md p-0 has-[>svg]:px-0 [&_svg:not([class*='size-'])]:size-3"
-                            content={single.finalPath || single.diskPath}
+                    {hasHostFileActions() && canRevealTaskFolder(single) && (
+                      <div className="min-w-0 flex items-center gap-1 text-xs text-muted-foreground">
+                        <Button
+                          className="min-w-0 flex-1 justify-start overflow-hidden text-muted-foreground hover:no-underline cursor-pointer"
+                          variant="secondary"
+                          size="xs"
+                          dir="ltr"
+                          onClick={() => revealTaskFolder(single, t)}
+                        >
+                          <DiskIcon className="me-1 size-3.5 shrink-0 text-muted-foreground" />
+                          <MiddleEllipsis
+                            text={taskPath}
+                            maxChars={64}
+                            className="font-sans!"
                           />
-                        </div>
-                      )}
+                        </Button>
+                        <CopyButton
+                          variant="ghost"
+                          aria-label={t('panel.downloads.action.copyPath')}
+                          className="ms-1 h-4.5 w-4.5 shrink-0 rounded-md p-0 has-[>svg]:px-0 [&_svg:not([class*='size-'])]:size-3"
+                          content={taskPath}
+                        />
+                      </div>
+                    )}
                   </div>
                   <StatusPill status={single.status} task={single} />
                 </div>
@@ -231,23 +239,26 @@ export function TaskInspectorDrawer({
                     </TabsTrigger>
                   </TabsList>
                   <TabsContent value="overview" className="min-h-0">
-                    {__MOTRIX_TARGET__ === 'electron' &&
-                      isLegacyImportInactive(single) && (
-                        <div className="mb-4">
-                          <LegacyFreshDownload task={single} />
-                        </div>
-                      )}
+                    {hasHostFileActions() && isLegacyImportInactive(single) && (
+                      <div className="mb-4">
+                        <LegacyFreshDownload task={single} />
+                      </div>
+                    )}
                     <OverviewTab
                       task={single}
                       snapshotCache={activitySnapshotCache}
                     />
                   </TabsContent>
                   <TabsContent value="files" className="min-h-0">
-                    <FilesTab key={single.id} task={single} />
+                    {open && activeSubtab === 'files' && (
+                      <FilesTab key={single.id} task={single} />
+                    )}
                   </TabsContent>
                   {showPieces && (
                     <TabsContent value="pieces" className="min-h-0">
-                      <PiecesTab task={single} />
+                      {open && activeSubtab === 'pieces' && (
+                        <PiecesTab task={single} />
+                      )}
                     </TabsContent>
                   )}
                   {isBt && (

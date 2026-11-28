@@ -10,7 +10,7 @@ export interface FailureReason {
 }
 
 export interface FailureReasonI18n {
-  t: (key: string, params?: Record<string, string>) => string
+  t: (key: string, params: Record<string, string>) => string
   exists: (key: string) => boolean
 }
 
@@ -29,11 +29,11 @@ export function resolveFailureReason(
   const candidate =
     descriptor.reasonCandidates.find((c) => i18n.exists(c.key)) ??
     descriptor.reasonCandidates[descriptor.reasonCandidates.length - 1]
-  const reason = candidate ? i18n.t(candidate.key, candidate.params) : ''
+  const reason = candidate ? i18n.t(candidate.key, candidate.params ?? {}) : ''
 
   const hint =
     descriptor.hintKey && i18n.exists(descriptor.hintKey)
-      ? i18n.t(descriptor.hintKey)
+      ? i18n.t(descriptor.hintKey, {})
       : null
 
   return {

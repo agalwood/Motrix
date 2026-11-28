@@ -132,6 +132,51 @@ describe('DirectoryHistoryMenu', () => {
     expect(screen.queryByText('/favorite')).not.toBeInTheDocument()
   })
 
+  it.each([
+    ['electron', 'trigger'],
+    ['electron', 'outside'],
+    ['web', 'trigger'],
+    ['web', 'outside'],
+  ] as const)(
+    'keeps %s history content until the exit animation finishes when closing via %s',
+    async (kind, dismissal) => {
+      mocks.kind = kind
+      const user = userEvent.setup()
+      render(
+        <>
+          <DirectoryHistoryMenu currentPath="/current" onSelect={vi.fn()} />
+          <button type="button">Outside</button>
+        </>
+      )
+      const trigger = screen.getByRole('button', { name: 'Directory history' })
+      await user.click(trigger)
+      const menu = await screen.findByRole('menu')
+      const content = menu.textContent
+      const items = screen.getAllByRole('menuitem')
+      let finishAnimation!: () => void
+      const finished = new Promise<void>((resolve) => {
+        finishAnimation = resolve
+      })
+      // JSDOM has no CSS animations; hold the real menu in its exit phase.
+      Object.defineProperty(menu, 'getAnimations', {
+        value: () => [{ finished }],
+      })
+
+      await user.click(
+        dismissal === 'trigger'
+          ? trigger
+          : screen.getByRole('button', { name: 'Outside' })
+      )
+      await waitFor(() => expect(menu).toHaveAttribute('data-closed'))
+      expect(menu).toBeInTheDocument()
+      expect(menu.textContent).toBe(content)
+      for (const item of items) expect(menu).toContainElement(item)
+
+      await act(async () => finishAnimation())
+      await waitFor(() => expect(menu).not.toBeInTheDocument())
+    }
+  )
+
   it('supports keyboard selection and Escape with trigger focus restoration', async () => {
     const onSelect = vi.fn()
     const user = userEvent.setup()

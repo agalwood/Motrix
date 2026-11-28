@@ -1,8 +1,13 @@
 import { createHash, randomBytes } from 'node:crypto'
 import path from 'node:path'
-import type {
-  ArtifactIdentity,
-  FileArtifactIdentity,
+import { getLogger } from '@core/logger'
+import {
+  type ArtifactIdentity,
+  ArtifactIdentityError,
+  type FileArtifactIdentity,
+  type RenameFileArtifactIdentity,
+  renameFileArtifactIdentitySchema,
+  renameFileIdentityMatches,
 } from './artifact-identity'
 import type {
   ArtifactMutationLease,
@@ -38,6 +43,8 @@ export interface FinalizeJournalRecord {
   privateTargetIdentity?: ArtifactIdentity
   targetIdentity?: ArtifactIdentity
   rollbackPath?: string
+  /** Exact stamp after a verified rollback; ctime changes on every rename. */
+  restoredSourceIdentity?: RenameFileArtifactIdentity
   publicationIntent?: FinalizePublicationIntent
   removalIntent?: FinalizeRemovalIntent
   quarantineReason?: string
@@ -99,6 +106,7 @@ export interface FinalizeJournalRepository {
         | 'privateTargetIdentity'
         | 'targetIdentity'
         | 'rollbackPath'
+        | 'restoredSourceIdentity'
         | 'removalIntent'
         | 'publicationIntent'
       >
@@ -114,6 +122,7 @@ export interface FinalizeJournalRepository {
         | 'privateTargetIdentity'
         | 'targetIdentity'
         | 'rollbackPath'
+        | 'restoredSourceIdentity'
         | 'quarantineReason'
       >
     >
@@ -122,6 +131,12 @@ export interface FinalizeJournalRepository {
   quarantine(journalId: string, reason: string): Promise<void>
   listRecoverable(taskId?: string): Promise<FinalizeJournalRecord[]>
   resumeQuarantined?(record: FinalizeJournalRecord): Promise<void>
+}
+
+export interface PreparedFileRename {
+  sourceIdentity: RenameFileArtifactIdentity
+  publish(): Promise<RenameFileArtifactIdentity>
+  close(): Promise<void>
 }
 
 export interface FinalizeArtifactOperations {
@@ -137,7 +152,14 @@ export interface FinalizeArtifactOperations {
   ): Promise<FileArtifactIdentity>
   /** Validate the actual roots and flush source data before journaled mutation. */
   preflight?(sourcePath: string, targetPath: string): Promise<void>
-  identity(artifactPath: string): Promise<ArtifactIdentity | null>
+  prepareFileRename?(
+    sourcePath: string,
+    targetPath: string
+  ): Promise<PreparedFileRename | null>
+  identity(
+    artifactPath: string,
+    expected?: ArtifactIdentity
+  ): Promise<ArtifactIdentity | null>
   sameFilesystem(leftPath: string, rightPath: string): Promise<boolean>
   materializePrivate(
     sourcePath: string,
@@ -148,7 +170,8 @@ export interface FinalizeArtifactOperations {
     sourcePath: string,
     expected: ArtifactIdentity,
     targetPath: string
-  ): Promise<void>
+    // biome-ignore lint/suspicious/noConfusingVoidType: Existing filesystem adapters return Promise<void>.
+  ): Promise<ArtifactIdentity | void>
   linkNoReplace?(
     sourcePath: string,
     expected: ArtifactIdentity,
@@ -202,7 +225,8 @@ export class FinalizeCommitter {
 
   async commit(
     plan: HookPlan,
-    existingLease?: ArtifactMutationLease
+    existingLease?: ArtifactMutationLease,
+    held?: PreparedFileRename
   ): Promise<FinalizeCommitResult> {
     assertValidHookPlan(plan)
     const lease =
@@ -216,27 +240,31 @@ export class FinalizeCommitter {
     }
     let prepared = false
     try {
-      await this.requireExactIdentity(
-        plan.sourcePath,
-        plan.sourceIdentity,
-        record
-      )
+      await this.requireExactIdentity(plan.sourcePath, plan.sourceIdentity)
       if (plan.replacement) {
         await this.requireExactIdentity(
           plan.replacement.stagedPath,
-          plan.replacement.identity,
-          record
+          plan.replacement.identity
         )
       }
       record.publicationMode = await this.selectPublicationMode(plan)
-      await this.options.fs.preflight?.(
-        plan.replacement?.stagedPath ?? plan.sourcePath,
-        plan.targetPath
+      if (
+        held &&
+        (record.publicationMode !== 'move' ||
+          !isOrdinarySuffixRemoval(plan) ||
+          !this.options.exactIdentity(held.sourceIdentity, plan.sourceIdentity))
       )
+        throw new Error('held rename does not match its journal plan')
+      if (!held)
+        await this.options.fs.preflight?.(
+          plan.replacement?.stagedPath ?? plan.sourcePath,
+          plan.targetPath
+        )
       await this.options.repository.prepare(record)
       prepared = true
-      return await this.commitPrepared(record, lease)
+      return await this.commitPrepared(record, lease, held)
     } catch (error) {
+      await held?.close()
       if (error instanceof FinalizeQuarantinedError) throw error
       if (prepared) await this.compensate(record, lease, error)
       throw error
@@ -247,7 +275,8 @@ export class FinalizeCommitter {
 
   private async commitPrepared(
     record: FinalizeJournalRecord,
-    _lease: ArtifactMutationLease
+    _lease: ArtifactMutationLease,
+    held?: PreparedFileRename
   ): Promise<FinalizeCommitResult> {
     const { plan } = record
     const selectedPath = plan.replacement?.stagedPath ?? plan.sourcePath
@@ -267,17 +296,20 @@ export class FinalizeCommitter {
       // moveNoReplace validates the expected source identity while holding the
       // artifact and both roots. Avoid hashing large artifacts once more here.
       try {
-        publishedIdentity = await this.publish(
-          record,
-          plan.sourcePath,
-          plan.sourceIdentity,
-          plan.targetPath
-        )
+        publishedIdentity = held
+          ? await held.publish()
+          : await this.publish(
+              record,
+              plan.sourcePath,
+              plan.sourceIdentity,
+              plan.targetPath
+            )
       } catch (error) {
         // st_dev is only a hint: bind mounts and OverlayFS can return EXDEV
         // even when both paths report the same device. Reconcile the names
         // before durably switching to the existing private-copy protocol.
         if (
+          plan.sourceIdentity.kind === 'rename-file' ||
           !(error instanceof FinalizeFsError) ||
           error.code !== 'cross_device' ||
           error.details?.mutation === 'applied' ||
@@ -296,7 +328,19 @@ export class FinalizeCommitter {
         record.publicationMode = 'copy'
         return this.commitPrepared(record, _lease)
       }
-      await this.options.fs.makeDurable(plan.targetPath)
+      if (plan.sourceIdentity.kind === 'rename-file') {
+        if (publishedIdentity?.kind !== 'rename-file')
+          throw new Error('native rename omitted the installed file stamp')
+        // Persist the observed post-rename ctime before any further operation.
+        // A crash before this checkpoint preserves the target but cannot authorize rollback.
+        await this.options.repository.checkpoint(record.journalId, {
+          targetIdentity: publishedIdentity,
+        })
+        record.targetIdentity = publishedIdentity
+      }
+      // The guard already flushed this file and its rename synced the parent.
+      // Reopening the target for writing here conflicts with the guard itself.
+      if (!held) await this.options.fs.makeDurable(plan.targetPath)
     } else {
       if (samePath) {
         record.rollbackPath = this.options.rollbackPathFor(plan)
@@ -446,7 +490,13 @@ export class FinalizeCommitter {
     targetPath: string
   ): Promise<ArtifactIdentity | undefined> {
     try {
-      await this.options.fs.moveNoReplace(sourcePath, identity, targetPath)
+      return (
+        (await this.options.fs.moveNoReplace(
+          sourcePath,
+          identity,
+          targetPath
+        )) ?? undefined
+      )
     } catch (error) {
       if (
         !(error instanceof FinalizeFsError) ||
@@ -517,6 +567,17 @@ export class FinalizeCommitter {
         rollForwardTargetInstalled: false,
       }).recover(record, lease)
     } catch (compensationError) {
+      getLogger('finalize').error(
+        {
+          taskId: record.plan.taskId,
+          journalId: record.journalId,
+          phase: record.phase,
+          err: cause,
+          rollbackError: compensationError,
+          ...(cause instanceof FinalizeFsError ? cause.details : {}),
+        },
+        'finalize_commit_and_recovery_failed'
+      )
       const failures = new AggregateError(
         [cause, compensationError],
         'finalize failed and rollback needs recovery'
@@ -545,22 +606,30 @@ export class FinalizeCommitter {
     ) {
       return 'copy'
     }
-    return (await this.options.fs.sameFilesystem(
+    const sameFilesystem = await this.options.fs.sameFilesystem(
       plan.sourcePath,
       plan.targetPath
-    ))
-      ? 'move'
-      : 'copy'
+    )
+    if (!sameFilesystem && plan.sourceIdentity.kind === 'rename-file')
+      throw new Error(
+        'rename-only identity cannot authorize cross-device copying'
+      )
+    return sameFilesystem ? 'move' : 'copy'
   }
 
   private async requireExactIdentity(
     artifactPath: string,
     expected: ArtifactIdentity,
-    record: FinalizeJournalRecord
+    record?: FinalizeJournalRecord
   ): Promise<ArtifactIdentity> {
-    const actual = await this.options.fs.identity(artifactPath)
+    const actual = await this.options.fs.identity(artifactPath, expected)
     if (!actual || !this.options.exactIdentity(actual, expected)) {
-      await this.quarantine(record, `identity mismatch at ${artifactPath}`)
+      if (record)
+        await this.quarantine(record, `identity mismatch at ${artifactPath}`)
+      throw new ArtifactIdentityError(
+        'artifact_mutated',
+        'source identity changed before finalize journal preparation'
+      )
     }
     return actual as ArtifactIdentity
   }
@@ -642,6 +711,8 @@ export async function prepareRemovalIntent(
   artifactPath: string,
   identity: ArtifactIdentity
 ): Promise<FinalizeRemovalIntent> {
+  if (identity.kind === 'rename-file')
+    throw new Error('rename-only identity cannot authorize removal')
   const quarantinePath = removalQuarantinePath(journalId, artifactPath)
   return fs.prepareRemoval
     ? fs.prepareRemoval(artifactPath, identity, quarantinePath)
@@ -674,4 +745,53 @@ export function finalizePathsEquivalent(
   return platform === 'win32'
     ? normalizedLeft.toLowerCase() === normalizedRight.toLowerCase()
     : normalizedLeft === normalizedRight
+}
+
+/** Metadata-only authority never extends to content replacement or removal. */
+export function assertRenameFileJournal(record: FinalizeJournalRecord): void {
+  const source = record.plan.sourceIdentity
+  if (source.kind !== 'rename-file') {
+    if (
+      record.targetIdentity?.kind === 'rename-file' ||
+      record.restoredSourceIdentity ||
+      record.privateTargetIdentity?.kind === 'rename-file' ||
+      record.removalIntent?.identity.kind === 'rename-file' ||
+      record.publicationIntent?.identity.kind === 'rename-file'
+    )
+      throw new Error('content journal contains rename-only identity')
+    return
+  }
+  renameFileArtifactIdentitySchema.parse(source)
+  if (
+    !isOrdinarySuffixRemoval(record.plan) ||
+    record.publicationMode !== 'move' ||
+    record.privateTargetPath !== undefined ||
+    record.privateTargetIdentity !== undefined ||
+    record.rollbackPath !== undefined ||
+    record.publicationIntent !== undefined ||
+    record.removalIntent !== undefined ||
+    !['prepared', 'target_installed', 'db_committed', 'cleaned'].includes(
+      record.phase
+    )
+  )
+    throw new Error('invalid rename-only journal')
+  for (const identity of [
+    record.targetIdentity,
+    record.restoredSourceIdentity,
+  ]) {
+    if (identity === undefined) continue
+    const checked = renameFileArtifactIdentitySchema.parse(identity)
+    if (!renameFileIdentityMatches(checked, source))
+      throw new Error('rename-only journal changed immutable file metadata')
+  }
+  if (
+    (record.phase === 'target_installed' || record.phase === 'db_committed') &&
+    !record.targetIdentity
+  )
+    throw new Error('rename-only journal is missing its installed stamp')
+  if (
+    record.restoredSourceIdentity &&
+    (!record.targetIdentity || record.phase === 'db_committed')
+  )
+    throw new Error('rename-only rollback is missing its installed stamp')
 }

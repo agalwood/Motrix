@@ -6,6 +6,7 @@ import { transport } from '@renderer/lib/transport'
 import { ADD_TASK_COLLAPSED_HEIGHT } from '@shared/constants/add-task'
 import { Events } from '@shared/protocol/events'
 import type { AddTaskFormValues } from '@shared/schemas/add-task'
+import { holdExitAnimation } from '@test-utils/hold-exit-animation'
 import { useState } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { AddTaskDialogHost } from './add-task-dialog-host'
@@ -94,6 +95,21 @@ function renderWithRouter() {
 }
 
 describe('AddTaskDialogHost', () => {
+  it('keeps the current form mounted throughout exit after invalidating its store session', async () => {
+    useAddTaskDialogStore.getState().openWith({ tab: 'torrent' })
+    renderWithRouter()
+    const dialog = screen.getByRole('dialog')
+    const form = screen.getByTestId('add-task-form-stub')
+    const defaults = screen.getByTestId('initial-values').textContent
+    const revision = useAddTaskDialogStore.getState().revision
+    const finish = holdExitAnimation(dialog)
+    act(() => useAddTaskDialogStore.getState().close())
+    expect(useAddTaskDialogStore.getState().revision).toBeGreaterThan(revision)
+    expect(useAddTaskDialogStore.getState().prefill).toBeUndefined()
+    expect(dialog).toContainElement(form)
+    expect(screen.getByTestId('initial-values').textContent).toBe(defaults)
+    await finish()
+  })
   it('preserves edited drafts until discard is confirmed', () => {
     useAddTaskDialogStore.getState().openWith({ tab: 'links' })
     renderWithRouter()
@@ -191,16 +207,15 @@ describe('AddTaskDialogHost', () => {
     renderWithRouter()
     const dialog = screen.getByRole('dialog')
     expect(dialog).toHaveClass(
-      'max-w-[640px]',
       'gap-0',
       'overflow-hidden',
       'p-0',
       'transition-[height]',
       'duration-200',
       'ease-out',
-      'motion-reduce:transition-none',
-      'sm:max-w-[640px]'
+      'motion-reduce:transition-none'
     )
+    expect(dialog.style.maxWidth).toBe('640px')
     expect(dialog.style.height).toBe(`${ADD_TASK_COLLAPSED_HEIGHT}px`)
     expect(dialog.style.maxHeight).toContain('760px')
     expect(dialog.style.maxHeight).toContain('100vh')

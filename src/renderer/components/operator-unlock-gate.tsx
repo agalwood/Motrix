@@ -6,8 +6,25 @@ import {
   watchOperatorSession,
 } from '@renderer/lib/operator-auth'
 import { transport } from '@renderer/lib/transport'
-import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
+import { isNasAuthMode } from '@shared/schemas/operator-auth'
+import {
+  type FormEvent,
+  lazy,
+  type ReactNode,
+  Suspense,
+  useEffect,
+  useState,
+} from 'react'
 import { useTranslation } from 'react-i18next'
+
+const StorageRecovery =
+  __MOTRIX_TARGET__ === 'web'
+    ? lazy(() =>
+        import('./nas-storage-recovery').then((module) => ({
+          default: module.NasStorageRecovery,
+        }))
+      )
+    : () => null
 
 /**
  * Gates the app on the server (web) build behind operator authentication
@@ -22,8 +39,14 @@ export function OperatorUnlockGate({ children }: { children: ReactNode }) {
 function WebGate({ children }: { children: ReactNode }) {
   const { t } = useTranslation()
   const state = useOperatorSession((s) => s.state)
+  const fnos = useOperatorSession((s) => isNasAuthMode(s.status?.mode))
+  const synology = useOperatorSession((s) => s.status?.mode === 'synologyDsm')
+  const diagnostic = useOperatorSession((s) => s.status?.nasAuthDiagnostic)
+  const unavailableRoots = useOperatorSession(
+    (s) => s.status?.nasUnavailableDownloadRoots
+  )
   const [token, setToken] = useState('')
-  const [error, setError] = useState(false)
+  const [error, setError] = useState<'invalid' | 'rateLimited' | null>(null)
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
@@ -41,18 +64,53 @@ function WebGate({ children }: { children: ReactNode }) {
         </Button>
       </div>
     )
+  if (state === 'authenticated' && synology && unavailableRoots?.length)
+    return (
+      <Suspense fallback={null}>
+        <StorageRecovery roots={unavailableRoots} />
+      </Suspense>
+    )
   if (state === 'authenticated' || state === 'logging-out')
     return <>{children}</>
+  if (fnos)
+    return (
+      <div className="flex h-svh flex-col items-center justify-center gap-4 p-6">
+        <p>{t('operatorUnlock.nasSessionExpired')}</p>
+        {diagnostic && (
+          <code className="select-text text-xs text-muted-foreground">
+            {[
+              diagnostic.stage,
+              diagnostic.code,
+              diagnostic.failure,
+              diagnostic.exitCode,
+            ]
+              .filter((value) => value !== undefined)
+              .join(' / ')}
+          </code>
+        )}
+        <Button onClick={() => window.location.reload()}>
+          {t('applicationMenu.retry')}
+        </Button>
+        {synology && (
+          <Button variant="outline" onClick={() => window.location.assign('/')}>
+            {t('operatorUnlock.openDsm')}
+          </Button>
+        )}
+      </div>
+    )
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!token.trim() || busy) return
     setBusy(true)
-    setError(false)
-    const ok = await operatorLogin(token.trim())
+    setError(null)
+    let limited = false
+    const ok = await operatorLogin(token, (status) => {
+      limited = status === 429
+    })
     setBusy(false)
     if (ok) setToken('')
-    else setError(true)
+    else setError(limited ? 'rateLimited' : 'invalid')
   }
 
   return (
@@ -61,6 +119,12 @@ function WebGate({ children }: { children: ReactNode }) {
         onSubmit={onSubmit}
         className="w-full max-w-sm space-y-4 rounded-lg border border-border p-6"
       >
+        <input
+          type="hidden"
+          name="username"
+          autoComplete="username"
+          value="operator"
+        />
         <div className="space-y-1">
           <h1 className="text-lg font-semibold text-foreground">
             {t('operatorUnlock.title')}
@@ -70,16 +134,22 @@ function WebGate({ children }: { children: ReactNode }) {
           </p>
         </div>
         <input
+          id="operator-token"
+          name="operator-token"
           type="password"
           value={token}
           onChange={(e) => setToken(e.target.value)}
           placeholder={t('operatorUnlock.placeholder')}
-          autoComplete="off"
+          autoComplete="current-password"
           className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
         {error && (
           <p className="text-sm text-destructive">
-            {t('operatorUnlock.error')}
+            {t(
+              error === 'rateLimited'
+                ? 'operatorToken.rateLimited'
+                : 'operatorUnlock.error'
+            )}
           </p>
         )}
         <Button

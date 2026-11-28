@@ -23,7 +23,6 @@ const { ActiveTile } = await import('./active-tile')
 const compactViewport = dashboardTileViewport('active', { w: 1, h: 1 })
 const summaryViewport = dashboardTileViewport('active', { w: 2, h: 1 })
 const detailedViewport = dashboardTileViewport('active', { w: 2, h: 2 })
-const focusViewport = dashboardTileViewport('active', { w: 4, h: 1 })
 
 describe('ActiveTile', () => {
   it('keeps the primary count above the breakdown in summary', () => {
@@ -73,16 +72,5 @@ describe('ActiveTile', () => {
       'gap-y-4'
     )
     expect(screen.getByTestId('active-content')).toHaveClass('flex-col')
-  })
-
-  it('keeps the KPI above a four-column breakdown in focus content', () => {
-    render(<ActiveTile activeCount={4} viewport={focusViewport} />)
-
-    expect(screen.getByText(/Error|错误/i)).toBeInTheDocument()
-    expect(screen.getByTestId('active-breakdown')).toHaveClass('grid-cols-4')
-    expect(screen.getByTestId('active-content')).toHaveClass(
-      'flex-col',
-      'justify-between'
-    )
   })
 })

@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+umask 077
+export PATH=/usr/bin:/bin
+unset NODE_OPTIONS NODE_PATH LD_PRELOAD LD_LIBRARY_PATH
+[ "$(id -u)" != 0 ] || { echo 'Motrix must run as the package account' >&2; exit 1; }
+exec 9>"${SYNOPKG_PKGVAR:?}/lifecycle.lock"
+flock -w 90 9
+exec "${SYNOPKG_PKGDEST:?}/runtime/bin/node" "$SYNOPKG_PKGDEST/lifecycle.mjs" postupgrade

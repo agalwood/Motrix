@@ -21,7 +21,7 @@ import { MotrixDatabase } from '@core/session/motrix-database'
 import { SettingsManager } from '@core/settings/settings-manager'
 import type { FileCleanupService } from '@core/task/file-cleanup-service'
 import type { FinalNamePicker } from '@core/task/final-name-picker'
-import type { TaskManager } from '@core/task/task-manager'
+import { TaskManager } from '@core/task/task-manager'
 import type { TorrentMetaStore } from '@core/task/torrent-meta-store'
 import type { MagnetTracker } from '@core/torrent/magnet-tracker'
 import type { TrackerManager } from '@core/tracker'
@@ -39,11 +39,24 @@ import { makeMediaMetaStoreStub } from '@test-utils/media-meta-store'
 import { makeDownloadTask } from '@test-utils/task'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createServerDownloadPathPolicy } from '../download-path-policy'
+import { makeServerFfmpegDetect } from '../plugin/ffmpeg-detect-server'
 import type { ServerPluginInstallService } from '../plugin/install-service'
+import { installServerFfmpeg } from '../plugin/verified-ffmpeg-server'
 import { ServerDirectoryService } from '../server-directory-service'
 import type { ServerCommandContext } from './commands'
 import { buildServerCommandHandlers } from './commands'
 import { buildServerQueryHandlers } from './queries'
+
+vi.mock('../plugin/verified-ffmpeg-server', () => ({
+  installServerFfmpeg: vi.fn(),
+  probeServerFfmpeg: vi.fn(),
+}))
+vi.mock('../plugin/ffmpeg-detect-server', () => ({
+  makeServerFfmpegDetect: vi.fn(() => async () => ({
+    active: null,
+    candidates: [],
+  })),
+}))
 
 const PROXY_OFF = {
   enabled: false,
@@ -66,6 +79,10 @@ function makeFakeCtx() {
   const setEnabled = vi.fn()
   const refreshState = vi.fn()
   return {
+    updateService: {
+      check: vi.fn().mockResolvedValue(undefined),
+      setChannel: vi.fn(),
+    },
     supervisor: {
       stop: vi.fn().mockResolvedValue(undefined),
       start: vi.fn().mockResolvedValue(undefined),
@@ -214,7 +231,61 @@ function makeFakeCtx() {
   }
 }
 
-describe('desktop-only FFmpeg installation boundary', () => {
+describe('server application update checks', () => {
+  it('applies the persisted channel to subsequent version checks', async () => {
+    const ctx = makeFakeCtx()
+    const base = makeSettings(PROXY_OFF)
+    let settings = { ...base, app: { ...base.app, updateChannel: 'stable' } }
+    vi.mocked(ctx.settingsManager.get).mockImplementation(
+      () => settings as never
+    )
+    vi.mocked(ctx.settingsManager.getApp).mockImplementation(
+      () => settings.app as never
+    )
+    vi.mocked(ctx.settingsManager.update).mockImplementation(async () => {
+      settings = {
+        ...settings,
+        app: { ...settings.app, updateChannel: 'beta' },
+      }
+      return {
+        saved: true,
+        requiresRestart: false,
+        changedRestartKeys: [],
+        requiresAppRestart: false,
+        changedAppRestartKeys: [],
+      }
+    })
+    const handlers = buildServerCommandHandlers(
+      ctx as unknown as ServerCommandContext
+    )
+    await handlers[Commands.UpdateSettings]?.({
+      app: { updateChannel: 'beta' },
+    })
+    expect(ctx.updateService.setChannel).toHaveBeenCalledWith('beta')
+  })
+
+  it('checks through the server service and never exposes download or installation', async () => {
+    const ctx = makeFakeCtx()
+    const handlers = buildServerCommandHandlers(
+      ctx as unknown as ServerCommandContext
+    )
+    await expect(handlers[Commands.CheckForUpdates]?.()).resolves.toEqual({
+      ok: true,
+    })
+    expect(ctx.updateService.check).toHaveBeenCalledOnce()
+    for (const command of [Commands.DownloadUpdate, Commands.InstallUpdate]) {
+      await expect(handlers[command]?.()).rejects.toMatchObject({
+        code: 'APP_UPDATE_MANAGED',
+      })
+    }
+    await expect(
+      handlers[Commands.CheckForUpdates]?.({ url: 'https://invalid.test' })
+    ).rejects.toThrow()
+    expect(ctx.updateService.check).toHaveBeenCalledOnce()
+  })
+})
+
+describe('server FFmpeg installation', () => {
   it('does not open a server settings directory through web commands', async () => {
     const handlers = buildServerCommandHandlers(
       makeFakeCtx() as ServerCommandContext
@@ -227,18 +298,81 @@ describe('desktop-only FFmpeg installation boundary', () => {
     ).rejects.toThrow()
   })
 
-  it('does not install server executables through web commands', async () => {
+  it('rejects caller-supplied URLs or paths before starting an install', async () => {
+    vi.mocked(installServerFfmpeg).mockClear()
     const handlers = buildServerCommandHandlers(
       makeFakeCtx() as ServerCommandContext
     )
-    await expect(handlers[Commands.InstallFfmpeg]?.()).resolves.toEqual({
-      ok: false,
-      error: 'unsupported',
-    })
     await expect(
       handlers[Commands.InstallFfmpeg]?.({ url: 'https://evil.test' })
     ).rejects.toThrow()
+    expect(installServerFfmpeg).not.toHaveBeenCalled()
   })
+
+  it('installs on the server, broadcasts progress, and refreshes media capabilities', async () => {
+    const ctx = makeFakeCtx()
+    const refreshDetection = vi
+      .fn()
+      .mockResolvedValue({ active: null, candidates: [] })
+    const trackAsyncWork = vi.fn(async (operation: () => Promise<unknown>) =>
+      operation()
+    )
+    const result = { ok: true as const, releaseVersion: '9.0.2-motrix.2' }
+    const status = {
+      phase: 'downloading' as const,
+      bytesReceived: 50,
+      bytesTotal: 100,
+      percent: 0.5,
+      releaseVersion: null,
+      directory: null,
+      error: null,
+    }
+    vi.mocked(installServerFfmpeg).mockImplementationOnce(
+      async (_directory, onStatus) => {
+        onStatus?.(status)
+        return result
+      }
+    )
+    const handlers = buildServerCommandHandlers({
+      ...ctx,
+      trackAsyncWork,
+      capabilityHost: { ffmpeg: { refreshDetection } },
+    } as unknown as ServerCommandContext)
+    await expect(handlers[Commands.InstallFfmpeg]?.()).resolves.toEqual(result)
+    expect(trackAsyncWork).toHaveBeenCalledOnce()
+    expect(installServerFfmpeg).toHaveBeenLastCalledWith(
+      ctx.userDataDir,
+      expect.any(Function)
+    )
+    expect(ctx.eventBus.emit).toHaveBeenCalledWith(
+      Events.FfmpegInstallStatusChanged,
+      status
+    )
+    expect(refreshDetection).toHaveBeenCalledWith(
+      vi.mocked(makeServerFfmpegDetect).mock.results.at(-1)?.value
+    )
+  })
+
+  it.each([false, true])(
+    'preserves install results when detection fails (installed: %s)',
+    async (installed) => {
+      const refreshDetection = vi
+        .fn()
+        .mockRejectedValue(new Error('probe unavailable'))
+      const result = installed
+        ? { ok: true as const, releaseVersion: '9.0.2-motrix.2' }
+        : { ok: false as const, error: 'verification' as const }
+      vi.mocked(installServerFfmpeg).mockResolvedValueOnce(result)
+      const handlers = buildServerCommandHandlers({
+        ...makeFakeCtx(),
+        capabilityHost: { ffmpeg: { refreshDetection } },
+      } as unknown as ServerCommandContext)
+      await expect(handlers[Commands.InstallFfmpeg]?.()).resolves.toEqual(
+        result
+      )
+      expect(refreshDetection).toHaveBeenCalledTimes(installed ? 1 : 0)
+    }
+  )
 })
 
 function makeSettings(
@@ -1321,6 +1455,93 @@ describe('server Commands.CreateTask magnet metadata selection', () => {
 })
 
 describe('server plural task commands', () => {
+  it.each(['singular', 'plural'] as const)(
+    'controls media segments through %s Web commands',
+    async (arity) => {
+      const ctx = makeFakeCtx()
+      ctx.taskManager = new TaskManager()
+      ctx.taskManager.set(
+        'media',
+        makeDownloadTask({
+          id: 'media',
+          engineTaskId: '',
+          kind: TaskKind.Hls,
+          status: TaskStatus.Downloading,
+        })
+      )
+      ctx.adapter.pauseTask = vi.fn(async () => {})
+      ctx.adapter.resumeTask = vi.fn(async () => {})
+      let gids = ['video-segment', 'audio-segment']
+      const handlers = buildServerCommandHandlers({
+        ...ctx,
+        persistTask: vi.fn(async () => {}),
+        getMediaSegmentGids: () => gids,
+      } as ServerCommandContext)
+      await handlers[
+        arity === 'singular' ? Commands.PauseTask : Commands.PauseTasks
+      ]!(arity === 'singular' ? 'media' : ['media'])
+      expect(ctx.adapter.pauseTask).toHaveBeenCalledWith('video-segment')
+      expect(ctx.adapter.pauseTask).toHaveBeenCalledWith('audio-segment')
+      expect(ctx.taskManager.getById('media')?.status).toBe(TaskStatus.Paused)
+      gids = ['next-segment']
+      await handlers[
+        arity === 'singular' ? Commands.ResumeTask : Commands.ResumeTasks
+      ]!(arity === 'singular' ? 'media' : ['media'])
+      expect(ctx.adapter.resumeTask).toHaveBeenCalledExactlyOnceWith(
+        'next-segment'
+      )
+      expect(ctx.taskManager.getById('media')?.status).toBe(
+        TaskStatus.Downloading
+      )
+    }
+  )
+
+  it.each(['singular', 'plural'] as const)(
+    'awaits media cancellation before %s Web removal deletes the parent',
+    async (arity) => {
+      const ctx = makeFakeCtx()
+      ctx.taskManager = new TaskManager()
+      ctx.taskManager.set(
+        'media',
+        makeDownloadTask({
+          id: 'media',
+          engineTaskId: '',
+          kind: TaskKind.Hls,
+          status: TaskStatus.Downloading,
+        })
+      )
+      ctx.motrixDatabase.deleteTask = vi.fn()
+      let release!: () => void
+      const draining = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      const cancelMedia = vi.fn(() => draining)
+      const handlers = buildServerCommandHandlers({
+        ...ctx,
+        cancelMedia,
+      } as ServerCommandContext)
+      const pending =
+        arity === 'singular'
+          ? handlers[Commands.RemoveTask]!({
+              taskId: 'media',
+              deleteWithFiles: false,
+            })
+          : handlers[Commands.RemoveTasks]!({
+              taskIds: ['media'],
+              deleteWithFiles: false,
+            })
+      await vi.waitFor(() =>
+        expect(cancelMedia).toHaveBeenCalledExactlyOnceWith('media')
+      )
+      expect(ctx.taskManager.getById('media')).toBeDefined()
+      expect(ctx.motrixDatabase.deleteTask).not.toHaveBeenCalled()
+      release()
+      await pending
+      expect(ctx.taskManager.getById('media')).toBeUndefined()
+      expect(ctx.motrixDatabase.deleteTask).toHaveBeenCalledWith('media')
+    }
+  )
+
   it('MoveTasks validates the payload and changes the actual engine queue', async () => {
     const ctx = makeFakeCtx()
     const queue = ['first', 'second']
@@ -2109,4 +2330,66 @@ describe('plugin diagnostic mode command', () => {
       expect(setLogVerbose).not.toHaveBeenCalled()
     }
   )
+})
+
+describe('BT storage command contract', () => {
+  it('requires a writable relocation destination before stopping or inspecting any files', async () => {
+    const ctx = makeFakeCtx() as ServerCommandContext
+    const prepareSaveDir = vi.fn(async () => {
+      throw new Error('outside allowed roots')
+    })
+    ctx.downloadPathPolicy = { ...ctx.downloadPathPolicy, prepareSaveDir }
+    ctx.btStorageRuntime = {
+      commit: vi.fn(),
+      withArtifactLease: vi.fn(),
+      hasPendingFinalization: vi.fn(),
+    }
+    ctx.persistBtStorage = vi.fn()
+    ctx.adapter.forceRemoveTask = vi.fn()
+    vi.mocked(ctx.taskManager.getById).mockReturnValue(
+      makeDownloadTask({
+        id: 'bt',
+        type: TaskType.Bt,
+        status: TaskStatus.Completed,
+        finalPath: '/old/file',
+        infoHash: 'a'.repeat(40),
+        torrentMetaPath: '/metadata.torrent',
+      })
+    )
+    const handlers = buildServerCommandHandlers(ctx)
+    expect(
+      await handlers[Commands.ChangeBtStorage]?.({
+        taskId: 'bt',
+        mode: 'locate',
+        directory: '/forbidden',
+        name: 'file',
+      })
+    ).toEqual({ error: 'failed' })
+    expect(prepareSaveDir).toHaveBeenCalledWith('/forbidden')
+    expect(ctx.adapter.forceRemoveTask).not.toHaveBeenCalled()
+    expect(ctx.persistBtStorage).not.toHaveBeenCalled()
+  })
+
+  it('validates destination requests before invoking storage', async () => {
+    const handlers = buildServerCommandHandlers(
+      makeFakeCtx() as ServerCommandContext
+    )
+    await expect(
+      handlers[Commands.ChangeBtStorage]?.({ taskId: 'bt', mode: 'move' })
+    ).rejects.toThrow()
+  })
+  it('reports unavailable storage and accepts a harmless cancellation', async () => {
+    const handlers = buildServerCommandHandlers(
+      makeFakeCtx() as ServerCommandContext
+    )
+    expect(
+      await handlers[Commands.ChangeBtStorage]?.({
+        taskId: 'bt',
+        mode: 'recheck',
+      })
+    ).toEqual({ error: 'unavailable' })
+    expect(await handlers[Commands.CancelBtStorage]?.('bt')).toEqual({
+      ok: true,
+    })
+  })
 })

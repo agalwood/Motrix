@@ -1,0 +1,13 @@
+[
+  {
+    "stepTitle": "Motrix",
+    "items": [
+      {
+        "type": "tips",
+        "name": "notice",
+        "label": "保留下载文件 / Preserve downloaded files",
+        "helpText": "Motrix 卸载脚本不会删除下载共享目录。应用配置和任务记录由飞牛卸载选项管理。 / Motrix uninstall scripts never delete download shares. Use the fnOS uninstall options to manage application settings and task records."
+      }
+    ]
+  }
+]

@@ -26,7 +26,7 @@ export const rendererRecoveryStringsSchema = z.object({
 
 export const rendererSessionSchema = z.object({
   generation: rendererGenerationSchema,
-  windowId: z.enum(['main', 'add-task', 'onboarding']),
+  windowId: z.enum(['main', 'add-task', 'onboarding', 'create-torrent']),
   route: z.string().max(2048).optional(),
   recovered: z.boolean(),
   submissionNeedsReview: z.boolean(),

@@ -115,7 +115,7 @@ export function MultiSelectionSummary({
           value={
             agg.avgProgress === null
               ? '—'
-              : `${agg.hasMedia ? mediaProgressPercent(agg.avgProgress) : formatProgressPercent(agg.avgProgress)}%`
+              : `${(agg.hasMedia ? mediaProgressPercent(agg.avgProgress) : formatProgressPercent(agg.avgProgress, 1)).toFixed(1)}%`
           }
         />
       </Card>

@@ -14,10 +14,10 @@
 export function resolveNotificationText(
   key: string,
   params: Record<string, string> | null,
-  t: (key: string, params?: Record<string, string>) => string,
+  t: (key: string, params: Record<string, string>) => string,
   exists: (key: string) => boolean
 ): string {
-  if (exists(key)) return t(key, params ?? undefined)
+  if (exists(key)) return t(key, params ?? {})
   console.warn(`notification-center: missing i18n key "${key}"`)
   return key
 }

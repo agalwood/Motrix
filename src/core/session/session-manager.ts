@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import {
+  getLegacyQuarantinedGids,
   hasLegacyImport,
   isInactiveLegacyTask,
 } from '@core/legacy-import/legacy-task-policy'
@@ -18,16 +19,18 @@ import {
   DownloadSourceError,
 } from '@core/task/source-admission'
 import { parseDirectReplayRecipe } from '@shared/schemas/direct-replay-recipe'
-import { legacyBtActivationSchema } from '@shared/schemas/legacy-bt-activation'
 import type { DownloadTask } from '@shared/types/task'
 import {
   makeDefaultBtExtension,
+  makeDownloadTask,
   TaskInstancePhase,
+  TaskKind,
   TaskStatus,
   TaskType,
   TransitionPhase,
 } from '@shared/types/task'
 import {
+  hasRetainedHttpRequestContext,
   isMediaKind,
   isTorrentLike,
   isTorrentLikeType,
@@ -48,6 +51,11 @@ import type {
   DirectResourceMetadataProfile,
   EngineAdapter,
 } from '../engine/engine-adapter'
+import type {
+  EngineSessionRecoveryStore,
+  EngineSessionTask,
+  EngineSessionTaskFailure,
+} from '../engine/engine-session-recovery'
 import {
   buildTerminalOccurrence,
   terminalSnapshotFromTask,
@@ -68,6 +76,12 @@ import {
 import { unsettledBtUpload } from '../task/bt-upload-settlement'
 import { isCompletedDirectOutput } from '../task/completed-direct-task-policy'
 import {
+  buildDirectMagnetIdentityPatch,
+  extractResolvedBtNameFromRaw,
+  needsDirectMagnetIdentityResolution,
+} from '../task/direct-magnet-identity'
+import { updateDirectReplayRetention } from '../task/direct-replay-recipe'
+import {
   canMirrorAria2MetadataHeaders,
   type DirectResourceProxyOptionsProvider,
   DirectResourceValidatorService,
@@ -76,9 +90,13 @@ import { restoreMediaProgress } from '../task/media-task-progress'
 import { isTempPath } from '../task/paths'
 import { setTaskTransitionPhase } from '../task/task-instance'
 import type { TaskManager } from '../task/task-manager'
-import { taskRowToDownloadTask } from '../task/task-row-to-download-task'
+import {
+  restoredTaskFileCount,
+  taskRowToDownloadTask,
+} from '../task/task-row-to-download-task'
 import { restoreTaskSaveDirectory } from '../task/task-save-directory'
 import { isMagnetCleanupTombstoneHidden } from '../torrent/magnet-cleanup-quarantine'
+import { getFollowedBtGid } from '../torrent/magnet-follow-reconciler'
 import { computeUriHash, deriveInfoHash } from './content-key'
 import {
   createEngineCheckpointProbe,
@@ -293,6 +311,26 @@ export class SessionManager {
       null
   ) {}
 
+  private authorizeRecoveryWrite?: (task: DownloadTask) => Promise<void>
+
+  /** Host grants apply to automatic reconstruction as well as explicit resume. */
+  setRecoveryWriteAuthorization(
+    authorize: (task: DownloadTask) => Promise<void>
+  ): void {
+    this.authorizeRecoveryWrite = authorize
+  }
+
+  private async canRecoverWrite(pair: TaskWithInstances): Promise<boolean> {
+    try {
+      await this.authorizeRecoveryWrite?.(
+        taskRowToDownloadTask(pair.task, pair.instances)
+      )
+      return true
+    } catch {
+      return false
+    }
+  }
+
   /**
    * Binds the shared plugin terminal boundary after the Hook runtime is built.
    * Session restore owns a few terminal transitions internally; routing those
@@ -362,6 +400,54 @@ export class SessionManager {
       // Full restore repeats the row-level cleanup. A transient list failure
       // must not make the whole download engine unavailable.
       log.warn({ err }, 'startup: media segment sweep failed')
+    }
+
+    // 同步清理上次异常退出或强杀遗留在系统临时目录的孤儿媒体分片目录，避免长期占用系统盘空间
+    await this.cleanupOrphanMediaTempDirs()
+  }
+
+  private async cleanupOrphanMediaTempDirs(): Promise<void> {
+    if (!this.mediaTmpRoot) return
+    try {
+      const entries = await fs.promises.readdir(this.mediaTmpRoot, {
+        withFileTypes: true,
+      })
+      let removed = 0
+      for (const entry of entries) {
+        // 仅清理本应用生成的 motrix-media-* 孤儿目录，绝不触碰符号链接或外部文件
+        if (
+          !entry.isDirectory() ||
+          entry.isSymbolicLink() ||
+          !entry.name.startsWith('motrix-media-')
+        ) {
+          continue
+        }
+        const target = path.join(this.mediaTmpRoot, entry.name)
+        try {
+          await fs.promises.rm(target, { recursive: true, force: true })
+          removed++
+        } catch (err) {
+          log.warn(
+            { err, target },
+            'startup: failed to remove orphan media temp directory'
+          )
+        }
+      }
+      if (removed > 0) {
+        log.info(
+          { count: removed, mediaTmpRoot: this.mediaTmpRoot },
+          'startup: cleaned orphan media temp directories'
+        )
+      }
+    } catch (err) {
+      const code =
+        err && typeof err === 'object' && 'code' in err ? err.code : undefined
+      if (code !== 'ENOENT') {
+        log.warn(
+          { err, mediaTmpRoot: this.mediaTmpRoot },
+          'startup: orphan media temp directory scan failed'
+        )
+      }
     }
   }
 
@@ -531,6 +617,27 @@ export class SessionManager {
     })
   }
 
+  /** Rebind verified local files without emitting a second completion occurrence. */
+  persistBtStorage(
+    task: DownloadTask,
+    sourceRoot: string,
+    targetRoot: string
+  ): Promise<void> {
+    if (this.stopping)
+      return Promise.reject(new Error('SessionManager is stopping'))
+    return this.runExclusivePersistence(async () => {
+      const payload = await this.buildTaskPayload(task, Date.now())
+      this.db.commitTerminalHookBoundary({
+        payload,
+        occurrence: null,
+        metadataOps: [],
+        postDeliveries: [],
+        fileRebase: { sourceRoot, targetRoot },
+      })
+      this.taskManager.set(task.id, structuredClone(task))
+    })
+  }
+
   private observeAdmissionResults(
     deliveries: NonNullable<TerminalHookCommitInput['postDeliveries']>,
     summary: PostDeliveryAdmissionSummary
@@ -571,7 +678,7 @@ export class SessionManager {
     this.db.saveTasksBatch(payloads)
   }
 
-  private async buildTaskPayload(
+  async buildTaskPayload(
     task: DownloadTask,
     now: number
   ): Promise<TaskWithInstances> {
@@ -638,9 +745,109 @@ export class SessionManager {
     return result
   }
 
+  /** Bind the same pre-spawn recovery policy in both application hosts. */
+  getEngineSessionRecoveryStore(): EngineSessionRecoveryStore {
+    return {
+      getContext: (task) => {
+        const pairs = this.db.getAllTasks()
+        const owners = this.sessionRecoveryOwners(task, pairs)
+        return {
+          retired: owners.some((pair) =>
+            [TaskStatus.Error, TaskStatus.Completed].includes(
+              pair.task.aggStatus
+            )
+          ),
+          // Content identity is sufficient for metadata bytes, but never for
+          // choosing which public task to retire. The engine validates hashes.
+          metadataPaths: pairs.flatMap((pair) =>
+            !hasLegacyImport(pair) &&
+            pair.task.torrentMetaPath &&
+            (owners.includes(pair) ||
+              pair.task.infoHash?.toLowerCase() === task.infoHash)
+              ? [pair.task.torrentMetaPath]
+              : []
+          ),
+        }
+      },
+      quarantine: (tasks) => this.quarantineEngineSessionTasks(tasks),
+    }
+  }
+
+  private sessionRecoveryOwners(
+    task: EngineSessionTask,
+    pairs = this.db.getAllTasks()
+  ): TaskWithInstances[] {
+    const owners = pairs.filter((pair) =>
+      pair.instances.some(
+        (instance) =>
+          instance.gid === task.engineTaskId ||
+          instance.gid === task.metadataTaskId
+      )
+    )
+    if (
+      owners.some(
+        (pair) =>
+          hasLegacyImport(pair) || !isTorrentLikeType(pair.task.taskType)
+      )
+    )
+      throw new Error(
+        'Engine session recovery conflicts with a protected task identity'
+      )
+    return owners
+  }
+
+  private async quarantineEngineSessionTasks(
+    tasks: readonly EngineSessionTaskFailure[]
+  ): Promise<void> {
+    for (const failed of tasks) {
+      const owners = this.sessionRecoveryOwners(failed)
+      const candidates = owners.length
+        ? owners.map((pair) =>
+            this.adoptByPair(pair, pair.instances[0]?.gid ?? '')
+          )
+        : [
+            makeDownloadTask({
+              id: newTaskId(),
+              engineTaskId: failed.engineTaskId,
+              name: failed.infoHash,
+              filename: failed.infoHash,
+              type: TaskType.Magnet,
+              kind: TaskKind.Bt,
+              saveDir: failed.saveDir,
+              // The engine session does not prove any output file paths. Keep
+              // deletion from treating a shared download directory as payload.
+              diskPath: '',
+              finalPath: '',
+              finalName: '',
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+              source: 'user',
+              sourceMeta: null,
+              uris: [failed.sourceUri],
+              infoHash: failed.infoHash,
+              bt: makeDefaultBtExtension({ magnetUri: failed.sourceUri }),
+              instances: [],
+            }),
+          ]
+      for (const candidate of candidates) {
+        if ([TaskStatus.Error, TaskStatus.Completed].includes(candidate.status))
+          continue
+        const task = await this.markRecoverErrorTask(
+          candidate,
+          candidate.status,
+          failed.reason === 'files-missing'
+            ? 'task.error.detail.filesMissing'
+            : 'task.recovery.startup.torrentMetaMissing'
+        )
+        this.taskManager.set(task.id, task)
+      }
+    }
+  }
+
   async restore(
     assertProxyCurrent?: () => void,
-    observeCompletedTask?: (snapshot: DownloadTask) => Promise<unknown>
+    observeCompletedTask?: (snapshot: DownloadTask) => Promise<unknown>,
+    pendingHandoffs: ReadonlyMap<string, string> = new Map()
   ): Promise<void> {
     // aria2 is the source of truth for engine lifecycle. motrix.db is a
     // metadata sidecar tracking task identity and the relationship between
@@ -649,7 +856,56 @@ export class SessionManager {
     // reconstruct the parent task by reading all its sibling instances.
     // Anything left over in motrix.db after Pass 1 is an orphan.
 
-    const persisted = this.db.getAllTasks()
+    const handoffGids = new Set(pendingHandoffs.values())
+    const isolatedHandoffs = new Map<string, TaskWithInstances>()
+    const unconfirmed = new Map<string, TaskWithInstances>()
+    const persisted: TaskWithInstances[] = []
+    for (const pair of this.db.getAllTasks()) {
+      const owner = pair.instances[0]
+      if (
+        pair.task.kind === TaskKind.Bt &&
+        pair.task.aggStatus === TaskStatus.Error &&
+        pair.instances.length === 1 &&
+        owner?.gid &&
+        owner.payload.unconfirmedTorrentCreateGid === owner.gid
+      ) {
+        try {
+          // Compensation was interrupted. Only the caller-reserved GID is ours.
+          // Never infer absence from a timeout or delete any downloaded files.
+          const live = await this.adapter.getTaskStatus(owner.gid)
+          if (live !== null && (!live.infoHash || !pair.task.infoHash)) {
+            unconfirmed.set(owner.gid, pair)
+            continue
+          }
+          if (
+            !live ||
+            live.infoHash?.toLowerCase() === pair.task.infoHash?.toLowerCase()
+          ) {
+            if (
+              live &&
+              ![
+                TaskStatus.Error,
+                TaskStatus.Removed,
+                TaskStatus.Completed,
+              ].includes(live.status)
+            )
+              await this.adapter.forceRemoveTask(owner.gid)
+            // The SQLite-backed engine can retain a GID outside its in-memory window.
+            await this.adapter.removeDownloadResult(owner.gid)
+          }
+          this.db.deleteTask(pair.task.motrixId)
+          continue
+        } catch {
+          log.warn(
+            { taskId: pair.task.motrixId },
+            'torrent creation cleanup still unconfirmed'
+          )
+          unconfirmed.set(owner.gid, pair)
+          continue
+        }
+      }
+      persisted.push(pair)
+    }
     const byMotrixId = new Map<string, TaskWithInstances>()
     const instanceByGid = new Map<
       string,
@@ -663,25 +919,16 @@ export class SessionManager {
     const migrationGids = new Set<string>()
 
     for (const pair of persisted) {
-      byMotrixId.set(pair.task.motrixId, pair)
-      for (const instance of pair.instances) {
-        const activation = legacyBtActivationSchema.safeParse(
-          instance.payload.legacyBtActivation
+      if (
+        pair.instances.some(
+          (i) => i.gid && i.gid === pendingHandoffs.get(pair.task.motrixId)
         )
-        if (isInactiveLegacyTask(pair)) {
-          const raw = instance.payload.legacyBtActivation as
-            | { engineTaskId?: unknown }
-            | undefined
-          if (instance.gid) migrationGids.add(instance.gid)
-          if (activation.success)
-            migrationGids.add(activation.data.engineTaskId)
-          else if (
-            typeof raw?.engineTaskId === 'string' &&
-            /^[a-f0-9]{16}$/.test(raw.engineTaskId)
-          )
-            migrationGids.add(raw.engineTaskId)
-        }
+      ) {
+        isolatedHandoffs.set(pair.task.motrixId, pair)
+        continue
       }
+      byMotrixId.set(pair.task.motrixId, pair)
+      for (const gid of getLegacyQuarantinedGids(pair)) migrationGids.add(gid)
       if (isInactiveLegacyTask(pair)) continue
       if (pair.task.infoHash && !hasLegacyImport(pair)) {
         const infoHash = pair.task.infoHash.toLowerCase()
@@ -736,14 +983,38 @@ export class SessionManager {
       )
     }
     const aria2GidSet = new Set(aria2Tasks.map((t) => t.gid))
+    // 预处理已完成并跟进到真实 BT 子任务的磁力元数据行，将父任务归属接力至子 GID 并清理旧元数据行 (#2552)
+    const followedMetadataGids = new Set<string>()
+    for (const aria2 of aria2Tasks) {
+      const nextGid = getFollowedBtGid(aria2)
+      if (!nextGid) continue
+      followedMetadataGids.add(aria2.gid)
+      aria2GidSet.delete(aria2.gid)
+      const direct = instanceByGid.get(aria2.gid)
+      if (direct && !instanceByGid.has(nextGid)) {
+        instanceByGid.set(nextGid, {
+          motrixId: direct.motrixId,
+          instance: { ...direct.instance, gid: nextGid },
+        })
+      }
+    }
 
     this.taskManager.clear()
-    const consumedMotrixIds = new Set<string>()
+    for (const pair of unconfirmed.values()) {
+      this.taskManager.add(taskRowToDownloadTask(pair.task, pair.instances))
+    }
+    // The outbox owns activation. Generic orphan recovery must not issue a second GET.
+    for (const [id, pair] of isolatedHandoffs) {
+      const task = taskRowToDownloadTask(pair.task, pair.instances)
+      this.taskManager.reserveEngineTaskId(task.engineTaskId)
+      this.taskManager.setReservedEngineTaskOwner(id, task, task.engineTaskId)
+    }
+    const consumedMotrixIds = new Set(isolatedHandoffs.keys())
 
-    // Engine-row evictions collected during Pass 1. Each chain preserves
-    // its own force-remove → purge order and never rejects; batching them
-    // lets N evictions overlap each other and the later passes instead of
-    // serializing 2×N RPC round-trips inline.
+    // Completion observations and engine-row evictions collected during Pass 1.
+    // Each eviction preserves its own force-remove → purge order; batching lets
+    // these operations overlap the later passes without blocking unrelated
+    // history restoration on one task's completion work.
     const evictions: Promise<void>[] = []
     const retireCompleted = (raw: Aria2RawStatus): Promise<void> =>
       observeCompletedTask
@@ -755,7 +1026,18 @@ export class SessionManager {
 
     // Pass 1 — drive from aria2 rows.
     for (const aria2 of aria2Tasks) {
+      if (handoffGids.has(aria2.gid)) continue
+      if (unconfirmed.has(aria2.gid)) continue
       if (migrationGids.has(aria2.gid)) continue
+      if (followedMetadataGids.has(aria2.gid)) {
+        evictions.push(
+          this.evictEngineRow(
+            aria2,
+            'restore: failed to evict followed magnet metadata row'
+          )
+        )
+        continue
+      }
       // Media segments are ephemeral children of a coordinator task. Older
       // versions left them in aria2's durable store, so hide AND evict them;
       // skipping adoption alone made the restarted downloads invisible.
@@ -865,13 +1147,17 @@ export class SessionManager {
           this.taskManager.set(task.id, task)
           consumedMotrixIds.add(parent.task.motrixId)
           // Metadata Errors keep their GID: MagnetTracker primes a cache
-          // shield for it after restore. Every other Error evicts the
-          // engine's copy so the next launch stays clean.
+          // shield for it after restore. Native HTTP Errors also retain their
+          // request/checkpoint context; mergeEngineTask keeps their paused
+          // replay behind the explicit Retry action. Other Errors are evicted.
           const isMetadataError = parent.instances.some(
             (instance) =>
               instance.phase === TaskInstancePhase.MagnetMetadataResolution
           )
-          if (!isMetadataError) {
+          const retainedHttp =
+            task.engineTaskId === aria2.gid &&
+            hasRetainedHttpRequestContext(task)
+          if (!isMetadataError && !retainedHttp) {
             evictions.push(this.evictResurrectedErrorRow(aria2))
           }
           continue
@@ -905,7 +1191,35 @@ export class SessionManager {
         }
         this.taskManager.set(task.id, task)
         consumedMotrixIds.add(parent.task.motrixId)
-        if (isCompletedDirectOutput(task)) {
+        if (
+          hasLegacyImport(parent) &&
+          task.type === TaskType.Http &&
+          aria2.status === 'complete'
+        ) {
+          // Keep the durable owner and migration provenance on this observation.
+          // A raw translation only carries the GID and would route this through
+          // ordinary direct cleanup instead of verified in-place finalization.
+          if (observeCompletedTask) {
+            evictions.push(
+              Promise.resolve()
+                .then(() =>
+                  observeCompletedTask({
+                    ...task,
+                    status: TaskStatus.Completed,
+                  })
+                )
+                .then(
+                  () => {},
+                  (err) => {
+                    log.warn(
+                      { err, taskId: task.id },
+                      'restore: legacy HTTP completion observation failed'
+                    )
+                  }
+                )
+            )
+          }
+        } else if (isCompletedDirectOutput(task)) {
           evictions.push(retireCompleted(aria2))
         }
       } else {
@@ -1300,10 +1614,39 @@ export class SessionManager {
     const now = Date.now()
     const taskPart = pair.task
     const primary = matchedInstance ?? pair.instances[0]
+    const saveDir = restoreTaskSaveDirectory(
+      taskPart,
+      pair.instances,
+      aria2.dir
+    )
     const derived = derivePathsFromRaw(aria2)
-    const diskPath = primary?.diskPath || derived.diskPath
-    const finalPath = taskPart.finalPath || derived.finalPath
-    const finalName = taskPart.finalName || derived.finalName
+    const persistedCandidate = taskRowToDownloadTask(taskPart, pair.instances)
+    const unresolvedDirectMagnet = needsDirectMagnetIdentityResolution({
+      ...persistedCandidate,
+      saveDir,
+    })
+    const resolvedDirectMagnetName = unresolvedDirectMagnet
+      ? extractResolvedBtNameFromRaw(aria2)
+      : null
+    const directMagnetPatch = resolvedDirectMagnetName
+      ? buildDirectMagnetIdentityPatch({ saveDir }, resolvedDirectMagnetName)
+      : null
+    const taskName = directMagnetPatch?.name ?? taskPart.name
+    const diskPath = directMagnetPatch
+      ? directMagnetPatch.diskPath
+      : unresolvedDirectMagnet
+        ? primary?.diskPath || ''
+        : primary?.diskPath || derived.diskPath
+    const finalPath = directMagnetPatch
+      ? directMagnetPatch.finalPath
+      : unresolvedDirectMagnet
+        ? taskPart.finalPath || saveDir
+        : taskPart.finalPath || derived.finalPath
+    const finalName = directMagnetPatch
+      ? directMagnetPatch.finalName
+      : unresolvedDirectMagnet
+        ? taskPart.finalName
+        : taskPart.finalName || derived.finalName
 
     const totalBytes = Number(aria2.totalLength) || taskPart.totalBytes
     const downloadedBytes =
@@ -1334,7 +1677,14 @@ export class SessionManager {
       })
     }
 
-    const status = translateStatus(aria2)
+    const engineStatus = translateStatus(aria2)
+    // HTTP migration completion still needs its exact live binding verified.
+    const status =
+      hasLegacyImport(pair) &&
+      taskPart.taskType === TaskType.Http &&
+      engineStatus === TaskStatus.Completed
+        ? taskPart.aggStatus
+        : engineStatus
     const terminalFields = applyTerminalTransition(
       terminalFieldsFromRow(taskPart),
       status,
@@ -1351,6 +1701,9 @@ export class SessionManager {
         return {
           ...inst,
           gid: aria2.gid,
+          ...(directMagnetPatch
+            ? { diskPath: directMagnetPatch.diskPath }
+            : {}),
           status,
           progress:
             totalBytes > 0
@@ -1368,7 +1721,7 @@ export class SessionManager {
     return {
       id: taskPart.motrixId,
       engineTaskId: aria2.gid,
-      name: taskPart.name,
+      name: taskName,
       kind: taskPart.kind,
       type: taskPart.taskType,
       ...terminalFields,
@@ -1387,10 +1740,10 @@ export class SessionManager {
         String(downloadedBytes),
         aria2.downloadSpeed
       ),
-      saveDir: restoreTaskSaveDirectory(taskPart, pair.instances, aria2.dir),
+      saveDir,
       createdAt: taskPart.createdAt,
       updatedAt: now,
-      uris: extractUris(aria2),
+      uris: hasLegacyImport(pair) ? (primary?.uris ?? []) : extractUris(aria2),
       uploadedBytes,
       uploadedBytesBaseline,
       fileCount,
@@ -1402,7 +1755,7 @@ export class SessionManager {
       category: taskPart.category,
       dlLimit: 0,
       ulLimit: 0,
-      filename: taskPart.name,
+      filename: directMagnetPatch?.filename ?? taskPart.name,
       sizeWhenDone,
       bt,
       diskPath,
@@ -1426,19 +1779,21 @@ export class SessionManager {
     const primary = pair.instances[0]
     const taskType = taskPart.taskType
     const isBtLike = isTorrentLikeType(taskType)
-    // gid swap: lift baseline so cumulative upload survives across reAdd
-    // (the new aria2 row starts uploadLength at 0). When newGid === primary
-    // gid (Pass-2 Completed retention) keep baseline as is.
+    // Restore the same settled-baseline + current-GID accounting used by the
+    // canonical row mapper; retained terminal instances can have stale counters.
+    const uploadedBytes =
+      taskPart.uploadedBytesBaseline +
+      unsettledBtUpload(
+        pair.instances,
+        primary?.gid ?? '',
+        primary?.uploadedBytes ?? 0
+      )
     const uploadedBytesBaseline =
-      newGid !== primary?.gid
-        ? Math.max(taskPart.uploadedBytesBaseline, primary?.uploadedBytes ?? 0)
-        : taskPart.uploadedBytesBaseline
+      newGid !== primary?.gid ? uploadedBytes : taskPart.uploadedBytesBaseline
     const bt = isBtLike
       ? makeDefaultBtExtension({
           ratio:
-            taskPart.totalBytes > 0
-              ? (primary?.uploadedBytes ?? 0) / taskPart.totalBytes
-              : 0,
+            taskPart.totalBytes > 0 ? uploadedBytes / taskPart.totalBytes : 0,
           trackers: taskPart.trackers.flat(),
           announceList: taskPart.trackers,
           isPrivate: taskPart.isPrivate,
@@ -1478,12 +1833,9 @@ export class SessionManager {
       createdAt: taskPart.createdAt,
       updatedAt: retainedIdentity ? taskPart.updatedAt : now,
       uris: primary?.uris ?? [],
-      uploadedBytes:
-        newGid !== primary?.gid
-          ? uploadedBytesBaseline
-          : (primary?.uploadedBytes ?? 0),
+      uploadedBytes,
       uploadedBytesBaseline,
-      fileCount: taskPart.fileCount,
+      fileCount: restoredTaskFileCount(taskPart),
       connections: 0,
       pieceLength: taskPart.pieceLength,
       infoHash: taskPart.infoHash,
@@ -1507,6 +1859,7 @@ export class SessionManager {
           ? {
               ...inst,
               gid: newGid,
+              uploadedBytes: retainedIdentity ? inst.uploadedBytes : 0,
               status: nextStatus,
               updatedAt: retainedIdentity ? inst.updatedAt : now,
             }
@@ -1519,6 +1872,11 @@ export class SessionManager {
     pair: TaskWithInstances,
     assertProxyCurrent?: () => void
   ): Promise<DownloadTask> {
+    if (!(await this.canRecoverWrite(pair)))
+      return this.markRecoverErrorFromPair(
+        pair,
+        'task.recovery.startup.resumePathInvalid'
+      )
     const taskPart = pair.task
     const primary = pair.instances[0]
 
@@ -1587,6 +1945,7 @@ export class SessionManager {
               : undefined,
             pause: taskPart.aggStatus === TaskStatus.Paused,
             checkIntegrity: true,
+            preserveExistingFiles: true,
             ...(prioritizePreviewPieces
               ? { prioritizePreviewPieces: true }
               : {}),
@@ -1683,6 +2042,7 @@ export class SessionManager {
             'task.recovery.startup.resumeValidationFailed'
           )
         }
+        const validationStartedAt = Date.now()
         const validation =
           requestOptions &&
           canMirrorAria2MetadataHeaders(this.adapter.getFeatureReport?.())
@@ -1694,6 +2054,18 @@ export class SessionManager {
             : { outcome: 'unverifiable' as const, ifRange: null }
         assertProxyCurrent?.()
         if (validation.outcome !== 'unchanged') {
+          log.warn(
+            {
+              taskId: taskPart.motrixId,
+              ...validation,
+              validatorKind: recipe.resourceValidator.kind,
+              proxyConfigured: requestOptions
+                ? Boolean(requestOptions.proxy)
+                : null,
+              elapsedMs: Math.max(0, Date.now() - validationStartedAt),
+            },
+            'Startup HTTP resume validation failed'
+          )
           const errorDetailKey =
             validation.outcome === 'source-changed'
               ? 'task.recovery.startup.resumeSourceChanged'
@@ -1704,10 +2076,31 @@ export class SessionManager {
         }
         ifRange = validation.ifRange
       }
-      return this.dispatchRecoveryCandidate(pair, (gid) => {
+      const retainRequestContext = Boolean(
+        recipe &&
+          admittedUris.length === 1 &&
+          /^https?:/i.test(admittedUris[0]) &&
+          (await this.adapter.supportsDirectTaskRetry?.())
+      )
+      const retryPair: TaskWithInstances = {
+        ...pair,
+        instances: pair.instances.map((instance) =>
+          instance === primary
+            ? {
+                ...instance,
+                payload: updateDirectReplayRetention(
+                  instance.payload,
+                  retainRequestContext
+                ),
+              }
+            : instance
+        ),
+      }
+      return this.dispatchRecoveryCandidate(retryPair, (gid) => {
         assertProxyCurrent?.()
         return this.adapter.createDownload({
           uris: admittedUris,
+          ...(retainRequestContext ? { retainRequestContext: true } : {}),
           gid,
           saveDir: plan.saveDir as string,
           filename: plan.filename as string,
@@ -1904,6 +2297,11 @@ export class SessionManager {
   private async recoverMagnetMetadata(
     pair: TaskWithInstances
   ): Promise<DownloadTask> {
+    if (!(await this.canRecoverWrite(pair)))
+      return this.markRecoverErrorFromPair(
+        pair,
+        'task.recovery.startup.resumePathInvalid'
+      )
     const now = Date.now()
     const taskPart = pair.task
     const primary = pair.instances[0]

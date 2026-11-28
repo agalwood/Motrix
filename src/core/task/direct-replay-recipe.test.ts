@@ -91,19 +91,42 @@ describe('direct replay recipe', () => {
     })
   })
 
-  it('accepts a bounded non-secret resource validator on a uri-only recipe', () => {
-    const recipe = {
-      ...buildDirectReplayRecipe({ connections: 4 }),
-      resourceValidator: {
-        kind: 'strong-etag' as const,
-        value: '"release-v1"',
-        contentLength: 4096,
-        capturedAt: 7,
-      },
-    }
+  it.each([undefined, 'a'.repeat(64)])(
+    'preserves a bounded validator and optional resource identity (%s)',
+    (resourceUrlHash) => {
+      const recipe = {
+        ...buildDirectReplayRecipe({ connections: 4 }),
+        resourceValidator: {
+          kind: 'strong-etag' as const,
+          value: '"release-v1"',
+          contentLength: 4096,
+          capturedAt: 7,
+          ...(resourceUrlHash ? { resourceUrlHash } : {}),
+        },
+      }
 
-    expect(parseDirectReplayRecipe({ directReplay: recipe })).toEqual(recipe)
-  })
+      expect(parseDirectReplayRecipe({ directReplay: recipe })).toEqual(recipe)
+    }
+  )
+
+  it.each(['https://example.com/private', 'a'.repeat(63), 'g'.repeat(64)])(
+    'rejects malformed resource identity: %s',
+    (resourceUrlHash) => {
+      expect(
+        parseDirectReplayRecipe({
+          directReplay: {
+            ...buildDirectReplayRecipe({}),
+            resourceValidator: {
+              kind: 'strong-etag',
+              value: '"release-v1"',
+              capturedAt: 7,
+              resourceUrlHash,
+            },
+          },
+        })
+      ).toBeNull()
+    }
+  )
 
   it.each([
     ['missing recipe', {}],

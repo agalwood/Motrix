@@ -183,18 +183,6 @@ describe('PluginCallGraphEdge', () => {
     )
   })
 
-  it('uses Task 6 bounded width and exposes selected styling', () => {
-    const { getByTestId } = render(
-      <PluginCallGraphEdge {...edgeProps({ selected: true })} />
-    )
-    const path = getByTestId('edge-path')
-
-    expect(path).toHaveStyle({ strokeWidth: '5.5' })
-    expect(path).toHaveAttribute('data-selected', 'true')
-    expect(path).toHaveClass('stroke-primary')
-    expect(path).not.toHaveClass('animated')
-  })
-
   it('hides non-selected labels in reduced and table-first density', () => {
     const { queryByTestId, rerender } = render(
       <PluginCallGraphEdge

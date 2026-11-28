@@ -13,6 +13,8 @@ export const legacyReasonSchema = z.enum([
   'verification-required',
   'metadata-required',
   'selection-required',
+  'request-settings-required',
+  'mirrors-unsupported',
   'unsupported-options',
   'invalid-record',
   'unsafe-path',
@@ -26,6 +28,18 @@ export const legacyReasonSchema = z.enum([
 ])
 export type LegacyReason = z.infer<typeof legacyReasonSchema>
 
+// Names only: request credentials and option values must not enter previews,
+// reports or the task database.
+export const legacyOptionNamesSchema = z
+  .array(
+    z
+      .string()
+      .min(1)
+      .max(64)
+      .regex(/^[a-z0-9-]+$/)
+  )
+  .max(64)
+
 export const legacyImportItemSchema = z.object({
   itemId: z.string().min(1).max(128),
   name: z.string().max(1024),
@@ -34,6 +48,9 @@ export const legacyImportItemSchema = z.object({
   type: z.enum(['http', 'bt', 'magnet', 'unknown']),
   selectable: z.boolean(),
   reason: legacyReasonSchema,
+  requestOptions: legacyOptionNamesSchema.optional(),
+  ignoredOptions: legacyOptionNamesSchema.optional(),
+  unsupportedOptions: legacyOptionNamesSchema.optional(),
 })
 export type LegacyImportItem = z.infer<typeof legacyImportItemSchema>
 
@@ -98,6 +115,9 @@ export type LegacyImportReport = z.infer<typeof legacyImportReportSchema>
 export const legacyScanRequestSchema = z
   .object({ sourceHandle: z.uuid() })
   .strict()
+export const legacyPreviewRequestSchema = z
+  .object({ previewId: z.uuid() })
+  .strict()
 export const legacyMetadataRequestSchema = z
   .object({ previewId: z.uuid(), itemId: z.string().min(1).max(128) })
   .strict()
@@ -118,8 +138,14 @@ export const legacyTaskMetadataSchema = z
     sourceId: z.string(),
     itemKey: z.string(),
     activation: z.enum(['inactive', 'activating', 'active']),
-    storagePolicy: z.enum(['legacy-read-only', 'legacy-bt-in-place']),
+    storagePolicy: z.enum([
+      'legacy-read-only',
+      'legacy-bt-in-place',
+      'legacy-http-in-place',
+    ]),
     reason: legacyReasonSchema,
+    requestOptions: legacyOptionNamesSchema.optional(),
+    ignoredOptions: legacyOptionNamesSchema.optional(),
     selectionKnown: z.boolean(),
     selectedFiles: z.array(z.number().int().nonnegative()).max(10000),
     origin: z

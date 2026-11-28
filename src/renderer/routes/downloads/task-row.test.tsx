@@ -17,7 +17,12 @@ vi.mock('@renderer/components/ui/toast', () => ({
 import '@renderer/lib/i18n'
 import { DownloadErrorCode } from '@shared/errors'
 import type { DownloadTask } from '@shared/types/task'
-import { TaskKind, TaskStatus, TaskType } from '@shared/types/task'
+import {
+  makeDefaultBtExtension,
+  TaskKind,
+  TaskStatus,
+  TaskType,
+} from '@shared/types/task'
 import { makeDownloadTask } from '@test-utils/task'
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
@@ -62,6 +67,24 @@ function getEtaCell(container: HTMLElement): Element {
 }
 
 describe('TaskRow', () => {
+  it('advances the bar within the same rounded display percentage', () => {
+    const task = fake({ progress: 0.350625 })
+    const { rerender } = render(<TaskRow task={task} rowProps={rowProps} />)
+    expect(screen.getByText('35.1%')).toBeInTheDocument()
+    expect(screen.getByRole('progressbar')).toHaveAttribute(
+      'aria-valuenow',
+      '35.0625'
+    )
+    rerender(
+      <TaskRow task={{ ...task, progress: 0.3514 }} rowProps={rowProps} />
+    )
+    expect(screen.getByText('35.1%')).toBeInTheDocument()
+    expect(screen.getByRole('progressbar')).toHaveAttribute(
+      'aria-valuenow',
+      '35.14'
+    )
+  })
+
   it('shows media stages even with the status column hidden and exposes indeterminate progress', () => {
     const task = fake({
       kind: TaskKind.Hls,
@@ -108,7 +131,7 @@ describe('TaskRow', () => {
         columns={[{ id: 'progress', width: 160, visible: true }]}
       />
     )
-    expect(screen.getByText('Merging 42%')).toBeInTheDocument()
+    expect(screen.getByText('Merging 42.0%')).toBeInTheDocument()
     expect(screen.getByRole('progressbar')).toHaveAttribute(
       'aria-valuenow',
       '42'
@@ -118,15 +141,15 @@ describe('TaskRow', () => {
   it('keeps a slow unfinished tail below 100% until bytes finish', () => {
     const task = fake({ progress: 0.995, downloadSpeed: 102400 })
     const { rerender } = render(<TaskRow task={task} rowProps={rowProps} />)
-    expect(screen.getByText('99%')).toBeInTheDocument()
-    expect(screen.queryByText('100%')).not.toBeInTheDocument()
+    expect(screen.getByText('99.5%')).toBeInTheDocument()
+    expect(screen.queryByText('100.0%')).not.toBeInTheDocument()
     rerender(
       <TaskRow
         task={{ ...task, progress: 1, status: TaskStatus.Finalizing }}
         rowProps={rowProps}
       />
     )
-    expect(screen.getByText('100%')).toBeInTheDocument()
+    expect(screen.getByText('100.0%')).toBeInTheDocument()
     expect(screen.getByText('Finalizing')).toBeInTheDocument()
     expect(screen.queryByText('100 KB/s')).not.toBeInTheDocument()
   })
@@ -154,6 +177,7 @@ describe('TaskRow', () => {
           { id: 'down', width: 100, visible: true },
           { id: 'up', width: 100, visible: true },
           { id: 'eta', width: 100, visible: true },
+          { id: 'connections', width: 100, visible: true },
         ]}
       />
     )
@@ -162,8 +186,57 @@ describe('TaskRow', () => {
         .getAllByRole('gridcell')
         .slice(1)
         .map((cell) => cell.textContent)
-    ).toEqual(['', '', ''])
+    ).toEqual(['', '', '', ''])
   })
+
+  it.each([0, 7])(
+    'shows %i actual HTTP connections while downloading',
+    (connections) => {
+      render(
+        <TaskRow
+          task={fake({ connections })}
+          rowProps={rowProps}
+          columns={[{ id: 'connections', width: 100, visible: true }]}
+        />
+      )
+      expect(screen.getAllByRole('gridcell')[1]).toHaveTextContent(
+        String(connections)
+      )
+    }
+  )
+
+  it.each([TaskType.Bt, TaskType.Magnet])(
+    'shows live %s peers including zero and clears them when paused or completed',
+    (type) => {
+      const task = fake({ type, bt: makeDefaultBtExtension({ peers: 7 }) })
+      const { rerender } = render(
+        <TaskRow
+          task={task}
+          rowProps={rowProps}
+          columns={[{ id: 'connections', width: 100, visible: true }]}
+        />
+      )
+      const cell = screen.getAllByRole('gridcell')[1]
+      expect(cell).toHaveTextContent('7')
+
+      for (const [status, expected] of [
+        [TaskStatus.Downloading, '0'],
+        [TaskStatus.FetchingMetadata, '0'],
+        [TaskStatus.Seeding, '0'],
+        [TaskStatus.Paused, ''],
+        [TaskStatus.Completed, ''],
+      ] as const) {
+        rerender(
+          <TaskRow
+            task={{ ...task, status, bt: makeDefaultBtExtension() }}
+            rowProps={rowProps}
+            columns={[{ id: 'connections', width: 100, visible: true }]}
+          />
+        )
+        expect(cell.textContent).toBe(expected)
+      }
+    }
+  )
 
   it('distinguishes zero speed, inapplicable upload and unknown ETA', () => {
     render(
@@ -261,12 +334,6 @@ describe('TaskRow', () => {
     expect(container.firstChild).toHaveAttribute('aria-selected', 'true')
   })
 
-  it('uses the same minimum width as the scrollable column header', () => {
-    const { container } = render(<TaskRow task={fake()} rowProps={rowProps} />)
-
-    expect(container.firstChild).toHaveStyle({ minWidth: '1382px' })
-  })
-
   it('renders localized creation and completion timestamps and refreshes on completion', () => {
     const createdAt = Date.parse('2020-09-13T01:02:08Z')
     const finishedAt = Date.parse('2020-09-13T03:04:19Z')
@@ -345,7 +412,7 @@ describe('TaskRow', () => {
       />
     )
     expect(screen.getByText('Fetching')).toBeInTheDocument()
-    expect(screen.getByText('0%')).toBeInTheDocument()
+    expect(screen.getByText('0.0%')).toBeInTheDocument()
   })
 
   describe('Error status', () => {

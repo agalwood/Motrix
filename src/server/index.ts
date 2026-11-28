@@ -13,7 +13,6 @@ import { FileRegistryStoreAdapter } from '@core/bridge/registry-store-adapter'
 import { TrustedExtensionRegistry } from '@core/bridge/trusted-extension-registry'
 import { BridgeReceiver } from '@core/bridge-receiver/bridge-receiver'
 import { createDownloadDirectories } from '@core/bridge-receiver/download-directories'
-import { Aria2SegmentClient } from '@core/download/aria2-segment-client'
 import { Aria2Adapter } from '@core/engine/aria2/aria2-adapter'
 import { Aria2ConfigBuilder } from '@core/engine/aria2/aria2-config-builder'
 import { Aria2ProcessManager } from '@core/engine/aria2/aria2-process-manager'
@@ -26,8 +25,9 @@ import {
   PollingScheduler,
   type PollingTaskUpdateSource,
 } from '@core/engine/aria2/polling-scheduler'
+import { TASK_STATUS_FIELDS } from '@core/engine/aria2/task-status-fields'
 import { translateRawToTask } from '@core/engine/aria2/translate'
-import type { Aria2RawStatus } from '@core/engine/aria2/types'
+import type { Aria2TaskStatus } from '@core/engine/aria2/types'
 import { WebSocketTransport } from '@core/engine/aria2/web-socket-transport'
 import {
   ENGINE_READY_TIMEOUT_MS,
@@ -116,8 +116,10 @@ import {
   defaultRecoveryFs,
   TaskRecoveryServiceImpl,
 } from '@core/task/task-recovery-service'
+import { taskRowToDownloadTask } from '@core/task/task-row-to-download-task'
 import { TaskUpdatePublisher } from '@core/task/task-update-publisher'
 import { TorrentMetaStoreImpl } from '@core/task/torrent-meta-store'
+import { reconcileFollowedMagnetTasks } from '@core/torrent/magnet-follow-reconciler'
 import { MagnetSelectionTimeout } from '@core/torrent/magnet-selection-timeout'
 import { MagnetTracker } from '@core/torrent/magnet-tracker'
 import { shouldSkipForPendingMagnetMetadata } from '@core/torrent/metadata-task-filter'
@@ -133,13 +135,16 @@ import { resolveSupportedLocale } from '@shared/constants/locales'
 import { Commands } from '@shared/protocol/commands'
 import { Events } from '@shared/protocol/events'
 import type { TaskCreateCommandResult } from '@shared/schemas/add-task'
+import { synologyFileStationUrl } from '@shared/schemas/nas-files'
 import { REGISTRY_CACHE_FILENAME } from '@shared/schemas/registry'
 import { EngineState } from '@shared/types/engine'
+import { getHiddenNotificationKinds } from '@shared/types/notification'
 import type { AppSettings } from '@shared/types/settings'
 import type { DownloadTask } from '@shared/types/task'
 import { TaskType } from '@shared/types/task'
 import pino from 'pino'
 import packageJson from '../../package.json' with { type: 'json' }
+import { ServerUpdateService } from './app-update-service'
 import {
   bootstrapBridgeForServer,
   type ServerBridgeRuntime,
@@ -152,6 +157,7 @@ import { diagnoseMdxpPublicUrl } from './bridge/public-url-diagnostic'
 import { parseRemoteExtensionConfig } from './bridge/remote-extension-config'
 import { logRemoteExtensionPairingReady } from './bridge/remote-extension-startup-log'
 import {
+  establishLinuxServerProcessOwnershipAuthority,
   establishServerProcessOwnershipAuthority,
   ServerProcessOwnershipError,
 } from './bridge/server-process-ownership-authority'
@@ -167,8 +173,30 @@ import {
 import { createApp } from './http/app'
 import { buildServerCommandHandlers } from './ipc/commands'
 import { buildServerQueryHandlers } from './ipc/queries'
-import { provisionOperatorToken } from './operator-token'
+import { createServerMediaRuntime } from './media-runtime'
+import { persistOperatorToken, provisionOperatorToken } from './operator-token'
+import { FnosAccountAuthority } from './platform/fnos/accounts'
+import { FnosFiles } from './platform/fnos/files'
+import { registerFnosRoutes } from './platform/fnos/routes'
+import { fnosRuntime, listenFnos } from './platform/fnos/runtime'
+import { listenNasClientGateway } from './platform/nas/client-gateway'
+import { NasFileRemover } from './platform/nas/file-remover'
+import { registerNasFileRoutes } from './platform/nas/file-routes'
+import { NasRecoveryAccess } from './platform/nas/recovery-access'
+import { NasTaskAccess } from './platform/nas/task-access'
 import { createNodePlatformServices } from './platform/services'
+import { SynologyAccounts } from './platform/synology/accounts'
+import { probeDsmApi } from './platform/synology/api'
+import { SynologyFiles } from './platform/synology/files'
+import { synologyGateway } from './platform/synology/identity'
+import {
+  dsmDefaultSaveDir,
+  dsmGatewayGroupId,
+  listenSynology,
+  synologyRuntime,
+} from './platform/synology/runtime'
+import { synologySettingsHandlers } from './platform/synology/settings'
+import { SynologyTaskFiles } from './platform/synology/task-files'
 import { createServerCapabilityHost } from './plugin/capability-host'
 import {
   createServerCommunityPluginPolicy,
@@ -190,6 +218,7 @@ import { ServerDirectoryService } from './server-directory-service'
 import {
   createServerExitCoordinator,
   createServerShutdown,
+  registerServerExitSignals,
   runServerStartup,
   type ServerShutdownActions,
 } from './shutdown'
@@ -199,9 +228,14 @@ import { createServerPersistTask } from './task-persistence'
 let requestActiveServerExit: ((code: number) => Promise<void>) | null = null
 
 async function main() {
+  const fnos = fnosRuntime()
+  const synology = synologyRuntime()
+  const nas = fnos ?? synology
+  const dsmAccounts = synology ? new SynologyAccounts() : undefined
   // ─── Logger ───────────────────────────────────────────────────
   initLogger(pino({ level: process.env.LOG_LEVEL ?? 'info' }))
   const log = getLogger('server')
+  const dsmAuthority = synology ? await probeDsmApi() : undefined
   const torrentBodyLimitBytes = parseTorrentBodyLimit(
     process.env.MOTRIX_TORRENT_BODY_LIMIT_MIB
   )
@@ -256,11 +290,7 @@ async function main() {
     process.exit(Math.max(code, startupExitCode))
   })
   requestActiveServerExit = requestExit
-  const shutdownAndExit = () => {
-    void requestExit(0)
-  }
-  process.once('SIGINT', shutdownAndExit)
-  process.once('SIGTERM', shutdownAndExit)
+  registerServerExitSignals(requestExit)
 
   const runShellAsyncWork = (
     label: string,
@@ -289,6 +319,59 @@ async function main() {
     onListenerError: (channel, err) =>
       log.warn({ err, channel }, 'event listener threw'),
   })
+  const serverDir = path.dirname(fileURLToPath(import.meta.url))
+  const rendererDir =
+    process.env.MOTRIX_RENDERER_DIR ??
+    path.resolve(serverDir, '..', 'renderer-web')
+  const nasSettings =
+    synology && dsmAccounts
+      ? await synologySettingsHandlers(synology.variable, dsmAccounts)
+      : undefined
+  if (synology && dsmAccounts && nasSettings) {
+    const unavailable = nasSettings.unavailableRoots
+    if (unavailable.length) {
+      // Keep the task database, finalize journals and engine session untouched
+      // until every grant can be checked. A fresh start applies any repairs.
+      const recoveryApp = await createApp({
+        basePath: process.env.MOTRIX_WEB_BASE_PATH,
+        rendererDir,
+        eventBus,
+        nasGateway: {
+          ...synologyGateway(synology.socketPath, dsmAccounts),
+          capabilities: {
+            settings: true,
+            fileActions: false,
+            torrentPicker: false,
+            clientGateway: false,
+          },
+          unavailableDownloadRoots: unavailable,
+        },
+        clientPairing: { cli: false, extension: false },
+        commandHandlers: nasSettings.commandHandlers,
+        queryHandlers: nasSettings.queryHandlers,
+        healthCheck: () => ({
+          ok: shellAsyncWork.isAccepting(),
+          status: 'storage-recovery',
+          engine: { state: EngineState.Stopped },
+        }),
+      })
+      shutdownActions.closeIngress = () => recoveryApp.close()
+      if (!shellAsyncWork.isAccepting()) {
+        await recoveryApp.close()
+        return
+      }
+      await listenSynology(recoveryApp, synology.socketPath)
+      if (!shellAsyncWork.isAccepting()) {
+        await recoveryApp.close()
+        return
+      }
+      log.warn(
+        { count: unavailable.length },
+        'DSM download folders unavailable; settings are available'
+      )
+      return
+    }
+  }
   const taskManager = new TaskManager()
   // Coalesces the per-commit TaskUpdated fan-out (see
   // docs/superpowers/specs/2026-08-07-task-updated-emit-coalescing-design.md).
@@ -329,6 +412,21 @@ async function main() {
       defaultSaveDir: configuredDefaultSaveDir,
       onChange: (old, updated) => {
         eventBus.emit(Events.SettingsChanged, { old, updated })
+        if (
+          old.app.notifyInAppOnComplete !== updated.app.notifyInAppOnComplete ||
+          old.app.notifyInAppOnError !== updated.app.notifyInAppOnError ||
+          old.app.notificationBadgeStyle !== updated.app.notificationBadgeStyle
+        ) {
+          eventBus.emit(Events.NotificationsChanged)
+        }
+        if (old.app.downloadsOpeningView !== updated.app.downloadsOpeningView) {
+          eventBus.emit(Events.DownloadsOpeningViewChanged)
+        }
+        if (old.app.keepStatsBarVisible !== updated.app.keepStatsBarVisible) {
+          eventBus.emit(Events.StatsBarVisibilityChanged, {
+            keepStatsBarVisible: updated.app.keepStatsBarVisible,
+          })
+        }
         if (old.app.sidebarColor !== updated.app.sidebarColor) {
           eventBus.emit(Events.SidebarColorChanged, {
             sidebarColor: updated.app.sidebarColor,
@@ -394,18 +492,31 @@ async function main() {
   })
   geoipManager = activeGeoipManager
   shutdownActions.stopGeoIP = () => activeGeoipManager.stop()
-  const hasDefaultSaveDirOverride = Boolean(
-    process.env.MOTRIX_DEFAULT_SAVE_DIR?.trim()
-  )
+  const hasDefaultSaveDirOverride =
+    !nas && Boolean(process.env.MOTRIX_DEFAULT_SAVE_DIR?.trim())
   const effectiveDefaultSaveDir = hasDefaultSaveDirOverride
     ? configuredDefaultSaveDir
-    : settingsManager.getApp().defaultSaveDir
-  const downloadPathPolicy = await createServerDownloadPathPolicy({
-    defaultSaveDir: effectiveDefaultSaveDir,
-    allowedSaveDirsValue: process.env.MOTRIX_ALLOWED_SAVE_DIRS,
-  })
+    : synology
+      ? dsmDefaultSaveDir(
+          settingsManager.getApp().defaultSaveDir,
+          configuredDefaultSaveDir,
+          process.env.MOTRIX_ALLOWED_SAVE_DIRS
+        )
+      : settingsManager.getApp().defaultSaveDir
+  const nasFiles =
+    synology && dsmAccounts
+      ? new SynologyFiles(synology.configFile, dsmAccounts)
+      : fnos
+        ? new FnosFiles(process.env, process.env.MOTRIX_FNOS_API_SOCKET)
+        : undefined
+  const downloadPathPolicy = nasFiles
+    ? await nasFiles.policy(effectiveDefaultSaveDir)
+    : await createServerDownloadPathPolicy({
+        defaultSaveDir: effectiveDefaultSaveDir,
+        allowedSaveDirsValue: process.env.MOTRIX_ALLOWED_SAVE_DIRS,
+      })
   if (
-    hasDefaultSaveDirOverride &&
+    (hasDefaultSaveDirOverride || synology) &&
     settingsManager.getApp().defaultSaveDir !== effectiveDefaultSaveDir
   ) {
     await settingsManager.update({
@@ -469,7 +580,9 @@ async function main() {
 
   // ─── aria2 Infrastructure ─────────────────────────────────────
   const transport = new WebSocketTransport()
-  const protocol = new JsonRpcProtocol(transport)
+  const protocol = new JsonRpcProtocol(transport, {
+    maxRequestBytes: torrentBodyLimitBytes,
+  })
   const processManager = new Aria2ProcessManager({
     ownershipFilePath: path.join(platform.userDataDir, 'aria2-owner.json'),
   })
@@ -477,6 +590,7 @@ async function main() {
     path.join(platform.extraResourceDir, 'aria2.conf'),
     platform.userDataDir,
     {
+      supervisorPid: process.pid,
       rpcListenAll: parseServerBoolean(
         process.env.MOTRIX_ARIA2_RPC_LISTEN_ALL,
         'MOTRIX_ARIA2_RPC_LISTEN_ALL'
@@ -490,6 +604,13 @@ async function main() {
   const db = new MotrixDatabase(path.join(platform.userDataDir, 'motrix.db'))
   shutdownActions.closeDatabase = () => db.close()
   db.init()
+  const dsmTaskFiles = synology
+    ? new SynologyTaskFiles(db, downloadPathPolicy)
+    : undefined
+  await dsmTaskFiles?.initialize()
+  const nasTaskAccess = nasFiles
+    ? new NasTaskAccess(nasFiles, downloadPathPolicy, dsmTaskFiles)
+    : undefined
 
   // Delivers durably-persisted terminal/diagnosis occurrences to in-process
   // consumers (timeline, failure log); see the "occurrence consumer
@@ -593,7 +714,6 @@ async function main() {
   }
   await localeCoordinator.reconcile()
   if (!shellAsyncWork.isAccepting()) return
-  const serverDir = path.dirname(fileURLToPath(import.meta.url))
   const detectServerFfmpeg = makeServerFfmpegDetect({
     settingsManager,
     userDataDir: platform.userDataDir,
@@ -741,12 +861,18 @@ async function main() {
       await proxyBridge.close()
     }
   }
+  const mediaRuntime = createServerMediaRuntime({
+    rpcClient,
+    adapter,
+    tempDir: runtimeDirectories.tempDir,
+    detectFfmpeg: detectServerFfmpeg,
+  })
   const sessionManager = new SessionManager(
     taskManager,
     rpcClient,
     db,
     adapter,
-    undefined,
+    mediaRuntime.tmpRoot,
     undefined,
     undefined,
     () => {
@@ -756,6 +882,37 @@ async function main() {
         : null
     }
   )
+  supervisor.setSessionRecoveryStore(
+    sessionManager.getEngineSessionRecoveryStore()
+  )
+  const nasRecoveryAccess = nasTaskAccess
+    ? new NasRecoveryAccess({
+        access: nasTaskAccess,
+        policy: downloadPathPolicy,
+        tempDir: runtimeDirectories.tempDir,
+        getTask: (gid) => {
+          const owners = db
+            .getAllTasks()
+            .filter((pair) =>
+              pair.instances.some((instance) => instance.gid === gid)
+            )
+          return owners.length === 1
+            ? taskRowToDownloadTask(owners[0].task, owners[0].instances)
+            : undefined
+        },
+        getEnginePaths: async (gid) => {
+          const state = await rpcClient.tellStatus(gid, ['dir', 'files'])
+          return {
+            directory: state.dir,
+            files: state.files.map((file) => file.path),
+          }
+        },
+      })
+    : undefined
+  if (nasRecoveryAccess)
+    sessionManager.setRecoveryWriteAuthorization(
+      nasRecoveryAccess.authorizeWrite
+    )
   supervisor.setStartupGuard(
     new CompletedTaskStartupGuard({
       completedGids: () => sessionManager.getCompletedDirectEngineTaskIds(),
@@ -767,7 +924,11 @@ async function main() {
         ),
       rpc: rpcClient,
       removeResult: (gid) => adapter.removeDownloadResult(gid),
+      authorizeResume: nasRecoveryAccess?.authorizeResume,
     })
+  )
+  supervisor.setPreReadyMaintenance(() =>
+    sessionManager.purgeEphemeralMediaRows()
   )
   shutdownActions.drainSession = () => sessionManager.stopAndDrain()
   const persistTask = createServerPersistTask(taskManager, sessionManager)
@@ -935,13 +1096,21 @@ async function main() {
     proxyBridge
   )
 
+  const createParent = (
+    task: DownloadTask,
+    persist: () => void | Promise<void>
+  ) =>
+    taskInspectorActivityRuntime.parentTaskCreated(
+      task,
+      dsmTaskFiles ? () => dsmTaskFiles.create(task, persist) : persist
+    )
+
   const completedEngineTaskCleanup = new CompletedEngineTaskCleanup({
     taskManager,
     adapter,
     mintTaskId: newTaskId,
     persist: persistTaskWithOccurrence,
-    adopt: (task, persist) =>
-      taskInspectorActivityRuntime.parentTaskCreated(task, persist),
+    adopt: (task, persist) => createParent(task, persist),
     publish: publishTaskUpdateNow,
     dispatch: (occurrence) => occurrenceDispatcher.dispatch(occurrence),
     runTaskMutation: (ids, operation) =>
@@ -951,12 +1120,31 @@ async function main() {
 
   // ─── Polling ──────────────────────────────────────────────────
   async function handlePolledTasks(
-    rawTasks: Aria2RawStatus[],
+    rawTasks: Aria2TaskStatus[],
     source: PollingTaskUpdateSource
   ): Promise<void> {
     if (supervisor.getState() !== EngineState.Ready) return
     let dirty = false
+    // 优先接力已完成并自动跟进真实 BT 子任务的磁力元数据记录，防止残留哈希命名磁力任务 (#2552, #2569)
+    const followedResult = await reconcileFollowedMagnetTasks(rawTasks, {
+      taskManager,
+      persistTask,
+      lookupFollowedTask: (gid) =>
+        rpcClient.tellStatus(gid, TASK_STATUS_FIELDS),
+      retireMetadataGid: (gid) => {
+        void adapter.removeDownloadResult(gid).catch((err: unknown) => {
+          log.warn(
+            { err, gid },
+            'failed to remove followed magnet metadata result'
+          )
+        })
+      },
+      log,
+    })
+    if (followedResult.dirty) dirty = true
     for (const raw of rawTasks) {
+      if (followedResult.skippedGids.has(raw.gid)) continue
+      if (mediaRuntime.isSegmentTask(raw)) continue
       if (shouldSkipForPendingMagnetMetadata(raw, magnetTracker)) {
         continue
       }
@@ -992,6 +1180,7 @@ async function main() {
         const outcome =
           existing.status !== merged.status
             ? await commitPolledTerminalTransition(existing.status, merged, {
+                isCurrent: () => taskManager.getById(existing.id) === existing,
                 persistTaskWithOccurrence,
                 occurrenceDispatcher,
                 publish: (task) => taskManager.set(task.id, task),
@@ -1005,17 +1194,33 @@ async function main() {
             : 'not-terminal'
         // Nothing was published and nothing is durable: leave the prior
         // in-memory state alone so the next poll retries.
-        if (outcome === 'persist-failed') continue
-        if (outcome !== 'published') taskManager.set(existing.id, merged)
+        if (outcome === 'persist-failed' || outcome === 'stale') continue
+        if (outcome !== 'published') {
+          if (taskManager.getById(existing.id) !== existing) continue
+          taskManager.set(existing.id, merged)
+          // 直连磁力在轮询中补全真实名称与路径后立刻触发一次保存，避免退出丢失 (#2569)
+          if (
+            existing.name !== merged.name ||
+            existing.finalName !== merged.finalName ||
+            existing.diskPath !== merged.diskPath ||
+            existing.finalPath !== merged.finalPath
+          ) {
+            void sessionManager
+              .requestSave()
+              .catch((err: unknown) =>
+                log.warn(
+                  { err, taskId: existing.id },
+                  'direct magnet identity save failed'
+                )
+              )
+          }
+        }
         dirty = true
       } else {
         const id = newTaskId()
         const discoveredTask: DownloadTask = { ...translated, id }
         try {
-          await taskInspectorActivityRuntime.parentTaskCreated(
-            discoveredTask,
-            () => persistTask(discoveredTask)
-          )
+          await createParent(discoveredTask, () => persistTask(discoveredTask))
         } catch (err) {
           // Persistence rejected before publication. The next poll can retry
           // adoption without exposing a task whose Activity parent is absent.
@@ -1080,11 +1285,30 @@ async function main() {
   await mediaMetaStore
     .pruneOrphans(db.getAllTasks().map(({ task }) => task.motrixId))
     .catch((err) => log.warn({ err }, 'Media metadata recovery failed'))
+  const nasFileRemover = nasFiles
+    ? new NasFileRemover(
+        nasFiles,
+        downloadPathPolicy,
+        finalizeFilesystemAdapter,
+        path.join(platform.userDataDir, 'nas-removals')
+      )
+    : undefined
   const fileCleanupService = new FileCleanupServiceImpl({
     async removePathRecursive(absPath: string): Promise<void> {
-      await fs.rm(absPath, { recursive: true, force: true })
+      if (nasFileRemover) await nasFileRemover.remove(absPath)
+      else await fs.rm(absPath, { recursive: true, force: true })
     },
   })
+  const fileCleanupForTask =
+    dsmTaskFiles && nasFileRemover
+      ? (task: DownloadTask) =>
+          new FileCleanupServiceImpl({
+            removePathRecursive: (file) =>
+              nasFileRemover.remove(file, (selected) =>
+                dsmTaskFiles.removalIdentity(task, file, selected)
+              ),
+          })
+      : undefined
   const torrentParser = new TorrentParser()
   const magnetTracker = new MagnetTracker(
     rpcClient,
@@ -1098,7 +1322,7 @@ async function main() {
       publishTaskUpdate,
       publishTaskUpdateNow,
       parentTaskCreated: (task, persistParent) =>
-        taskInspectorActivityRuntime.parentTaskCreated(task, persistParent),
+        createParent(task, persistParent),
       recordTransition: (input) =>
         taskInspectorActivityRuntime.recordTransition(input),
       deleteParentTask: (taskId, deleteParent) =>
@@ -1123,6 +1347,7 @@ async function main() {
     store: db,
     emit: eventBus.emit.bind(eventBus),
     log,
+    getHiddenKinds: () => getHiddenNotificationKinds(settingsManager.getApp()),
   })
 
   // Auto DNS fallback: constructed here so the command context can reset
@@ -1171,8 +1396,32 @@ async function main() {
   )
 
   // ─── HTTP App ─────────────────────────────────────────────────
-  const serverDirectoryService = new ServerDirectoryService(downloadPathPolicy)
+  const serverDirectoryService = new ServerDirectoryService(
+    downloadPathPolicy,
+    undefined,
+    undefined,
+    nasFiles
+      ? (file) => nasFiles.authorizeFile(file, downloadPathPolicy)
+      : undefined
+  )
+  const updateService = new ServerUpdateService({
+    eventBus,
+    currentVersion: appVersion,
+    channel: settingsManager.getApp().updateChannel,
+  })
   const commandHandlers = buildServerCommandHandlers({
+    updateService,
+    userDataDir: platform.userDataDir,
+    trackAsyncWork: (operation) => shellAsyncWork.run(operation),
+    authorizeOutputWrite: nasTaskAccess?.authorizeOutputWrite,
+    authorizeTaskWrite: nasTaskAccess?.authorizeWrite,
+    authorizeTaskRemoval: nasTaskAccess?.authorizeRemoval,
+    btStorageRuntime: durableFinalizeRuntime,
+    authorizeRecheck: dsmTaskFiles?.checkDirectory.bind(dsmTaskFiles),
+    prepareStorageBinding:
+      dsmTaskFiles?.prepareStorageBinding.bind(dsmTaskFiles),
+    persistBtStorage: (task, source, target) =>
+      sessionManager.persistBtStorage(task, source, target),
     operationService: pluginRuntime.operations,
     mediaMetaStore,
     serverDirectoryService,
@@ -1184,10 +1433,10 @@ async function main() {
     bindTaskRetry: (fn) => {
       dnsFallbackRetry = fn
     },
-    recoverFinalization: async (taskId) => {
+    recoverFinalization: async (taskId, sha256) => {
       if (!recoveryService) throw new Error('Task recovery is not ready')
       try {
-        const report = await recoveryService.recoverTaskById(taskId)
+        const report = await recoveryService.recoverTaskById(taskId, sha256)
         if (report.errors.length > 0) throw new Error(report.errors[0].issue)
       } finally {
         publishTaskUpdateNow()
@@ -1197,10 +1446,14 @@ async function main() {
     adapter,
     trackerManager,
     bridgeControl: bridgeManager,
+    getMediaSegmentGids: (taskId) =>
+      bridgeManager.current?.getMediaSegmentGids(taskId) ?? [],
+    cancelMedia: (taskId) => bridgeManager.cancelMedia(taskId),
     aria2BinaryPath: platform.aria2BinaryPath,
     finalNamePicker,
     torrentMetaStore,
     taskManager,
+    fileCleanupForTask,
     fileCleanupService,
     eventBus,
     proxyApplier,
@@ -1233,7 +1486,7 @@ async function main() {
     runTaskMutation: (taskIds, operation) =>
       taskInspectorActivityRuntime.runTaskMutation(taskIds, operation),
     parentTaskCreated: (task, persistParent) =>
-      taskInspectorActivityRuntime.parentTaskCreated(task, persistParent),
+      createParent(task, persistParent),
     publishTaskUpdate,
     publishTaskUpdateNow,
     downloadPathPolicy,
@@ -1258,6 +1511,7 @@ async function main() {
     ])
   }
   const queryHandlers = buildServerQueryHandlers({
+    updateService,
     getResolvedLanguage: () => hostLanguage,
     mediaMetaStore,
     serverDirectoryService,
@@ -1287,10 +1541,6 @@ async function main() {
     environment: process.env,
   })
 
-  const rendererDir =
-    process.env.MOTRIX_RENDERER_DIR ??
-    path.resolve(serverDir, '..', 'renderer-web')
-
   // Operator (control-plane) secret — provisioned INDEPENDENTLY of the
   // (non-fatal) MDXP bridge so a bridge bootstrap failure can never lock the web
   // UI behind an unrecoverable in-memory token (Spec 9 / F1). Distinct from the
@@ -1304,28 +1554,71 @@ async function main() {
     'operator token provisioned'
   )
 
+  const remoteExtensionConfig = parseRemoteExtensionConfig(process.env, {
+    requireWebOperator: nas !== undefined,
+  })
+  const nasAccounts =
+    dsmAccounts ??
+    (fnos?.accountSocketPath
+      ? new FnosAccountAuthority(fnos.accountSocketPath)
+      : undefined)
+  let nasClientGateway:
+    | Awaited<ReturnType<typeof listenNasClientGateway>>
+    | undefined
   const app = await createApp({
+    torrentCreator: {
+      policy: downloadPathPolicy,
+      authorizeFile: nasFiles
+        ? (file) => nasFiles.authorizeFile(file, downloadPathPolicy)
+        : undefined,
+      createTask: async (request) =>
+        (await createTask(request)) as TaskCreateCommandResult,
+    },
+    getHiddenNotificationKinds: () =>
+      getHiddenNotificationKinds(settingsManager.getApp()),
+    clientPairing: {
+      cli: !nas || nasAccounts !== undefined,
+      extension:
+        (!nas || nasAccounts !== undefined) &&
+        remoteExtensionConfig.status === 'enabled',
+    },
+    basePath: process.env.MOTRIX_WEB_BASE_PATH,
+    fnosGateway: fnos,
+    nasGateway:
+      synology && dsmAccounts
+        ? synologyGateway(synology.socketPath, dsmAccounts)
+        : undefined,
+    remoteExtensionConfig,
     torrentBodyLimitBytes,
-    commandHandlers,
-    queryHandlers,
+    commandHandlers: { ...commandHandlers, ...nasSettings?.commandHandlers },
+    queryHandlers: { ...queryHandlers, ...nasSettings?.queryHandlers },
     bridgeCommandHandlers: bridgeManager.bridgeCommandHandlers,
     bridgeQueryHandlers: bridgeManager.bridgeQueryHandlers,
     eventBus,
     pluginLogSource: pluginCapHost,
     rendererDir,
-    operatorAuth: {
-      operatorToken: operator.token,
-      publicUrl: process.env.MOTRIX_PUBLIC_URL,
-      onEventSocketRejected: (detail) =>
-        log.warn(detail, 'operator event connection rejected'),
-    },
-    healthCheck: () =>
-      serverHealthSnapshot({
+    operatorAuth: nas
+      ? undefined
+      : {
+          operatorToken: operator.token,
+          tokenSource: operator.source,
+          persistToken: operator.path
+            ? (token) => persistOperatorToken(operator.path as string, token)
+            : undefined,
+          publicUrl: process.env.MOTRIX_PUBLIC_URL,
+          onEventSocketRejected: (detail) =>
+            log.warn(detail, 'operator event connection rejected'),
+        },
+    healthCheck: () => ({
+      ...serverHealthSnapshot({
         accepting: shellAsyncWork.isAccepting(),
         engine: supervisor.getStatus(),
       }),
+      ...(dsmAuthority ? { nasAuthority: dsmAuthority } : {}),
+    }),
   })
   shutdownActions.closeIngress = async () => {
+    await nasClientGateway?.close()
     pluginUploadStore.dispose()
     await app.close()
   }
@@ -1336,6 +1629,19 @@ async function main() {
   }
 
   registerPluginUploadRoute(app, pluginUploadStore)
+  if (synology && nasFiles)
+    registerNasFileRoutes(app, {
+      files: nasFiles,
+      policy: downloadPathPolicy,
+      getTask: (id) => taskManager.getById(id),
+      webBasePath: '/motrix',
+      fileManagerUrl: synologyFileStationUrl,
+      outputIdentity: dsmTaskFiles?.outputIdentity.bind(dsmTaskFiles),
+    })
+  if (fnos && nasFiles)
+    registerFnosRoutes(app, nasFiles, downloadPathPolicy, (id) =>
+      taskManager.getById(id)
+    )
   registerServerDiagnosticsRoute(app, async () => ({
     generatedAt: Date.now(),
     health: serverHealthSnapshot({
@@ -1378,6 +1684,11 @@ async function main() {
   }))
 
   registerTasksBulkRoutes(app, {
+    resumeAll: nasFiles
+      ? async () => {
+          await commandHandlers[Commands.ResumeAllTasks]?.()
+        }
+      : undefined,
     taskManager,
     adapter,
     eventBus,
@@ -1451,6 +1762,9 @@ async function main() {
       log.warn({ err }, 'initial proxy apply failed')
     }
     if (!shellAsyncWork.isAccepting()) return
+    if (settingsManager.getApp().checkForUpdatesOnLaunch) {
+      runShellAsyncWork('automatic update check', () => updateService.check())
+    }
     runShellAsyncWork('tracker manager init', async () => {
       try {
         await trackerManager.init()
@@ -1529,6 +1843,16 @@ async function main() {
         },
       },
       torrentMetaStore,
+      authorizeDirectoryForTask:
+        dsmTaskFiles?.checkDirectory.bind(dsmTaskFiles),
+      recordInPlaceOutput: dsmTaskFiles?.recordOutput.bind(dsmTaskFiles),
+      removeTaskOutput:
+        dsmTaskFiles && nasFileRemover
+          ? (task: DownloadTask, file: string) =>
+              nasFileRemover.remove(file, (selected) =>
+                dsmTaskFiles.removalIdentity(task, file, selected)
+              )
+          : undefined,
       settings: {
         get: () => {
           const engine = settingsManager.getEngine()
@@ -1639,7 +1963,8 @@ async function main() {
           listActiveAndWaiting: () => adapter.listActiveAndWaiting(),
         },
         fs: defaultRecoveryFs,
-        finalizeTask: (taskId) => finalizeTask(taskId, buildFinalizeDeps()),
+        finalizeTask: (taskId, recoverySha256) =>
+          finalizeTask(taskId, { ...buildFinalizeDeps(), recoverySha256 }),
         activityRecorder: taskActivityService,
         recordTransition: (input: RuntimeTransitionInput) =>
           taskInspectorActivityRuntime.recordTransition(input),
@@ -1766,7 +2091,16 @@ async function main() {
     // can observe an empty/partial TaskManager or a false TaskNotFound.
     const port = parseServerPort(process.env.PORT, 'PORT', 8080)
     try {
-      await app.listen({ port, host: '0.0.0.0' })
+      if (synology) {
+        await listenSynology(app, synology.socketPath)
+        nasClientGateway = await listenNasClientGateway({
+          socketPath: synology.clientSocketPath,
+          groupId: await dsmGatewayGroupId(),
+          currentPort: () => bridgeManager.current?.port,
+          extensionEnabled: () => remoteExtensionConfig.status === 'enabled',
+        })
+      } else if (fnos) await listenFnos(app, fnos.socketPath)
+      else await app.listen({ port, host: '0.0.0.0' })
     } catch (err) {
       if (!shellAsyncWork.isAccepting()) return
       throw err
@@ -1779,7 +2113,9 @@ async function main() {
       }
       return
     }
-    const serverUrl = `http://localhost:${port}`
+    const serverUrl = nas
+      ? `unix:${nas.socketPath}`
+      : `http://localhost:${port}`
     log.info({ port, url: serverUrl }, `server listening at ${serverUrl}`)
 
     let bridgeSetupStage:
@@ -1787,20 +2123,30 @@ async function main() {
       | 'bridge-data-lock'
       | 'trusted-extension-registry' = 'process-ownership'
     bridgeOwnershipSetup = (async () => {
-      bridgeDataDirLockRecoveryAuthority =
-        await establishServerProcessOwnershipAuthority({
+      if (nas) {
+        const authority = await establishLinuxServerProcessOwnershipAuthority({
           userDataDir: platform.userDataDir,
-          port,
-          assertControlPlaneOwnership: () => {
-            if (!app.server.listening) return false
-            const address = app.server.address()
-            return (
-              typeof address === 'object' &&
-              address !== null &&
-              address.port === port
-            )
-          },
+          assertControlPlaneOwnership: () =>
+            app.server.listening && app.server.address() === nas.socketPath,
         })
+        bridgeDataDirLockRecoveryAuthority = authority
+        shutdownActions.releaseProcessOwnership = authority.release
+      } else {
+        bridgeDataDirLockRecoveryAuthority =
+          await establishServerProcessOwnershipAuthority({
+            userDataDir: platform.userDataDir,
+            port,
+            assertControlPlaneOwnership: () => {
+              if (!app.server.listening) return false
+              const address = app.server.address()
+              return (
+                typeof address === 'object' &&
+                address !== null &&
+                address.port === port
+              )
+            },
+          })
+      }
       bridgeSetupStage = 'bridge-data-lock'
       const dataDirLock = await acquireBridgeDataDirLock(bridgeDataDir, {
         recoverExisting: bridgeDataDirLockRecoveryAuthority,
@@ -1837,6 +2183,9 @@ async function main() {
     })
     await bridgeOwnershipSetup
     if (!shellAsyncWork.isAccepting()) return
+    // Older native packages have no protected account authority. Keep client
+    // ingress closed until the lifecycle launcher supplies that endpoint.
+    if (nas && !nasAccounts) return
 
     // ─── MDXP bridge (Spec 6) ─────────────────────────────────────
     // Agent-facing unary POST /mdxp + SSE GET /mdxp/events, on its OWN port
@@ -1845,10 +2194,14 @@ async function main() {
     // The manager keeps every bridge:* RPC registered while this factory owns
     // only the optional listener/runtime portion.
     bridgeRuntimeFactory = async (): Promise<ServerBridgeRuntime> => {
+      let receiver: BridgeReceiver | null = null
       const removeTaskDeps = {
+        authorizeTaskRemoval: nasTaskAccess?.authorizeRemoval,
+        cancelMedia: async (taskId: string) => receiver?.cancelMedia(taskId),
         taskManager,
         adapter,
         log,
+        fileCleanupForTask,
         fileCleanupService,
         mediaMetaStore,
         torrentMetaStore,
@@ -1888,8 +2241,7 @@ async function main() {
         parentTaskCreated: (
           task: DownloadTask,
           persistParent: () => void | Promise<void>
-        ) =>
-          taskInspectorActivityRuntime.parentTaskCreated(task, persistParent),
+        ) => createParent(task, persistParent),
         rollbackTaskCreation: (taskId: string) =>
           sessionManager.runExclusivePersistence(() =>
             taskInspectorActivityRuntime.deleteParentTask(taskId, () => {
@@ -1912,6 +2264,10 @@ async function main() {
           }),
       }
       const taskActionDeps = {
+        authorizeTaskWrite: nasTaskAccess?.authorizeWrite,
+        authorizeTaskRemoval: nasTaskAccess?.authorizeRemoval,
+        getMediaSegmentGids: (taskId: string) =>
+          receiver?.getMediaSegmentGids(taskId) ?? [],
         onPauseRequested: (taskId: string) =>
           trackerManager.noteTaskControl(taskId, true),
         onResumeRequested: (taskId: string) =>
@@ -1951,8 +2307,8 @@ async function main() {
         : fixedPort === 'auto'
           ? 16801
           : fixedPort
-      const mdxpHost = process.env.MOTRIX_MDXP_HOST ?? '127.0.0.1'
-      const remoteExtensionConfig = parseRemoteExtensionConfig(process.env)
+      const mdxpHost =
+        process.env.MOTRIX_MDXP_HOST ?? (nas ? '0.0.0.0' : '127.0.0.1')
       if (remoteExtensionConfig.status === 'invalid') {
         log.warn(
           {
@@ -1966,7 +2322,7 @@ async function main() {
         mdxpHost,
         publicUrl: process.env.MOTRIX_PUBLIC_URL,
       })
-      if (publicUrlWarning) {
+      if (publicUrlWarning && !nas) {
         log.warn(
           {
             reason: publicUrlWarning.reason,
@@ -1989,18 +2345,20 @@ async function main() {
           (await downloadPathPolicy.authorizeDirectory(path)).canonicalPath,
       })
       const candidateBridgeRuntime = await bootstrapBridgeForServer({
+        nasAccounts,
         userDataDir: platform.userDataDir,
         host: mdxpHost,
         port: mdxpPort,
         fixedPort,
         motrixVersion: appVersion,
+        ffmpegAvailable: mediaRuntime.ffmpegAvailable,
         eventBus,
         bridgeDataDirLockRecoveryAuthority,
         bridgeDataDirLock: dataDirLock,
         remoteExtensionConfig,
         trustedExtensionRegistry,
         createExtensionReceiver: ({ bridgeBus }) =>
-          new BridgeReceiver({
+          (receiver = new BridgeReceiver({
             mediaMetaStore,
             getDefaultSaveDir: () => settingsManager.getApp().defaultSaveDir,
             resolveSaveDir: downloadDirectories.resolveSelection,
@@ -2021,45 +2379,47 @@ async function main() {
                 removeTaskDeps
               )
             },
-            submitMagnetForFileSelection: (uri, saveDir, sourceMeta) =>
-              magnetTracker.submit(uri, saveDir, {
-                source: 'bridge',
-                sourceMeta,
-              }),
+            submitMagnetForFileSelection: async (uri, saveDir, sourceMeta) =>
+              magnetTracker.submit(
+                uri,
+                await downloadPathPolicy.prepareSaveDir(saveDir),
+                {
+                  source: 'bridge',
+                  sourceMeta,
+                }
+              ),
             isMagnetFileSelectionEnabled: () =>
               settingsManager.getApp().magnetFileSelection,
             eventBus,
             bridgeBus,
             localize: (code) => code,
-            // The Server currently advertises direct selection only. Keeping
-            // media disabled here makes that capability statement executable,
-            // while direct/magnet submissions reuse the same validated paths
-            // and cookie/header hygiene as Desktop.
             ffmpegBinaryPath: null,
+            resolveFfmpegBinaryPath: mediaRuntime.resolveFfmpegBinaryPath,
             publishTaskUpdate,
             publishTaskUpdateNow,
             taskManager,
             activityRecorder: taskActivityService,
-            segmentAria2: new Aria2SegmentClient(rpcClient, adapter),
-            tmpRoot: runtimeDirectories.tempDir,
+            segmentAria2: mediaRuntime.segmentAria2,
+            tmpRoot: mediaRuntime.tmpRoot,
             persistTask,
             persistTaskWithOccurrence,
             occurrenceDispatcher,
             parentTaskCreated: (task, persistParent) =>
-              taskInspectorActivityRuntime.parentTaskCreated(
-                task,
-                persistParent
-              ),
+              createParent(task, persistParent),
             recordTransition: (input) =>
               taskInspectorActivityRuntime.recordTransition(input),
             runTaskMutation: (taskIds, operation) =>
               taskInspectorActivityRuntime.runTaskMutation(taskIds, operation),
             waitForReady: () =>
               supervisor.waitUntilReady(ENGINE_READY_TIMEOUT_MS),
-          }),
+          })),
         // The web approval UI is a separate (Fastify) service; the operator points
         // device-code clients at it via MOTRIX_PUBLIC_URL. Unset → no URL printed.
-        verificationUri: process.env.MOTRIX_PUBLIC_URL,
+        verificationUri: nas
+          ? remoteExtensionConfig.status === 'enabled'
+            ? remoteExtensionConfig.publicOperatorBaseUrl
+            : undefined
+          : process.env.MOTRIX_PUBLIC_URL,
         readHandlerDeps: {
           taskManager,
           statsAggregator,

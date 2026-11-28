@@ -8,12 +8,17 @@ import {
   artifactIdentityEquals,
 } from '@core/plugin/finalize/artifact-identity'
 import { ArtifactMutationLeaseCoordinator } from '@core/plugin/finalize/artifact-mutation-lease'
-import type { FinalizeArtifactOperations } from '@core/plugin/finalize/finalize-committer'
+import type {
+  FinalizeArtifactOperations,
+  FinalizeJournalRecord,
+  PreparedFileRename,
+} from '@core/plugin/finalize/finalize-committer'
 import {
   type FinalizeCommitResult,
   FinalizeCommitter,
 } from '@core/plugin/finalize/finalize-committer'
 import { FinalizeRecovery } from '@core/plugin/finalize/finalize-recovery'
+import { FinalizeSourceVerificationError } from '@core/plugin/finalize/finalize-recovery-errors'
 import {
   assertFinalizePaths,
   freezeHookPlan,
@@ -24,6 +29,7 @@ import type { PostDeliveryAdmission } from '@core/plugin/post/delivery-types'
 import type { DownloadTask } from '@shared/types/task'
 import type { TaskOccurrence } from '@shared/types/task-occurrence'
 import type Database from 'better-sqlite3'
+import { TASK_DELETED_FINALIZE_REASON } from './finalize-journal-lifecycle'
 import { SqliteFinalizeJournalRepository } from './finalize-journal-repository'
 import type { SessionManager } from './session-manager'
 
@@ -32,12 +38,17 @@ export interface DurableFinalizeArtifactInput {
   occurrence: TaskOccurrence | null
   sourcePath: string
   targetPath: string
+  recoverySha256?: string
   replacement?: { pluginId: string; stagedPath: string }
   metadataOps: readonly StagedMetadataOp[]
   contributors: readonly string[]
   postDeliveries: readonly PostDeliveryAdmission[]
   beforeCommit?: () => void
   fileRebase?: { sourceRoot: string; targetRoot: string }
+  /** Read-only payload validation while engine and plugin writers are quiesced. */
+  verifySource?: () => Promise<void>
+  /** Synchronous publication before another session snapshot can save stale paths. */
+  onCommitted?: () => void
 }
 
 export interface DurableFinalizeRuntimeOptions {
@@ -56,6 +67,18 @@ export class DurableFinalizeRuntime {
   constructor(private readonly options: DurableFinalizeRuntimeOptions) {
     this.leases = options.leases ?? new ArtifactMutationLeaseCoordinator([])
     this.now = options.now ?? Date.now
+  }
+
+  async withArtifactLease<T>(
+    taskId: string,
+    operation: () => Promise<T>
+  ): Promise<T> {
+    const lease = await this.leases.acquire(taskId)
+    try {
+      return await operation()
+    } finally {
+      await lease.release()
+    }
   }
 
   async commit(
@@ -95,11 +118,32 @@ export class DurableFinalizeRuntime {
       throw err
     }
     const lease = await this.leases.acquire(input.task.id)
+    let held: PreparedFileRename | null | undefined
     try {
-      await this.createRecovery().recoverTask(input.task.id, lease)
-      const pending = (
-        await this.createRepository().listRecoverable(input.task.id)
-      ).find((record) => record.publicationIntent?.method === 'reserved_rename')
+      // A supplied digest authorizes only the old source quarantine. Avoid
+      // replaying an unrelated journal before proving this retry applies.
+      if (!input.recoverySha256)
+        await this.createRecovery().recoverTask(input.task.id, lease)
+      await input.verifySource?.()
+      const journals = this.createRepository()
+      const quarantined = journals.quarantinedSource(input.task.id)
+      if (input.recoverySha256 && !quarantined)
+        throw new Error('no quarantined source is awaiting verification')
+      if (
+        quarantined &&
+        (quarantined.plan.sourcePath !== input.sourcePath ||
+          quarantined.plan.targetPath !== targetPath ||
+          quarantined.plan.saveDir !== input.task.saveDir ||
+          input.replacement ||
+          input.contributors.length ||
+          input.metadataOps.length)
+      )
+        throw new Error(
+          'source quarantine does not match the current finalize plan'
+        )
+      const pending = (await journals.listRecoverable(input.task.id)).find(
+        (record) => record.publicationIntent?.method === 'reserved_rename'
+      )
       if (
         pending &&
         (!isOrdinarySuffixRemoval(pending.plan) ||
@@ -112,8 +156,32 @@ export class DurableFinalizeRuntime {
         throw new Error('pending reserved publication does not match the retry')
       // H8: identity capture is inside the mutation lease, after every
       // engine/Host writer has successfully quiesced.
+      if (
+        !pending &&
+        !input.replacement &&
+        input.contributors.length === 0 &&
+        input.metadataOps.length === 0 &&
+        input.sourcePath === `${targetPath}.motrix` &&
+        path.dirname(input.sourcePath) === path.dirname(targetPath)
+      ) {
+        held = await this.options.fs.prepareFileRename?.(
+          input.sourcePath,
+          targetPath
+        )
+      }
+      const verifiedSource = quarantined
+        ? await this.verifyQuarantinedSource(quarantined, input.recoverySha256)
+        : undefined
+      if (quarantined && held) {
+        // Content authority survives closing the guard and is rechecked under
+        // the native publication handle. Keep its digest in the new journal.
+        await held.close()
+        held = null
+      }
       const sourceIdentity =
+        verifiedSource ??
         pending?.plan.sourceIdentity ??
+        held?.sourceIdentity ??
         (await this.captureIdentity(input.sourcePath))
       const replacement = input.replacement
         ? {
@@ -156,6 +224,7 @@ export class DurableFinalizeRuntime {
             this.options.db,
             {
               now: this.now,
+              verifiedQuarantine: quarantined ?? undefined,
               commitTerminalBoundary: (record) => {
                 if (!record.targetIdentity) {
                   throw new Error('finalize target identity is missing')
@@ -189,6 +258,7 @@ export class DurableFinalizeRuntime {
               (pending.phase !== 'cleaned' && pending.phase !== 'db_committed')
             )
               throw new Error('reserved publication recovery did not commit')
+            input.onCommitted?.()
             return {
               journalId: pending.journalId,
               targetPath: pending.plan.targetPath,
@@ -216,12 +286,61 @@ export class DurableFinalizeRuntime {
             sameContent: artifactContentEquals,
           })
           input.beforeCommit?.()
-          return committer.commit(plan, lease)
+          const result = await committer.commit(plan, lease, held ?? undefined)
+          // SQLite's outer durable transaction has committed, but the session
+          // persistence lane is still held. Publish before queued autosaves.
+          input.onCommitted?.()
+          return result
         }
       )
     } finally {
-      await lease.release()
+      try {
+        await held?.close()
+      } finally {
+        await lease.release()
+      }
     }
+  }
+
+  private async verifyQuarantinedSource(
+    record: FinalizeJournalRecord,
+    sha256?: string
+  ) {
+    const { sourceIdentity: original, sourcePath, targetPath } = record.plan
+    if (original.kind !== 'rename-file')
+      throw new Error('invalid quarantined source')
+    if (await this.options.fs.identity(targetPath, original))
+      throw new Error('final name already exists; inspect it before retrying')
+    const checkStamp = async () => {
+      const current = await this.options.fs.identity(sourcePath, original)
+      if (
+        current?.kind !== 'rename-file' ||
+        current.platformFileId !== original.platformFileId ||
+        current.size !== original.size ||
+        current.birthtimeNs !== original.birthtimeNs
+      )
+        throw new Error(
+          'the original temporary file is missing or was replaced; inspect both names'
+        )
+      if (!sha256 && !artifactIdentityEquals(current, original))
+        throw new FinalizeSourceVerificationError(
+          'temporary file preserved; verify against the publisher’s SHA-256 or download to a new path'
+        )
+    }
+    await checkStamp()
+    const verified = await this.captureIdentity(sourcePath)
+    if (
+      verified.kind !== 'file' ||
+      verified.platformFileId !== original.platformFileId ||
+      verified.size !== original.size
+    )
+      throw new Error('source changed during quarantine verification')
+    if (sha256 && verified.sha256 !== sha256)
+      throw new FinalizeSourceVerificationError(
+        'SHA-256 mismatch; temporary file preserved'
+      )
+    await checkStamp()
+    return verified
   }
 
   private async captureIdentity(artifactPath: string) {
@@ -244,9 +363,10 @@ export class DurableFinalizeRuntime {
     return (
       this.options.db
         .prepare(
-          "SELECT 1 FROM plugin_finalize_journals WHERE task_id=? AND phase <> 'cleaned'"
+          `SELECT 1 FROM plugin_finalize_journals
+           WHERE task_id=? AND phase <> 'cleaned' AND quarantine_reason IS NOT ?`
         )
-        .get(taskId) !== undefined
+        .get(taskId, TASK_DELETED_FINALIZE_REASON) !== undefined
     )
   }
 

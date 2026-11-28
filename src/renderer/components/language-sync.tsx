@@ -8,9 +8,18 @@ import {
   type SettingsReader,
 } from '@renderer/lib/settings-refresh'
 import { transport } from '@renderer/lib/transport'
-import { isSupportedLocale } from '@shared/constants/locales'
+import {
+  fnosPlatformConfig,
+  isFnos,
+  watchFnosPlatform,
+} from '@renderer/platform/fnos'
+import {
+  isSupportedLocale,
+  resolveSupportedLocale,
+} from '@shared/constants/locales'
 import { Events, type LocaleChangedPayload } from '@shared/protocol/events'
 import { Queries } from '@shared/protocol/queries'
+import type { AppSettings } from '@shared/types/settings'
 import { useEffect } from 'react'
 
 function localeFromEvent(
@@ -55,7 +64,8 @@ export function LanguageSync({
     }
 
     const reconcileHostLocale = async (
-      read: SettingsReader = (channel) => transport.invoke(channel)
+      read: SettingsReader = (channel) => transport.invoke(channel),
+      hostLanguage?: string
     ): Promise<void> => {
       const localeGeneration = ++generation
       const state = await read(
@@ -64,12 +74,28 @@ export function LanguageSync({
           : Queries.GetSettings
       )
       if (!active || localeGeneration !== generation) return
+      if (
+        isFnos() &&
+        windowId !== 'onboarding' &&
+        (state as AppSettings)?.app?.language === 'system'
+      ) {
+        const nextLanguage =
+          hostLanguage ?? (await fnosPlatformConfig()).language
+        await queueLocale(
+          resolveSupportedLocale(nextLanguage),
+          localeGeneration
+        )
+        return
+      }
       const locale = languageFromState(windowId, state)
       if (!isSupportedLocale(locale)) return
       await queueLocale(locale, localeGeneration)
     }
 
     const refresh = () => void reconcileHostLocale().catch(() => {})
+    const stopFnosSync = watchFnosPlatform('os/language', (language) => {
+      void reconcileHostLocale(undefined, language).catch(() => {})
+    })
 
     // Subscribe before starting a query so a newer live/buffered event wins
     // over any older authoritative snapshot returned by IPC/HTTP.
@@ -87,6 +113,7 @@ export function LanguageSync({
     window.addEventListener('focus', refresh)
     return () => {
       active = false
+      stopFnosSync()
       generation += 1
       transport.off(Events.LocaleChanged, onLocaleChanged)
       stopConnectionSync?.()

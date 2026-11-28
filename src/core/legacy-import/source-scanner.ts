@@ -4,16 +4,17 @@ import { lstat, open, realpath } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { analyzeDownloadSource } from '@shared/lib/download-source'
+import { parseEngineTorrent as parseTorrent } from '@shared/lib/engine-torrent'
 import { projectTorrentMeta } from '@shared/lib/torrent-meta'
 import type { LegacyImportItem } from '@shared/schemas/legacy-import'
 import type { TorrentMeta } from '@shared/types/torrent'
-import parseTorrent from 'parse-torrent'
 import { parseBtFileLayout } from '../task/bt-storage-layout'
 import {
   digestBytes,
   type LegacySessionEntry,
   MAX_LEGACY_BYTES,
   parseLegacySession,
+  resolveLegacyRequestSettings,
   safeLegacyComponent,
   safeLegacyDirectory,
   safeLegacyOutput,
@@ -192,7 +193,7 @@ export async function authorizeLegacyTorrent(
     throw new Error('legacyImport.changedSource')
   try {
     validateLegacyBencode(file.bytes)
-    const parsed = await parseTorrent(new Uint8Array(file.bytes))
+    const parsed = await parseTorrent(file.bytes)
     const torrent = projectTorrentMeta(parsed)
     await parseBtFileLayout(file.bytes)
     if (
@@ -277,6 +278,13 @@ function selection(
   return { files: [...result].sort((a, b) => a - b), known: true }
 }
 
+function recognizableType(first: string | undefined): LegacyImportItem['type'] {
+  if (!first) return 'unknown'
+  if (/^https?:\/\//i.test(first)) return 'http'
+  if (first.startsWith('magnet:?')) return 'magnet'
+  return first.endsWith('.torrent') ? 'bt' : 'unknown'
+}
+
 export async function scanLegacySource(
   source: LegacySource,
   isProcessRunning: (pid: number) => boolean | Promise<boolean>,
@@ -309,13 +317,21 @@ export async function scanLegacySource(
   let snapshotBytes = files.reduce((sum, file) => sum + file.bytes.length, 0)
   const torrentByPath = new Map<string, LegacySnapshotFile>()
   for (const entry of parseLegacySession(session.bytes)) {
+    const type = recognizableType(entry.uris[0])
+    const { requestOptions, ignoredOptions } = resolveLegacyRequestSettings(
+      entry,
+      system,
+      type
+    )
     const item: LegacyImportItem = {
       itemId: entry.itemKey,
       name: entry.options.out || '—',
       saveDir: safeLegacyDirectory(entry.options.dir ?? (system.dir as string)),
-      type: 'unknown',
+      type,
       selectable: true,
       reason: 'fresh-download-required',
+      ...(requestOptions.length ? { requestOptions } : {}),
+      ...(ignoredOptions.length ? { ignoredOptions } : {}),
     }
     const candidate: LegacyCandidate = {
       item,
@@ -329,7 +345,7 @@ export async function scanLegacySource(
     }
     candidates.push(candidate)
     try {
-      if (entry.reason) {
+      if (entry.reason && entry.reason !== 'request-settings-required') {
         item.selectable = false
         item.reason = entry.reason
         continue
@@ -362,35 +378,6 @@ export async function scanLegacySource(
           })
         )
           throw new Error('invalid')
-        if (
-          [
-            'header',
-            'http-user',
-            'http-passwd',
-            'all-proxy-user',
-            'all-proxy-passwd',
-            'http-proxy',
-            'http-proxy-user',
-            'http-proxy-passwd',
-            'https-proxy',
-            'https-proxy-user',
-            'https-proxy-passwd',
-            'load-cookies',
-            'referer',
-            'all-proxy',
-          ].some(
-            (key) =>
-              system[key] !== undefined &&
-              system[key] !== null &&
-              system[key] !== '' &&
-              (!Array.isArray(system[key]) ||
-                (system[key] as unknown[]).length !== 0)
-          )
-        ) {
-          item.selectable = false
-          item.reason = 'unsupported-options'
-          continue
-        }
         item.type = 'http'
         item.name =
           entry.options.out ||
@@ -398,7 +385,13 @@ export async function scanLegacySource(
             new URL(first).pathname.split('/').at(-1) || 'download'
           )
         candidate.outputPath = safeLegacyOutput(dir, item.name)
-        item.reason = 'fresh-download-required'
+        item.reason = requestOptions.length
+          ? 'request-settings-required'
+          : 'verification-required'
+        if (requestOptions.length && entry.uris.length > 1) {
+          item.selectable = false
+          item.reason = 'mirrors-unsupported'
+        }
       } else {
         const filename = first.startsWith('file:')
           ? fileURLToPath(first)
@@ -436,7 +429,7 @@ export async function scanLegacySource(
           torrentByPath.set(relative, file)
         }
         validateLegacyBencode(file.bytes)
-        const parsed = await parseTorrent(new Uint8Array(file.bytes))
+        const parsed = await parseTorrent(file.bytes)
         const torrent = projectTorrentMeta(parsed)
         await parseBtFileLayout(file.bytes)
         if (

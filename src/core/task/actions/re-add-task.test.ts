@@ -24,6 +24,7 @@ import type { EngineAdapter } from '../../engine/engine-adapter'
 import { DIRECT_RESOURCE_METADATA_PROFILE } from '../../engine/engine-adapter'
 import type { EventBus } from '../../events/event-bus'
 import type { Logger } from '../../logger'
+import { DirectResourceValidatorService } from '../direct-resource-validator'
 import { TaskManager } from '../task-manager'
 import type { TorrentMetaStore } from '../torrent-meta-store'
 import { reAddTask } from './re-add-task'
@@ -127,6 +128,37 @@ function makeDeps(task: DownloadTask | undefined) {
 }
 
 describe('reAddTask (BT path)', () => {
+  it('checks host authorization before retry or reseeding touches the engine', async () => {
+    const task = makeBtTask()
+    const deps = makeDeps(task)
+    await expect(
+      reAddTask(task.id, {
+        ...deps,
+        authorizeTaskWrite: async () => {
+          throw new Error('revoked')
+        },
+      })
+    ).rejects.toThrow('revoked')
+    expect(deps.adapter.addTorrent).not.toHaveBeenCalled()
+    expect(deps.adapter.forceRemoveTask).not.toHaveBeenCalled()
+    expect(deps.persistTask).not.toHaveBeenCalled()
+  })
+
+  it('checks host authorization before recovering interrupted finalization', async () => {
+    const task = makeBtTask({ transitionPhase: TransitionPhase.Renaming })
+    const deps = makeDeps(task)
+    const recoverFinalization = vi.fn(async () => {})
+    await expect(
+      reAddTask(task.id, {
+        ...deps,
+        recoverFinalization,
+        authorizeTaskWrite: async () => {
+          throw new Error('revoked')
+        },
+      })
+    ).rejects.toThrow('revoked')
+    expect(recoverFinalization).not.toHaveBeenCalled()
+  })
   it.each([TaskStatus.Error, TaskStatus.Completed])(
     're-adds a direct single-file BT task at the same final path from %s',
     async (status) => {
@@ -425,6 +457,98 @@ function withPrimaryInstance(task: DownloadTask): DownloadTask {
 }
 
 describe('reAddTask (HTTP path)', () => {
+  it.each([true, false])(
+    'recomputes retention when falling back to a safe request rebuild: supported=%s',
+    async (supported) => {
+      const task = makeHttpTask()
+      task.instances[0].payload.directReplay = {
+        version: 1,
+        requestModifiers: [],
+        replayability: 'uri-only',
+        engineContextVersion: 1,
+      }
+      const deps = makeDeps(task)
+      deps.adapter.supportsDirectTaskRetry = vi
+        .fn()
+        .mockResolvedValue(supported)
+      await reAddTask(task.id, deps)
+      const request = vi.mocked(deps.adapter.createDownload).mock.calls[0][0]
+      expect(request.retainRequestContext).toBe(supported ? true : undefined)
+      expect(
+        deps.taskManager.getById(task.id)?.instances[0].payload.directReplay
+      ).toEqual({
+        version: 1,
+        requestModifiers: [],
+        replayability: 'uri-only',
+        ...(supported ? { engineContextVersion: 1 } : {}),
+      })
+    }
+  )
+  it('continues an authenticated download under its original public and engine identities', async () => {
+    const task = makeHttpTask({ downloadedBytes: 524288, totalBytes: 4194304 })
+    task.instances[0].payload.directReplay = {
+      version: 1,
+      requestModifiers: ['cookies'],
+      replayability: 'requires-credentials',
+    }
+    const deps = makeDeps(task)
+    deps.adapter.canRetryDirectTask = vi.fn().mockResolvedValue(true)
+    deps.adapter.retryDirectTask = vi.fn().mockResolvedValue(undefined)
+    await reAddTask(task.id, deps)
+    expect(deps.adapter.retryDirectTask).toHaveBeenCalledExactlyOnceWith({
+      engineTaskId: task.engineTaskId,
+      uri: task.uris[0],
+      outputPath: task.diskPath,
+    })
+    expect(deps.taskManager.getById(task.id)).toMatchObject({
+      id: task.id,
+      engineTaskId: task.engineTaskId,
+      diskPath: task.diskPath,
+      downloadedBytes: task.downloadedBytes,
+      status: TaskStatus.Downloading,
+      errorMessage: null,
+    })
+    expect(deps.adapter.createDownload).not.toHaveBeenCalled()
+    expect(deps.adapter.forceRemoveTask).not.toHaveBeenCalled()
+    expect(deps.taskManager.reserveEngineTaskId).not.toHaveBeenCalled()
+  })
+
+  it('does not remove the original engine task when a native retry response is lost', async () => {
+    const task = makeHttpTask()
+    const deps = makeDeps(task)
+    deps.adapter.canRetryDirectTask = vi.fn().mockResolvedValue(true)
+    deps.adapter.retryDirectTask = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('response lost'))
+      .mockResolvedValue(undefined)
+    await expect(reAddTask(task.id, deps)).rejects.toThrow('response lost')
+    expect(deps.taskManager.getById(task.id)?.engineTaskId).toBe(
+      task.engineTaskId
+    )
+    expect(deps.adapter.forceRemoveTask).not.toHaveBeenCalled()
+    expect(deps.adapter.removeDownloadResult).not.toHaveBeenCalled()
+    await reAddTask(task.id, deps)
+    expect(deps.taskManager.getById(task.id)?.status).toBe(
+      TaskStatus.Downloading
+    )
+  })
+
+  it('does not overwrite an authoritative completion observed during native retry', async () => {
+    const task = makeHttpTask()
+    const deps = makeDeps(task)
+    deps.adapter.canRetryDirectTask = vi.fn().mockResolvedValue(true)
+    deps.adapter.retryDirectTask = vi.fn(async () => {
+      deps.taskManager.set(task.id, {
+        ...task,
+        status: TaskStatus.Finalizing,
+        updatedAt: 100,
+      })
+    })
+    await reAddTask(task.id, deps)
+    expect(deps.taskManager.getById(task.id)?.status).toBe(
+      TaskStatus.Finalizing
+    )
+  })
   it('retries a URI-only HTTP task at its exact .motrix output path', async () => {
     const task = makeHttpTask()
     task.instances[0].payload = {
@@ -471,6 +595,8 @@ describe('reAddTask (HTTP path)', () => {
       const task = makeHttpTask({
         diskPath,
         finalPath: path.join(tempDir, 'file.zip'),
+        // Sparse/multi-connection output length is not completed byte count.
+        downloadedBytes: 4,
       })
       task.instances[0].diskPath = diskPath
       task.instances[0].payload = {
@@ -492,12 +618,16 @@ describe('reAddTask (HTTP path)', () => {
 
       await reAddTask('t2', {
         ...deps,
-        directResourceValidator: {
-          verify: vi.fn(async () => ({
-            outcome: 'unchanged' as const,
-            ifRange: '"release-v1"',
-          })),
-        },
+        directResourceValidator: new DirectResourceValidatorService(
+          async () =>
+            new Response(null, {
+              status: 206,
+              headers: {
+                ETag: '"release-v1"',
+                'Content-Range': 'bytes 0-0/4096',
+              },
+            })
+        ),
         getDirectResourceProxyOptions: () => ({
           proxy: '',
           noProxy: '',
@@ -688,7 +818,15 @@ describe('reAddTask (HTTP path)', () => {
     }
   )
 
-  it('rejects a changed checkpoint source before touching the engine', async () => {
+  it.each([
+    { outcome: 'source-changed' as const, ifRange: null },
+    { outcome: 'range-unsupported' as const, ifRange: null },
+    {
+      outcome: 'unverifiable' as const,
+      ifRange: null,
+      reason: 'request-timeout' as const,
+    },
+  ])('preserves a checkpoint after $outcome validation', async (validation) => {
     const tempDir = fs.mkdtempSync(
       path.join(os.tmpdir(), 'motrix-direct-changed-')
     )
@@ -715,19 +853,31 @@ describe('reAddTask (HTTP path)', () => {
       }
       const deps = makeDeps(task)
       const directResourceValidator = {
-        verify: vi.fn().mockResolvedValue({
-          outcome: 'source-changed',
-          ifRange: null,
-        }),
+        verify: vi.fn().mockResolvedValue(validation),
       }
 
       await expect(
-        reAddTask('t2', { ...deps, directResourceValidator })
+        reAddTask('t2', {
+          ...deps,
+          directResourceValidator,
+          getDirectResourceProxyOptions: () => ({}),
+        })
       ).rejects.toMatchObject({ code: ErrorCode.TaskNotRetryable })
 
       expect(deps.adapter.forceRemoveTask).not.toHaveBeenCalled()
       expect(deps.adapter.createDownload).not.toHaveBeenCalled()
       expect(deps.persistTask).not.toHaveBeenCalled()
+      expect(directResourceValidator.verify).toHaveBeenCalledOnce()
+      expect(deps.log.warn).toHaveBeenCalledWith(
+        {
+          taskId: 't2',
+          ...validation,
+          validatorKind: 'strong-etag',
+          proxyConfigured: false,
+          elapsedMs: expect.any(Number),
+        },
+        'reAddTask: HTTP resume validation failed'
+      )
       expect(fs.readFileSync(diskPath)).toEqual(Buffer.from('partial'))
       expect(fs.readFileSync(`${diskPath}.aria2`)).toEqual(
         Buffer.from('checkpoint')

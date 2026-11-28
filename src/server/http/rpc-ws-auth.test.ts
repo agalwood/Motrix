@@ -29,6 +29,8 @@ describe('/rpc/events WebSocket auth', () => {
       },
       operatorAuth: {
         operatorToken: TOKEN,
+        tokenSource: 'file',
+        persistToken: async () => {},
         now: () => now,
         publicUrl: 'https://motrix.example/operator',
       },
@@ -59,6 +61,30 @@ describe('/rpc/events WebSocket auth', () => {
     })
     return (login.headers['set-cookie'] as string).split(';')[0]
   }
+
+  it('closes old cookie and Bearer sockets when the token is changed through CLI authentication', async () => {
+    const browser = await connect({
+      cookie: await cookie(),
+      origin: 'https://motrix.example',
+    })
+    const script = await connect({ authorization: `Bearer ${TOKEN}` })
+    const closed = [browser, script].map(
+      (ws) => new Promise<number>((resolve) => ws.once('close', resolve))
+    )
+    const response = await app.inject({
+      method: 'POST',
+      url: '/rpc/auth/token',
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { currentToken: TOKEN, newToken: '1' },
+    })
+    expect(response.statusCode).toBe(200)
+    expect(await Promise.all(closed)).toEqual([4401, 4401])
+    await expect(
+      connect({ authorization: `Bearer ${TOKEN}` })
+    ).rejects.toThrow()
+    const next = await connect({ authorization: 'Bearer 1' })
+    next.close()
+  })
 
   it('rejects an anonymous upgrade', async () => {
     await expect(connect()).rejects.toThrow()

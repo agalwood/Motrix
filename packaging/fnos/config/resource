@@ -1,0 +1,18 @@
+{
+  "data-share": {
+    "shares": [
+      {
+        "name": "motrix/downloads",
+        "permission": {
+          "rw": [
+            "motrix"
+          ]
+        }
+      }
+    ]
+  },
+  "api-scope": [
+    "trim.file.sharedAccess",
+    "trim.file.userAcl"
+  ]
+}

@@ -1,6 +1,7 @@
 import { ContextMenu as ContextMenuPrimitive } from '@base-ui/react/context-menu'
 import { cn } from '@renderer/lib/utils'
 import type * as React from 'react'
+import { usePopupPositioning } from './popup-positioning'
 
 // Base UI context menus share the Menu item primitives. Keep the same shadcn
 // styling and keyboard behavior as the application's dropdown menus.
@@ -36,11 +37,13 @@ export function ContextMenuContent({
   className,
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Popup>) {
+  const positioning = usePopupPositioning()
   return (
     <ContextMenuPrimitive.Portal>
       <ContextMenuPrimitive.Positioner
         className="isolate z-50 outline-none"
         sideOffset={2}
+        {...positioning}
       >
         <ContextMenuPrimitive.Popup
           data-slot="context-menu-content"

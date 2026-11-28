@@ -223,6 +223,9 @@ async function main() {
       PORT: String(WEB),
       MOTRIX_MDXP_HOST: '127.0.0.1',
       MOTRIX_MDXP_PORT: String(MDXP),
+      // This leg exercises CLI pairing. The separate remote-Extension suite
+      // owns MBP1 routes; inherited host settings must not open them here.
+      MOTRIX_REMOTE_EXTENSION_ENABLED: 'false',
       MOTRIX_DATA_DIR: DATA,
       MOTRIX_OPERATOR_TOKEN: OPTOK,
       MOTRIX_ARIA2_BIN: ARIA2,
@@ -274,7 +277,16 @@ async function main() {
       ep.port === MDXP && typeof ep.localToken === 'string'
     )
     const nonce = await fetch(`${MDXP_BASE}/nonce`).then((r) => r.status)
-    check('MDXP bridge answers GET /nonce', nonce === 200, `status=${nonce}`)
+    check('legacy GET /nonce stays closed', nonce === 404, `status=${nonce}`)
+    const extensionNonce = await fetch(`${MDXP_BASE}/nonce`, {
+      method: 'POST',
+      headers: { 'X-Motrix-Bridge': '1' },
+    }).then((r) => r.status)
+    check(
+      'CLI-only bridge keeps Extension nonce issuance closed',
+      extensionNonce === 404,
+      `status=${extensionNonce}`
+    )
     const auth = ['--endpoint', MDXP_BASE, '--token', ep.localToken]
 
     // ── 2. Spec 9 deny-by-default ──────────────────────────────────────

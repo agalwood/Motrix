@@ -1,9 +1,47 @@
 import { EventEmitter } from 'node:events'
 import { Events } from '@shared/protocol/events'
+import {
+  getHiddenNotificationKinds,
+  NotificationKinds,
+} from '@shared/types/notification'
 import { describe, expect, it } from 'vitest'
 import { bindEventBroadcaster } from './events'
 
 describe('bindEventBroadcaster', () => {
+  it('applies live notification preferences while preserving application alerts and refresh events', () => {
+    const bus = new EventEmitter()
+    const preferences = {
+      notifyInAppOnComplete: false,
+      notifyInAppOnError: false,
+    }
+    const sent: unknown[] = []
+    const broadcaster = bindEventBroadcaster(bus as never, () =>
+      getHiddenNotificationKinds(preferences)
+    )
+    broadcaster.register({ send: (message) => sent.push(JSON.parse(message)) })
+    for (const kind of [
+      NotificationKinds.TaskComplete,
+      NotificationKinds.TaskError,
+      NotificationKinds.EngineFailure,
+    ]) {
+      bus.emit(Events.NotificationAdded, { kind })
+    }
+    bus.emit(Events.NotificationsChanged)
+    expect(sent).toEqual([
+      {
+        channel: Events.NotificationAdded,
+        args: [{ kind: NotificationKinds.EngineFailure }],
+      },
+      { channel: Events.NotificationsChanged, args: [] },
+    ])
+    preferences.notifyInAppOnComplete = true
+    bus.emit(Events.NotificationAdded, { kind: NotificationKinds.TaskComplete })
+    expect(sent.at(-1)).toEqual({
+      channel: Events.NotificationAdded,
+      args: [{ kind: NotificationKinds.TaskComplete }],
+    })
+  })
+
   it('forwards eventBus emissions to registered sockets', () => {
     const bus = new EventEmitter()
     const sent: unknown[] = []

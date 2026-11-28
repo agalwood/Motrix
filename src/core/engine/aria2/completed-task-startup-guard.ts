@@ -152,6 +152,8 @@ export class CompletedTaskStartupGuard implements EngineStartupGuard {
       completedGids: () => ReadonlySet<string>
       /** Pending ownership reconciliation: pause at boot, never purge or auto-resume. */
       heldGids?: () => ReadonlySet<string>
+      /** Hosts with directory grants authorize persisted work before it can write. */
+      authorizeResume?: (gid: string) => Promise<boolean>
       rpc: Pick<
         Aria2RpcClient,
         'tellStatus' | 'forceRemove' | 'unpause' | 'changeGlobalOption'
@@ -186,19 +188,33 @@ export class CompletedTaskStartupGuard implements EngineStartupGuard {
     }
     const completed = this.deps.completedGids()
     const held = new Set(this.deps.heldGids?.())
-    if (!previous && completed.size === 0 && held.size === 0) return null
+    const authorizeResume = this.deps.authorizeResume
+    if (
+      !previous &&
+      completed.size === 0 &&
+      held.size === 0 &&
+      !authorizeResume
+    )
+      return null
     const intent = await readRunIntent(
       source,
       sqlite,
       (gids) =>
         previous !== null ||
+        authorizeResume !== undefined ||
         gids.some((gid) => completed.has(gid) || held.has(gid))
     )
     const targets = [...intent.keys()].filter(
       (gid) => completed.has(gid) && !held.has(gid)
     )
     const hasHeldTask = [...intent.keys()].some((gid) => held.has(gid))
-    if (!previous && targets.length === 0 && !hasHeldTask) return null
+    if (
+      !previous &&
+      targets.length === 0 &&
+      !hasHeldTask &&
+      (!authorizeResume || intent.size === 0)
+    )
+      return null
     const resume = (
       previous
         ? previous.resume.filter((gid) => intent.has(gid))
@@ -212,8 +228,13 @@ export class CompletedTaskStartupGuard implements EngineStartupGuard {
 
     return {
       args: [
-        ...args.filter((value) => !value.startsWith('--pause=')),
+        ...args.filter(
+          (value) =>
+            !value.startsWith('--pause=') &&
+            (!authorizeResume || !value.startsWith('--pause-metadata='))
+        ),
         '--pause=true',
+        ...(authorizeResume ? ['--pause-metadata=true'] : []),
       ],
       reconcile: async (isStopping) => {
         for (const gid of targets) {
@@ -238,12 +259,19 @@ export class CompletedTaskStartupGuard implements EngineStartupGuard {
         }
         // Do not release any remaining task if even one required purge failed.
         if (isStopping()) return
-        await this.deps.rpc.changeGlobalOption({ pause: 'false' })
+        await this.deps.rpc.changeGlobalOption({
+          pause: 'false',
+          ...(authorizeResume
+            ? { 'pause-metadata': argument(args, 'pause-metadata') ?? 'false' }
+            : {}),
+        })
         const completedNow = this.deps.completedGids()
         for (const gid of resume) {
           if (isStopping()) return
           if (completedNow.has(gid) || this.deps.heldGids?.().has(gid)) continue
           try {
+            if (authorizeResume && !(await authorizeResume(gid))) continue
+            if (isStopping()) return
             if (
               (await this.deps.rpc.tellStatus(gid)).status === 'paused' &&
               !this.deps.heldGids?.().has(gid)

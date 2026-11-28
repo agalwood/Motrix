@@ -171,13 +171,13 @@ function createManager(
     type: 'submenu',
     menuId: MenuIds.MenubarTask,
     group: '2_hidden',
-    submenu: MenuIds.MenubarFile,
+    submenu: MenuIds.Tray,
     when: () => false,
   })
   menuRegistry.appendItem({
     id: 'menubar.file.nested',
     type: 'normal',
-    menuId: MenuIds.MenubarFile,
+    menuId: MenuIds.Tray,
     group: '1_nested',
     commandId: 'test.nested',
   })
@@ -315,6 +315,7 @@ describe('MenuManager application-menu snapshot', () => {
     expect(snapshot.items.map((item) => item.id)).toEqual([
       MenuItemIds.AppAbout,
       MenuItemIds.ApplicationSubmenusSeparator,
+      MenuIds.MenubarFile,
       MenuIds.MenubarTask,
       MenuIds.MenubarEdit,
       MenuIds.MenubarWindow,
@@ -322,15 +323,18 @@ describe('MenuManager application-menu snapshot', () => {
       MenuItemIds.ApplicationQuitSeparator,
       MenuItemIds.AppQuit,
     ])
-    expect(snapshot.items[2]?.children?.[0]).toMatchObject({
+    expect(
+      snapshot.items.find((item) => item.id === MenuIds.MenubarTask)
+        ?.children?.[0]
+    ).toMatchObject({
       id: MenuItemIds.TaskPause,
       enabled: false,
       visible: true,
     })
     expect(
-      snapshot.items[5]?.children?.find(
-        (item) => item.id === MenuItemIds.HelpWebsite
-      )
+      snapshot.items
+        .find((item) => item.id === MenuIds.MenubarHelp)
+        ?.children?.find((item) => item.id === MenuItemIds.HelpWebsite)
     ).toMatchObject({ visible: false })
     expect(changed).toHaveBeenCalledOnce()
 
@@ -354,7 +358,10 @@ describe('MenuManager application-menu snapshot', () => {
     expect(manager.getApplicationMenuSnapshot().revision).toBe(2)
     expect(changed).toHaveBeenCalledOnce()
     expect(
-      manager.getApplicationMenuSnapshot().items[2]?.children?.[0]?.enabled
+      manager
+        .getApplicationMenuSnapshot()
+        .items.find((item) => item.id === MenuIds.MenubarTask)?.children?.[0]
+        ?.enabled
     ).toBe(true)
 
     contextStore.merge({ selectedTaskId: 'task-1' })
@@ -376,7 +383,9 @@ describe('MenuManager application-menu snapshot', () => {
 
     expect(onApplicationMenuSet).toHaveBeenCalledTimes(2)
     expect(
-      manager.getApplicationMenuSnapshot().items[2]?.children?.[0]
+      manager
+        .getApplicationMenuSnapshot()
+        .items.find((item) => item.id === MenuIds.MenubarTask)?.children?.[0]
     ).toMatchObject({ enabled: true, visible: true })
 
     manager.dispose()

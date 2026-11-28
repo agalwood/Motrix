@@ -5,6 +5,7 @@ import { z } from 'zod'
  *
  * - `showMain`: focus the main window after closing the current one
  *   (used when the closing window was a child like `add-task`).
+ *   `true` always shows it; `'if-visible'` only focuses it if already visible.
  * - `navigateMainTo`: when set, emit Events.NavigateTo with this path
  *   after showing main. Must be an absolute in-app route (`/...`) so
  *   a malformed value cannot push a non-route string into the main
@@ -18,7 +19,7 @@ import { z } from 'zod'
  * one place and an explicit `?? {}` in another.
  */
 export const closeCurrentWindowSchema = z.object({
-  showMain: z.boolean().optional(),
+  showMain: z.union([z.boolean(), z.literal('if-visible')]).optional(),
   navigateMainTo: z.string().min(1).startsWith('/').optional(),
 })
 

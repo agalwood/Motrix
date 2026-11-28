@@ -1,29 +1,14 @@
 name: Finalize macOS exFAT
 
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - 'packages/finalize-fs/**'
-      - 'src/core/plugin/finalize/**'
-      - 'src/core/session/*finalize*'
-      - 'src/core/task/task-recovery-service*'
-      - '.github/workflows/finalize-exfat.yml'
-  push:
-    branches: [main]
-    paths:
-      - 'packages/finalize-fs/**'
-      - 'src/core/plugin/finalize/**'
-      - 'src/core/session/*finalize*'
-      - 'src/core/task/task-recovery-service*'
-      - '.github/workflows/finalize-exfat.yml'
+  workflow_call:
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: finalize-exfat-${{ github.ref }}
+  group: finalize-exfat-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -36,7 +21,7 @@ jobs:
           persist-credentials: false
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
-          version: 12.10.1
+          version: 12.23.0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24

@@ -7,8 +7,10 @@
 // them directly rather than duplicating them under `__fixtures__/` to keep
 // the repo small; the PoC fixtures total ~1.5 MB of binary data.
 
+import { once } from 'node:events'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import fs from 'node:fs/promises'
+import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { TaskStatus } from '@shared/types/task'
@@ -96,6 +98,49 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
         rmSync(baseDir, { recursive: true, force: true })
       }
     })
+
+    it('keeps cloud-drive RPC output and task paths under the download directory', async () => {
+      const payload = Buffer.from('cloud-drive nested output\n')
+      const server = createServer((_request, response) => {
+        response.writeHead(200, { 'Content-Length': payload.length })
+        response.end(payload)
+      })
+      let gid: string | undefined
+      try {
+        server.listen(0, '127.0.0.1')
+        await once(server, 'listening')
+        const address = server.address()
+        if (!address || typeof address === 'string') {
+          throw new Error('No HTTP fixture port')
+        }
+        // External clients reach aria2 directly and may include a leading
+        // slash in the cloud path. They do not use createDownload's filename.
+        gid = await rpc.addUri(
+          [`http://127.0.0.1:${address.port}/payload.bin`],
+          { out: '/cloud/多层目录/payload.bin', pause: 'true' }
+        )
+        const target = path.join(baseDir, 'cloud/多层目录/payload.bin')
+        const queued = await adapter.getTaskStatus(gid)
+        expect(queued).not.toBeNull()
+        // Assert before starting so an incompatible engine cannot write to
+        // an absolute path outside the fixture's download directory.
+        expect(path.resolve(queued!.diskPath)).toBe(target)
+        await rpc.unpause(gid)
+        const completed = await waitFor(async () => {
+          const task = await adapter.getTaskStatus(gid!)
+          expect(task?.status).not.toBe(TaskStatus.Error)
+          return task?.status === TaskStatus.Completed ? task : null
+        }, 5000)
+        expect(path.resolve(completed.diskPath)).toBe(target)
+        expect(path.resolve(completed.finalPath)).toBe(target)
+        expect(completed.saveDir).toBe(baseDir)
+        expect(await fs.readFile(target)).toEqual(payload)
+      } finally {
+        if (gid) await discardTask(adapter, gid)
+        server.closeAllConnections()
+        await new Promise<void>((resolve) => server.close(() => resolve()))
+      }
+    }, 10_000)
 
     it('PoC-1: bt-seed-unverified reaches seeding/complete without hash verify', async () => {
       // Stage the pre-completed torrent data so aria2 has nothing to fetch.

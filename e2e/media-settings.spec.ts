@@ -1,11 +1,14 @@
-import { readFile } from 'node:fs/promises'
+import { execFileSync } from 'node:child_process'
+import { copyFile, readFile, rename } from 'node:fs/promises'
 import path from 'node:path'
+import { Queries } from '@shared/protocol/queries'
 import { expect, test } from './fixtures/electron-app'
 
 test.describe('media settings', () => {
   test('downloads, verifies and installs the public FFmpeg release through the desktop UI', async ({
     mainWindow,
     userDataDir,
+    electronApp,
   }, testInfo) => {
     test.skip(
       process.env.MOTRIX_FFMPEG_PUBLIC_RELEASE_TEST !== '1' ||
@@ -137,6 +140,79 @@ test.describe('media settings', () => {
     await managedRow.screenshot({
       path: testInfo.outputPath('ffmpeg-resolved-path-narrow.png'),
     })
+
+    // Reproduce the pre-managed layout from #2494 with only the official
+    // ffmpeg binary present, retaining its Internet-origin quarantine value.
+    const quarantine = execFileSync(
+      '/usr/bin/xattr',
+      ['-p', 'com.apple.quarantine', binaryPath],
+      { encoding: 'utf8' }
+    ).trim()
+    const legacyBinary = path.join(userDataDir, 'binaries', 'ffmpeg')
+    await copyFile(binaryPath, legacyBinary)
+    execFileSync('/usr/bin/xattr', [
+      '-w',
+      'com.apple.quarantine',
+      quarantine,
+      legacyBinary,
+    ])
+    await rename(
+      path.join(userDataDir, 'binaries', 'ffmpeg-verified'),
+      path.join(userDataDir, 'previous-verified-install')
+    )
+    await mainWindow.setViewportSize({ width: 1000, height: 740 })
+    // A fresh legacy verification without metadata is a retryable error,
+    // even though the local executable is a valid official release.
+    await electronApp.evaluate(({ session }) => {
+      session.defaultSession.webRequest.onBeforeRequest(
+        { urls: ['https://api.github.com/repos/motrixapp/ffmpeg-static/*'] },
+        (_details, callback) => callback({ cancel: true })
+      )
+    })
+    await card.getByRole('button', { name: 'Refresh', exact: true }).click()
+    await expect(card.getByRole('alert')).toContainText(
+      'Couldn’t refresh FFmpeg detection'
+    )
+    await expect(card.getByText('FFmpeg was blocked by macOS')).toHaveCount(0)
+    await electronApp.evaluate(({ session }) =>
+      session.defaultSession.webRequest.onBeforeRequest(null)
+    )
+    await card.getByRole('button', { name: 'Refresh', exact: true }).click()
+    await expect(
+      managedRow.getByTitle(legacyBinary, { exact: true })
+    ).toBeVisible({ timeout: 120_000 })
+    await expect(managedRow.getByText('In use', { exact: true })).toBeVisible()
+    await expect(card.getByRole('alert')).toHaveCount(0)
+    expect(
+      execFileSync(
+        '/usr/bin/xattr',
+        ['-p', 'com.apple.quarantine', legacyBinary],
+        { encoding: 'utf8' }
+      ).trim()
+    ).toBe(quarantine)
+    await managedRow.screenshot({
+      path: testInfo.outputPath('ffmpeg-legacy-verified.png'),
+    })
+    // Saved signed evidence must support later checks without GitHub, while
+    // still running the real macOS signature and notarization checks.
+    await electronApp.evaluate(({ session }) => {
+      session.defaultSession.webRequest.onBeforeRequest(
+        { urls: ['https://api.github.com/repos/motrixapp/ffmpeg-static/*'] },
+        (_details, callback) => callback({ cancel: true })
+      )
+    })
+    const cachedDetection = await mainWindow.evaluate(async (channel) => {
+      const api = (
+        window as unknown as {
+          motrix: { invoke: (channel: string) => Promise<unknown> }
+        }
+      ).motrix
+      return api.invoke(channel)
+    }, Queries.GetFfmpegDetection)
+    expect(cachedDetection).toMatchObject({ active: { path: legacyBinary } })
+    await electronApp.evaluate(({ session }) =>
+      session.defaultSession.webRequest.onBeforeRequest(null)
+    )
   })
   test('shows detection status and saves a manual path', async ({
     mainWindow,

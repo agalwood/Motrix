@@ -2,8 +2,10 @@ import { stat } from 'node:fs/promises'
 import path from 'node:path'
 import { AppError, ErrorCode } from '@shared/errors'
 import type { DownloadTask } from '@shared/types/task'
+import { normalizeTaskOutputPath } from './task-output-path'
 
 export interface RevealInFolderDeps {
+  platform?: NodeJS.Platform
   shell: {
     showItemInFolder: (path: string) => void
     openPath: (path: string) => Promise<string>
@@ -14,16 +16,6 @@ export interface RevealInFolderDeps {
 }
 
 export type RevealInFolderPayload = { taskId: string }
-
-function isWindowsDeviceNamespace(value: string): boolean {
-  const normalized = value.replaceAll('\\', '/')
-  return (
-    normalized.startsWith('//?/') ||
-    normalized.startsWith('//./') ||
-    normalized.startsWith('/??/') ||
-    normalized.startsWith('//??/')
-  )
-}
 
 function resolveOutputPath(
   deps: RevealInFolderDeps,
@@ -52,19 +44,11 @@ function resolveOutputPath(
 
 export function createRevealInFolderHandler(deps: RevealInFolderDeps) {
   return async (payload: RevealInFolderPayload): Promise<void> => {
-    const taskPath = resolveOutputPath(deps, payload)
-    if (
-      typeof taskPath !== 'string' ||
-      taskPath.trim() === '' ||
-      taskPath.includes('\0') ||
-      (!path.isAbsolute(taskPath) && !path.win32.isAbsolute(taskPath)) ||
-      isWindowsDeviceNamespace(taskPath)
-    ) {
-      throw new AppError(
-        ErrorCode.IpcInvalidPayload,
-        'revealInFolder: task has an invalid path'
-      )
-    }
+    const platform = deps.platform ?? process.platform
+    const taskPath = normalizeTaskOutputPath(
+      resolveOutputPath(deps, payload),
+      platform
+    )
 
     try {
       const output = await stat(taskPath).catch(
@@ -81,7 +65,7 @@ export function createRevealInFolderHandler(deps: RevealInFolderDeps) {
       // Incomplete outputs can still have a .motrix suffix or live in a BT
       // workspace. showItemInFolder silently fails for their absent final
       // path, so open its containing directory until the output is published.
-      const pathApi = path.posix.isAbsolute(taskPath) ? path.posix : path.win32
+      const pathApi = platform === 'win32' ? path.win32 : path.posix
       const directory = pathApi.dirname(taskPath)
       if (!(await stat(directory)).isDirectory()) {
         throw new Error('task parent is not a directory')

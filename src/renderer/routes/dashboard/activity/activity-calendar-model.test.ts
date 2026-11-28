@@ -204,7 +204,12 @@ describe('activity calendar geometry', () => {
       contentLevel: 'compact',
     })
 
-    expect(geometry).toMatchObject({ weeks: 13, cellSize: 12 })
+    expect(geometry).toMatchObject({
+      weeks: 13,
+      cellSize: 12,
+      showMonthLabels: true,
+      showWeekdayLabels: true,
+    })
   })
 
   it('fits airy 9px cells in the 690x172 activity card budget', () => {
@@ -332,31 +337,32 @@ describe('activity calendar geometry', () => {
     })
   })
 
-  it('restores chrome only when it does not shrink the grid stride', () => {
-    const beforeThreshold = selectActivityGeometry({
-      width: 658,
-      height: 86,
-      contentLevel: 'focus',
-    })
-    const afterThreshold = selectActivityGeometry({
-      width: 658,
-      height: 87,
-      contentLevel: 'focus',
-    })
-
-    for (const geometry of [beforeThreshold, afterThreshold]) {
+  it.each([
+    [597, 186],
+    [596, 162],
+    [658, 86],
+    [658, 87],
+  ])(
+    'keeps both date axes in an intermediate %i × %i calendar',
+    (width, height) => {
+      const geometry = selectActivityGeometry({
+        width,
+        height,
+        contentLevel: 'focus',
+      })
       expect(geometry).toMatchObject({
         weeks: 53,
-        cellSize: 9,
-        gap: 3,
-        stride: 12,
-        gridWidth: 633,
-        showLegend: false,
-        showMonthLabels: false,
+        showMonthLabels: true,
         showWeekdayLabels: true,
       })
+      expect(geometry!.gridLeft + geometry!.gridWidth).toBeLessThanOrEqual(
+        width
+      )
+      expect(geometry!.gridTop + geometry!.gridHeight).toBeLessThanOrEqual(
+        height
+      )
     }
-  })
+  )
 
   it('uses a bounded whole-week emergency fallback below 13', () => {
     const geometry = selectActivityGeometry({

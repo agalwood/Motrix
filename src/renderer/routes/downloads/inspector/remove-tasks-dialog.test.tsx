@@ -5,6 +5,8 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 import '@renderer/lib/i18n'
+import '@testing-library/jest-dom/vitest'
+import { holdExitAnimation } from '@test-utils/hold-exit-animation'
 import { RemoveTasksDialog } from './remove-tasks-dialog'
 
 // Kept overrides: id:'t1' (≠ 'task-1'), name:'A task' (≠ 'task'),
@@ -31,6 +33,24 @@ function makeTask(overrides: Partial<DownloadTask> = {}): DownloadTask {
 }
 
 describe('RemoveTasksDialog', () => {
+  it('keeps the title and disk estimate after closing clears the target selection', async () => {
+    const props = {
+      preCheckDeleteFiles: true,
+      onOpenChange: vi.fn(),
+      onConfirm: vi.fn(),
+    }
+    const view = render(
+      <RemoveTasksDialog open selected={[makeTask()]} {...props} />
+    )
+    const dialog = screen.getByRole('dialog')
+    const content = dialog.textContent
+    const finish = holdExitAnimation(dialog)
+    view.rerender(<RemoveTasksDialog open={false} selected={[]} {...props} />)
+    expect(dialog).toHaveAttribute('data-closed')
+    expect(dialog.textContent).toBe(content)
+    expect(screen.getByRole('button', { name: 'Remove' })).toBeDisabled()
+    await finish()
+  })
   it('renders single-task title with a middle ellipsis that keeps the extension', () => {
     render(
       <RemoveTasksDialog

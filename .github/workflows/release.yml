@@ -1,6 +1,6 @@
 # Motrix — native multi-platform build and release
 #
-# A tag push builds each platform on a native runner, assembles the five
+# A tag push builds each platform on a native runner, assembles the six
 # independently produced artifact sets, validates their updater metadata, and
 # publishes exactly once. A manual dispatch exercises the same build and
 # assembly path without signing or publishing.
@@ -17,9 +17,7 @@
 # tree (src/main/platform/appimage-integration.ts). Snap has its own
 # strict-confinement build and Store promotion workflows. Flatpak reuses its
 # native build and installed-payload checks and joins both Linux release sets.
-# 32-bit targets remain
-# unsupported. Windows arm64 remains reserved until the aria2 lock supplies that
-# architecture.
+# 32-bit targets remain unsupported.
 
 name: Build/Release
 
@@ -161,9 +159,17 @@ jobs:
             platform: win32
             arch: x64
             rust_target: x86_64-pc-windows-msvc
-            electron_builder_args: --win --x64
+            electron_builder_args: --win nsis zip --x64
             resources_dir: release/win-unpacked/resources
             app_path: release/win-unpacked
+          - target: win32-arm64
+            os: windows-11-arm
+            platform: win32
+            arch: arm64
+            rust_target: aarch64-pc-windows-msvc
+            electron_builder_args: --win nsis zip --arm64
+            resources_dir: release/win-arm64-unpacked/resources
+            app_path: release/win-arm64-unpacked
 
     # rustc's musl std is self-contained; overriding the linker with Ubuntu's
     # musl-gcc mixes CRTs and produces binaries that SIGSEGV at load (see
@@ -182,7 +188,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
-          version: 12.10.1
+          version: 12.23.0
           run_install: false
 
       - name: Setup Node.js
@@ -248,11 +254,18 @@ jobs:
           pnpm run build:native-host -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
           pnpm run build:finalize-fs -- --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
 
-      - name: Finalize filesystem runtime integration
+      - name: Native runtime integration
         env:
+          MOTRIX_ARIA2_TEST_BIN: ${{ github.workspace }}/extra/${{ matrix.platform }}/${{ matrix.arch }}/${{ matrix.platform == 'win32' && 'aria2c.exe' || 'aria2c' }}
+          MOTRIX_REQUIRE_HTTP_RETRY_TEST: '1'
+          MOTRIX_LEGACY_CHECKPOINT_ENGINE: ${{ github.workspace }}/extra/${{ matrix.platform }}/${{ matrix.arch }}/${{ matrix.platform == 'win32' && 'aria2c.exe' || 'aria2c' }}
           MOTRIX_FINALIZE_FS_TEST_BIN: packages/finalize-fs/dist/${{ matrix.platform }}-${{ matrix.arch }}/${{ matrix.platform == 'win32' && 'motrix-finalize-fs.exe' || 'motrix-finalize-fs' }}
         run: >-
           pnpm exec vitest run
+          src/core/task/direct-task-retry.integration.test.ts
+          src/core/task/http-finalize.integration.test.ts
+          src/core/engine/aria2/aria2-session-identity-recovery.integration.test.ts
+          src/core/legacy-import/http-activation.integration.test.ts
           src/core/plugin/finalize/native-artifact-operations.integration.test.ts
           src/core/plugin/finalize/finalize-adversarial.integration.test.ts
           src/core/plugin/finalize/finalize-smb-recovery.integration.test.ts
@@ -370,6 +383,15 @@ jobs:
             }
           }
 
+      - name: Smoke test native Windows Electron runtime
+        if: matrix.platform == 'win32'
+        run: >-
+          pnpm run smoke:electron-package --
+          --app-dir "${{ matrix.app_path }}"
+          --platform ${{ matrix.platform }}
+          --arch ${{ matrix.arch }}
+          --report "release/size-reports/${{ matrix.target }}-runtime.json"
+
       - name: Verify staged Windows aria2 WebSocket contract
         if: matrix.platform == 'win32'
         env:
@@ -421,6 +443,14 @@ jobs:
           fi
           dpkg-deb --info "${debs[0]}"
           rpm -qip "${rpms[0]}"
+          test "$(dpkg-deb --field "${debs[0]}" Package)" = motrix
+          test "$(rpm -qp --queryformat '%{NAME}' "${rpms[0]}")" = motrix
+          for field in Provides Conflicts Replaces; do
+            dpkg-deb --field "${debs[0]}" "$field" | tr ',' '\n' | grep -Eq '^ *motrix-turbo *$'
+          done
+          for relation in provides conflicts obsoletes; do
+            rpm -qp "--$relation" "${rpms[0]}" | grep -Fx motrix-turbo
+          done
 
       - name: Verify Arch Linux package
         if: matrix.platform == 'linux'
@@ -567,6 +597,7 @@ jobs:
             release/*.tar.gz
             release/latest*.yml
             release/size-reports/${{ matrix.target }}.json
+            release/size-reports/${{ matrix.target }}-runtime.json
             release/*.zip
           if-no-files-found: error
           retention-days: 7
@@ -606,7 +637,7 @@ jobs:
             electron_builder_args: --mac --arm64
             resources_dir: release/mac-arm64/Motrix.app/Contents/Resources
             app_path: release/mac-arm64/Motrix.app
-            electron_sha256: e04e411b58a0a14375dd21b0ab4a378fd38930a702e4e20e322fee4849404c0b
+            electron_sha256: 00d345b061064de7e6e2c02bec7ffa1adb7ef488fe4b673bd8ad3e059a182245
           - target: darwin-x64
             os: macos-26-intel
             platform: darwin
@@ -615,16 +646,25 @@ jobs:
             electron_builder_args: --mac --x64
             resources_dir: release/mac/Motrix.app/Contents/Resources
             app_path: release/mac/Motrix.app
-            electron_sha256: 4fe494a7159b10a81e2098dab388719582065e99e604c4510bb117e282213566
+            electron_sha256: 9ce4b0e25ce95e743b2d8f04ebfbfd76027060ff8b47829de22334fbdbdd4cc4
           - target: win32-x64
             os: windows-2025
             platform: win32
             arch: x64
             signing_environment: windows-release-signing
-            electron_builder_args: --win --x64
+            electron_builder_args: --win nsis zip --x64
             resources_dir: release/win-unpacked/resources
             app_path: release/win-unpacked
-            electron_sha256: eee30dc8fa1f5ea95490e59f44e46ea68dd24c6e93d22facf70fe5c2d4c2665c
+            electron_sha256: 20155c8b8aa5b1f575f3757bdf21490e0bac2f19a65a26ce9ba99bcf9f2c69bd
+          - target: win32-arm64
+            os: windows-11-arm
+            platform: win32
+            arch: arm64
+            signing_environment: windows-release-signing
+            electron_builder_args: --win nsis zip --arm64 '-c.nsis.artifactName=Motrix-Setup-${version}-arm64.exe' '-c.win.artifactName=Motrix-${version}-win-arm64.${ext}'
+            resources_dir: release/win-arm64-unpacked/resources
+            app_path: release/win-arm64-unpacked
+            electron_sha256: 5b00f9a9fb4dff9ce448b7ff33eae14af9318b3207f7a66170254cd541becd48
     env:
       CUSTOM_DMGBUILD_PATH: ''
       ELECTRON_BUILDER_7ZIP_PATH: ''
@@ -901,7 +941,7 @@ jobs:
           EXPECTED_COMMIT: ${{ github.sha }}
           EXPECTED_PLATFORM: ${{ matrix.platform }}
           # Updated only after reviewing the verifier source itself.
-          VERIFIER_SHA256: efbb213aec76deba536afce7da0e37837ceb495c3b8510caf25f12c0e62f3eb8
+          VERIFIER_SHA256: 29e788338bdf949ddbce78a90b68e521a26c7d6acaa35c0203e69af194481a79
         run: |
           const crypto = require('node:crypto')
           const fs = require('node:fs')
@@ -995,7 +1035,7 @@ jobs:
               'utf8'
             )
           )
-          if (pkg.version !== '26.17.0') {
+          if (pkg.version !== '26.18.1') {
             throw new Error('unexpected electron-builder version')
           }
           const cli = path.join(
@@ -1059,7 +1099,7 @@ jobs:
           cp \
             signing-input/signing-policy/installer.nsh \
             signing-input/trusted/installer.nsh
-          url="https://github.com/electron/electron/releases/download/v44.7.0/electron-v44.7.0-${{ matrix.platform }}-${{ matrix.arch }}.zip"
+          url="https://github.com/electron/electron/releases/download/v45.5.0/electron-v45.5.0-${{ matrix.platform }}-${{ matrix.arch }}.zip"
           curl --fail --location --proto '=https' --tlsv1.2 \
             "$url" --output signing-input/trusted/electron.zip
           node - <<'NODE'
@@ -1575,7 +1615,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
-          version: 12.10.1
+          version: 12.23.0
           run_install: false
 
       - name: Setup Node.js
@@ -1636,7 +1676,7 @@ jobs:
       github.event_name == 'push' &&
       startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-22.04
-    timeout-minutes: 15
+    timeout-minutes: 45
     environment: github-release
     permissions:
       contents: write
@@ -2446,7 +2486,7 @@ jobs:
       github.event_name == 'push' &&
       startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-22.04
-    timeout-minutes: 15
+    timeout-minutes: 45
     environment: app-update-feed
     permissions:
       contents: read

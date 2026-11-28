@@ -10,6 +10,11 @@ export function registerTaskCommands(
   _deps: CommandDeps
 ): void {
   registry.register({
+    id: CommandIds.CreateTorrentFile,
+    title: 'createTorrent.menuLabel',
+    run: ({ deps }) => deps.windowManager.show('create-torrent'),
+  })
+  registry.register({
     id: CommandIds.TaskNew,
     title: 'menu.task.newTask',
     run: ({ deps }) => {

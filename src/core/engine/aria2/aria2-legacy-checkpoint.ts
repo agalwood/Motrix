@@ -1,5 +1,4 @@
 import { createHash } from 'node:crypto'
-import path from 'node:path'
 import { AppError, ErrorCode } from '@shared/errors'
 import {
   type LegacyCheckpointImport,
@@ -16,6 +15,7 @@ import {
 } from '@shared/schemas/legacy-checkpoint'
 import { FEATURE_SQLITE3_PERSISTENCE } from '@shared/types/engine'
 import { z } from 'zod'
+import { legacyWirePath } from './aria2-legacy-path'
 import type { Aria2RpcClient } from './aria2-rpc-client'
 
 export const FEATURE_LEGACY_CHECKPOINT_IMPORT_V1 = 'LegacyCheckpointImportV1'
@@ -100,18 +100,6 @@ function parse<T>(
   return value.data
 }
 
-function checkPath(value: string): void {
-  if (
-    !path.isAbsolute(value) ||
-    path.normalize(value) !== value ||
-    Buffer.byteLength(value) > 4096
-  )
-    throw new AppError(
-      ErrorCode.InvalidSelection,
-      'Invalid legacy checkpoint path'
-    )
-}
-
 function controlSnapshot(bytes: Uint8Array): {
   controlFile: string
   sourceDigest: string
@@ -138,11 +126,16 @@ function receipt(
   expected: LegacyCheckpointReconcile
 ): LegacyCheckpointReceipt {
   const wire = parse(wireReceipt, value)
+  if (wire.targetPath !== legacyWirePath(expected.targetPath))
+    throw new AppError(
+      ErrorCode.EngineProtocolError,
+      'Legacy checkpoint receipt path mismatch'
+    )
   const result = parse(legacyCheckpointReceiptSchema, {
     status: wire.status,
     token: wire.token,
     engineTaskId: wire.gid,
-    targetPath: wire.targetPath,
+    targetPath: expected.targetPath,
     sourceDigest: wire.controlDigest,
   })
   if (
@@ -221,14 +214,14 @@ export class Aria2LegacyCheckpoint {
         ErrorCode.InvalidSelection,
         'Legacy checkpoint source changed'
       )
-    checkPath(request.targetPath)
-    for (const file of request.files) checkPath(file.path)
+    legacyWirePath(request.targetPath)
+    for (const file of request.files) legacyWirePath(file.path)
     const wire: Aria2LegacyCheckpointImport = {
       token: request.token,
       gid: request.engineTaskId,
       controlFile: snapshot.controlFile,
       controlDigest: snapshot.sourceDigest,
-      targetPath: request.targetPath,
+      targetPath: legacyWirePath(request.targetPath),
       expected: {
         kind: request.expected.type === 'bt' ? 'bittorrent' : 'http',
         totalLength: String(request.expected.totalBytes),
@@ -237,6 +230,7 @@ export class Aria2LegacyCheckpoint {
       },
       files: request.files.map((file) => ({
         ...file,
+        path: legacyWirePath(file.path),
         offset: String(file.offset),
         length: String(file.length),
       })),
@@ -272,14 +266,17 @@ export class Aria2LegacyCheckpoint {
       input,
       ErrorCode.InvalidSelection
     )
-    checkPath(request.targetPath)
+    legacyWirePath(request.targetPath)
     await this.requireSupport()
-    const result = await this.rpc.reconcileLegacyCheckpointV1(request)
+    const result = await this.rpc.reconcileLegacyCheckpointV1({
+      ...request,
+      targetPath: legacyWirePath(request.targetPath),
+    })
     const absent = wireAbsent.safeParse(result)
     if (absent.success) {
       if (
         absent.data.token !== request.token ||
-        absent.data.targetPath !== request.targetPath
+        absent.data.targetPath !== legacyWirePath(request.targetPath)
       )
         throw new AppError(
           ErrorCode.EngineProtocolError,

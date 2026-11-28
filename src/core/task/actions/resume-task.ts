@@ -26,6 +26,7 @@ export async function resumeTask(
   const task = getTaskOrWarn(deps, taskId, 'resumeTask')
   if (!task) return
   assertLegacyTaskNotActivated(task)
+  await deps.authorizeTaskWrite?.(task)
   deps.onResumeRequested?.(taskId)
   const optimistic = {
     ...task,

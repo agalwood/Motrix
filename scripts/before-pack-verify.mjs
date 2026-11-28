@@ -11,6 +11,7 @@ import { constants } from 'node:fs'
 import { access, readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { assertNativeBinaryTarget } from './native-binary-target.mjs'
+import { configureWindowsArtifactNames } from './windows-artifact-names.mjs'
 
 // electron-builder Arch enum ordinals (builder-util/src/arch.ts).
 const ARCH_NAMES = {
@@ -141,6 +142,9 @@ export default async function beforePack(context) {
     )
   }
   await verifyStage(projectDir, platform, archName)
+  if (platform === 'win32') {
+    configureWindowsArtifactNames(context.targets, archName)
+  }
   const engineBin = platform === 'win32' ? 'aria2c.exe' : 'aria2c'
   const hostBin =
     platform === 'win32' ? 'motrix-native-host.exe' : 'motrix-native-host'

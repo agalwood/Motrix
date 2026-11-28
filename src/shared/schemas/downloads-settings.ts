@@ -17,6 +17,7 @@ export const downloadsSettingsSchema = z.object({
   app: appSettingsInputSchema.pick({
     defaultSaveDir: true,
     autofillClipboardLinks: true,
+    downloadsOpeningView: true,
     fileDeletionMode: true,
     speedLimitUnits: true,
   }),
@@ -98,7 +99,15 @@ export const downloadsSettingsPatchSchema = z
 export const downloadsSettingsSnapshotSchema = z
   .object({
     revision: z.string().uuid(),
-    settings: downloadsSettingsSchema,
+    // Older hosts omit the opening view. Keep defaults out of write patches.
+    settings: downloadsSettingsSchema.extend({
+      app: downloadsSettingsSchema.shape.app.extend({
+        downloadsOpeningView:
+          downloadsSettingsSchema.shape.app.shape.downloadsOpeningView.default(
+            'remember'
+          ),
+      }),
+    }),
     directoryPreferences: DirectoryPreferencesSchema,
   })
   .strict()

@@ -5,6 +5,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@renderer/components/ui/dialog'
+import { useExitSnapshot } from '@renderer/hooks/use-exit-snapshot'
 import { lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 import { OperationsBoundary } from './operation-boundary'
@@ -14,6 +15,7 @@ import { operationSessionKey, useOperationDialog } from './operation-store'
 const OperationForm = lazy(() => import('./operation-form'))
 export function OperationDialogHost() {
   const { request, close } = useOperationDialog()
+  const presentation = useExitSnapshot(!!request, request)
   const { t } = useTranslation()
   return (
     <Dialog
@@ -34,10 +36,10 @@ export function OperationDialogHost() {
           retry={t('common.retry')}
         >
           <Suspense fallback={<OperationSkeleton />}>
-            {request && (
+            {presentation && (
               <OperationForm
-                key={operationSessionKey(request)}
-                {...request}
+                key={operationSessionKey(presentation)}
+                {...presentation}
                 onClose={close}
               />
             )}

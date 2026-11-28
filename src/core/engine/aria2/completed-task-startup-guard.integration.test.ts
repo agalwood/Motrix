@@ -21,9 +21,14 @@ import { CompletedTaskStartupGuard } from './completed-task-startup-guard'
 describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
   'completed RPC lifecycle with real aria2',
   () => {
-    it.each([false, true])(
-      'blocks old completed rows before requests, preserves run intent and accepts fresh work (sqlite=%s)',
-      async (sqlite) => {
+    it.each([
+      { sqlite: false, hostGrants: false },
+      { sqlite: true, hostGrants: false },
+      { sqlite: false, hostGrants: true },
+      { sqlite: true, hostGrants: true },
+    ])(
+      'blocks completed or unauthorized rows before requests and preserves run intent (%j)',
+      async ({ sqlite, hostGrants }) => {
         const root = await mkdtemp(
           path.join(tmpdir(), 'motrix-completed-real-')
         )
@@ -94,7 +99,10 @@ describe.skipIf(!bundledAria2Exists() || !canBindLoopbackTcp())(
             : [...args, `--input-file=${session}`]
           const guard = new CompletedTaskStartupGuard({
             completedGids: () => new Set([done]),
-            heldGids: () => new Set([held]),
+            heldGids: () => new Set(hostGrants ? [] : [held]),
+            authorizeResume: hostGrants
+              ? async (gid) => gid !== held
+              : undefined,
             get rpc() {
               return wired.rpc
             },

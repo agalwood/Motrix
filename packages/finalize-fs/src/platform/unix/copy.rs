@@ -160,7 +160,9 @@ pub(crate) fn copy_opened(
     target: &RootHandle,
     target_relative: &str,
 ) -> io::Result<()> {
-    if artifact.opened_tree.is_none() && artifact.opened_file_sha256.is_none() {
+    if artifact.metadata_removal
+        || (artifact.opened_tree.is_none() && artifact.opened_file_sha256.is_none())
+    {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             "rename-only handle cannot copy or remove an artifact",

@@ -46,6 +46,7 @@ import {
 } from './fakes'
 import {
   initializeParams,
+  installationSessionKey,
   mdxpOverChannel,
   pairAndExchange,
 } from './mbp1-client'
@@ -787,7 +788,7 @@ class FakeExtensionSocket extends EventEmitter {
 describe('WebSocketBridgeServer.adoptAuthenticatedSession — envelope fault close codes', () => {
   let server: WebSocketBridgeServer
   const KEY = new Uint8Array(32).fill(3)
-  const CREDENTIAL_ID = 'credential-used-by-this-transport'
+  let credentialId: string
   const IDENTITY = {
     kind: 'extension' as const,
     browser: 'chromium' as const,
@@ -800,6 +801,17 @@ describe('WebSocketBridgeServer.adoptAuthenticatedSession — envelope fault clo
 
   beforeEach(async () => {
     authenticated = []
+    const wiring = await makeMbp1TestWiring([['chromium', EXTENSION_ID]])
+    const offered = await wiring.options.credentials.offerProvisional(
+      {
+        browser: 'chromium',
+        verifiedOrigin: ORIGIN,
+        clientInstallationId: 'install-1',
+      },
+      'official'
+    )
+    credentialId = offered.credentialId
+    await wiring.options.credentials.commitFromPair(credentialId)
     server = new WebSocketBridgeServer({
       pairing: makeStatefulFakePairing(),
       registry: makeFakeRegistry(),
@@ -807,6 +819,7 @@ describe('WebSocketBridgeServer.adoptAuthenticatedSession — envelope fault clo
       runtime: 'electron',
       ffmpegAvailable: true,
       localToken: 'test-token',
+      ...wiring.options,
       onExtensionAuthenticated: (identity, credentialId) => {
         authenticated.push({ identity, credentialId })
       },
@@ -829,7 +842,7 @@ describe('WebSocketBridgeServer.adoptAuthenticatedSession — envelope fault clo
         // EnvelopeLimitError before it even looks at the frame's contents.
         opener: new EnvelopeOpener(KEY, DIR_C2S, MAX_ENVELOPE_FRAMES),
       },
-      CREDENTIAL_ID
+      credentialId
     )
 
     ws.emit('message', Buffer.alloc(8 + 16), true)
@@ -846,7 +859,7 @@ describe('WebSocketBridgeServer.adoptAuthenticatedSession — envelope fault clo
         sealer: new EnvelopeSealer(KEY, DIR_S2C),
         opener: new EnvelopeOpener(KEY, DIR_C2S),
       },
-      CREDENTIAL_ID
+      credentialId
     )
 
     // §10: a text frame after channel activation is a protocol violation.
@@ -868,9 +881,11 @@ describe('WebSocketBridgeServer.adoptAuthenticatedSession — envelope fault clo
         sealer: new EnvelopeSealer(KEY, DIR_S2C, MAX_ENVELOPE_FRAMES),
         opener: new EnvelopeOpener(KEY, DIR_C2S),
       },
-      CREDENTIAL_ID
+      credentialId
     )
-    const session = server.getSession(`chromium:${EXTENSION_ID}`)
+    const session = server.getSession(
+      installationSessionKey(`chrome-extension://${EXTENSION_ID}`)
+    )
     if (!session) throw new Error('session was not registered')
 
     expect(() => session.envelope.send('{"jsonrpc":"2.0"}')).toThrow(
@@ -892,9 +907,11 @@ describe('WebSocketBridgeServer.adoptAuthenticatedSession — envelope fault clo
         sealer: new EnvelopeSealer(KEY, DIR_S2C),
         opener: new EnvelopeOpener(KEY, DIR_C2S),
       },
-      CREDENTIAL_ID
+      credentialId
     )
-    const session = server.getSession(`chromium:${EXTENSION_ID}`)
+    const session = server.getSession(
+      installationSessionKey(`chrome-extension://${EXTENSION_ID}`)
+    )
     if (!session) throw new Error('session was not registered')
 
     expect(() =>
@@ -916,11 +933,11 @@ describe('WebSocketBridgeServer.adoptAuthenticatedSession — envelope fault clo
         sealer: new EnvelopeSealer(KEY, DIR_S2C),
         opener: new EnvelopeOpener(KEY, DIR_C2S),
       },
-      CREDENTIAL_ID
+      credentialId
     )
 
     expect(authenticated).toEqual([
-      { identity: IDENTITY, credentialId: CREDENTIAL_ID },
+      { identity: IDENTITY, credentialId: credentialId },
     ])
   })
 })

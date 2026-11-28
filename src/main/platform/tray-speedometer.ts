@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
+import { getLogger } from '@core/logger'
 import {
   type ByteUnitSystem,
   DEFAULT_BYTE_UNIT_SYSTEM,
@@ -56,17 +57,24 @@ export interface SpeedometerHandle {
   destroy(): void
 }
 
-type ResvgModule = {
-  Resvg: new (
-    svg: string,
-    opts: object
-  ) => { render(): { asPng(): Uint8Array } }
-  initWasm(): Promise<void>
+type ResvgModule = typeof import('@resvg/resvg-wasm')
+let resvgReady: Promise<ResvgModule> | undefined
+
+function loadResvg(trayAssetDir: string): Promise<ResvgModule> {
+  resvgReady ??= (async () => {
+    const moduleName = '@resvg/resvg-wasm'
+    const mod: ResvgModule = await import(/* @vite-ignore */ moduleName)
+    await mod.initWasm(readFileSync(path.join(trayAssetDir, 'resvg.wasm')))
+    return mod
+  })().catch((error) => {
+    resvgReady = undefined
+    throw error
+  })
+  return resvgReady
 }
 
-// SF Pro static (converted from variable SFNS.ttf) + Helvetica fallback
 const MACOS_FONT_PATHS = [
-  'SFNS-Regular.ttf', // relative to trayAssetDir
+  'SFNS-Regular.ttf',
   '/System/Library/Fonts/Helvetica.ttc',
 ]
 
@@ -77,107 +85,138 @@ export function createSpeedometer(
 ): SpeedometerHandle {
   let unitSystem = DEFAULT_BYTE_UNIT_SYSTEM
   let enabled = false
-  let lastUpload = -1
-  let lastDownload = -1
+  let destroyed = false
+  let revision = 0
+  let request = 0
+  let rendering = false
+  let failureReported = false
+  let lastSvg: string | null = null
   let throttleTimer: ReturnType<typeof setTimeout> | null = null
   let pendingUpload = 0
   let pendingDownload = 0
-  let resvgModule: ResvgModule | null = null
   let fontBuffers: Buffer[] | null = null
 
-  async function ensureResvg(): Promise<ResvgModule> {
-    if (resvgModule) return resvgModule
-    const resvgModuleName = '@resvg/resvg-wasm'
-    const mod = await import(/* @vite-ignore */ resvgModuleName)
-    try {
-      const wasmBinary = readFileSync(path.join(trayAssetDir, 'resvg.wasm'))
-      await mod.initWasm(wasmBinary)
-    } catch {
-      // Already initialized
-    }
-    resvgModule = mod as ResvgModule
-    return resvgModule
-  }
-
-  async function render(upload: number, download: number) {
-    if (upload === lastUpload && download === lastDownload) return
-    lastUpload = upload
-    lastDownload = download
-
+  async function render(): Promise<void> {
+    const currentRevision = revision
     const tray = trayRef()
-    if (!tray) return
-
-    const svg = buildSpeedometerSvg(iconSvg, upload, download, unitSystem)
-    const { Resvg } = await ensureResvg()
-    // Load fonts once — resvg-wasm can't access filesystem for fonts
+    if (!enabled || destroyed || !tray) return
+    let svg = buildSpeedometerSvg(
+      iconSvg,
+      pendingUpload,
+      pendingDownload,
+      unitSystem
+    )
+    if (svg === lastSvg) return
+    const { Resvg } = await loadResvg(trayAssetDir)
+    if (
+      !enabled ||
+      destroyed ||
+      revision !== currentRevision ||
+      trayRef() !== tray
+    )
+      return
+    svg = buildSpeedometerSvg(
+      iconSvg,
+      pendingUpload,
+      pendingDownload,
+      unitSystem
+    )
+    if (svg === lastSvg) return
     if (!fontBuffers) {
       fontBuffers = []
-      for (const p of MACOS_FONT_PATHS) {
+      for (const file of MACOS_FONT_PATHS) {
         try {
-          // First entry is relative to trayAssetDir, rest are absolute
-          const fullPath = path.isAbsolute(p) ? p : path.join(trayAssetDir, p)
-          fontBuffers.push(readFileSync(fullPath))
+          fontBuffers.push(
+            readFileSync(
+              path.isAbsolute(file) ? file : path.join(trayAssetDir, file)
+            )
+          )
         } catch {
-          // Font not available
+          /* Use whichever platform fonts are available. */
         }
       }
     }
     const resvg = new Resvg(svg, {
       fitTo: { mode: 'width', value: SVG_WIDTH },
-      font: {
-        fontBuffers,
-        defaultFontFamily: '.SF NS',
-      },
+      font: { fontBuffers, defaultFontFamily: '.SF NS' },
     })
-    const png = resvg.render().asPng()
-    const image: NativeImage = nativeImage.createFromBuffer(Buffer.from(png), {
+    let png: Buffer
+    try {
+      const rendered = resvg.render()
+      try {
+        // The native image must never borrow storage owned by a freed WASM object.
+        png = Buffer.from(rendered.asPng())
+      } finally {
+        rendered.free()
+      }
+    } finally {
+      resvg.free()
+    }
+    const image: NativeImage = nativeImage.createFromBuffer(png, {
       scaleFactor: 2,
     })
     image.setTemplateImage(true)
     tray.setImage(image)
+    lastSvg = svg
+    failureReported = false
   }
 
-  function scheduleRender() {
-    if (throttleTimer) return
+  function scheduleRender(): void {
+    if (!enabled || destroyed || throttleTimer || rendering) return
     throttleTimer = setTimeout(() => {
       throttleTimer = null
-      render(pendingUpload, pendingDownload)
+      const startedRequest = request
+      rendering = true
+      void render()
+        .catch((err) => {
+          if (!destroyed && enabled && !failureReported) {
+            failureReported = true
+            getLogger('tray-speedometer').warn(
+              { err },
+              'speedometer render failed'
+            )
+          }
+        })
+        .finally(() => {
+          rendering = false
+          if (request !== startedRequest) scheduleRender()
+        })
     }, 500)
   }
 
+  function invalidate(): void {
+    revision++
+    request++
+    lastSvg = null
+    if (throttleTimer) clearTimeout(throttleTimer)
+    throttleTimer = null
+  }
+
   return {
-    onSpeedChange(uploadSpeed: number, downloadSpeed: number) {
-      if (!enabled) return
+    onSpeedChange(uploadSpeed, downloadSpeed) {
+      if (!enabled || destroyed) return
       pendingUpload = uploadSpeed
       pendingDownload = downloadSpeed
+      request++
       scheduleRender()
     },
-
-    setUnitSystem(value: ByteUnitSystem) {
-      if (unitSystem === value) return
+    setUnitSystem(value) {
+      if (destroyed || unitSystem === value) return
       unitSystem = value
-      lastUpload = -1
-      lastDownload = -1
-      if (enabled) scheduleRender()
+      invalidate()
+      scheduleRender()
     },
-
-    setEnabled(value: boolean) {
+    setEnabled(value) {
+      if (destroyed || enabled === value) return
       enabled = value
-      if (!enabled) {
-        lastUpload = -1
-        lastDownload = -1
-        if (throttleTimer) {
-          clearTimeout(throttleTimer)
-          throttleTimer = null
-        }
-      }
+      invalidate()
+      if (!enabled) fontBuffers = null
     },
-
     destroy() {
-      if (throttleTimer) {
-        clearTimeout(throttleTimer)
-        throttleTimer = null
-      }
+      destroyed = true
+      enabled = false
+      invalidate()
+      fontBuffers = null
     },
   }
 }

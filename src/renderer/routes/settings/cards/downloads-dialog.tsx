@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { DirectoryPicker } from '@renderer/components/desktop-kit/directory-picker'
 import { SettingsFormRow } from '@renderer/components/settings-kit/settings-form-row'
+import { SettingsSelectTrigger } from '@renderer/components/settings-kit/settings-select-trigger'
 import { useSettingsSubmit } from '@renderer/components/settings-kit/use-settings-form'
 import { Button } from '@renderer/components/ui/button'
 import {
@@ -27,6 +28,12 @@ import {
   ScrollAreaViewport,
   ScrollBar,
 } from '@renderer/components/ui/scroll-area'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from '@renderer/components/ui/select'
 import { Separator } from '@renderer/components/ui/separator'
 import { Switch } from '@renderer/components/ui/switch'
 import {
@@ -34,6 +41,7 @@ import {
   DirectoryPreferencesStatus,
 } from '@renderer/features/directory-preferences/directory-preferences-section'
 import { useByteFormat } from '@renderer/hooks/use-byte-format'
+import { downloadsOpeningViewSchema } from '@shared/schemas/app-settings'
 import { createDefaultSpeedLimitSettings } from '@shared/schemas/speed-limit'
 import type { ComponentProps } from 'react'
 import { useRef, useState } from 'react'
@@ -73,6 +81,13 @@ export function DownloadsDialog({
     mode: 'onBlur',
   })
 
+  const openingViews = downloadsOpeningViewSchema.options.map((value) => ({
+    value,
+    label:
+      value === 'remember'
+        ? t('settings.downloads.rememberLastSelection')
+        : t(`panel.downloads.tab.${value}`),
+  }))
   const directories = useDownloadsSettingsDraft(form)
   const contentRef = useRef<HTMLDivElement>(null)
   const [defaultPicking, setDefaultPicking] = useState(false)
@@ -132,6 +147,42 @@ export function DownloadsDialog({
                     inert={disabled}
                     disabled={disabled}
                   >
+                    <FormField
+                      control={form.control}
+                      name="app.downloadsOpeningView"
+                      render={({ field }) => (
+                        <SettingsFormRow>
+                          <FormLabel>
+                            {t('settings.downloads.openingView')}
+                          </FormLabel>
+                          <Select
+                            items={openingViews}
+                            value={field.value}
+                            onValueChange={(value) => {
+                              if (value !== null) field.onChange(value)
+                            }}
+                            disabled={disabled}
+                          >
+                            <FormControl>
+                              <SettingsSelectTrigger
+                                ref={field.ref}
+                                onBlur={field.onBlur}
+                              >
+                                <SelectValue />
+                              </SettingsSelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {openingViews.map(({ label, value }) => (
+                                <SelectItem key={value} value={value}>
+                                  {label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </SettingsFormRow>
+                      )}
+                    />
+                    <Separator className="my-4" />
                     <h3 className="text-sm font-semibold">
                       {t('settings.downloads.saveFolders')}
                     </h3>

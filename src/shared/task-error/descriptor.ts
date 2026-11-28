@@ -56,6 +56,7 @@ const ERROR_REASON_LEAF: Readonly<Record<DownloadErrorCode, string>> = {
   DL_TOO_MANY_REDIRECTS: 'tooManyRedirects',
   DL_SERVER_ERROR: 'serverError',
   DL_BT_METADATA_FAILED: 'btMetadataFailed',
+  DL_BT_PORT_BIND_FAILED: 'btPortBindFailed',
   DL_BT_TRACKER_ERROR: 'btTrackerError',
 } as const
 

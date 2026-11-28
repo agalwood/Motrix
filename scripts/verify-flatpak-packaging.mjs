@@ -18,13 +18,13 @@ export const FLATPAK_BUILDER_TOOLS_COMMIT =
 // tag resolves to is pinned by hand (and cross-checked against the manifest).
 export const ARIA2_SOURCE = Object.freeze({
   url: 'https://github.com/motrixapp/aria2.git',
-  // v1.37.0-motrix.17 — current Motrix aria2 fork release
-  commit: '479425df8fb4057d9d2b0370c36ca70ed776114d',
+  // v1.37.0-motrix.27 — current Motrix aria2 fork release
+  commit: 'd11487f133ea41c626f492f0b857895f7ae9a3ff',
 })
 
 const PNPM_SOURCE = Object.freeze({
-  url: 'https://registry.npmjs.org/pnpm/-/pnpm-12.10.1.tgz',
-  sha256: '992070e422dae33eac72268ffbde465e14dae81ed250149299d1fee3d842d60e',
+  url: 'https://registry.npmjs.org/pnpm/-/pnpm-12.23.0.tgz',
+  sha256: '6501a897dcfe072e8df2957c94c46f27f71901b28f2e02a167f91e0ac7905859',
 })
 
 const RUST_SOURCES = Object.freeze({
@@ -282,7 +282,7 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
       'pnpm_root=/run/build/motrix/flatpak-node/pnpm-cli/lib/node_modules/pnpm'
     ) &&
       motrixCommands.includes('node "$pnpm_root/install.js"') &&
-      motrixCommands.includes('test "$(pnpm --version)" = \'12.10.1\'') &&
+      motrixCommands.includes('test "$(pnpm --version)" = \'12.23.0\'') &&
       motrixBuildOptions.includes(
         '/run/build/motrix/flatpak-node/pnpm-cli/bin'
       ),
@@ -442,7 +442,7 @@ export async function verifyFlatpakPackaging(root = REPO_ROOT) {
     'generated pnpm store must use v11'
   )
   for (const arch of ['x64', 'arm64']) {
-    const filename = `@pnpm__exe.linux-${arch}-12.10.1.tgz`
+    const filename = `@pnpm__exe.linux-${arch}-12.23.0.tgz`
     const source = generatedSources.find(
       (candidate) => candidate?.['dest-filename'] === filename
     )

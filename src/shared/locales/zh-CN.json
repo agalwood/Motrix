@@ -1,13 +1,15 @@
 {
   "operatorUnlock": {
-    "title": "解锁 Motrix",
-    "help": "此服务器需要管理员令牌。请在主机上设置 MOTRIX_OPERATOR_TOKEN，或读取 <dataDir>/operator-token 中的令牌，然后粘贴到下方。",
-    "placeholder": "管理员令牌",
-    "error": "管理员令牌无效。请核对主机上的 MOTRIX_OPERATOR_TOKEN 或 <dataDir>/operator-token 后重试。",
-    "submit": "解锁"
+    "title": "登录 Motrix",
+    "help": "首次登录或忘记密码时，请向服务器管理员获取访问密码。",
+    "placeholder": "访问密码",
+    "error": "密码不正确，请重试。",
+    "submit": "登录",
+    "nasSessionExpired": "无法验证 NAS 管理员会话，请从 NAS 桌面重新打开 Motrix。",
+    "openDsm": "打开 DSM 登录"
   },
   "operatorAdmin": {
-    "help": "用法：\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <配对码> [--json]\n  motrix-admin pairing deny <配对码> [--json]\n\n此命令仅通过容器内的本机回环地址与正在运行的 Motrix 服务器通信。",
+    "help": "用法：\n  motrix-admin pairing pending [--json]\n  motrix-admin pairing approve <配对码> [--json]\n  motrix-admin pairing deny <配对码> [--json]\n  motrix-admin extension pair\n\n此命令仅通过容器内的本机回环地址与正在运行的 Motrix 服务器通信。\n\n  motrix-admin token set [--stdin] [--json]\n设置自定义管理员令牌；弱令牌只提示，不阻止保存。",
     "errorPrefix": "motrix-admin：{{message}}",
     "usageHint": "运行 `motrix-admin --help` 查看用法。",
     "pending": {
@@ -55,6 +57,35 @@
         "loopback": "无法通过容器内的本机回环地址连接正在运行的 Motrix 服务器。",
         "approvalNotReady": "正在运行的 Motrix 服务器尚未准备好配对审批。"
       }
+    },
+    "extension": {
+      "heading": "待处理的浏览器扩展配对请求",
+      "identityNotice": "请核对这是你刚发起的请求。Origin 和自报身份不能单独证明连接方身份。终端录制可能记录配对码。",
+      "row": "{{index}}. {{browser}} [{{identity}}] 来源：{{origin}}；自报 ID：{{claimedId}}；服务端：{{authority}}；剩余 {{seconds}} 秒",
+      "select": "输入一个请求的序号（Ctrl+C 退出）：",
+      "code": "配对码：{{code}}",
+      "instructions": "将此配对码输入浏览器扩展，有效期不会延长。Ctrl+C 仅关闭此视图，不批准或拒绝请求。",
+      "none": "没有待处理的扩展配对请求。请先在扩展中发起配对，再运行此命令。如果仍无请求，请检查远程扩展配置。",
+      "ended": "所选配对请求已结束，请在扩展中确认结果。",
+      "ttyRequired": "扩展配对要求输入、输出及错误输出均为交互终端，不支持管道、重定向或 JSON 输出。",
+      "cancelled": "已关闭配对码视图，未发送批准或拒绝操作。",
+      "invalidSelection": "请通过序号选择一个列表中的请求。",
+      "unavailable": "所选请求已过期、结束或发生变化，请在扩展中重新发起配对。"
+    },
+    "token": {
+      "weak": "此令牌可能容易被猜到，建议使用更长、独特的短语。你仍然可以保存。",
+      "invalid": "请输入非空白令牌，最多 1,024 个字符，不能包含控制字符。",
+      "mismatch": "两次输入的新令牌不一致。",
+      "incorrectToken": "当前令牌不正确，请核对后重试。",
+      "managed": "此令牌由 MOTRIX_OPERATOR_TOKEN 管理，请修改部署环境变量并重启服务器。",
+      "unavailable": "无法保存令牌，旧令牌仍然有效。请检查服务器存储后重试。",
+      "rateLimited": "尝试次数过多，请等待一分钟后重试。",
+      "unknown": "无法确认修改结果，请先检查服务器上的令牌文件再重试。",
+      "prompt": "新令牌（输入隐藏）：",
+      "confirm": "再次输入新令牌：",
+      "saved": "令牌已更新，已有会话已退出登录，下载任务继续运行。",
+      "ttyRequired": "请在交互式终端运行，或使用 token set --stdin 从标准输入读取令牌。",
+      "cancelled": "已取消令牌修改。"
     }
   },
   "common": {
@@ -316,7 +347,7 @@
         "loading": "正在加载活动数据",
         "unavailable": "无法获取活动数据",
         "retry": "重试",
-        "stale": "活动数据可能已过期",
+        "refreshFailed": "刷新失败",
         "coverageDegraded": "自 {{time}} 起活动记录可能不完整",
         "rangeSummary": "{{weeks}} 周下载活动，{{start}} 至 {{end}}",
         "completedIntensity": "颜色深度表示已完成的下载任务数",
@@ -588,7 +619,7 @@
         "down": "下载速度",
         "up": "上传速度",
         "eta": "剩余时间",
-        "connections": "连接",
+        "connections": "连接数",
         "status": "状态",
         "createdAt": "创建时间",
         "finishedAt": "完成时间"
@@ -857,6 +888,7 @@
       },
       "action": {
         "pause": "暂停",
+        "pausing": "暂停中…",
         "queueMoveFailed": "无法调整等待队列。",
         "queueTaskStarted": "任务已不在等待队列中。",
         "queueMoveHint": "队列位置决定等待任务的启动顺序，列排序单独保存。",
@@ -915,7 +947,15 @@
         "redownloadOverwriteTitle": "文件已存在",
         "redownloadOverwriteDescription": "文件“{{name}}”已存在于下载路径中。重新下载将覆盖或重命名该文件，是否继续？",
         "redownloadCredentialsExpired": "原始下载参数已失效，请确认后提交",
-        "redownloadStarted": "已重新发起下载"
+        "redownloadStarted": "已重新发起下载",
+        "retryDialogTitle": "重试下载",
+        "retryDialogDescription": "修改 {{name}} 的请求参数以开始新下载。原失败任务和部分文件将保留。",
+        "retryDialogProgress": "第 {{current}} 项，共 {{total}} 项",
+        "downloadToDevice": "下载到本机",
+        "revealInFileStation": "在 File Station 中显示",
+        "nasFileUnavailable": "无法授权访问文件，请检查当前账号和目录权限。",
+        "fileStationWindowBlocked": "浏览器阻止了 File Station 窗口，请允许此站点打开弹窗后重试。",
+        "fnosHostRequired": "请从飞牛桌面或手机 App 打开 Motrix 后使用此文件操作。"
       },
       "titleCount": "{{shown}} 项 · 共 {{total}}",
       "type": {
@@ -995,6 +1035,11 @@
   },
   "task": {
     "add": {
+      "extraHeaders": "额外请求头",
+      "headerName": "请求头名称",
+      "headerValue": "请求头值",
+      "addHeader": "添加请求头",
+      "removeHeader": "移除请求头",
       "title": "新建任务",
       "links": "链接",
       "torrent": "种子",
@@ -1006,6 +1051,7 @@
       "createFailedByPlugin": "创建任务失败：插件「{{pluginId}}」中断了任务创建（{{detail}}）。可在「设置 → 插件」中停用该插件后重试。",
       "createFailedPathTooLong": "创建任务失败：目标路径长 {{length}} 个字符，超出 Windows 上限 {{limit}}。请改用更短的保存目录或文件名。",
       "parseFailed": "解析种子文件失败。",
+      "unsupportedTorrent": "此种子使用了当前下载引擎不支持的功能。",
       "urlsCount_other": "{{count}} 个 URL",
       "urlsWithInvalid": "{{valid}} 个有效，{{invalid}} 个无效",
       "validUrlCount": "{{count}} 个有效",
@@ -1087,6 +1133,7 @@
         "doc": "文档"
       },
       "errors": {
+        "headerNameRequired": "请为已填写值的请求头补全名称。",
         "urlsRequired": "至少需要一个 URL",
         "saveDirRequired": "必须指定保存目录",
         "noFilesSelected": "请至少选择一个文件",
@@ -1097,7 +1144,9 @@
         "failed": "无法自动开始下载 {{name}}，请打开任务详情，选择文件后重试。"
       },
       "undoCorrection": "撤销 URL 修正",
-      "submissionUnconfirmed": "结果尚未确认。再次提交时会先核对原请求，避免重复创建任务。"
+      "submissionUnconfirmed": "结果尚未确认。再次提交时会先核对原请求，避免重复创建任务。",
+      "selectNasTorrent": "从 NAS 选择种子文件",
+      "fnosAuthorizationPopupBlocked": "请允许此网站打开弹窗，然后重新选择目录。"
     },
     "detail": {
       "peers": "节点：{{count}}",
@@ -1140,7 +1189,8 @@
         "resumeSourceChanged": "远端文件在下载开始后发生变化，已保留部分文件且未继续写入。",
         "resumeRangeUnsupported": "服务器不支持安全的范围续传，已保留部分文件且未继续写入。",
         "resumeValidationFailed": "Motrix 无法确认远端文件是否未发生变化，已保留部分文件且未继续写入。",
-        "mediaInterrupted": "媒体下载因应用重启而中断，无法恢复。请重新添加以重试。"
+        "mediaInterrupted": "媒体下载因应用重启而中断，无法恢复。请重新添加以重试。",
+        "portableExternalPath": "此任务使用便携目录以外的位置。应用位置已变更或原目录不可用，请确认下载文件的位置后重试。"
       }
     },
     "error": {
@@ -1149,6 +1199,7 @@
         "recoveryFailed": "无法恢复下载：{{cause}}",
         "recoveryOutputConflict": "临时文件和最终文件同时存在，已保留两者以供人工检查",
         "filesMissing": "应用重启后文件缺失",
+        "sourceHash": "发布方的 SHA-256",
         "renameFileFailed": "重命名文件失败：{{cause}}",
         "renameDirFailed": "重命名目录失败：{{cause}}",
         "pluginChainAborted": "插件链已中止：{{cause}}",
@@ -1168,6 +1219,7 @@
         "checksumMismatch": "文件校验失败",
         "tooManyRedirects": "重定向次数过多",
         "serverError": "服务器返回错误",
+        "btPortBindFailed": "无法绑定 BT 监听端口",
         "btMetadataFailed": "无法获取种子元数据",
         "btTrackerError": "无法连接 Tracker",
         "generic": "下载失败"
@@ -1181,7 +1233,38 @@
         "pathTooLong": "缩短保存目录或文件名后重试",
         "checksumMismatch": "下载的文件可能已损坏，请重新下载以校验",
         "tooManyRedirects": "该链接可能已失效，请尝试更换下载链接",
+        "btPortBindFailed": "在 BitTorrent 设置中更换 BT 监听端口，重启下载引擎后重试",
         "btMetadataFailed": "检查磁力链接或添加更多 Tracker 后重试"
+      }
+    },
+    "storage": {
+      "move": "移动文件…",
+      "locate": "查找已有文件…",
+      "recheck": "检查文件…",
+      "moveDescription": "为下载好的文件选择新位置。移动期间会暂停做种。",
+      "locateDescription": "指定文件现在的位置，检查完整后即可继续做种。",
+      "recheckDescription": "检查下载的文件是否完整。检查不会修改文件或重新下载。",
+      "directory": "所在文件夹",
+      "name": "文件或文件夹名称",
+      "resume": "检查通过后继续做种",
+      "checking": "正在检查文件…",
+      "moving": "正在移动文件…",
+      "resuming": "正在启动做种…",
+      "verifiedPercent": "检查通过 {{percent}}%",
+      "checkFailed": "检查未通过",
+      "verified": "文件完整，可以开始做种。",
+      "resumed": "已恢复做种。",
+      "incomplete": "部分文件缺失或不完整，请确认文件夹选择正确后重试。",
+      "resumeFailed": "新位置已保存。可以点击“重新做种”再试一次。",
+      "useExisting": "检查并使用这些文件",
+      "errors": {
+        "unavailable": "这个任务暂时无法移动或检查。",
+        "busy": "还有文件操作正在进行，请稍后再试。",
+        "destination": "请换一个文件夹或名称。所选位置可能已有同名文件，或位于当前文件夹内。",
+        "conflict": "另一个下载任务正在使用这些文件，请打开对应任务更改位置。",
+        "engine": "未能停止当前任务，请重试。",
+        "failed": "无法访问或移动文件，请检查文件夹、可用空间和访问权限。",
+        "cancelled": "已取消检查。"
       }
     }
   },
@@ -1220,6 +1303,10 @@
       "integration": {
         "title": "集成",
         "desc": "浏览器扩展、命令行工具、操作系统集成"
+      },
+      "nas": {
+        "title": "群晖套件",
+        "desc": "授权目录与客户端连接"
       }
     },
     "general": {
@@ -1274,6 +1361,12 @@
       "themeDark": "深色",
       "language": "语言",
       "traySpeedometer": "在菜单栏显示速度",
+      "dockAndMenuBar": "程序坞和菜单栏",
+      "taskbar": "任务栏",
+      "taskbarProgress": "在任务栏图标上显示下载进度",
+      "taskbarProgressDesc": "在主窗口的任务栏按钮上显示正在下载任务的汇总进度。",
+      "dockProgress": "在 Dock 图标上显示下载进度",
+      "dockProgressDesc": "在 Dock 图标上显示正在下载任务的汇总进度。",
       "traySpeedometerDesc": "在应用图标旁显示下载和上传速度。",
       "trayIconColor": "托盘图标颜色",
       "trayIconColorDesc": "选择在系统面板上容易看清的颜色。",
@@ -1282,6 +1375,10 @@
       "trayIconColorDark": "深色图标（浅色面板）",
       "reduceMotion": "减少动画",
       "reduceMotionDesc": "减少界面中的动态效果。",
+      "hardwareAcceleration": "硬件加速",
+      "hardwareAccelerationDesc": "使用显卡让界面显示更流畅。如果出现闪屏或闪退，可以尝试关闭。修改后需重启 Motrix 才会生效。",
+      "hardwareAccelerationRecoveryTitle": "已关闭硬件加速",
+      "hardwareAccelerationRecoveryBody": "由于画面显示连续出错，Motrix 已关闭硬件加速，避免再次闪退。你可以在“设置 → 外观”中重新开启，重启后生效。",
       "liquidGlassEffect": "液态玻璃",
       "liquidGlassEffectDesc": "让下载工具栏呈现半透明玻璃效果。",
       "liquidGlassEffectMacDesc": "macOS 26 及以上也会应用到窗口；更改后窗口会重新打开。",
@@ -1295,6 +1392,8 @@
       "runModeLinuxDesc": "系统托盘的可用性和激活方式取决于桌面环境。",
       "lightweightMode": "轻量模式",
       "lightweightModeDesc": "关闭窗口后节省内存，下载不受影响。重新打开稍慢，未保存的输入会清除。",
+      "keepStatsBarVisible": "详情展开时保留统计栏",
+      "keepStatsBarVisibleDesc": "在任务详情抽屉下方保留下载统计栏。",
       "byteUnitSystem": "大小和速度单位",
       "byteUnitSystemDesc": "选择文件大小和速度的显示单位。",
       "byteUnitDecimal": "十进制（{{megabyte}}、{{gigabyte}} · 1000）",
@@ -1366,7 +1465,12 @@
         "channelStable": "稳定版",
         "channelBeta": "测试版",
         "channelBetaWarning": "测试版可能不够稳定，也会接收后续稳定版。切回稳定版后不再接收测试版，不会自动降级。",
-        "channelSaveError": "无法保存更新通道，请重试。"
+        "channelSaveError": "无法保存更新通道，请重试。",
+        "installing": "正在安装…",
+        "installingDescription": "正在准备更新，准备完成后 Motrix 将重新启动。",
+        "manualDownload": "手动下载",
+        "manualInstall": "请下载新版本，退出 Motrix 后替换已安装的应用。",
+        "manualCrossVolume": "目前不支持跨磁盘自动安装更新。请下载新版本并手动替换 Motrix。"
       },
       "details": {
         "author": "作者",
@@ -1602,7 +1706,7 @@
         "turtle_auto": "自动",
         "unitFor": "{{field}}的单位",
         "baseSection": "常规限速",
-        "baseSectionDesc": "日常下载使用；所有模式都会遵循这里的上限。",
+        "baseSectionDesc": "用于常规模式，以及未触发低速规则时。",
         "baseDownload": "下载",
         "baseDownloadDesc": "日常下载时允许的最高速度。",
         "baseUpload": "上传",
@@ -1612,7 +1716,7 @@
         "standardLimit": "沿用常规上限",
         "useStandardLimit": "沿用常规上限",
         "altSection": "低速限速",
-        "altSectionDesc": "低速模式和定时规则使用；只会在常规上限基础上进一步降速。",
+        "altSectionDesc": "用于低速模式，或自动规则选择低速配置时。",
         "altDownload": "下载",
         "altDownloadDesc": "低速模式生效时允许的最高下载速度。",
         "altUpload": "上传",
@@ -1683,7 +1787,7 @@
           "adaptiveRulePending": "在网络带宽填写完成后为其他应用预留 {{reserved}}% 带宽",
           "ruleSeparator": "，并",
           "autoRules": "Motrix 将{{rules}}。",
-          "lowerWins": "多项限速同时生效时取最低值。"
+          "profileSelection": "按所选模式应用限速。低速限速留空时沿用常规值；自动模式还可能受到自适应限速约束。"
         },
         "bandwidthUsed": "Motrix 最多使用 {{motrix}}%。",
         "bandwidthPending": "填入下载和上传速度后生效。"
@@ -1692,6 +1796,8 @@
       "defaultDownloadFolder": "默认保存位置",
       "autofillFromClipboard": "自动填入剪贴板链接",
       "fillInLinksWhenOpeningNewTask": "新建任务时，自动填入已复制的链接。",
+      "openingView": "打开下载页时显示",
+      "rememberLastSelection": "记住上次选择",
       "saveFolders": "保存位置",
       "description": "文件、下载速度与连接"
     },
@@ -1790,6 +1896,12 @@
       "hideSecret": "隐藏密钥"
     },
     "integration": {
+      "clientPairingUnavailable": "当前安装版本暂不支持客户端配对。",
+      "extensionPairingUnavailable": "当前安装版本暂不支持浏览器扩展配对。",
+      "clients": {
+        "masterSwitch": "允许外部客户端连接",
+        "masterSwitchDesc": "客户端须经批准后才能管理下载。"
+      },
       "system": {
         "title": "默认应用",
         "protocolMagnet": "用 Motrix 打开磁力链接",
@@ -1847,8 +1959,14 @@
           "store": "安装扩展",
           "development": "开发版"
         },
+        "pendingTitle": "浏览器扩展配对请求",
+        "pendingEmpty": "在扩展中点击“配对”，请求将显示在这里。",
         "pairedTitle": "已连接的扩展",
         "pairedEmpty": "还没有扩展连接到 Motrix。",
+        "profile": "浏览器配置 {{number}}",
+        "connected": "已连接",
+        "disconnected": "未连接",
+        "revokeAll": "全部断开",
         "lastActive": "上次活跃",
         "revoke": "断开",
         "disconnecting": "正在断开…",
@@ -1874,7 +1992,10 @@
             "attested": "已验证的扩展",
             "unverified": "未验证的扩展"
           },
-          "identityUnverifiedWarning": "无法验证此扩展的身份，请确认信任后再继续。"
+          "identityUnverifiedWarning": "无法验证此扩展的身份，请确认信任后再继续。",
+          "claim": "使用当前账号配对",
+          "claimDesc": "扩展将使用此账号的权限。下一步请在扩展中输入配对码，完成配对。",
+          "account": "当前账号：{{name}}"
         },
         "pairUnavailable": "该配对请求已失效——请在浏览器扩展中重新发起配对。",
         "trustedExtensions": "受信任的扩展",
@@ -2053,7 +2174,8 @@
           "missing": "未找到",
           "untrusted": "macOS 已阻止",
           "unconfigured": "未设置",
-          "version_mismatch": "不受支持"
+          "version_mismatch": "不受支持",
+          "verificationUnavailable": "暂时无法验证"
         },
         "stagingMB": "临时文件空间上限（MB）",
         "stagingMBDesc": "每个插件、每个任务处理媒体时可用的临时空间。",
@@ -2176,6 +2298,46 @@
       "originMismatchBody": "实时更新不可用。请使用服务器配置的访问地址，或联系管理员修正配置。",
       "disconnectedTitle": "实时更新连接已中断。",
       "disconnectedBody": "部分信息可能延迟。如果持续出现，请检查服务器连接和反向代理配置。"
+    },
+    "portable": {
+      "title": "便携模式",
+      "startupError": "无法打开便携数据目录。请检查 Motrix.exe 同级的 data 文件夹是否可写，并确认未设置外部用户数据目录。Motrix 未切换到系统用户数据目录。",
+      "integrationUnavailable": "便携模式保持系统设置不变，不支持开机启动注册、文件关联和系统工具安装。",
+      "browserDescription": "Motrix 运行时仍可使用本地桥接。便携模式不会注册浏览器启动器，也不会修改已有的浏览器集成。",
+      "updateDescription": "请下载 Windows ZIP，退出 Motrix 后将完整的 data 文件夹移到新版本目录。便携模式不会运行安装程序。",
+      "recoveryError": "无法安全恢复便携数据。请保留 data 文件夹，检查日志和目录权限后重试。Motrix 已停止启动，未使用系统用户数据目录。",
+      "enginePathDescription": "便携模式将引擎状态保存在 data 文件夹内，随应用位置自动管理。"
+    },
+    "nas": {
+      "description": "所有 DSM 管理员共用这些设置。请在套件中心重启 Motrix 以应用更改。",
+      "account": "当前 DSM 账号：{{username}}",
+      "restartRequired": "设置已保存。请在套件中心停止并重新启动 Motrix。",
+      "storageUnavailable": "下载目录不可用",
+      "storageRecoveryHint": "下载已暂停。请恢复原目录，或改为授权其他路径，然后在套件中心重新启动 Motrix。",
+      "roots": "授权下载目录",
+      "rootsHint": "每行一个已有目录。当前账号和系统内部用户 motrix 均需读写权限。移除默认目录后，第一个目录成为新默认目录。",
+      "extensionEnabled": "启用浏览器扩展连接",
+      "extensionHint": "使用 DSM HTTPS 证书覆盖的域名，并将它解析到 NAS 内网地址。",
+      "webAddress": "Motrix Web 地址",
+      "webAddressHint": "填写平时打开的地址，包含 /motrix/。可直接使用当前浏览器的地址。",
+      "useCurrentAddress": "使用当前 DSM 地址",
+      "extensionAddress": "扩展连接地址",
+      "allowHttp": "允许通过 HTTP 显示配对码",
+      "allowHttpHint": "仅在可信网络中启用。使用 HTTPS 时无需开启此选项。",
+      "clientPort": "客户端直连端口",
+      "clientPortHint": "直连客户端使用此端口（1024–65535）。DSM HTTPS 地址使用 DSM 端口。",
+      "activeConnections": "当前连接地址",
+      "cliAddress": "CLI 连接地址",
+      "sessionHint": "客户端沿用配对账号的当前权限。退出 DSM、会话过期或套件重启后，请用对应账号重新打开 Motrix，无需重新配对。",
+      "copy": "复制地址",
+      "openSettings": "配置 NAS 连接",
+      "errors": {
+        "invalid": "请检查目录、端口和连接地址。通过 HTTP 显示配对码需要明确许可。",
+        "folderUnavailable": "请确认目录位于已挂载的存储卷，并允许内部系统用户 motrix 读写。",
+        "permissionDenied": "无法授权当前账号或目录。请在 DSM 共享文件夹权限中检查当前账号及内部系统用户 motrix 的权限。",
+        "unavailable": "暂时无法读取或保存套件设置，请在服务恢复后重试。",
+        "conflict": "已保存的配置发生变化，请重新加载后再编辑。重新加载会替换尚未保存的修改。"
+      }
     }
   },
   "menu": {
@@ -3130,12 +3292,21 @@
     "freshDescription": "选择新的保存位置后，Motrix 会创建单独的文件夹，并打开下载窗口供你确认。本次将从头下载，原文件会保留。",
     "freshDestination": "选择新下载的保存位置",
     "chooseDestination": "选择其他位置…",
+    "requestSettingsHelp": "旧版 Cookie 文件中的信息，请填写为所需的 Cookie 请求头。旧版 HTTP 用户名和密码，请填写为等效的 Authorization 请求头。代理凭据请填写在代理 URL 中。",
+    "unsupportedOptions": "不支持的选项：{{options}}",
+    "ignoredOptions": "已剔除不支持的参数：{{options}}",
+    "currentProxyDescription": "迁移后的下载使用 Motrix 当前的下载代理设置，不保留旧代理设置。",
+    "requestOptions": "已保存的请求设置：{{options}}",
+    "requestSettingsDescription": "旧版请求设置未复制。请在“高级”中重新填写后，下载到新文件夹。",
+    "reconfigureDownload": "重新配置并下载…",
     "reasons": {
       "fresh-download-required": "需要重新下载",
       "verification-required": "需要检查已有文件",
       "metadata-required": "需要原种子文件",
       "selection-required": "需要重新选择文件",
-      "unsupported-options": "下载信息需要确认",
+      "request-settings-required": "续传前会检查已保存的请求设置",
+      "mirrors-unsupported": "此任务包含多个下载地址，请复制要使用的地址并新建下载。",
+      "unsupported-options": "不支持的下载选项",
       "invalid-record": "无法读取此任务",
       "unsafe-path": "文件位置需要确认",
       "already-imported": "已经导入",
@@ -3178,14 +3349,21 @@
       "payloadMissing": "部分原文件缺失，包括之前未选中的文件。继续下载需要这些文件，请换一个文件夹重新下载。",
       "payloadUnsafe": "原文件的链接或权限设置使其无法安全更新。请保留原文件，并换一个文件夹重新下载。",
       "controlRequired": "找不到旧版保存的下载进度，请换一个文件夹重新下载。",
-      "activationUncertain": "暂时无法安全恢复此任务，原文件仍受保护。你可以换一个文件夹重新下载。"
+      "activationUncertain": "暂时无法安全恢复此任务，原文件仍受保护。你可以换一个文件夹重新下载。",
+      "httpContentChanged": "已下载的数据与服务器内容不一致。",
+      "httpRangeUnsupported": "服务器不支持所需的字节范围请求。",
+      "httpValidatorRequired": "服务器未提供可靠的资源版本标识。",
+      "httpVerificationFailed": "无法校验已下载的数据。",
+      "httpRequestUnsupported": "引擎或请求设置不支持安全续传。",
+      "httpVerificationCancelled": "校验已取消。",
+      "httpRedirectUnsupported": "跳转链接暂时无法安全原地续传。"
     },
     "resultIncompleteTitle": "迁移尚未完成",
     "resultStoppedTitle": "迁移已停止",
-    "activationRequired": "请选择新的文件夹重新下载，原文件会保留。",
+    "activationRequired": "请打开任务详情，校验后继续下载。",
     "chooseTorrent": "选择种子文件…",
     "torrentFile": "种子文件",
-    "verifyAndContinue": "检查并继续",
+    "verifyAndContinue": "校验并继续",
     "verifyDescription": "Motrix 会先检查原文件，再按旧任务的文件选择继续下载。下载期间可能上传数据，未选文件也可能写入部分内容；完成后不会自动做种。",
     "authorizeOriginalDirectory": "选择原下载文件夹",
     "verifyReady": "你可以检查已有文件后继续下载，也可以换一个文件夹重新下载。",
@@ -3293,7 +3471,10 @@
         "remaining": "尚未迁移"
       }
     },
-    "importSelected": "迁移"
+    "importSelected": "迁移",
+    "httpResumeDescription": "Motrix 会将所有已下载的数据段与服务器内容比对，通过后在原目录继续下载。校验会重新传输这些数据段；已保存的请求设置仅在内存中使用。",
+    "httpVerifying": "正在准备或校验…",
+    "httpOriginalFilesKept": "原文件已保留。"
   },
   "rendererRecovery": {
     "title": "界面需要恢复",
@@ -3355,5 +3536,56 @@
     },
     "confirmFileTitle": "授权文件访问",
     "confirmFile": "允许此操作读取以下文件？"
+  },
+  "createTorrent": {
+    "title": "创建种子",
+    "source": "共享内容",
+    "options": "种子选项",
+    "trackers": "Tracker 服务器",
+    "trackersPlaceholder": "每行一个 announce URL",
+    "webSeeds": "Web 种子",
+    "webSeedsPlaceholder": "每行一个 HTTP(S) URL（可选）",
+    "comment": "备注",
+    "private": "私有种子",
+    "privateDesc": "禁用 DHT 与节点交换，仅通过 Tracker 分发。",
+    "pieceLength": "分块大小",
+    "pieceAuto": "自动",
+    "hashing": "正在计算哈希…",
+    "resultName": "名称",
+    "resultSize": "大小",
+    "resultInfoHash": "Info 哈希",
+    "saveFile": "保存 .torrent",
+    "create": "创建",
+    "savedToast": "种子已保存到 {{path}}",
+    "createFailed": "创建种子失败",
+    "saveFailed": "保存种子文件失败",
+    "seedAfter": "保存后使用原文件做种",
+    "seedFailed": "无法启动做种任务。",
+    "seedSubmitted": "已提交做种任务。",
+    "invalidOptions": "每个列表最多 {{limit}} 个有效 URL。私有种子至少需要一个 Tracker。",
+    "menuLabel": "创建种子文件…",
+    "downloadRequested": "已请求下载 {{path}}"
+  },
+  "operatorToken": {
+    "title": "访问密码",
+    "change": "修改密码",
+    "effect": "修改后，其他设备需要重新登录。",
+    "currentToken": "当前密码",
+    "newToken": "新密码",
+    "confirmation": "再次输入新密码",
+    "weak": "如需通过公网访问，建议设置更复杂的密码。",
+    "invalid": "请移除换行等控制字符。",
+    "mismatch": "两次输入的密码不一致。",
+    "incorrectToken": "当前密码不正确，请重试。",
+    "managed": "此密码由服务器管理员管理。",
+    "unavailable": "未能保存，原密码仍然有效。请稍后重试。",
+    "rateLimited": "尝试次数过多，请等待一分钟后重试。",
+    "unknown": "连接中断，暂时无法确认修改结果。",
+    "saved": "访问密码已更新。",
+    "saving": "正在更新…",
+    "update": "更新密码",
+    "requiredCurrent": "请输入当前密码。",
+    "requiredNew": "请输入新密码。",
+    "tooLong": "密码过长，请缩短后重试。"
   }
 }

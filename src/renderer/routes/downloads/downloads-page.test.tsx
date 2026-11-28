@@ -19,12 +19,14 @@ import {
 import userEvent from '@testing-library/user-event'
 import {
   MemoryRouter,
+  Outlet,
   Route,
   Routes,
   useLocation,
   useNavigate,
 } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { DownloadsEntry } from './downloads-entry'
 import { DownloadsPage } from './downloads-page'
 import { useDownloadsSelection } from './store'
 import { useDownloadsView } from './view-preferences'
@@ -150,7 +152,9 @@ function TestRouter({ initialPath }: { initialPath: string }) {
       <LocationHarness />
       <Routes>
         <Route path="/downloads/:filter" element={<DownloadsPage />} />
-        <Route path="/downloads" element={<DownloadsPage />} />
+        <Route element={<Outlet context="remember" />}>
+          <Route path="/downloads" element={<DownloadsEntry />} />
+        </Route>
       </Routes>
     </MemoryRouter>
   )
@@ -336,6 +340,36 @@ describe('DownloadsPage', () => {
     expect(screen.getByRole('button', { name: 'Show Inspector' })).toBeEnabled()
   })
 
+  it('remembers a manual tab through a task link that opens a different view', async () => {
+    localStorage.clear()
+    setTaskList({ tasks: [task('target', TaskStatus.Error)] })
+    const user = userEvent.setup()
+    const first = renderAt('/downloads')
+    await user.click(
+      await screen.findByRole('button', { name: 'All Downloads' })
+    )
+    await user.click(await screen.findByRole('menuitem', { name: /Active/ }))
+    expect(screen.getByTestId('location')).toHaveTextContent(
+      '/downloads/active'
+    )
+    first.unmount()
+
+    const linked = renderAt('/downloads?task=target')
+    await waitFor(() => expect(selectedIds()).toEqual(['target']))
+    expect(screen.getByTestId('location')).toHaveTextContent(
+      '/downloads/all?task=target'
+    )
+    linked.unmount()
+
+    renderAt('/downloads?type=http')
+    await waitFor(() =>
+      expect(screen.getByTestId('location')).toHaveTextContent(
+        '/downloads/active?type=http'
+      )
+    )
+    localStorage.clear()
+  })
+
   it('renders the status title heading and search trigger', () => {
     renderAt('/downloads/all')
     expect(
@@ -346,7 +380,7 @@ describe('DownloadsPage', () => {
     ).toBeInTheDocument()
   })
 
-  it('shows the Glass Motion empty state when only removed tasks remain', () => {
+  it('shows the Glass Motion empty state when only removed tasks remain', async () => {
     setTaskList({ tasks: [task('removed', TaskStatus.Removed)] })
     const { container } = renderAt('/downloads/all')
 
@@ -355,7 +389,7 @@ describe('DownloadsPage', () => {
       container.querySelector('[data-slot="cubic-glass-gradient"]')
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: /tune glass motion/i })
+      await screen.findByRole('button', { name: /tune glass motion/i })
     ).toBeInTheDocument()
     expect(
       screen.queryByText(/no tasks match this filter/i)

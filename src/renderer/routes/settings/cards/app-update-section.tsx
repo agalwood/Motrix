@@ -4,9 +4,10 @@ import {
   RestartIcon,
 } from '@renderer/components/icons'
 import { Alert } from '@renderer/components/ui/alert'
-import { Button } from '@renderer/components/ui/button'
+import { Button, buttonVariants } from '@renderer/components/ui/button'
 import { Spinner } from '@renderer/components/ui/spinner'
 import { cn } from '@renderer/lib/utils'
+import { EXTERNAL_URLS } from '@shared/external-urls'
 import type { AppUpdateState } from '@shared/types/app-update'
 import type { AppUpdateChannel } from '@shared/types/settings'
 import type { ReactNode } from 'react'
@@ -17,7 +18,8 @@ import type { AppUpdateController } from './use-app-update'
 
 export function AppUpdateSection({ update }: { update: AppUpdateController }) {
   const { t } = useTranslation()
-  const { state, loading, showControls, check, download, install } = update
+  const { state, loading, showControls, checkOnly, check, download, install } =
+    update
   const betaWarningId = useId()
   const [channel, setChannel] = useState<AppUpdateChannel>('stable')
 
@@ -41,7 +43,9 @@ export function AppUpdateSection({ update }: { update: AppUpdateController }) {
           </h3>
           {!loading && (
             <p className="mt-1 text-xs leading-normal text-muted-foreground">
-              {statusDescription(state, t)}
+              {checkOnly && state.phase === 'available'
+                ? t('settings.about.webVersionNote')
+                : statusDescription(state, t)}
             </p>
           )}
         </div>
@@ -54,11 +58,14 @@ export function AppUpdateSection({ update }: { update: AppUpdateController }) {
               state.phase === 'unsupported' ||
               state.phase === 'checking' ||
               state.phase === 'downloading' ||
-              state.phase === 'downloaded'
+              state.phase === 'downloaded' ||
+              state.phase === 'installing' ||
+              state.manualInstallReason === 'install-failed'
             }
           >
             <UpdateActionButton
               state={state}
+              checkOnly={checkOnly}
               check={check}
               download={download}
               install={install}
@@ -66,6 +73,12 @@ export function AppUpdateSection({ update }: { update: AppUpdateController }) {
           </UpdateChannelSetting>
         )}
       </div>
+
+      {checkOnly && state.phase !== 'available' && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          {t('settings.about.webVersionNote')}
+        </p>
+      )}
 
       {showControls && channel === 'beta' && (
         <Alert
@@ -82,9 +95,11 @@ export function AppUpdateSection({ update }: { update: AppUpdateController }) {
           variant={state.phase === 'error' ? 'destructive' : 'default'}
         >
           {state.phase === 'error'
-            ? t('settings.about.update.error', {
-                message: state.error?.message,
-              })
+            ? checkOnly
+              ? t('settings.about.update.errorDescription')
+              : t('settings.about.update.error', {
+                  message: state.error?.message,
+                })
             : t('settings.about.update.cancelled')}
         </Alert>
       )}
@@ -94,6 +109,7 @@ export function AppUpdateSection({ update }: { update: AppUpdateController }) {
 
 interface UpdateActionButtonProps {
   state: AppUpdateState
+  checkOnly: boolean
   check: () => Promise<unknown>
   download: () => Promise<unknown>
   install: () => Promise<unknown>
@@ -110,11 +126,71 @@ interface UpdateAction {
 
 function UpdateActionButton({
   state,
+  checkOnly,
   check,
   download,
   install,
 }: UpdateActionButtonProps) {
   const { t } = useTranslation()
+
+  if (checkOnly) {
+    const checking = state.phase === 'checking'
+    return (
+      <>
+        {state.phase === 'available' && state.availableVersion && (
+          <a
+            href={`${EXTERNAL_URLS.github.releases}/tag/v${encodeURIComponent(state.availableVersion)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+              buttonVariants({ size: 'sm' }),
+              'h-7! rounded-md! px-2 text-xs shadow-none'
+            )}
+          >
+            {t('settings.about.resources.changelog')}
+          </a>
+        )}
+        <Button
+          type="button"
+          size="sm"
+          className="h-7! gap-1.5 rounded-md! px-2 text-xs shadow-none"
+          disabled={checking}
+          aria-busy={checking || undefined}
+          aria-label={t('settings.about.update.check')}
+          onClick={() => void check()}
+        >
+          {checking ? (
+            <Spinner className="size-3.5" aria-hidden />
+          ) : (
+            <RefreshIcon className="size-3.5" aria-hidden />
+          )}
+          {t(
+            checking
+              ? 'settings.about.update.checking'
+              : 'settings.about.update.checkAction'
+          )}
+        </Button>
+      </>
+    )
+  }
+
+  if (state.manualInstallReason && state.availableVersion) {
+    return (
+      <a
+        href={EXTERNAL_URLS.github.releases}
+        target="_blank"
+        rel="noopener noreferrer"
+        data-slot="button"
+        className={cn(
+          buttonVariants({ size: 'sm' }),
+          'h-7! gap-1.5 rounded-md! px-2 text-xs shadow-none [&_svg]:size-3.5!'
+        )}
+      >
+        <InstallIcon data-icon="inline-start" aria-hidden="true" />
+        {t('settings.about.update.manualDownload')}
+      </a>
+    )
+  }
 
   const progress =
     state.phase === 'downloading'
@@ -133,7 +209,9 @@ function UpdateActionButton({
       )}
       aria-label={action.accessibleLabel}
       aria-busy={
-        state.phase === 'checking' || state.phase === 'downloading'
+        state.phase === 'checking' ||
+        state.phase === 'downloading' ||
+        state.phase === 'installing'
           ? true
           : undefined
       }
@@ -189,6 +267,13 @@ function updateAction(
         disabled: true,
         variant: 'default',
       }
+    case 'installing':
+      return {
+        label: t('settings.about.update.installing'),
+        icon: <Spinner data-icon="inline-start" aria-hidden="true" />,
+        disabled: true,
+        variant: 'default',
+      }
     case 'downloaded':
       return {
         label: t('settings.about.update.restart'),
@@ -238,6 +323,8 @@ function statusTitle(
       })
     case 'downloaded':
       return t('settings.about.update.downloadedTitle')
+    case 'installing':
+      return t('settings.about.update.installing')
     case 'cancelled':
       return t('settings.about.update.cancelledTitle')
     case 'error':
@@ -251,6 +338,13 @@ function statusDescription(
   state: AppUpdateState,
   t: ReturnType<typeof useTranslation>['t']
 ): string {
+  if (state.manualInstallReason === 'portable')
+    return t('settings.portable.updateDescription')
+  if (state.manualInstallReason && state.availableVersion) {
+    return state.manualInstallReason === 'cross-volume'
+      ? t('settings.about.update.manualCrossVolume')
+      : t('settings.about.update.manualInstall')
+  }
   switch (state.phase) {
     case 'managed':
       return t('settings.about.update.managedDescription')
@@ -272,6 +366,8 @@ function statusDescription(
       return t('settings.about.update.downloaded', {
         version: state.availableVersion,
       })
+    case 'installing':
+      return t('settings.about.update.installingDescription')
     case 'cancelled':
       return t('settings.about.update.cancelledDescription')
     case 'error':
@@ -281,8 +377,4 @@ function statusDescription(
         version: state.currentVersion,
       })
   }
-}
-
-export function shouldShowAppUpdate(target: 'electron' | 'web'): boolean {
-  return target === 'electron'
 }

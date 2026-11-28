@@ -38,6 +38,7 @@ import { Separator } from '@renderer/components/ui/separator'
 import { Switch } from '@renderer/components/ui/switch'
 import { DirectoryPreferencesStatus } from '@renderer/features/directory-preferences/directory-preferences-section'
 import { useDirectoryPreferencesDraft } from '@renderer/features/directory-preferences/use-directory-preferences-draft'
+import { usePortableMode } from '@renderer/hooks/use-portable-mode'
 import { pickDirty } from '@renderer/lib/form-utils'
 import { transport } from '@renderer/lib/transport'
 import { RunMode } from '@shared/constants'
@@ -55,6 +56,7 @@ export function GeneralDialog({
   labelKey,
 }: SettingsCardDialogProps) {
   const { t, i18n } = useTranslation()
+  const portable = usePortableMode()
   const isWeb = transport.platform === 'web'
   const isMac = transport.platform === 'darwin'
   const isLinux = transport.platform === 'linux'
@@ -74,7 +76,7 @@ export function GeneralDialog({
         generalFormSchema.parse({
           ...authority,
           runMode:
-            !isMac && authority.runMode === RunMode.HideTray
+            !isWeb && !isMac && authority.runMode === RunMode.HideTray
               ? RunMode.Standard
               : authority.runMode,
         })
@@ -89,7 +91,7 @@ export function GeneralDialog({
   const busy = form.formState.isSubmitting || directories.saving
   const disabled = !directories.ready || directories.loading || busy
   const onSubmit = useSettingsSubmit(form, async () => {
-    if (!directories.ready || directories.loading || isWeb) return
+    if (!directories.ready || directories.loading) return
     if (await directories.save()) onClose()
   })
   const close = () => {
@@ -100,7 +102,9 @@ export function GeneralDialog({
       | 'launchAtStartup'
       | 'showMainWindowAtLogin'
       | 'lightweightMode'
-      | 'warnBeforeQuit',
+      | 'warnBeforeQuit'
+      | 'notifyInAppOnComplete'
+      | 'notifyInAppOnError',
     description?: string,
     dependsOn = true
   ) => (
@@ -228,7 +232,11 @@ export function GeneralDialog({
         <DialogHeader className="shrink-0 px-6 pt-6">
           <DialogTitle>{t(labelKey)}</DialogTitle>
           <DialogDescription>
-            {t('settings.general.description')}
+            {t(
+              isWeb
+                ? 'settings.general.inAppNotificationsDesc'
+                : 'settings.general.description'
+            )}
           </DialogDescription>
         </DialogHeader>
         <ScrollArea className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -246,167 +254,180 @@ export function GeneralDialog({
                 disabled={busy}
                 onRetry={() => void directories.refresh()}
               />
-              {isWeb ? (
-                <p className="text-sm text-muted-foreground">
-                  {t('settings.general.desktopOnly')}
-                </p>
-              ) : (
-                <Form {...form}>
-                  <form noValidate onSubmit={onSubmit}>
-                    <fieldset
-                      inert={disabled}
-                      disabled={disabled}
-                      className="min-w-0 space-y-4"
-                    >
-                      <h3 className="text-sm font-semibold">
-                        {t('settings.general.startupAndQuitting')}
-                      </h3>
-                      {isLinux ? (
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium">
-                            {t('settings.general.launchAtStartup')}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {t('settings.general.linuxAutostartDesc')}
-                          </p>
-                          <a
-                            href={getLinuxAutostartUrl(
-                              i18n.resolvedLanguage ?? i18n.language
-                            )}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-0.5 rounded-sm py-0.5 text-xs text-muted-foreground underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
-                          >
-                            {t('settings.general.linuxAutostartGuide')}
-                            <ArrowUpRightIcon
-                              aria-hidden="true"
-                              className="size-3"
-                            />
-                          </a>
-                        </div>
-                      ) : (
-                        <>
-                          {boolRow('launchAtStartup')}
-                          {boolRow(
-                            'showMainWindowAtLogin',
-                            undefined,
-                            form.watch('launchAtStartup')
-                          )}
-                        </>
-                      )}
-                      <FormField
-                        control={form.control}
-                        name="runMode"
-                        render={({ field }) => (
-                          <SettingsFormRow>
-                            <div className="space-y-1">
-                              <FormLabel>
-                                {t(
-                                  isMac
-                                    ? 'settings.general.runMode'
-                                    : 'settings.appearance.runModeLaunch'
-                                )}
-                              </FormLabel>
-                              {isLinux && (
-                                <FormDescription className="text-xs">
-                                  {t('settings.appearance.runModeLinuxDesc')}
-                                </FormDescription>
+              <Form {...form}>
+                <form noValidate onSubmit={onSubmit}>
+                  <fieldset
+                    inert={disabled}
+                    disabled={disabled}
+                    className="min-w-0 space-y-4"
+                  >
+                    {!isWeb && (
+                      <>
+                        <h3 className="text-sm font-semibold">
+                          {t('settings.general.startupAndQuitting')}
+                        </h3>
+                        {isLinux ? (
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium">
+                              {t('settings.general.launchAtStartup')}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {t('settings.general.linuxAutostartDesc')}
+                            </p>
+                            <a
+                              href={getLinuxAutostartUrl(
+                                i18n.resolvedLanguage ?? i18n.language
                               )}
-                            </div>
-                            <FormControl>
-                              <Select
-                                items={runModeOptions}
-                                value={field.value}
-                                disabled={disabled}
-                                onValueChange={(v) =>
-                                  v !== null && field.onChange(v)
-                                }
-                              >
-                                <SettingsSelectTrigger className="min-w-48">
-                                  <SelectValue />
-                                </SettingsSelectTrigger>
-                                <SelectContent position="popper" align="end">
-                                  <SelectGroup>
-                                    {runModeOptions.map((o) => (
-                                      <SelectItem key={o.value} value={o.value}>
-                                        {o.label}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectGroup>
-                                </SelectContent>
-                              </Select>
-                            </FormControl>
-                          </SettingsFormRow>
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-0.5 rounded-sm py-0.5 text-xs text-muted-foreground underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                            >
+                              {t('settings.general.linuxAutostartGuide')}
+                              <ArrowUpRightIcon
+                                aria-hidden="true"
+                                className="size-3"
+                              />
+                            </a>
+                          </div>
+                        ) : (
+                          <>
+                            {boolRow(
+                              'launchAtStartup',
+                              portable
+                                ? 'settings.portable.integrationUnavailable'
+                                : undefined,
+                              !portable
+                            )}
+                            {boolRow(
+                              'showMainWindowAtLogin',
+                              undefined,
+                              !portable && form.watch('launchAtStartup')
+                            )}
+                          </>
                         )}
-                      />
-                      {boolRow(
-                        'lightweightMode',
-                        'settings.general.lightweightModeDesc'
-                      )}
-                      {boolRow(
-                        'warnBeforeQuit',
-                        'settings.general.warnBeforeQuitDesc'
-                      )}
-                      <Separator className="my-4" />
-                      <h3 className="text-sm font-semibold">
-                        {t('settings.general.notifications')}
-                      </h3>
+                        <FormField
+                          control={form.control}
+                          name="runMode"
+                          render={({ field }) => (
+                            <SettingsFormRow>
+                              <div className="space-y-1">
+                                <FormLabel>
+                                  {t(
+                                    isMac
+                                      ? 'settings.general.runMode'
+                                      : 'settings.appearance.runModeLaunch'
+                                  )}
+                                </FormLabel>
+                                {isLinux && (
+                                  <FormDescription className="text-xs">
+                                    {t('settings.appearance.runModeLinuxDesc')}
+                                  </FormDescription>
+                                )}
+                              </div>
+                              <FormControl>
+                                <Select
+                                  items={runModeOptions}
+                                  value={field.value}
+                                  disabled={disabled}
+                                  onValueChange={(v) =>
+                                    v !== null && field.onChange(v)
+                                  }
+                                >
+                                  <SettingsSelectTrigger className="min-w-48">
+                                    <SelectValue />
+                                  </SettingsSelectTrigger>
+                                  <SelectContent position="popper" align="end">
+                                    <SelectGroup>
+                                      {runModeOptions.map((o) => (
+                                        <SelectItem
+                                          key={o.value}
+                                          value={o.value}
+                                        >
+                                          {o.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectGroup>
+                                  </SelectContent>
+                                </Select>
+                              </FormControl>
+                            </SettingsFormRow>
+                          )}
+                        />
+                        {boolRow(
+                          'lightweightMode',
+                          'settings.general.lightweightModeDesc'
+                        )}
+                        {boolRow(
+                          'warnBeforeQuit',
+                          'settings.general.warnBeforeQuitDesc'
+                        )}
+                        <Separator className="my-4" />
+                      </>
+                    )}
+                    <h3 className="text-sm font-semibold">
+                      {t('settings.general.notifications')}
+                    </h3>
+                    {!isWeb && (
                       <p className="text-xs text-muted-foreground">
                         {t('settings.general.notificationsDesc')}
                       </p>
-                      {notificationRow(
-                        'notifyOnComplete',
-                        'notifyInAppOnComplete',
-                        'settings.general.downloadCompleted'
-                      )}
-                      {notificationRow(
-                        'notifyOnError',
-                        'notifyInAppOnError',
-                        'settings.general.downloadFailed'
-                      )}
-                      <FormField
-                        control={form.control}
-                        name="notificationBadgeStyle"
-                        render={({ field }) => (
-                          <SettingsFormRow>
-                            <div className="space-y-1">
-                              <FormLabel>
-                                {t('settings.general.notificationBadgeStyle')}
-                              </FormLabel>
-                              <FormDescription className="text-xs">
-                                {t('settings.general.notificationBadgeDesc')}
-                              </FormDescription>
-                            </div>
-                            <FormControl>
-                              <Select
-                                items={badgeOptions}
-                                value={field.value}
-                                disabled={disabled}
-                                onValueChange={(v) =>
-                                  v !== null && field.onChange(v)
-                                }
-                              >
-                                <SettingsSelectTrigger>
-                                  <SelectValue />
-                                </SettingsSelectTrigger>
-                                <SelectContent position="popper" align="end">
-                                  <SelectGroup>
-                                    {badgeOptions.map((o) => (
-                                      <SelectItem key={o.value} value={o.value}>
-                                        {o.label}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectGroup>
-                                </SelectContent>
-                              </Select>
-                            </FormControl>
-                          </SettingsFormRow>
+                    )}
+                    {isWeb
+                      ? boolRow('notifyInAppOnComplete')
+                      : notificationRow(
+                          'notifyOnComplete',
+                          'notifyInAppOnComplete',
+                          'settings.general.downloadCompleted'
                         )}
-                      />
-                    </fieldset>
-                  </form>
-                </Form>
-              )}
+                    {isWeb
+                      ? boolRow('notifyInAppOnError')
+                      : notificationRow(
+                          'notifyOnError',
+                          'notifyInAppOnError',
+                          'settings.general.downloadFailed'
+                        )}
+                    <FormField
+                      control={form.control}
+                      name="notificationBadgeStyle"
+                      render={({ field }) => (
+                        <SettingsFormRow>
+                          <div className="space-y-1">
+                            <FormLabel>
+                              {t('settings.general.notificationBadgeStyle')}
+                            </FormLabel>
+                            <FormDescription className="text-xs">
+                              {t('settings.general.notificationBadgeDesc')}
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Select
+                              items={badgeOptions}
+                              value={field.value}
+                              disabled={disabled}
+                              onValueChange={(v) =>
+                                v !== null && field.onChange(v)
+                              }
+                            >
+                              <SettingsSelectTrigger>
+                                <SelectValue />
+                              </SettingsSelectTrigger>
+                              <SelectContent position="popper" align="end">
+                                <SelectGroup>
+                                  {badgeOptions.map((o) => (
+                                    <SelectItem key={o.value} value={o.value}>
+                                      {o.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectGroup>
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
+                        </SettingsFormRow>
+                      )}
+                    />
+                  </fieldset>
+                </form>
+              </Form>
             </ScrollAreaContent>
           </ScrollAreaViewport>
           <ScrollBar />
@@ -424,18 +445,16 @@ export function GeneralDialog({
             disabled={busy}
             onClick={close}
           >
-            {t(isWeb ? 'common.close' : 'common.cancel')}
+            {t('common.cancel')}
           </Button>
-          {!isWeb && (
-            <Button
-              type="button"
-              size="sm"
-              onClick={onSubmit}
-              disabled={disabled}
-            >
-              {t('common.save')}
-            </Button>
-          )}
+          <Button
+            type="button"
+            size="sm"
+            onClick={onSubmit}
+            disabled={disabled}
+          >
+            {t('common.save')}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

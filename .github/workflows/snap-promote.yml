@@ -13,7 +13,7 @@ on:
         required: true
         type: string
       source_run_id:
-        description: Successful protected-tag Snap workflow run ID
+        description: Successful Snap tag publication or protected-main artifact recovery run ID
         required: true
         type: string
       source_run_attempt:
@@ -118,6 +118,12 @@ jobs:
             gh api \
               "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}"
           )"
+          # Recovery is a separate trusted path with the original tag build,
+          # archive digests, and exact Store receipts independently reverified.
+          if [[ "$(jq -r '.event' <<< "$run_json")" == 'workflow_dispatch' ]]; then
+            python3 scripts/snap_publication.py promotion
+            exit 0
+          fi
           workflow_json="$(
             gh api \
               "repos/${GITHUB_REPOSITORY}/actions/workflows/snap.yml"
@@ -133,7 +139,8 @@ jobs:
             "$expected_workflow_id"
           workflow_path="$(jq -er '.path | select(type == "string")' \
             <<< "$run_json")"
-          if [[ ! "$workflow_path" =~ ^\.github/workflows/snap\.yml@.+$ ]]; then
+          # The workflow-run API returns the repository-relative workflow path.
+          if [[ "$workflow_path" != '.github/workflows/snap.yml' ]]; then
             echo "Source run did not execute the trusted Snap workflow" >&2
             exit 1
           fi
@@ -218,17 +225,22 @@ jobs:
         run: sudo snap install snapcraft --classic --channel=9.x/stable
 
       - name: Validate scoped Store credential
+        id: credentials
         timeout-minutes: 5
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
           PROMOTION_TARGET: ${{ inputs.target }}
+          TARGET_CHANNEL: ${{ needs.preflight.outputs.target_channel }}
         run: |
           set -euo pipefail
           if [[ -z "${SNAPCRAFT_STORE_CREDENTIALS:-}" ]]; then
             echo "Missing snap-store-${PROMOTION_TARGET} credential" >&2
             exit 1
           fi
-          snapcraft whoami
+          python3 scripts/verify_snap_credential_scope.py \
+            --snapcraft /snap/bin/snapcraft \
+            --channel "$TARGET_CHANNEL" \
+            --github-output "$GITHUB_OUTPUT"
           snapcraft status motrix
 
       - name: Reverify approved source revisions
@@ -255,10 +267,12 @@ jobs:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
           EXPECTED_VERSION: ${{ inputs.expected_version }}
           TARGET_CHANNEL: ${{ needs.preflight.outputs.target_channel }}
+          SNAPCRAFT_CHANNEL: ${{ steps.credentials.outputs.snapcraft_channel }}
         run: >-
           node scripts/release-snap-build-set.mjs
           --snap motrix
           --channel "$TARGET_CHANNEL"
+          --snapcraft-channel "$SNAPCRAFT_CHANNEL"
           --version "$EXPECTED_VERSION"
           --amd64-revision
           "${{ needs.preflight.outputs.amd64_revision }}"

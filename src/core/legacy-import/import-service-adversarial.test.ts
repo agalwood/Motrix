@@ -14,12 +14,13 @@ import os from 'node:os'
 import path from 'node:path'
 import { MotrixDatabase } from '@core/session/motrix-database'
 import { TaskManager } from '@core/task/task-manager'
-import { TaskStatus } from '@shared/types/task'
+import { TaskStatus, TaskType } from '@shared/types/task'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   LegacyImportService,
   type LegacyImportServiceDeps,
 } from './import-service'
+import type { LegacySnapshot } from './source-scanner'
 
 const cleanups: Array<() => Promise<void>> = []
 
@@ -102,6 +103,119 @@ async function completed(service: LegacyImportService, runId: string) {
 afterEach(async () => {
   for (const cleanup of cleanups.splice(0)) await cleanup()
   vi.restoreAllMocks()
+  vi.useRealTimers()
+})
+
+function previewCache(service: LegacyImportService) {
+  // Observe ownership directly: GC timing and process RSS are nondeterministic.
+  return Reflect.get(service, 'previews') as Map<
+    string,
+    {
+      snapshot: LegacySnapshot | null
+      dto: { items: unknown[] }
+    }
+  >
+}
+
+describe('legacy preview memory ownership', () => {
+  it('cleans up admission ownership even when persisting its failure report also fails', async () => {
+    const f = await fixture()
+    const target = f.service as unknown as {
+      backup(): Promise<string>
+      saveReport(): void
+    }
+    vi.spyOn(target, 'backup').mockRejectedValueOnce(new Error('backup failed'))
+    const reportFailure = new Error('report persistence failed')
+    vi.spyOn(target, 'saveReport').mockImplementationOnce(() => {
+      throw reportFailure
+    })
+    await expect(f.service.commit(f.request)).rejects.toBe(reportFailure)
+    expect(previewCache(f.service).has(f.preview.previewId)).toBe(false)
+    await expect(f.service.scan(f.source.sourceHandle)).resolves.toMatchObject({
+      sourceHandle: f.source.sourceHandle,
+    })
+  })
+  it('expires raw snapshots without another scan', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] })
+    const f = await fixture()
+    expect(
+      previewCache(f.service).get(f.preview.previewId)?.snapshot
+    ).toBeTruthy()
+    await vi.advanceTimersByTimeAsync(15 * 60_000 + 1)
+    expect(previewCache(f.service).size).toBe(0)
+    await expect(f.service.commit(f.request)).rejects.toThrow('expiredPreview')
+  })
+
+  it('retires completed snapshots while preserving duplicate commit results', async () => {
+    const f = await fixture()
+    const run = await f.service.commit(f.request)
+    await completed(f.service, run.runId)
+    expect(previewCache(f.service).get(f.preview.previewId)).toMatchObject({
+      snapshot: null,
+      dto: { items: [] },
+    })
+    expect((await f.service.commit(f.request)).runId).toBe(run.runId)
+    f.service.releasePreview(f.preview.previewId)
+    expect(previewCache(f.service).size).toBe(0)
+    expect((await f.service.retry(run.runId)).runId).toBe(run.runId)
+  })
+
+  it('releases cancelled snapshots and retries from the lightweight source index', async () => {
+    const f = await fixture(2)
+    const run = await f.service.commit(f.request)
+    f.service.cancel(run.runId)
+    await completed(f.service, run.runId)
+    expect(
+      previewCache(f.service).get(f.preview.previewId)?.snapshot
+    ).toBeNull()
+    f.service.releasePreview(f.preview.previewId)
+    const retried = await f.service.retry(run.runId)
+    expect((await completed(f.service, retried.runId)).imported).toBe(2)
+  })
+
+  it('does not interrupt an admitted commit when its UI releases the preview', async () => {
+    const f = await fixture()
+    const accepting = f.service.commit(f.request)
+    f.service.releasePreview(f.preview.previewId)
+    const run = await accepting
+    expect((await completed(f.service, run.runId)).imported).toBe(1)
+    expect(previewCache(f.service).size).toBe(0)
+  })
+
+  it('rejects overlapping scans and drains the admitted scan before clearing state', async () => {
+    const f = await fixture()
+    const scanning = f.service.scan(f.source.sourceHandle)
+    await expect(f.service.scan(f.source.sourceHandle)).rejects.toThrow('busy')
+    const rejected = expect(scanning).rejects.toThrow('busy')
+    await f.service.drain()
+    await rejected
+    expect(previewCache(f.service).size).toBe(0)
+  })
+
+  it('enforces the raw-byte budget before the four-preview count limit', async () => {
+    const f = await fixture()
+    const original = previewCache(f.service).get(f.preview.previewId)?.snapshot
+    expect(original).toBeTruthy()
+    const bytes = Buffer.alloc(24 * 1024 * 1024)
+    const scanSource = vi
+      .spyOn(
+        f.service as unknown as {
+          scanSource(): Promise<LegacySnapshot>
+        },
+        'scanSource'
+      )
+      .mockImplementation(async () => ({
+        ...original!,
+        candidates: [],
+        files: [{ relativePath: 'fixture', digest: 'fixture', bytes }],
+      }))
+    const first = await f.service.scan(f.source.sourceHandle)
+    await f.service.scan(f.source.sourceHandle)
+    await f.service.scan(f.source.sourceHandle)
+    expect(previewCache(f.service).has(first.previewId)).toBe(false)
+    expect(previewCache(f.service).size).toBe(2)
+    scanSource.mockRestore()
+  })
 })
 
 describe('legacy import service adversarial acceptance', () => {
@@ -299,6 +413,289 @@ describe('legacy import service adversarial acceptance', () => {
         (await stat(path.join(backup, 'download.session'))).mode & 0o777
       ).toBe(0o600)
     }
+  })
+
+  it('imports request-dependent HTTP records inactive without persisting request secrets', async () => {
+    const f = await fixture()
+    const session = [
+      'https://example.test/file-0.zip',
+      ' gid=0000000000000001',
+      ' out=file-0.zip',
+      ' pause=true',
+      ' header=Authorization: Bearer LEGACY_AUTH_SECRET',
+      ' header=Cookie: session=LEGACY_COOKIE_SECRET',
+      ' load-cookies=/private/LEGACY_COOKIE_FILE_SECRET',
+      ' on-download-complete=LEGACY_COMMAND_SECRET',
+      '',
+    ].join('\n')
+    await writeFile(f.sessionPath, session)
+    await writeFile(
+      path.join(f.sourceRoot, 'system.json'),
+      JSON.stringify({
+        dir: f.downloads,
+        'all-proxy': 'http://user:LEGACY_PROXY_SECRET@proxy.example:8080',
+      })
+    )
+    const preview = await f.service.scan(f.source.sourceHandle)
+    expect(preview.items[0]).toMatchObject({
+      type: 'http',
+      selectable: true,
+      reason: 'request-settings-required',
+      requestOptions: ['header'],
+      ignoredOptions: expect.arrayContaining([
+        'load-cookies',
+        'on-download-complete',
+      ]),
+    })
+    const run = await f.service.commit({
+      previewId: preview.previewId,
+      itemIds: [preview.items[0].itemId],
+    })
+    const report = await completed(f.service, run.runId)
+    expect(report.imported).toBe(1)
+    const [task] = f.taskManager.getAll()
+    expect(task.status).toBe(TaskStatus.Paused)
+    expect(task.instances[0].gid).toBeNull()
+    expect(task.instances[0].payload.legacyImport).toMatchObject({
+      activation: 'inactive',
+      storagePolicy: 'legacy-read-only',
+      reason: 'request-settings-required',
+      requestOptions: ['header'],
+      ignoredOptions: expect.arrayContaining([
+        'load-cookies',
+        'on-download-complete',
+      ]),
+    })
+    const persisted = JSON.stringify({
+      tasks: f.db.getAllTasks(),
+      report: f.service.getRun(run.runId),
+      preview,
+    })
+    for (const secret of [
+      'LEGACY_AUTH_SECRET',
+      'LEGACY_COOKIE_SECRET',
+      'LEGACY_PROXY_SECRET',
+      'LEGACY_COOKIE_FILE_SECRET',
+      'LEGACY_COMMAND_SECRET',
+    ])
+      expect(persisted).not.toContain(secret)
+    expect(await readFile(f.sessionPath, 'utf8')).toBe(session)
+    expect(await readFile(path.join(f.downloads, 'file-0.zip'), 'utf8')).toBe(
+      'original payload'
+    )
+    expect(
+      await readFile(
+        path.join(f.deps.backupRoot, run.runId, 'download.session'),
+        'utf8'
+      )
+    ).toBe(session)
+    expect(
+      (await f.service.scan(f.source.sourceHandle)).items[0]
+    ).toMatchObject({
+      selectable: false,
+      reason: 'already-imported',
+    })
+  })
+
+  it.each(['unnamed', 'same display name', 'same output hint'] as const)(
+    'imports distinct magnets sharing a directory and %s without claiming files',
+    async (kind) => {
+      const f = await fixture()
+      const count = kind === 'unnamed' ? 101 : 2 // Cross the 100-record batch boundary.
+      const name = kind === 'unnamed' ? 'Magnet' : 'shared'
+      const original = path.join(f.downloads, name)
+      await writeFile(original, 'unrelated existing bytes')
+      const uris = Array.from(
+        { length: count },
+        (_, i) =>
+          `magnet:?xt=urn:btih:${(i + 1).toString(16).padStart(40, '0')}${kind === 'same display name' ? '&dn=shared' : ''}`
+      )
+      await writeFile(
+        f.sessionPath,
+        uris
+          .map(
+            (uri, i) =>
+              `${uri}\n gid=${(i + 1).toString(16).padStart(16, '0')}\n${kind === 'same output hint' ? ' out=shared\n' : ''}`
+          )
+          .join('')
+      )
+      const preview = await f.service.scan(f.source.sourceHandle)
+      expect(preview.items.filter((item) => item.selectable)).toHaveLength(
+        count
+      )
+      const run = await f.service.commit({
+        previewId: preview.previewId,
+        itemIds: preview.items.map((item) => item.itemId),
+      })
+      expect(await completed(f.service, run.runId)).toMatchObject({
+        stage: 'completed',
+        imported: count,
+      })
+      const tasks = f.db.getAllTasks()
+      expect(tasks).toHaveLength(count)
+      expect(
+        tasks
+          .flatMap(({ instances }) =>
+            instances.flatMap((instance) => instance.uris)
+          )
+          .sort()
+      ).toEqual([...uris].sort())
+      for (const { task, instances } of tasks) {
+        expect(task.taskType).toBe(TaskType.Magnet)
+        expect(task.aggStatus).toBe(TaskStatus.Paused)
+        expect(task.torrentMetaPath).toBeNull()
+        expect(instances[0].gid).toBeNull()
+      }
+      expect(await readFile(original, 'utf8')).toBe('unrelated existing bytes')
+      const repeated = await f.service.scan(f.source.sourceHandle)
+      expect(
+        repeated.items.every(
+          (item) => !item.selectable && item.reason === 'already-imported'
+        )
+      ).toBe(true)
+    }
+  )
+
+  it('does not let an earlier imported magnet hint block later magnets or real HTTP paths', async () => {
+    const f = await fixture()
+    const first = `magnet:?xt=urn:btih:${'1'.repeat(40)}\n gid=1111111111111111\n`
+    await writeFile(f.sessionPath, first)
+    let preview = await f.service.scan(f.source.sourceHandle)
+    let run = await f.service.commit({
+      previewId: preview.previewId,
+      itemIds: [preview.items[0].itemId],
+    })
+    expect((await completed(f.service, run.runId)).imported).toBe(1)
+    await writeFile(
+      f.sessionPath,
+      first +
+        `magnet:?xt=urn:btih:${'2'.repeat(40)}\n gid=2222222222222222\nhttps://example.test/Magnet\n gid=3333333333333333\n`
+    )
+    const restarted = new LegacyImportService(f.deps)
+    const source = await restarted.addSource(f.sourceRoot)
+    preview = await restarted.scan(source.sourceHandle)
+    expect(preview.items.map((item) => item.selectable)).toEqual([
+      false,
+      true,
+      true,
+    ])
+    run = await restarted.commit({
+      previewId: preview.previewId,
+      itemIds: preview.items
+        .filter((item) => item.selectable)
+        .map((item) => item.itemId),
+    })
+    expect(await completed(restarted, run.runId)).toMatchObject({
+      stage: 'completed',
+      imported: 2,
+    })
+    expect(f.db.getAllTasks()).toHaveLength(3)
+    await restarted.drain()
+    // A real HTTP target continues to reserve its path; another magnet is only a record.
+    await writeFile(
+      f.sessionPath,
+      `https://other.test/Magnet\n gid=4444444444444444\nmagnet:?xt=urn:btih:${'3'.repeat(40)}\n gid=5555555555555555\n`
+    )
+    preview = await f.service.scan(f.source.sourceHandle)
+    expect(preview.items[0]).toMatchObject({
+      selectable: false,
+      reason: 'path-conflict',
+    })
+    expect(preview.items[1]).toMatchObject({
+      selectable: true,
+      reason: 'metadata-required',
+    })
+  })
+
+  it('preserves GID-less magnet deletion identity when v1 rewrites its pause flag', async () => {
+    const f = await fixture()
+    const uri = `magnet:?xt=urn:btih:${'1'.repeat(40)}`
+    await writeFile(f.sessionPath, `${uri}\n pause=true\n`)
+    const preview = await f.service.scan(f.source.sourceHandle)
+    const run = await f.service.commit({
+      previewId: preview.previewId,
+      itemIds: [preview.items[0].itemId],
+    })
+    const report = await completed(f.service, run.runId)
+    f.db.deleteTask(report.items[0].taskId!)
+    await writeFile(
+      f.sessionPath,
+      `${uri}\n pause=false\nmagnet:?xt=urn:btih:${'2'.repeat(40)}\n`
+    )
+    const next = await f.service.scan(f.source.sourceHandle)
+    expect(next.items[0]).toMatchObject({
+      itemId: preview.items[0].itemId,
+      selectable: false,
+      reason: 'deleted-import',
+    })
+    expect(next.items[1]).toMatchObject({
+      selectable: true,
+      reason: 'metadata-required',
+    })
+  })
+
+  it('imports a proxy-dependent magnet inactive with stripped option names and no request secrets', async () => {
+    const f = await fixture()
+    const session = [
+      'magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567&dn=bundle',
+      ' gid=0000000000000002',
+      ' all-proxy-user=LEGACY_PROXY_USER',
+      ' header=Cookie: LEGACY_BT_COOKIE_SECRET',
+      ' rpc-secret=LEGACY_RPC_SECRET',
+      '',
+    ].join('\n')
+    await writeFile(f.sessionPath, session)
+    await writeFile(
+      path.join(f.sourceRoot, 'system.json'),
+      JSON.stringify({
+        dir: f.downloads,
+        'all-proxy': 'http://proxy.example:8080',
+        'all-proxy-passwd': 'LEGACY_PROXY_PASSWORD',
+      })
+    )
+    const preview = await f.service.scan(f.source.sourceHandle)
+    expect(preview.items[0]).toMatchObject({
+      type: 'magnet',
+      name: 'bundle',
+      selectable: true,
+      reason: 'metadata-required',
+      ignoredOptions: expect.arrayContaining([
+        'header',
+        'rpc-secret',
+        'all-proxy',
+        'all-proxy-user',
+        'all-proxy-passwd',
+      ]),
+    })
+    const run = await f.service.commit({
+      previewId: preview.previewId,
+      itemIds: [preview.items[0].itemId],
+    })
+    const report = await completed(f.service, run.runId)
+    expect(report.imported).toBe(1)
+    const [task] = f.taskManager.getAll()
+    expect(task.status).toBe(TaskStatus.Paused)
+    expect(task.instances[0].gid).toBeNull()
+    expect(task.instances[0].payload.legacyImport).toMatchObject({
+      activation: 'inactive',
+      storagePolicy: 'legacy-read-only',
+      ignoredOptions: expect.arrayContaining([
+        'header',
+        'rpc-secret',
+        'all-proxy',
+        'all-proxy-user',
+        'all-proxy-passwd',
+      ]),
+    })
+    const persisted = JSON.stringify({
+      tasks: f.db.getAllTasks(),
+      preview,
+      report,
+    })
+    expect(persisted).not.toMatch(
+      /LEGACY_PROXY_USER|LEGACY_BT_COOKIE_SECRET|LEGACY_RPC_SECRET|LEGACY_PROXY_PASSWORD|proxy\.example/
+    )
+    expect(await readFile(f.sessionPath, 'utf8')).toBe(session)
   })
 
   it('rejects a stale preview before committing records', async () => {

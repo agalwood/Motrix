@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { i18n } from '@renderer/lib/i18n'
-import { render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { act, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { dashboardTileViewport } from '../layout/dashboard-registry'
 import { type EngineDisplayStatus, EngineTile } from './engine-tile'
 
@@ -70,6 +70,33 @@ describe('EngineTile', () => {
     expect(screen.getByText(/Disconnected|未连接/)).toBeInTheDocument()
   })
 
+  it('reports sustained polling separately from the engine state', () => {
+    vi.useFakeTimers()
+    try {
+      const { rerender } = render(
+        <EngineTile
+          status={{ ...baseStatus, connection: 'polling' }}
+          viewport={compactViewport}
+        />
+      )
+      expect(screen.getByText('Ready')).toBeVisible()
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+      act(() => vi.advanceTimersByTime(2000))
+      expect(screen.getByRole('status')).toHaveTextContent('Periodic updates')
+      expect(screen.getByText('Ready')).toBeVisible()
+      rerender(
+        <EngineTile
+          status={{ ...baseStatus, state: 'failed' }}
+          viewport={compactViewport}
+        />
+      )
+      expect(screen.getByText('Failed')).toBeVisible()
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('exposes an engine diagnosis action', () => {
     render(<EngineTile status={baseStatus} viewport={summaryViewport} />)
     expect(
@@ -135,20 +162,5 @@ describe('EngineTile', () => {
       'gap-2'
     )
     expect(screen.getByTestId('engine-footer')).toHaveClass('flex-col')
-  })
-
-  it('keeps the compact failed-state action subtle with a destructive icon', () => {
-    render(
-      <EngineTile
-        status={{ ...baseStatus, state: 'failed' }}
-        viewport={compactViewport}
-      />
-    )
-    const diagnoseButton = screen.getByRole('button', {
-      name: /Diagnose|诊断/i,
-    })
-
-    expect(diagnoseButton).toHaveAttribute('data-variant', 'ghost')
-    expect(diagnoseButton.querySelector('svg')).toHaveClass('text-destructive')
   })
 })

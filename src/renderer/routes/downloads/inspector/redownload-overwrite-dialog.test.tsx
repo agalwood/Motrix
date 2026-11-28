@@ -1,10 +1,33 @@
 import '@renderer/lib/i18n'
+import '@testing-library/jest-dom/vitest'
+import { holdExitAnimation } from '@test-utils/hold-exit-animation'
 import { makeDownloadTask } from '@test-utils/task'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { RedownloadOverwriteDialog } from './redownload-overwrite-dialog'
 
 describe('RedownloadOverwriteDialog', () => {
+  it('finishes its exit with the original task description after the target is cleared', async () => {
+    const props = { onOpenChange: vi.fn(), onConfirm: vi.fn() }
+    const view = render(
+      <RedownloadOverwriteDialog
+        open
+        target={makeDownloadTask({ name: 'sample.mp4' })}
+        {...props}
+      />
+    )
+    const dialog = screen.getByRole('alertdialog')
+    const content = dialog.textContent
+    const finish = holdExitAnimation(dialog)
+    view.rerender(
+      <RedownloadOverwriteDialog open={false} target={null} {...props} />
+    )
+    expect(dialog).toHaveAttribute('data-closed')
+    expect(dialog.textContent).toBe(content)
+    fireEvent.click(screen.getByRole('button', { name: 'Re-download' }))
+    expect(props.onConfirm).not.toHaveBeenCalled()
+    await finish()
+  })
   it('does not render when target is null', () => {
     const { container } = render(
       <RedownloadOverwriteDialog
